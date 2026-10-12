@@ -48,12 +48,15 @@ function hasNativeMethod(expression: string): boolean {
 
 function parse(code: string): AnyNode {
   const opts: acorn.Options = { ecmaVersion: 'latest', sourceType: 'script' };
-  try {
-    return acorn.parse(code, opts);
-  } catch (error) {
-    if (code.trimStart().startsWith('{')) return acorn.parse(`(${code})`, opts);
-    throw error;
+  // Wie tournament maybeWrapExpr: führende "{" als Objektliteral lesen, nicht als Block
+  if (code.trimStart().startsWith('{')) {
+    try {
+      return acorn.parse(`(${code})`, opts);
+    } catch {
+      // ohne Klammern erneut versuchen, damit der Syntaxfehler zum Originalcode passt
+    }
   }
+  return acorn.parse(code, opts);
 }
 
 /** Kindknoten eines ESTree-Knotens */
@@ -88,34 +91,93 @@ const member = (object: AnyNode, property: AnyNode, computed = false, optional =
   type: 'MemberExpression', object, property, computed, optional,
 });
 
-/** Enthält der Objekt-Teil einer Kette ein `?.` (innerhalb derselben ChainExpression)? */
-function chainHasOptional(node: AnyNode): boolean {
-  let cur = node;
-  while (cur && (cur.type === 'MemberExpression' || cur.type === 'CallExpression')) {
-    if (cur.optional) return true;
+const isExtensionName = (name: string) => extensionNames.has(name) || name === 'isEmpty' || name === 'isNotEmpty';
+
+/** Ist der Knoten ein Aufruf einer Erweiterungsfunktion (x.name(...))? */
+function isExtensionCall(node: AnyNode): boolean {
+  return (
+    node.type === 'CallExpression' &&
+    node.callee.type === 'MemberExpression' &&
+    !node.callee.computed &&
+    node.callee.property.type === 'Identifier' &&
+    isExtensionName(node.callee.property.name)
+  );
+}
+
+/** Glieder einer Kette von der Basis nach außen */
+function chainSpine(expr: AnyNode): { base: AnyNode; segments: AnyNode[] } {
+  const segments: AnyNode[] = [];
+  let cur = expr;
+  while (cur.type === 'MemberExpression' || cur.type === 'CallExpression') {
+    segments.push(cur);
     cur = cur.type === 'MemberExpression' ? cur.object : cur.callee;
   }
-  return false;
+  return { base: cur, segments: segments.reverse() };
+}
+
+const gen = (node: AnyNode): string => generate(node);
+const genArgs = (args: AnyNode[]): string => generate({ type: 'ArrayExpression', elements: args } as never).slice(1, -1);
+
+/**
+ * Optionale Kette mit Erweiterungsaufruf: n8n bricht die ganze Kette ab, sobald ein `?.`
+ * auf null/undefined trifft (Polyfill in extendTransform). Nachgebaut als Pfeilfunktion,
+ * die die Glieder einzeln auswertet.
+ */
+function rewriteChain(chain: AnyNode): AnyNode {
+  const { base, segments } = chainSpine(chain.expression);
+  const lines = [`let t = (${gen(base)});`];
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    if (seg.type === 'MemberExpression') {
+      const key = seg.computed ? `[${gen(seg.property)}]` : `.${seg.property.name}`;
+      if (seg.optional) lines.push('if (t == null) return undefined;');
+      const next = segments[i + 1];
+      if (next && next.type === 'CallExpression' && next.callee === seg) {
+        const args = genArgs(next.arguments);
+        const name = !seg.computed && seg.property.type === 'Identifier' ? seg.property.name : undefined;
+        if (name && isExtensionName(name)) {
+          if (next.optional) {
+            lines.push(`{ const f = ${INTERNAL.extendOptional}(t, ${JSON.stringify(name)}); if (f == null) return undefined; t = f(${args}); }`);
+          } else {
+            lines.push(`t = ${INTERNAL.extend}(t, ${JSON.stringify(name)}, [${args}]);`);
+          }
+        } else {
+          if (next.optional) lines.push(`if (t${key} == null) return undefined;`);
+          lines.push(`t = t${key}(${args});`);
+        }
+        i++;
+      } else {
+        lines.push(`t = t${key};`);
+      }
+    } else {
+      if (seg.optional) lines.push('if (t == null) return undefined;');
+      lines.push(`t = t(${genArgs(seg.arguments)});`);
+    }
+  }
+  lines.push('return t;');
+  const program = acorn.parse(`(() => { ${lines.join(' ')} })()`, { ecmaVersion: 'latest' }) as unknown as AnyNode;
+  return program.body[0].expression;
 }
 
 function applyExtensions(ast: AnyNode): void {
+  // 1. Optionale Ketten mit Erweiterungsaufruf als Ganzes umschreiben (vor den Einzelaufrufen)
   transform(ast, (node) => {
-    if (node.type !== 'CallExpression') return node;
-    const callee = node.callee;
-    if (
-      callee.type === 'MemberExpression' &&
-      !callee.computed &&
-      callee.property.type === 'Identifier' &&
-      (extensionNames.has(callee.property.name) || callee.property.name === 'isEmpty' || callee.property.name === 'isNotEmpty')
-    ) {
-      const name = callee.property.name;
-      if (callee.optional || chainHasOptional(callee.object)) {
-        // x?.first() bzw. a?.b.first(): wie n8n extendOptional, Kette bricht bei null/undefined ab
-        return call(call(id(INTERNAL.extendOptional), [callee.object, lit(name)]), node.arguments, true);
-      }
-      return call(id(INTERNAL.extend), [callee.object, lit(name), { type: 'ArrayExpression', elements: node.arguments }]);
+    if (node.type === 'ChainExpression' && chainSpine(node.expression).segments.some(isExtensionCall)) {
+      return rewriteChain(node);
     }
-    if (callee.type === 'Identifier' && callee.name === '$if' && node.arguments.every((a: AnyNode) => a.type !== 'SpreadElement')) {
+    return node;
+  });
+  // 2. Einzelne Erweiterungsaufrufe und $if
+  transform(ast, (node) => {
+    if (isExtensionCall(node)) {
+      return call(id(INTERNAL.extend), [node.callee.object, lit(node.callee.property.name), { type: 'ArrayExpression', elements: node.arguments }]);
+    }
+    if (
+      node.type === 'CallExpression' &&
+      node.callee.type === 'Identifier' &&
+      node.callee.name === '$if' &&
+      node.arguments.every((a: AnyNode) => a.type !== 'SpreadElement')
+    ) {
       if (node.arguments.length < 2) {
         throw new ExpressionExtensionError('$if requires at least 2 parameters: test, value_if_true[, and value_if_false]');
       }

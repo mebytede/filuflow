@@ -45,5 +45,6 @@ Triggern den ersten passenden; flowlite verlangt dann bewusst eine Angabe.
 
 ## Versionen wie n8n
 Bibliotheken, deren Verhalten in Ausgaben sichtbar wird, sind exakt auf die Versionen von n8n 1.123.0 gepinnt:
-luxon 3.4.4, lodash 4.17.21, cheerio 1.0.0-rc.6, html-to-text 9.0.5, xml2js 0.6.2, qs 6.11.0, jsonrepair 3.13.1, jmespath 0.16.0.
+luxon 3.4.4, lodash 4.17.21, cheerio 1.0.0-rc.6, html-to-text 9.0.5, xml2js 0.6.2, qs 6.11.0, jsonrepair 3.13.1, jmespath 0.16.0,
+title-case 3.0.3 und transliteration 2.3.5 (Erweiterungsfunktionen `toTitleCase()`, `replaceSpecialChars()`).
 `html-to-text` wird vom HTML-Node (v1.2, Rückgabe "text") genutzt.

@@ -50,9 +50,10 @@ function isDateLike(input: unknown): boolean {
 interface Found {
   type: 'native' | 'extended';
   fn: (...args: unknown[]) => unknown;
-  input: unknown;
 }
 
+// n8n wandelt ISO-Datumsstrings nur für die Suche in Date um; aufgerufen wird mit dem
+// ursprünglichen Wert (expression-extension.ts findExtendedFunction/extend). Bewusst übernommen.
 function findExtendedFunction(input: unknown, name: string): Found | undefined {
   let fn: ExtensionFunction | undefined;
   if (Array.isArray(input)) {
@@ -74,12 +75,12 @@ function findExtendedFunction(input: unknown, name: string): Found | undefined {
   if (!fn) {
     const anyInput = input as Record<string, unknown> | null | undefined;
     if (anyInput && name && typeof anyInput[name] === 'function') {
-      return { type: 'native', fn: anyInput[name] as (...a: unknown[]) => unknown, input };
+      return { type: 'native', fn: anyInput[name] as (...a: unknown[]) => unknown };
     }
     fn = genericExtensions[name];
   }
   if (!fn) return undefined;
-  return { type: 'extended', fn: fn as unknown as (...a: unknown[]) => unknown, input };
+  return { type: 'extended', fn: fn as unknown as (...a: unknown[]) => unknown };
 }
 
 function checkIfValueDefinedOrThrow(value: unknown, functionName: string): void {
@@ -106,13 +107,13 @@ export function extend(input: unknown, functionName: string, args: unknown[]): u
     }
     throw new ExpressionExtensionError(`${functionName}() is only callable on type "${have[0].typeName}"`);
   }
-  if (found.type === 'native') return found.fn.apply(found.input, args);
-  return found.fn(found.input, args);
+  if (found.type === 'native') return found.fn.apply(input, args);
+  return found.fn(input, args);
 }
 
 export function extendOptional(input: unknown, functionName: string): ((...args: unknown[]) => unknown) | undefined {
   const found = findExtendedFunction(input, functionName);
   if (!found) return undefined;
-  if (found.type === 'native') return found.fn.bind(found.input);
-  return (...args: unknown[]) => found.fn(found.input, args);
+  if (found.type === 'native') return found.fn.bind(input);
+  return (...args: unknown[]) => found.fn(input, args);
 }
