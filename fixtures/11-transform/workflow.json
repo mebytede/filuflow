@@ -1,0 +1,53 @@
+{
+  "name": "11 Transform-Nodes",
+  "nodes": [
+    { "parameters": {}, "id": "t1", "name": "Start", "type": "n8n-nodes-base.manualTrigger", "typeVersion": 1, "position": [0, 0] },
+    {
+      "parameters": { "jsCode": "return [\n  { json: { id: 3, kat: 'b', preis: 9.5, tags: ['x', 'y'], info: { land: 'DE' } } },\n  { json: { id: 1, kat: 'a', preis: 20, tags: ['z'], info: { land: 'AT' } } },\n  { json: { id: 2, kat: 'a', preis: 5, tags: [], info: { land: 'DE' } } },\n  { json: { id: 1, kat: 'a', preis: 20, tags: ['z'], info: { land: 'AT' } } },\n  { json: { id: 4, kat: 'B', preis: null, tags: ['x'], info: { land: 'CH' } } }\n];" },
+      "id": "t2", "name": "Daten", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [200, 0]
+    },
+    { "parameters": { "fieldToSplitOut": "tags", "include": "allOtherFields", "options": {} }, "id": "t3", "name": "Split Tags", "type": "n8n-nodes-base.splitOut", "typeVersion": 1, "position": [400, -400] },
+    { "parameters": { "fieldToSplitOut": "info", "options": { "destinationFieldName": "detail" } }, "id": "t4", "name": "Split Objekt", "type": "n8n-nodes-base.splitOut", "typeVersion": 1, "position": [400, -300] },
+    {
+      "parameters": { "fieldsToAggregate": { "fieldToAggregate": [ { "fieldToAggregate": "id" }, { "fieldToAggregate": "info.land", "renameField": true, "outputFieldName": "laender" }, { "fieldToAggregate": "tags" } ] }, "options": { "mergeLists": true } },
+      "id": "t5", "name": "Aggregieren Felder", "type": "n8n-nodes-base.aggregate", "typeVersion": 1, "position": [400, -200]
+    },
+    {
+      "parameters": { "aggregate": "aggregateAllItemData", "destinationFieldName": "alle", "include": "specifiedFields", "fieldsToInclude": "id, preis" },
+      "id": "t6", "name": "Aggregieren Alles", "type": "n8n-nodes-base.aggregate", "typeVersion": 1, "position": [400, -100]
+    },
+    { "parameters": {}, "id": "t7", "name": "Duplikate v1", "type": "n8n-nodes-base.removeDuplicates", "typeVersion": 1.1, "position": [400, 0] },
+    { "parameters": { "compare": "selectedFields", "fieldsToCompare": "kat" }, "id": "t8", "name": "Duplikate v2", "type": "n8n-nodes-base.removeDuplicates", "typeVersion": 2, "position": [400, 100] },
+    {
+      "parameters": { "sortFieldsUi": { "sortField": [ { "fieldName": "kat" }, { "fieldName": "preis", "order": "descending" } ] }, "options": {} },
+      "id": "t9", "name": "Sortieren", "type": "n8n-nodes-base.sort", "typeVersion": 1, "position": [400, 200]
+    },
+    { "parameters": { "type": "code", "code": "return a.json.id - b.json.id;" }, "id": "t10", "name": "Sortieren Code", "type": "n8n-nodes-base.sort", "typeVersion": 1, "position": [400, 300] },
+    { "parameters": { "maxItems": 2, "keep": "lastItems" }, "id": "t11", "name": "Limit", "type": "n8n-nodes-base.limit", "typeVersion": 1, "position": [400, 400] },
+    {
+      "parameters": { "fieldsToSummarize": { "values": [ { "aggregation": "sum", "field": "preis" }, { "field": "id" }, { "aggregation": "max", "field": "preis" }, { "aggregation": "concatenate", "field": "kat", "separateBy": ", " }, { "aggregation": "countUnique", "field": "kat" } ] }, "fieldsToSplitBy": "info.land", "options": {} },
+      "id": "t12", "name": "Zusammenfassen", "type": "n8n-nodes-base.summarize", "typeVersion": 1.1, "position": [400, 500]
+    },
+    {
+      "parameters": { "fieldsToSummarize": { "values": [ { "aggregation": "average", "field": "preis" }, { "aggregation": "append", "field": "id" } ] }, "options": {} },
+      "id": "t13", "name": "Zusammenfassen Gesamt", "type": "n8n-nodes-base.summarize", "typeVersion": 1.1, "position": [400, 600]
+    }
+  ],
+  "connections": {
+    "Start": { "main": [[{ "node": "Daten", "type": "main", "index": 0 }]] },
+    "Daten": { "main": [[
+      { "node": "Split Tags", "type": "main", "index": 0 },
+      { "node": "Split Objekt", "type": "main", "index": 0 },
+      { "node": "Aggregieren Felder", "type": "main", "index": 0 },
+      { "node": "Aggregieren Alles", "type": "main", "index": 0 },
+      { "node": "Duplikate v1", "type": "main", "index": 0 },
+      { "node": "Duplikate v2", "type": "main", "index": 0 },
+      { "node": "Sortieren", "type": "main", "index": 0 },
+      { "node": "Sortieren Code", "type": "main", "index": 0 },
+      { "node": "Limit", "type": "main", "index": 0 },
+      { "node": "Zusammenfassen", "type": "main", "index": 0 },
+      { "node": "Zusammenfassen Gesamt", "type": "main", "index": 0 }
+    ]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

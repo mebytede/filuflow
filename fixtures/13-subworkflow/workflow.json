@@ -1,0 +1,33 @@
+{
+  "name": "13 Unter-Workflow",
+  "nodes": [
+    { "parameters": {}, "id": "s1", "name": "Start", "type": "n8n-nodes-base.manualTrigger", "typeVersion": 1, "position": [0, 0] },
+    { "parameters": { "jsCode": "return [{ json: { n: 1 } }, { json: { n: 5 } }];" }, "id": "s2", "name": "Daten", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [200, 0] },
+    {
+      "parameters": { "workflowId": { "__rl": true, "value": "fxSubVerdoppeln", "mode": "id" }, "workflowInputs": { "mappingMode": "defineBelow", "value": {}, "matchingColumns": [], "schema": [], "attemptToConvertTypes": false, "convertFieldsToString": true }, "options": {} },
+      "id": "s3", "name": "Einmal", "type": "n8n-nodes-base.executeWorkflow", "typeVersion": 1.2, "position": [400, -100]
+    },
+    {
+      "parameters": { "workflowId": { "__rl": true, "value": "fxSubVerdoppeln", "mode": "id" }, "workflowInputs": { "mappingMode": "defineBelow", "value": {}, "matchingColumns": [], "schema": [], "attemptToConvertTypes": false, "convertFieldsToString": true }, "mode": "each", "options": {} },
+      "id": "s4", "name": "Je Item", "type": "n8n-nodes-base.executeWorkflow", "typeVersion": 1.2, "position": [400, 100]
+    },
+    {
+      "parameters": { "assignments": { "assignments": [ { "id": "s5", "name": "quelle", "value": "={{ $('Daten').item.json.n }}", "type": "number" } ] }, "includeOtherFields": true, "options": {} },
+      "id": "s6", "name": "Nach Einmal", "type": "n8n-nodes-base.set", "typeVersion": 3.4, "position": [600, -100]
+    },
+    {
+      "parameters": { "source": "parameter", "workflowJson": "={\n  \"nodes\": [\n    { \"parameters\": {}, \"name\": \"T\", \"type\": \"n8n-nodes-base.executeWorkflowTrigger\", \"typeVersion\": 1, \"position\": [0, 0] },\n    { \"parameters\": { \"jsCode\": \"return $input.all().map(i => ({ json: { aus_json: i.json.n + 100 } }));\" }, \"name\": \"C\", \"type\": \"n8n-nodes-base.code\", \"typeVersion\": 2, \"position\": [200, 0] }\n  ],\n  \"connections\": { \"T\": { \"main\": [[{ \"node\": \"C\", \"type\": \"main\", \"index\": 0 }]] } },\n  \"settings\": { \"executionOrder\": \"v1\" }\n}", "options": {} },
+      "id": "s7", "name": "Aus JSON", "type": "n8n-nodes-base.executeWorkflow", "typeVersion": 1.2, "position": [400, 300]
+    }
+  ],
+  "connections": {
+    "Start": { "main": [[{ "node": "Daten", "type": "main", "index": 0 }]] },
+    "Daten": { "main": [[
+      { "node": "Einmal", "type": "main", "index": 0 },
+      { "node": "Je Item", "type": "main", "index": 0 },
+      { "node": "Aus JSON", "type": "main", "index": 0 }
+    ]] },
+    "Einmal": { "main": [[{ "node": "Nach Einmal", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

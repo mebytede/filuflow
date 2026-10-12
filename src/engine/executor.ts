@@ -22,7 +22,7 @@ import type {
 import { WorkflowGraph, STICKY_NOTE_TYPE } from './graph.js';
 import { NodeExecutionContext } from './context.js';
 import type { NodeRegistry } from '../nodes/registry.js';
-import type { ExecuteWorkflowRequest, NodeType, WebhookResponse } from '../nodes/types.js';
+import type { ExecuteWorkflowRequest, ExecuteWorkflowResult, NodeType, WebhookResponse } from '../nodes/types.js';
 import { getLogger, type Logger } from '../logger.js';
 import { UndiciHttpClient, type HttpClient } from '../http.js';
 import { FileBinaryStore, type BinaryStore } from '../binary.js';
@@ -54,7 +54,7 @@ export interface RunHooks {
 }
 
 export interface SubWorkflowRunner {
-  (request: ExecuteWorkflowRequest & { parentExecutionId: string; parentNode: WorkflowNode }): Promise<Item[][] | null>;
+  (request: ExecuteWorkflowRequest & { parentExecutionId: string; parentNode: WorkflowNode; parentWorkflow: Workflow }): Promise<ExecuteWorkflowResult>;
 }
 
 export interface ExecutorOptions {
@@ -232,11 +232,16 @@ export class WorkflowExecutor {
     return provider.resolve(entry);
   }
 
-  async executeSubWorkflow(node: WorkflowNode, request: ExecuteWorkflowRequest): Promise<Item[][] | null> {
+  async executeSubWorkflow(node: WorkflowNode, request: ExecuteWorkflowRequest): Promise<ExecuteWorkflowResult> {
     if (!this.options.runSubWorkflow) {
       throw new NodeOperationError(node.name, 'Unter-Workflows sind in diesem Kontext nicht verfügbar');
     }
-    return this.options.runSubWorkflow({ ...request, parentExecutionId: this.executionId, parentNode: node });
+    return this.options.runSubWorkflow({
+      ...request,
+      parentExecutionId: this.executionId,
+      parentNode: node,
+      parentWorkflow: this.graph.workflow,
+    });
   }
 
   sendWebhookResponse(response: WebhookResponse): void {

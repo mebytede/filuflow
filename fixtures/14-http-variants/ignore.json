@@ -1,0 +1,8 @@
+{
+  "paths": [
+    "nodes.*.*.main.*.*.json.headers.date",
+    "nodes.*.*.main.*.*.json.headers.connection",
+    "nodes.*.*.main.*.*.json.headers.keep-alive",
+    "nodes.*.*.main.*.*.json.error.stack"
+  ]
+}

@@ -73,6 +73,18 @@ if [[ ${#BATCH[@]} -gt 0 ]]; then
   SCRIPT="$WORK/run.sh"
   echo 'set -u' > "$SCRIPT"
   for name in "${BATCH[@]}"; do
+    if [[ -d "$FIXTURES/$name/sub" ]]; then
+      for sub in "$FIXTURES/$name/sub"/*.json; do
+        subname="$name--$(basename "$sub" .json)"
+        node -e '
+          const fs = require("fs"); const crypto = require("crypto");
+          const wf = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+          wf.versionId = crypto.randomUUID(); wf.active = false;
+          fs.writeFileSync(process.argv[2], JSON.stringify(wf));
+        ' "$sub" "$WORK/$subname.json"
+        echo "n8n import:workflow --input=/data/$subname.json >/dev/null 2>&1 || echo 'Import fehlgeschlagen: $subname'" >> "$SCRIPT"
+      done
+    fi
     id="$(prepare "$name")"
     echo "n8n import:workflow --input=/data/$name.json >/dev/null 2>&1 || echo 'Import fehlgeschlagen: $name'" >> "$SCRIPT"
     echo "n8n execute --id=$id --rawOutput > /data/$name.out 2>&1 || true" >> "$SCRIPT"

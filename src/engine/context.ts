@@ -1,5 +1,5 @@
 // Ausführungskontext eines Nodes (n8n ExecuteContext).
-import type { ExecContext, ExecuteWorkflowRequest, GetParamOptions, WebhookResponse } from '../nodes/types.js';
+import type { ExecContext, ExecuteWorkflowRequest, ExecuteWorkflowResult, GetParamOptions, WebhookResponse } from '../nodes/types.js';
 import type { ExecutionMode, Item, SourceData, WorkflowNode } from '../types.js';
 import type { WorkflowGraph } from './graph.js';
 import type { Logger } from '../logger.js';
@@ -151,7 +151,7 @@ export class NodeExecutionContext implements ExecContext {
     return onError === 'continueRegularOutput' || onError === 'continueErrorOutput';
   }
 
-  executeWorkflow(request: ExecuteWorkflowRequest): Promise<Item[][] | null> {
+  executeWorkflow(request: ExecuteWorkflowRequest): Promise<ExecuteWorkflowResult> {
     return this.executor.executeSubWorkflow(this.node, request);
   }
 

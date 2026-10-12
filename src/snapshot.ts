@@ -58,7 +58,7 @@ export function executionToSnapshot(exec: Execution): ExecutionSnapshot {
   return JSON.parse(JSON.stringify(snapshot)) as ExecutionSnapshot;
 }
 
-/** Ersetzt Werte an Pfaden (mit * als Platzhalter) durch "<ignoriert>" */
+/** Entfernt Werte an Pfaden (mit * als Platzhalter) */
 export function applyIgnore(value: unknown, patterns: string[]): unknown {
   const clone = JSON.parse(JSON.stringify(value)) as unknown;
   for (const pattern of patterns) {
@@ -69,7 +69,7 @@ export function applyIgnore(value: unknown, patterns: string[]): unknown {
       const obj = node as Record<string, unknown>;
       const keys = key === '*' ? Object.keys(obj) : Object.hasOwn(obj, key) ? [key] : [];
       for (const k of keys) {
-        if (i === parts.length - 1) obj[k] = '<ignoriert>';
+        if (i === parts.length - 1) delete obj[k];
         else walk(obj[k], i + 1);
       }
     };

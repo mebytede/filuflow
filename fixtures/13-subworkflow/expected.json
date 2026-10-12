@@ -1,0 +1,188 @@
+{
+  "status": "success",
+  "lastNodeExecuted": "Aus JSON",
+  "order": [
+    "Start",
+    "Daten",
+    "Einmal",
+    "Nach Einmal",
+    "Je Item",
+    "Aus JSON"
+  ],
+  "nodes": {
+    "Start": [
+      {
+        "status": "success",
+        "source": [],
+        "main": [
+          [
+            {
+              "json": {},
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Daten": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Start"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "n": 1
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "n": 5
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Einmal": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "n": 1,
+                "doppelt": 2
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "n": 5,
+                "doppelt": 10
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Nach Einmal": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Einmal"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "n": 1,
+                "doppelt": 2,
+                "quelle": 1
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "n": 5,
+                "doppelt": 10,
+                "quelle": 5
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Je Item": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "n": 1,
+                "doppelt": 2
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "n": 5,
+                "doppelt": 10
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Aus JSON": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "aus_json": 101
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "aus_json": 105
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,7 @@
+[
+  { "method": "GET", "path": "/text/hallo", "headers": { "content-type": "text/plain; charset=utf-8" }, "body": "Hallo Welt" },
+  { "method": "GET", "path": "/fehlt", "status": 404, "body": { "message": "nicht gefunden" } },
+  { "method": "GET", "path": "/bild.png", "headers": { "content-type": "image/png" }, "bodyBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" },
+  { "method": "GET", "path": "/liste", "body": [ { "nr": 1 }, { "nr": 2 } ] },
+  { "method": "GET", "path": "/umleitung", "status": 302, "headers": { "location": "/liste" }, "body": "" }
+]

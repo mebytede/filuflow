@@ -1,0 +1,454 @@
+{
+  "status": "success",
+  "lastNodeExecuted": "Fertig",
+  "order": [
+    "Start",
+    "Daten",
+    "Loop Over Items",
+    "Verarbeiten",
+    "Loop Over Items",
+    "Verarbeiten",
+    "Loop Over Items",
+    "Verarbeiten",
+    "Loop Over Items",
+    "Fertig"
+  ],
+  "nodes": {
+    "Start": [
+      {
+        "status": "success",
+        "source": [],
+        "main": [
+          [
+            {
+              "json": {},
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Daten": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Start"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "n": 1
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "n": 2
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "n": 3
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "n": 4
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "n": 5
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Loop Over Items": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [],
+          [
+            {
+              "json": {
+                "n": 1
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "n": 2
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      },
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Verarbeiten"
+          }
+        ],
+        "main": [
+          [],
+          [
+            {
+              "json": {
+                "n": 3
+              },
+              "pairedItem": {
+                "item": 2,
+                "sourceOverwrite": {
+                  "previousNode": "Daten"
+                }
+              }
+            },
+            {
+              "json": {
+                "n": 4
+              },
+              "pairedItem": {
+                "item": 3,
+                "sourceOverwrite": {
+                  "previousNode": "Daten"
+                }
+              }
+            }
+          ]
+        ]
+      },
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Verarbeiten",
+            "previousNodeRun": 1
+          }
+        ],
+        "main": [
+          [],
+          [
+            {
+              "json": {
+                "n": 5
+              },
+              "pairedItem": {
+                "item": 4,
+                "sourceOverwrite": {
+                  "previousNode": "Daten"
+                }
+              }
+            }
+          ]
+        ]
+      },
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Verarbeiten",
+            "previousNodeRun": 2
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "n": 1,
+                "quadrat": 1,
+                "durchlauf": 0,
+                "original": 1,
+                "fertig": false
+              },
+              "pairedItem": {
+                "sourceOverwrite": {
+                  "previousNode": "Verarbeiten"
+                },
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "n": 2,
+                "quadrat": 4,
+                "durchlauf": 0,
+                "original": 2,
+                "fertig": false
+              },
+              "pairedItem": {
+                "sourceOverwrite": {
+                  "previousNode": "Verarbeiten"
+                },
+                "item": 1
+              }
+            },
+            {
+              "json": {
+                "n": 3,
+                "quadrat": 9,
+                "durchlauf": 1,
+                "original": 3,
+                "fertig": false
+              },
+              "pairedItem": {
+                "sourceOverwrite": {
+                  "previousNode": "Verarbeiten",
+                  "previousNodeRun": 1
+                },
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "n": 4,
+                "quadrat": 16,
+                "durchlauf": 1,
+                "original": 4,
+                "fertig": false
+              },
+              "pairedItem": {
+                "sourceOverwrite": {
+                  "previousNode": "Verarbeiten",
+                  "previousNodeRun": 1
+                },
+                "item": 1
+              }
+            },
+            {
+              "json": {
+                "n": 5,
+                "quadrat": 25,
+                "durchlauf": 2,
+                "original": 5,
+                "fertig": true
+              },
+              "pairedItem": {
+                "sourceOverwrite": {
+                  "previousNode": "Verarbeiten",
+                  "previousNodeRun": 2
+                },
+                "item": 0
+              }
+            }
+          ],
+          []
+        ]
+      }
+    ],
+    "Verarbeiten": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Loop Over Items",
+            "previousNodeOutput": 1
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "n": 1,
+                "quadrat": 1,
+                "durchlauf": 0,
+                "original": 1,
+                "fertig": false
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "n": 2,
+                "quadrat": 4,
+                "durchlauf": 0,
+                "original": 2,
+                "fertig": false
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      },
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Loop Over Items",
+            "previousNodeOutput": 1,
+            "previousNodeRun": 1
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "n": 3,
+                "quadrat": 9,
+                "durchlauf": 1,
+                "original": 3,
+                "fertig": false
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "n": 4,
+                "quadrat": 16,
+                "durchlauf": 1,
+                "original": 4,
+                "fertig": false
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      },
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Loop Over Items",
+            "previousNodeOutput": 1,
+            "previousNodeRun": 2
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "n": 5,
+                "quadrat": 25,
+                "durchlauf": 2,
+                "original": 5,
+                "fertig": true
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Fertig": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Loop Over Items",
+            "previousNodeRun": 3
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "n": 1,
+                "quadrat": 1,
+                "durchlauf": 0,
+                "original": 1,
+                "fertig": false,
+                "aus": 1
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "n": 2,
+                "quadrat": 4,
+                "durchlauf": 0,
+                "original": 2,
+                "fertig": false,
+                "aus": 2
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            },
+            {
+              "json": {
+                "n": 3,
+                "quadrat": 9,
+                "durchlauf": 1,
+                "original": 3,
+                "fertig": false,
+                "aus": 3
+              },
+              "pairedItem": {
+                "item": 2
+              }
+            },
+            {
+              "json": {
+                "n": 4,
+                "quadrat": 16,
+                "durchlauf": 1,
+                "original": 4,
+                "fertig": false,
+                "aus": 4
+              },
+              "pairedItem": {
+                "item": 3
+              }
+            },
+            {
+              "json": {
+                "n": 5,
+                "quadrat": 25,
+                "durchlauf": 2,
+                "original": 5,
+                "fertig": true,
+                "aus": 5
+              },
+              "pairedItem": {
+                "item": 4
+              }
+            }
+          ]
+        ]
+      }
+    ]
+  }
+}

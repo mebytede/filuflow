@@ -3,8 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Server } from 'node:http';
-import { executeWorkflow } from '../../src/engine/executor.js';
-import { getDefaultRegistry } from '../../src/nodes/index.js';
+import { Runner, StaticWorkflowSource } from '../../src/runner.js';
 import { applyIgnore, executionToSnapshot } from '../../src/snapshot.js';
 import { StaticCredentialProvider, loadCredentials } from '../../src/credentials/store.js';
 import type { Item, Workflow } from '../../src/types.js';
@@ -40,18 +39,14 @@ describe('Kompatibilität mit n8n', () => {
         ? (JSON.parse(readFileSync(join(dir, 'input.json'), 'utf8')) as Item[])
         : undefined;
       const credentials = existsSync(join(dir, 'credentials.json')) ? await loadCredentials(join(dir, 'credentials.json')) : new StaticCredentialProvider();
-      const exec = await executeWorkflow({
-        workflow,
-        registry: getDefaultRegistry(),
-        mode: 'cli',
-        triggerItems: input,
-        usePinData: false,
-        credentials,
-        sleep: async () => undefined,
-        runSubWorkflow: async () => {
-          throw new Error('Unter-Workflows in Golden-Tests über eigenen Runner');
-        },
-      });
+      const subDir = join(dir, 'sub');
+      const subs = existsSync(subDir)
+        ? readdirSync(subDir)
+            .filter((f) => f.endsWith('.json'))
+            .map((f) => JSON.parse(readFileSync(join(subDir, f), 'utf8')) as Workflow)
+        : [];
+      const runner = new Runner({ credentials, workflows: new StaticWorkflowSource(subs) });
+      const exec = await runner.run({ workflow, mode: 'cli', triggerItems: input, usePinData: false });
       const actual = applyIgnore(executionToSnapshot(exec), ignore);
       expect(actual).toEqual(applyIgnore(expected, ignore));
     });

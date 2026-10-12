@@ -1,0 +1,35 @@
+{
+  "name": "05 Loop Over Items",
+  "nodes": [
+    { "parameters": {}, "id": "l1", "name": "Start", "type": "n8n-nodes-base.manualTrigger", "typeVersion": 1, "position": [0, 0] },
+    {
+      "parameters": { "jsCode": "return [1, 2, 3, 4, 5].map(n => ({ json: { n } }));" },
+      "id": "l2", "name": "Daten", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [200, 0]
+    },
+    { "parameters": { "batchSize": 2, "options": {} }, "id": "l3", "name": "Loop Over Items", "type": "n8n-nodes-base.splitInBatches", "typeVersion": 3, "position": [400, 0] },
+    {
+      "parameters": {
+        "assignments": { "assignments": [
+          { "id": "p1", "name": "quadrat", "value": "={{ $json.n * $json.n }}", "type": "number" },
+          { "id": "p2", "name": "durchlauf", "value": "={{ $runIndex }}", "type": "number" },
+          { "id": "p3", "name": "original", "value": "={{ $('Daten').item.json.n }}", "type": "number" },
+          { "id": "p4", "name": "fertig", "value": "={{ $('Loop Over Items').context['noItemsLeft'] }}", "type": "boolean" }
+        ] },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "l4", "name": "Verarbeiten", "type": "n8n-nodes-base.set", "typeVersion": 3.4, "position": [600, 100]
+    },
+    {
+      "parameters": { "assignments": { "assignments": [ { "id": "f1", "name": "aus", "value": "={{ $('Daten').item.json.n }}", "type": "number" } ] }, "includeOtherFields": true, "options": {} },
+      "id": "l5", "name": "Fertig", "type": "n8n-nodes-base.set", "typeVersion": 3.4, "position": [600, -100]
+    }
+  ],
+  "connections": {
+    "Start": { "main": [[{ "node": "Daten", "type": "main", "index": 0 }]] },
+    "Daten": { "main": [[{ "node": "Loop Over Items", "type": "main", "index": 0 }]] },
+    "Loop Over Items": { "main": [[{ "node": "Fertig", "type": "main", "index": 0 }], [{ "node": "Verarbeiten", "type": "main", "index": 0 }]] },
+    "Verarbeiten": { "main": [[{ "node": "Loop Over Items", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

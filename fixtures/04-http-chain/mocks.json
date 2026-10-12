@@ -1,0 +1,6 @@
+[
+  { "method": "GET", "path": "/geo/search?name=Berlin&count=1", "body": { "results": [ { "name": "Berlin", "latitude": 52.52, "longitude": 13.41, "country": "Deutschland" } ] } },
+  { "method": "GET", "path": "/geo/search?name=Hamburg&count=1", "body": { "results": [ { "name": "Hamburg", "latitude": 53.55, "longitude": 9.99, "country": "Deutschland" } ] } },
+  { "method": "GET", "path": "/weather/forecast?latitude=52.52&longitude=13.41&current=temperature_2m", "body": { "latitude": 52.52, "longitude": 13.41, "current": { "time": "2024-05-01T12:00", "temperature_2m": 17.4 } } },
+  { "method": "GET", "path": "/weather/forecast?latitude=53.55&longitude=9.99&current=temperature_2m", "body": { "latitude": 53.55, "longitude": 9.99, "current": { "time": "2024-05-01T12:00", "temperature_2m": 14.1 } } }
+]

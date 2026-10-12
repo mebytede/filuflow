@@ -1,0 +1,523 @@
+{
+  "status": "success",
+  "lastNodeExecuted": "JSON zu XML",
+  "order": [
+    "Start",
+    "Daten",
+    "Datum formatieren",
+    "Datum plus",
+    "Datum Differenz",
+    "Datum Teil",
+    "Datum runden",
+    "Hash",
+    "Hmac",
+    "HTML extrahieren",
+    "HTML Tabelle",
+    "HTML Vorlage",
+    "XML zu JSON",
+    "Objekt",
+    "JSON zu XML"
+  ],
+  "nodes": {
+    "Start": [
+      {
+        "status": "success",
+        "source": [],
+        "main": [
+          [
+            {
+              "json": {},
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Daten": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Start"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "datum": "2024-03-15T10:30:00.000Z",
+                "lokal": "2024-03-15 08:00",
+                "ts": 1710498600,
+                "text": "hallo welt",
+                "html": "<div><h1 class=\"t\">Titel</h1><ul><li>Eins</li><li> Zwei </li></ul><a href=\"/x\">Link</a></div>",
+                "xml": "<root><item id=\"1\">A</item><item id=\"2\">B</item></root>"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "datum": "2023-12-31T23:59:59.000Z",
+                "lokal": "2024-01-01 00:00",
+                "ts": 1704067200000,
+                "text": "Zweiter Text",
+                "html": "<div><h1 class=\"t\">Noch einer</h1><ul><li>Drei</li></ul><a href=\"/y\">Y</a></div>",
+                "xml": "<root><item id=\"3\">C</item></root>"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Datum formatieren": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "formattedDate": "15.03.2024 11:30"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "formattedDate": "01.01.2024 00:59"
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Datum plus": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "datum": "2024-03-15T10:30:00.000Z",
+                "lokal": "2024-03-15 08:00",
+                "ts": 1710498600,
+                "text": "hallo welt",
+                "html": "<div><h1 class=\"t\">Titel</h1><ul><li>Eins</li><li> Zwei </li></ul><a href=\"/x\">Link</a></div>",
+                "xml": "<root><item id=\"1\">A</item><item id=\"2\">B</item></root>",
+                "plus": "2024-03-18T11:30:00.000+01:00"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "datum": "2023-12-31T23:59:59.000Z",
+                "lokal": "2024-01-01 00:00",
+                "ts": 1704067200000,
+                "text": "Zweiter Text",
+                "html": "<div><h1 class=\"t\">Noch einer</h1><ul><li>Drei</li></ul><a href=\"/y\">Y</a></div>",
+                "xml": "<root><item id=\"3\">C</item></root>",
+                "plus": "2024-01-04T00:59:59.000+01:00"
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Datum Differenz": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "timeDifference": {
+                  "days": 77,
+                  "hours": 14.5
+                }
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "timeDifference": {
+                  "days": 152,
+                  "hours": 1.0002777777777778
+                }
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Datum Teil": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "datePart": 2024
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "datePart": 2024
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Datum runden": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "roundedDate": "2024-03-16T00:00:00.000+01:00"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "roundedDate": "2024-01-02T00:00:00.000+01:00"
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Hash": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "datum": "2024-03-15T10:30:00.000Z",
+                "lokal": "2024-03-15 08:00",
+                "ts": 1710498600,
+                "text": "hallo welt",
+                "html": "<div><h1 class=\"t\">Titel</h1><ul><li>Eins</li><li> Zwei </li></ul><a href=\"/x\">Link</a></div>",
+                "xml": "<root><item id=\"1\">A</item><item id=\"2\">B</item></root>",
+                "hash": "028fb9cd289c106642177d7bd4b6c5e107265b90f17f6b52a1cb0d7584264455"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "datum": "2023-12-31T23:59:59.000Z",
+                "lokal": "2024-01-01 00:00",
+                "ts": 1704067200000,
+                "text": "Zweiter Text",
+                "html": "<div><h1 class=\"t\">Noch einer</h1><ul><li>Drei</li></ul><a href=\"/y\">Y</a></div>",
+                "xml": "<root><item id=\"3\">C</item></root>",
+                "hash": "0a2606788d544d431979c9cac31f5a2f26a83bd063afc3cc26d1ddb6aab7113c"
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Hmac": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "datum": "2024-03-15T10:30:00.000Z",
+                "lokal": "2024-03-15 08:00",
+                "ts": 1710498600,
+                "text": "hallo welt",
+                "html": "<div><h1 class=\"t\">Titel</h1><ul><li>Eins</li><li> Zwei </li></ul><a href=\"/x\">Link</a></div>",
+                "xml": "<root><item id=\"1\">A</item><item id=\"2\">B</item></root>",
+                "sig.wert": "CQDa4e3+XhyU4kfmKeJnguKF5AvohXdAKduV4HcuX+Q="
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "datum": "2023-12-31T23:59:59.000Z",
+                "lokal": "2024-01-01 00:00",
+                "ts": 1704067200000,
+                "text": "Zweiter Text",
+                "html": "<div><h1 class=\"t\">Noch einer</h1><ul><li>Drei</li></ul><a href=\"/y\">Y</a></div>",
+                "xml": "<root><item id=\"3\">C</item></root>",
+                "sig.wert": "P8oaDpu3zQzk4VCEjdcPPNATUr0lutbHo1+rBsuxLIc="
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "HTML extrahieren": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "titel": "Titel",
+                "punkte": [
+                  "Eins",
+                  "Zwei"
+                ],
+                "link": "/x",
+                "roh": "<li>Eins</li><li> Zwei </li>"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "titel": "Noch einer",
+                "punkte": [
+                  "Drei"
+                ],
+                "link": "/y",
+                "roh": "<li>Drei</li>"
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "HTML Tabelle": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "table": "<table style='border-spacing:0; font-family:helvetica,arial,sans-serif' ><thead style='margin:0; padding:7px 20px 7px 0px; border-bottom:1px solid #eee; text-align:left; color:#888; font-weight:normal' ><tr><th>Datum</th><th>Lokal</th><th>Ts</th><th>Text</th><th>Html</th><th>Xml</th></tr></thead><tbody><tr  ><td style='margin:0; padding:7px 20px 7px 0px; border-bottom:1px solid #eee' >2024-03-15T10:30:00.000Z</td><td style='margin:0; padding:7px 20px 7px 0px; border-bottom:1px solid #eee' >2024-03-15 08:00</td><td style='margin:0; padding:7px 20px 7px 0px; border-bottom:1px solid #eee' >1710498600</td><td style='margin:0; padding:7px 20px 7px 0px; border-bottom:1px solid #eee' >hallo welt</td><td style='margin:0; padding:7px 20px 7px 0px; border-bottom:1px solid #eee' ><div><h1 class=\"t\">Titel</h1><ul><li>Eins</li><li> Zwei </li></ul><a href=\"/x\">Link</a></div></td><td style='margin:0; padding:7px 20px 7px 0px; border-bottom:1px solid #eee' ><root><item id=\"1\">A</item><item id=\"2\">B</item></root></td></tr><tr  ><td style='margin:0; padding:7px 20px 7px 0px; border-bottom:1px solid #eee' >2023-12-31T23:59:59.000Z</td><td style='margin:0; padding:7px 20px 7px 0px; border-bottom:1px solid #eee' >2024-01-01 00:00</td><td style='margin:0; padding:7px 20px 7px 0px; border-bottom:1px solid #eee' >1704067200000</td><td style='margin:0; padding:7px 20px 7px 0px; border-bottom:1px solid #eee' >Zweiter Text</td><td style='margin:0; padding:7px 20px 7px 0px; border-bottom:1px solid #eee' ><div><h1 class=\"t\">Noch einer</h1><ul><li>Drei</li></ul><a href=\"/y\">Y</a></div></td><td style='margin:0; padding:7px 20px 7px 0px; border-bottom:1px solid #eee' ><root><item id=\"3\">C</item></root></td></tr></tbody></table>"
+              },
+              "pairedItem": [
+                {
+                  "item": 0
+                },
+                {
+                  "item": 1
+                }
+              ]
+            }
+          ]
+        ]
+      }
+    ],
+    "HTML Vorlage": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "html": "<p>Hallo hallo welt</p>"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "html": "<p>Hallo Zweiter Text</p>"
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "XML zu JSON": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "root": {
+                  "item": [
+                    {
+                      "_": "A",
+                      "id": "1"
+                    },
+                    {
+                      "_": "B",
+                      "id": "2"
+                    }
+                  ]
+                }
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "root": {
+                  "item": {
+                    "_": "C",
+                    "id": "3"
+                  }
+                }
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Objekt": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "person": {
+                  "name": "Anna",
+                  "alter": 30
+                },
+                "liste": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "JSON zu XML": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Objekt"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "data": "<root>\n  <person>\n    <name>Anna</name>\n    <alter>30</alter>\n  </person>\n  <liste>a</liste>\n  <liste>b</liste>\n</root>"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ]
+  }
+}

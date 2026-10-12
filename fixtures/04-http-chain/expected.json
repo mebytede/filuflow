@@ -1,0 +1,210 @@
+{
+  "status": "success",
+  "lastNodeExecuted": "Ergebnis",
+  "order": [
+    "Start",
+    "Städte",
+    "Geocoding",
+    "Koordinaten",
+    "Wetter",
+    "Ergebnis"
+  ],
+  "nodes": {
+    "Start": [
+      {
+        "status": "success",
+        "source": [],
+        "main": [
+          [
+            {
+              "json": {},
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Städte": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Start"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "city": "Berlin"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "city": "Hamburg"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Geocoding": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Städte"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "results": [
+                  {
+                    "name": "Berlin",
+                    "latitude": 52.52,
+                    "longitude": 13.41,
+                    "country": "Deutschland"
+                  }
+                ]
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "results": [
+                  {
+                    "name": "Hamburg",
+                    "latitude": 53.55,
+                    "longitude": 9.99,
+                    "country": "Deutschland"
+                  }
+                ]
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Koordinaten": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Geocoding"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "lat": 52.52,
+                "lon": 13.41
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "lat": 53.55,
+                "lon": 9.99
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Wetter": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Koordinaten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "latitude": 52.52,
+                "longitude": 13.41,
+                "current": {
+                  "time": "2024-05-01T12:00",
+                  "temperature_2m": 17.4
+                }
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "latitude": 53.55,
+                "longitude": 9.99,
+                "current": {
+                  "time": "2024-05-01T12:00",
+                  "temperature_2m": 14.1
+                }
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Ergebnis": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Wetter"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "stadt": "Berlin",
+                "temperatur": 17.4,
+                "text": "In Berlin sind es 17.4 °C"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "stadt": "Hamburg",
+                "temperatur": 14.1,
+                "text": "In Hamburg sind es 14.1 °C"
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ]
+  }
+}

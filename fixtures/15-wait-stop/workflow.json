@@ -1,0 +1,15 @@
+{
+  "name": "15 Wait und Stop and Error",
+  "nodes": [
+    { "parameters": {}, "id": "w1", "name": "Start", "type": "n8n-nodes-base.manualTrigger", "typeVersion": 1, "position": [0, 0] },
+    { "parameters": { "jsCode": "return [{ json: { grund: 'kaputt' } }];" }, "id": "w2", "name": "Daten", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [200, 0] },
+    { "parameters": { "amount": 0, "unit": "seconds" }, "id": "w3", "name": "Warten", "type": "n8n-nodes-base.wait", "typeVersion": 1.1, "position": [400, 0], "webhookId": "11111111-2222-4333-8444-555555555555" },
+    { "parameters": { "errorType": "errorObject", "errorObject": "={\n  \"message\": \"Abbruch: {{ $json.grund }}\",\n  \"description\": \"Details zum Fehler\"\n}" }, "id": "w4", "name": "Stop", "type": "n8n-nodes-base.stopAndError", "typeVersion": 1, "position": [600, 0] }
+  ],
+  "connections": {
+    "Start": { "main": [[{ "node": "Daten", "type": "main", "index": 0 }]] },
+    "Daten": { "main": [[{ "node": "Warten", "type": "main", "index": 0 }]] },
+    "Warten": { "main": [[{ "node": "Stop", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

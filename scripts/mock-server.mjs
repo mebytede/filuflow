@@ -46,7 +46,7 @@ export function startMockServer(fixturesDir, port = 18089) {
         }
         const status = Number(u.searchParams.get('status') ?? 200);
         res.writeHead(status, { 'content-type': 'application/json', 'x-mock': 'echo' });
-        res.end(JSON.stringify({ method: req.method, path: u.pathname, query: Object.fromEntries(u.searchParams), headers, body: parsed }));
+        res.end(JSON.stringify({ method: req.method, path: u.pathname, rawQuery: u.search, query: Object.fromEntries(u.searchParams), headers, body: parsed }));
         return;
       }
       const mock = mocks.find(
@@ -57,6 +57,7 @@ export function startMockServer(fixturesDir, port = 18089) {
         res.end(JSON.stringify({ error: 'no mock', method: req.method, url }));
         return;
       }
+      // Feste Header, damit Antworten in Tests und n8n gleich aussehen
       const headers = { 'content-type': 'application/json', ...(mock.headers ?? {}) };
       res.writeHead(mock.status ?? 200, headers);
       if (mock.bodyBase64 !== undefined) res.end(Buffer.from(mock.bodyBase64, 'base64'));

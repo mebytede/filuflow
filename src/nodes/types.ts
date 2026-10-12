@@ -28,6 +28,14 @@ export interface ExecuteWorkflowRequest {
   waitForCompletion: boolean;
 }
 
+export interface ExecuteWorkflowResult {
+  executionId: string;
+  /** Ausgabe des zuletzt ausgeführten Nodes (n8n getDataLastExecutedNodeData) */
+  data: Item[][];
+  runData?: import('../types.js').RunData;
+  lastNodeExecuted?: string;
+}
+
 export interface WebhookResponse {
   statusCode: number;
   headers: Record<string, string>;
@@ -62,7 +70,7 @@ export interface ExecContext {
   /** Statische Daten des Workflows (n8n: getWorkflowStaticData) */
   getStaticData(type: 'global' | 'node'): Record<string, unknown>;
   continueOnFail(): boolean;
-  executeWorkflow(request: ExecuteWorkflowRequest): Promise<Item[][] | null>;
+  executeWorkflow(request: ExecuteWorkflowRequest): Promise<ExecuteWorkflowResult>;
   /** Antwort für responseMode=responseNode */
   sendWebhookResponse(response: WebhookResponse): void;
   /** Trigger-Daten (Webhook-Request, Schedule-Zeit, CLI-Input) */

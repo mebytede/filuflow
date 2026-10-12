@@ -1,0 +1,388 @@
+{
+  "status": "error",
+  "lastNodeExecuted": "Duplikate v1",
+  "error": "'tags.0' field is missing from some input items",
+  "order": [
+    "Start",
+    "Daten",
+    "Split Tags",
+    "Split Objekt",
+    "Aggregieren Felder",
+    "Aggregieren Alles",
+    "Duplikate v1"
+  ],
+  "nodes": {
+    "Start": [
+      {
+        "status": "success",
+        "source": [],
+        "main": [
+          [
+            {
+              "json": {},
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Daten": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Start"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "id": 3,
+                "kat": "b",
+                "preis": 9.5,
+                "tags": [
+                  "x",
+                  "y"
+                ],
+                "info": {
+                  "land": "DE"
+                }
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "id": 1,
+                "kat": "a",
+                "preis": 20,
+                "tags": [
+                  "z"
+                ],
+                "info": {
+                  "land": "AT"
+                }
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "id": 2,
+                "kat": "a",
+                "preis": 5,
+                "tags": [],
+                "info": {
+                  "land": "DE"
+                }
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "id": 1,
+                "kat": "a",
+                "preis": 20,
+                "tags": [
+                  "z"
+                ],
+                "info": {
+                  "land": "AT"
+                }
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "id": 4,
+                "kat": "B",
+                "preis": null,
+                "tags": [
+                  "x"
+                ],
+                "info": {
+                  "land": "CH"
+                }
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Split Tags": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "id": 3,
+                "kat": "b",
+                "preis": 9.5,
+                "info": {
+                  "land": "DE"
+                },
+                "tags": "x"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "id": 3,
+                "kat": "b",
+                "preis": 9.5,
+                "info": {
+                  "land": "DE"
+                },
+                "tags": "y"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "id": 1,
+                "kat": "a",
+                "preis": 20,
+                "info": {
+                  "land": "AT"
+                },
+                "tags": "z"
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            },
+            {
+              "json": {
+                "id": 1,
+                "kat": "a",
+                "preis": 20,
+                "info": {
+                  "land": "AT"
+                },
+                "tags": "z"
+              },
+              "pairedItem": {
+                "item": 3
+              }
+            },
+            {
+              "json": {
+                "id": 4,
+                "kat": "B",
+                "preis": null,
+                "info": {
+                  "land": "CH"
+                },
+                "tags": "x"
+              },
+              "pairedItem": {
+                "item": 4
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Split Objekt": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "detail": "DE"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "detail": "AT"
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            },
+            {
+              "json": {
+                "detail": "DE"
+              },
+              "pairedItem": {
+                "item": 2
+              }
+            },
+            {
+              "json": {
+                "detail": "AT"
+              },
+              "pairedItem": {
+                "item": 3
+              }
+            },
+            {
+              "json": {
+                "detail": "CH"
+              },
+              "pairedItem": {
+                "item": 4
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Aggregieren Felder": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "id": [
+                  3,
+                  1,
+                  2,
+                  1,
+                  4
+                ],
+                "laender": [
+                  "DE",
+                  "AT",
+                  "DE",
+                  "AT",
+                  "CH"
+                ],
+                "tags": [
+                  "x",
+                  "y",
+                  "z",
+                  "z",
+                  "x"
+                ]
+              },
+              "pairedItem": [
+                {
+                  "item": 0
+                },
+                {
+                  "item": 1
+                },
+                {
+                  "item": 2
+                },
+                {
+                  "item": 3
+                },
+                {
+                  "item": 4
+                }
+              ]
+            }
+          ]
+        ]
+      }
+    ],
+    "Aggregieren Alles": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "alle": [
+                  {
+                    "id": 3,
+                    "preis": 9.5
+                  },
+                  {
+                    "id": 1,
+                    "preis": 20
+                  },
+                  {
+                    "id": 2,
+                    "preis": 5
+                  },
+                  {
+                    "id": 1,
+                    "preis": 20
+                  },
+                  {
+                    "id": 4,
+                    "preis": null
+                  }
+                ]
+              },
+              "pairedItem": [
+                {
+                  "item": 0
+                },
+                {
+                  "item": 1
+                },
+                {
+                  "item": 2
+                },
+                {
+                  "item": 3
+                },
+                {
+                  "item": 4
+                }
+              ]
+            }
+          ]
+        ]
+      }
+    ],
+    "Duplikate v1": [
+      {
+        "status": "error",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [],
+        "error": "'tags.0' field is missing from some input items"
+      }
+    ]
+  }
+}

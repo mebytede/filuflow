@@ -9,6 +9,23 @@ import { noOpNode } from './noOp.js';
 import { setNode } from './set.js';
 import { stickyNoteNode } from './stickyNote.js';
 import { switchNode } from './switch.js';
+import { mergeNode } from './merge.js';
+import { splitOutNode } from './splitOut.js';
+import { aggregateNode } from './aggregate.js';
+import { splitInBatchesNode } from './splitInBatches.js';
+import { removeDuplicatesNode } from './removeDuplicates.js';
+import { sortNode } from './sort.js';
+import { limitNode } from './limit.js';
+import { summarizeNode } from './summarize.js';
+import { dateTimeNode } from './dateTime.js';
+import { cryptoNode } from './crypto.js';
+import { htmlNode } from './html.js';
+import { xmlNode } from './xml.js';
+import { waitNode } from './wait.js';
+import { executeWorkflowNode } from './executeWorkflow.js';
+import { executeWorkflowTriggerNode } from './executeWorkflowTrigger.js';
+import { stopAndErrorNode } from './stopAndError.js';
+import { httpRequestNode } from './httpRequest.js';
 
 export const builtinNodeTypes: NodeType[] = [
   manualTriggerNode,
@@ -19,6 +36,23 @@ export const builtinNodeTypes: NodeType[] = [
   filterNode,
   switchNode,
   codeNode,
+  httpRequestNode,
+  mergeNode,
+  splitOutNode,
+  aggregateNode,
+  splitInBatchesNode,
+  removeDuplicatesNode,
+  sortNode,
+  limitNode,
+  summarizeNode,
+  dateTimeNode,
+  cryptoNode,
+  htmlNode,
+  xmlNode,
+  waitNode,
+  executeWorkflowNode,
+  executeWorkflowTriggerNode,
+  stopAndErrorNode,
 ];
 
 let defaultRegistry: NodeRegistry | undefined;

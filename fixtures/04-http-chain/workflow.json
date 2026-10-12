@@ -1,0 +1,57 @@
+{
+  "name": "04 HTTP-Kette Geocoding und Wetter",
+  "nodes": [
+    { "parameters": {}, "id": "h1", "name": "Start", "type": "n8n-nodes-base.manualTrigger", "typeVersion": 1, "position": [0, 0] },
+    {
+      "parameters": { "jsCode": "return [{ json: { city: 'Berlin' } }, { json: { city: 'Hamburg' } }];" },
+      "id": "h2", "name": "Städte", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "url": "http://127.0.0.1:18089/geo/search",
+        "sendQuery": true,
+        "queryParameters": { "parameters": [ { "name": "name", "value": "={{ $json.city }}" }, { "name": "count", "value": "1" } ] },
+        "options": {}
+      },
+      "id": "h3", "name": "Geocoding", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [400, 0]
+    },
+    {
+      "parameters": {
+        "assignments": { "assignments": [
+          { "id": "g1", "name": "lat", "value": "={{ $json.results[0].latitude }}", "type": "number" },
+          { "id": "g2", "name": "lon", "value": "={{ $json.results[0].longitude }}", "type": "number" }
+        ] },
+        "options": {}
+      },
+      "id": "h4", "name": "Koordinaten", "type": "n8n-nodes-base.set", "typeVersion": 3.4, "position": [600, 0]
+    },
+    {
+      "parameters": {
+        "url": "=http://127.0.0.1:18089/weather/forecast?latitude={{ $json.lat }}&longitude={{ $json.lon }}",
+        "sendQuery": true,
+        "queryParameters": { "parameters": [ { "name": "current", "value": "temperature_2m" } ] },
+        "options": {}
+      },
+      "id": "h5", "name": "Wetter", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [800, 0]
+    },
+    {
+      "parameters": {
+        "assignments": { "assignments": [
+          { "id": "w1", "name": "stadt", "value": "={{ $('Städte').item.json.city }}", "type": "string" },
+          { "id": "w2", "name": "temperatur", "value": "={{ $json.current.temperature_2m }}", "type": "number" },
+          { "id": "w3", "name": "text", "value": "=In {{ $('Städte').item.json.city }} sind es {{ $json.current.temperature_2m }} °C", "type": "string" }
+        ] },
+        "options": {}
+      },
+      "id": "h6", "name": "Ergebnis", "type": "n8n-nodes-base.set", "typeVersion": 3.4, "position": [1000, 0]
+    }
+  ],
+  "connections": {
+    "Start": { "main": [[{ "node": "Städte", "type": "main", "index": 0 }]] },
+    "Städte": { "main": [[{ "node": "Geocoding", "type": "main", "index": 0 }]] },
+    "Geocoding": { "main": [[{ "node": "Koordinaten", "type": "main", "index": 0 }]] },
+    "Koordinaten": { "main": [[{ "node": "Wetter", "type": "main", "index": 0 }]] },
+    "Wetter": { "main": [[{ "node": "Ergebnis", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

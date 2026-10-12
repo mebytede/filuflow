@@ -1,0 +1,13 @@
+{
+  "id": "fxSubVerdoppeln",
+  "name": "Unter-Workflow Verdoppeln",
+  "nodes": [
+    { "parameters": { "inputSource": "passthrough" }, "id": "u1", "name": "Aufruf", "type": "n8n-nodes-base.executeWorkflowTrigger", "typeVersion": 1.1, "position": [0, 0] },
+    {
+      "parameters": { "assignments": { "assignments": [ { "id": "u2", "name": "doppelt", "value": "={{ $json.n * 2 }}", "type": "number" } ] }, "includeOtherFields": true, "options": {} },
+      "id": "u3", "name": "Rechnen", "type": "n8n-nodes-base.set", "typeVersion": 3.4, "position": [200, 0]
+    }
+  ],
+  "connections": { "Aufruf": { "main": [[{ "node": "Rechnen", "type": "main", "index": 0 }]] } },
+  "settings": { "executionOrder": "v1" }
+}

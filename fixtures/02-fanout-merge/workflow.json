@@ -1,0 +1,82 @@
+{
+  "name": "02 Fan-out und Merge",
+  "nodes": [
+    { "parameters": {}, "id": "m1", "name": "Start", "type": "n8n-nodes-base.manualTrigger", "typeVersion": 1, "position": [0, 0] },
+    {
+      "parameters": { "jsCode": "return [{ json: { id: 1, name: 'eins' } }, { json: { id: 2, name: 'zwei' } }, { json: { id: 3, name: 'drei' } }];" },
+      "id": "m2", "name": "Daten", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [200, 0]
+    },
+    {
+      "parameters": { "assignments": { "assignments": [ { "id": "a1", "name": "zweig", "value": "A", "type": "string" }, { "id": "a2", "name": "aWert", "value": "={{ $json.id * 10 }}", "type": "number" } ] }, "includeOtherFields": true, "options": {} },
+      "id": "m3", "name": "Zweig A", "type": "n8n-nodes-base.set", "typeVersion": 3.4, "position": [400, 200]
+    },
+    {
+      "parameters": { "assignments": { "assignments": [ { "id": "b1", "name": "zweig", "value": "B", "type": "string" } ] }, "includeOtherFields": true, "options": {} },
+      "id": "m4", "name": "Zweig B", "type": "n8n-nodes-base.set", "typeVersion": 3.4, "position": [400, -200]
+    },
+    {
+      "parameters": { "jsCode": "return $input.all().filter(i => i.json.id !== 2).map(i => ({ json: { id: i.json.id, zweig: 'C', cWert: i.json.name.toUpperCase() } }));" },
+      "id": "m5", "name": "Zweig C", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [400, 0]
+    },
+    { "parameters": {}, "id": "m6", "name": "Merge Append", "type": "n8n-nodes-base.merge", "typeVersion": 3, "position": [700, -300] },
+    {
+      "parameters": { "mode": "combine", "combineBy": "combineByPosition", "options": {} },
+      "id": "m7", "name": "Merge Position", "type": "n8n-nodes-base.merge", "typeVersion": 3.2, "position": [700, -100]
+    },
+    {
+      "parameters": { "mode": "combine", "fieldsToMatchString": "id", "joinMode": "keepEverything", "options": {} },
+      "id": "m8", "name": "Merge Felder", "type": "n8n-nodes-base.merge", "typeVersion": 3.2, "position": [700, 100]
+    },
+    {
+      "parameters": { "mode": "combine", "combineBy": "combineAll", "options": { "clashHandling": { "values": { "resolveClash": "addSuffix" } } } },
+      "id": "m9", "name": "Merge Alle", "type": "n8n-nodes-base.merge", "typeVersion": 3.2, "position": [700, 300]
+    },
+    {
+      "parameters": { "numberInputs": 3 },
+      "id": "m10", "name": "Merge Drei", "type": "n8n-nodes-base.merge", "typeVersion": 3.2, "position": [700, 500]
+    },
+    {
+      "parameters": { "mode": "chooseBranch", "useDataOfInput": 2 },
+      "id": "m11", "name": "Merge Wahl", "type": "n8n-nodes-base.merge", "typeVersion": 3.2, "position": [700, 700]
+    },
+    {
+      "parameters": { "mode": "combine", "fieldsToMatchString": "id", "joinMode": "enrichInput1", "options": {} },
+      "id": "m12", "name": "Merge Anreichern", "type": "n8n-nodes-base.merge", "typeVersion": 3.2, "position": [700, 900]
+    },
+    {
+      "parameters": { "assignments": { "assignments": [ { "id": "n1", "name": "herkunft", "value": "={{ $('Daten').item.json.name }}", "type": "string" } ] }, "includeOtherFields": true, "options": {} },
+      "id": "m13", "name": "Nach Position", "type": "n8n-nodes-base.set", "typeVersion": 3.4, "position": [900, -100]
+    }
+  ],
+  "connections": {
+    "Start": { "main": [[{ "node": "Daten", "type": "main", "index": 0 }]] },
+    "Daten": { "main": [[
+      { "node": "Zweig A", "type": "main", "index": 0 },
+      { "node": "Zweig B", "type": "main", "index": 0 },
+      { "node": "Zweig C", "type": "main", "index": 0 }
+    ]] },
+    "Zweig A": { "main": [[
+      { "node": "Merge Append", "type": "main", "index": 0 },
+      { "node": "Merge Felder", "type": "main", "index": 0 },
+      { "node": "Merge Drei", "type": "main", "index": 0 },
+      { "node": "Merge Anreichern", "type": "main", "index": 0 }
+    ]] },
+    "Zweig B": { "main": [[
+      { "node": "Merge Append", "type": "main", "index": 1 },
+      { "node": "Merge Position", "type": "main", "index": 0 },
+      { "node": "Merge Alle", "type": "main", "index": 0 },
+      { "node": "Merge Drei", "type": "main", "index": 1 },
+      { "node": "Merge Wahl", "type": "main", "index": 0 }
+    ]] },
+    "Zweig C": { "main": [[
+      { "node": "Merge Position", "type": "main", "index": 1 },
+      { "node": "Merge Felder", "type": "main", "index": 1 },
+      { "node": "Merge Alle", "type": "main", "index": 1 },
+      { "node": "Merge Drei", "type": "main", "index": 2 },
+      { "node": "Merge Wahl", "type": "main", "index": 1 },
+      { "node": "Merge Anreichern", "type": "main", "index": 1 }
+    ]] },
+    "Merge Position": { "main": [[{ "node": "Nach Position", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

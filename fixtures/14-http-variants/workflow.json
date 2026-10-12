@@ -1,0 +1,92 @@
+{
+  "name": "14 HTTP-Varianten",
+  "nodes": [
+    { "parameters": {}, "id": "x1", "name": "Start", "type": "n8n-nodes-base.manualTrigger", "typeVersion": 1, "position": [0, 0] },
+    { "parameters": { "jsCode": "return [{ json: { id: 7, name: 'Anna Müller', tags: ['a', 'b'] } }];" }, "id": "x2", "name": "Daten", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [200, 0] },
+    {
+      "parameters": {
+        "method": "POST", "url": "http://127.0.0.1:18089/echo/json",
+        "sendHeaders": true, "headerParameters": { "parameters": [ { "name": "X-Kunde", "value": "={{ $json.id }}" } ] },
+        "sendBody": true, "bodyParameters": { "parameters": [ { "name": "name", "value": "={{ $json.name }}" }, { "name": "meta.quelle", "value": "flow" } ] },
+        "options": {}
+      },
+      "id": "x3", "name": "POST JSON", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [400, -400]
+    },
+    {
+      "parameters": {
+        "method": "POST", "url": "http://127.0.0.1:18089/echo/json-raw",
+        "sendBody": true, "specifyBody": "json", "jsonBody": "={\n  \"id\": {{ $json.id }},\n  \"tags\": {{ JSON.stringify($json.tags) }}\n}",
+        "options": {}
+      },
+      "id": "x4", "name": "POST JSON roh", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [400, -300]
+    },
+    {
+      "parameters": {
+        "method": "POST", "url": "http://127.0.0.1:18089/echo/form",
+        "sendBody": true, "contentType": "form-urlencoded", "bodyParameters": { "parameters": [ { "name": "name", "value": "={{ $json.name }}" }, { "name": "wert", "value": "a&b=c" } ] },
+        "options": {}
+      },
+      "id": "x5", "name": "POST Formular", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [400, -200]
+    },
+    {
+      "parameters": {
+        "url": "http://127.0.0.1:18089/echo/query?fest=1",
+        "sendQuery": true, "queryParameters": { "parameters": [ { "name": "q", "value": "a b:c,ä/[x]" }, { "name": "q", "value": "zwei" } ] },
+        "options": {}
+      },
+      "id": "x6", "name": "GET Query", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.3, "position": [400, -100]
+    },
+    {
+      "parameters": { "url": "http://127.0.0.1:18089/text/hallo", "options": {} },
+      "id": "x7", "name": "GET Text", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [400, 0]
+    },
+    {
+      "parameters": { "url": "http://127.0.0.1:18089/fehlt", "options": { "response": { "response": { "neverError": true, "fullResponse": true } } } },
+      "id": "x8", "name": "404 neverError", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [400, 100]
+    },
+    {
+      "parameters": { "url": "http://127.0.0.1:18089/fehlt", "options": {} },
+      "id": "x9", "name": "404 continue", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [400, 200], "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": { "url": "http://127.0.0.1:18089/bild.png", "options": {} },
+      "id": "x10", "name": "GET Datei", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [400, 300]
+    },
+    {
+      "parameters": { "url": "http://127.0.0.1:18089/liste", "options": { "response": { "response": { "responseFormat": "json" } } } },
+      "id": "x11", "name": "GET Liste", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [400, 400]
+    },
+    {
+      "parameters": { "url": "http://127.0.0.1:18089/fehlt", "options": {} },
+      "id": "x12", "name": "404 Fehlerausgang", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [400, 500], "onError": "continueErrorOutput"
+    },
+    { "parameters": {}, "id": "x13", "name": "Fehler 404", "type": "n8n-nodes-base.noOp", "typeVersion": 1, "position": [600, 560] },
+    {
+      "parameters": { "url": "http://127.0.0.1:18089/umleitung", "options": {} },
+      "id": "x14", "name": "Weiterleitung", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [400, 700]
+    },
+    {
+      "parameters": { "url": "http://127.0.0.1:18089/text/hallo", "options": { "response": { "response": { "fullResponse": true, "responseFormat": "text", "outputPropertyName": "inhalt" } } } },
+      "id": "x15", "name": "Text voll", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [400, 800]
+    }
+  ],
+  "connections": {
+    "Start": { "main": [[{ "node": "Daten", "type": "main", "index": 0 }]] },
+    "Daten": { "main": [[
+      { "node": "POST JSON", "type": "main", "index": 0 },
+      { "node": "POST JSON roh", "type": "main", "index": 0 },
+      { "node": "POST Formular", "type": "main", "index": 0 },
+      { "node": "GET Query", "type": "main", "index": 0 },
+      { "node": "GET Text", "type": "main", "index": 0 },
+      { "node": "404 neverError", "type": "main", "index": 0 },
+      { "node": "404 continue", "type": "main", "index": 0 },
+      { "node": "GET Datei", "type": "main", "index": 0 },
+      { "node": "GET Liste", "type": "main", "index": 0 },
+      { "node": "404 Fehlerausgang", "type": "main", "index": 0 },
+      { "node": "Weiterleitung", "type": "main", "index": 0 },
+      { "node": "Text voll", "type": "main", "index": 0 }
+    ]] },
+    "404 Fehlerausgang": { "main": [[], [{ "node": "Fehler 404", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

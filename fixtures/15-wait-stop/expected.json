@@ -1,0 +1,85 @@
+{
+  "status": "error",
+  "lastNodeExecuted": "Stop",
+  "error": "Abbruch: kaputt",
+  "order": [
+    "Start",
+    "Daten",
+    "Warten",
+    "Stop"
+  ],
+  "nodes": {
+    "Start": [
+      {
+        "status": "success",
+        "source": [],
+        "main": [
+          [
+            {
+              "json": {},
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Daten": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Start"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "grund": "kaputt"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Warten": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "grund": "kaputt"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "status": "error",
+        "source": [
+          {
+            "previousNode": "Warten"
+          }
+        ],
+        "main": [],
+        "error": "Abbruch: kaputt"
+      }
+    ]
+  }
+}

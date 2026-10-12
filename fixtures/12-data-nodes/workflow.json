@@ -1,0 +1,57 @@
+{
+  "name": "12 Datum, Krypto, HTML, XML",
+  "nodes": [
+    { "parameters": {}, "id": "d1", "name": "Start", "type": "n8n-nodes-base.manualTrigger", "typeVersion": 1, "position": [0, 0] },
+    {
+      "parameters": { "jsCode": "return [\n  { json: { datum: '2024-03-15T10:30:00.000Z', lokal: '2024-03-15 08:00', ts: 1710498600, text: 'hallo welt', html: '<div><h1 class=\"t\">Titel</h1><ul><li>Eins</li><li> Zwei </li></ul><a href=\"/x\">Link</a></div>', xml: '<root><item id=\"1\">A</item><item id=\"2\">B</item></root>' } },\n  { json: { datum: '2023-12-31T23:59:59.000Z', lokal: '2024-01-01 00:00', ts: 1704067200000, text: 'Zweiter Text', html: '<div><h1 class=\"t\">Noch einer</h1><ul><li>Drei</li></ul><a href=\"/y\">Y</a></div>', xml: '<root><item id=\"3\">C</item></root>' } }\n];" },
+      "id": "d2", "name": "Daten", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [200, 0]
+    },
+    { "parameters": { "operation": "formatDate", "date": "={{ $json.datum }}", "format": "custom", "customFormat": "dd.MM.yyyy HH:mm", "options": { "timezone": true } }, "id": "d3", "name": "Datum formatieren", "type": "n8n-nodes-base.dateTime", "typeVersion": 2, "position": [400, -400] },
+    { "parameters": { "operation": "addToDate", "magnitude": "={{ $json.datum }}", "duration": 3, "outputFieldName": "plus", "options": { "includeInputFields": true } }, "id": "d4", "name": "Datum plus", "type": "n8n-nodes-base.dateTime", "typeVersion": 2, "position": [400, -300] },
+    { "parameters": { "operation": "getTimeBetweenDates", "startDate": "={{ $json.datum }}", "endDate": "2024-06-01T00:00:00.000Z", "units": ["day", "hour"], "options": {} }, "id": "d5", "name": "Datum Differenz", "type": "n8n-nodes-base.dateTime", "typeVersion": 2, "position": [400, -200] },
+    { "parameters": { "operation": "extractDate", "date": "={{ $json.ts }}", "part": "year" }, "id": "d6", "name": "Datum Teil", "type": "n8n-nodes-base.dateTime", "typeVersion": 2, "position": [400, -100] },
+    { "parameters": { "operation": "roundDate", "date": "={{ $json.datum }}", "mode": "roundUp", "to": "day" }, "id": "d7", "name": "Datum runden", "type": "n8n-nodes-base.dateTime", "typeVersion": 2, "position": [400, 0] },
+    { "parameters": { "type": "SHA256", "value": "={{ $json.text }}", "dataPropertyName": "hash" }, "id": "d8", "name": "Hash", "type": "n8n-nodes-base.crypto", "typeVersion": 1, "position": [400, 100] },
+    { "parameters": { "action": "hmac", "type": "SHA256", "value": "={{ $json.text }}", "dataPropertyName": "sig.wert", "secret": "geheim", "encoding": "base64" }, "id": "d9", "name": "Hmac", "type": "n8n-nodes-base.crypto", "typeVersion": 1, "position": [400, 200] },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent", "dataPropertyName": "html",
+        "extractionValues": { "values": [
+          { "key": "titel", "cssSelector": "h1" },
+          { "key": "punkte", "cssSelector": "li", "returnArray": true },
+          { "key": "link", "cssSelector": "a", "returnValue": "attribute", "attribute": "href" },
+          { "key": "roh", "cssSelector": "ul", "returnValue": "html" }
+        ] },
+        "options": {}
+      },
+      "id": "d10", "name": "HTML extrahieren", "type": "n8n-nodes-base.html", "typeVersion": 1.2, "position": [400, 300]
+    },
+    { "parameters": { "operation": "convertToHtmlTable", "options": { "capitalize": true } }, "id": "d11", "name": "HTML Tabelle", "type": "n8n-nodes-base.html", "typeVersion": 1.2, "position": [400, 400] },
+    { "parameters": { "html": "<p>Hallo {{ $json.text }}</p>" }, "id": "d12", "name": "HTML Vorlage", "type": "n8n-nodes-base.html", "typeVersion": 1.2, "position": [400, 500] },
+    { "parameters": { "dataPropertyName": "xml", "options": {} }, "id": "d13", "name": "XML zu JSON", "type": "n8n-nodes-base.xml", "typeVersion": 1, "position": [400, 600] },
+    {
+      "parameters": { "jsCode": "return [{ json: { person: { name: 'Anna', alter: 30 }, liste: ['a', 'b'] } }];" },
+      "id": "d14", "name": "Objekt", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [400, 700]
+    },
+    { "parameters": { "mode": "jsonToxml", "options": { "headless": true } }, "id": "d15", "name": "JSON zu XML", "type": "n8n-nodes-base.xml", "typeVersion": 1, "position": [600, 700] }
+  ],
+  "connections": {
+    "Start": { "main": [[{ "node": "Daten", "type": "main", "index": 0 }]] },
+    "Daten": { "main": [[
+      { "node": "Datum formatieren", "type": "main", "index": 0 },
+      { "node": "Datum plus", "type": "main", "index": 0 },
+      { "node": "Datum Differenz", "type": "main", "index": 0 },
+      { "node": "Datum Teil", "type": "main", "index": 0 },
+      { "node": "Datum runden", "type": "main", "index": 0 },
+      { "node": "Hash", "type": "main", "index": 0 },
+      { "node": "Hmac", "type": "main", "index": 0 },
+      { "node": "HTML extrahieren", "type": "main", "index": 0 },
+      { "node": "HTML Tabelle", "type": "main", "index": 0 },
+      { "node": "HTML Vorlage", "type": "main", "index": 0 },
+      { "node": "XML zu JSON", "type": "main", "index": 0 },
+      { "node": "Objekt", "type": "main", "index": 0 }
+    ]] },
+    "Objekt": { "main": [[{ "node": "JSON zu XML", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}
