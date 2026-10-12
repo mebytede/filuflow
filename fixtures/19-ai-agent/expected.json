@@ -1,0 +1,408 @@
+{
+  "status": "success",
+  "lastNodeExecuted": "Agent Claude",
+  "order": [
+    "Start",
+    "Fragen",
+    "Gedächtnis",
+    "GPT",
+    "Gedächtnis",
+    "GPT",
+    "Wortzähler",
+    "Rechner",
+    "Agent OpenAI",
+    "Gedächtnis",
+    "GPT",
+    "Gedächtnis",
+    "Gedächtnis",
+    "GPT",
+    "Gedächtnis",
+    "Nur eine",
+    "Agent Gemini",
+    "Gemini",
+    "Rechner 2",
+    "Gemini",
+    "Claude",
+    "Wortzähler 2",
+    "Agent Claude",
+    "Claude"
+  ],
+  "nodes": {
+    "Start": [
+      {
+        "status": "success",
+        "source": [],
+        "main": [
+          [
+            {
+              "json": {},
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Fragen": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Start"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "frage": "Was ist 21 mal 2?"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "frage": "Wie viele Wörter hat eins zwei drei?"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Gedächtnis": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent OpenAI",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      },
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent OpenAI",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      },
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent OpenAI",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      },
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent OpenAI",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      },
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent OpenAI",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      },
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent OpenAI",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      }
+    ],
+    "GPT": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent OpenAI",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      },
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent OpenAI",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      },
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent OpenAI",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      },
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent OpenAI",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      }
+    ],
+    "Rechner": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent OpenAI"
+          }
+        ],
+        "main": []
+      }
+    ],
+    "Wortzähler": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent OpenAI"
+          }
+        ],
+        "main": []
+      }
+    ],
+    "Agent OpenAI": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Fragen"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "output": "Das Ergebnis ist 42."
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "output": "Es sind 3 Wörter."
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Nur eine": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent OpenAI"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "output": "Das Ergebnis ist 42."
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Gemini": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent Gemini",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      },
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent Gemini",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      }
+    ],
+    "Rechner 2": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent Gemini",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      }
+    ],
+    "Agent Gemini": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Nur eine"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "output": "7 hoch 2 ist 49."
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Claude": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent Claude",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      },
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent Claude",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      }
+    ],
+    "Wortzähler 2": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent Claude"
+          }
+        ],
+        "main": []
+      }
+    ],
+    "Agent Claude": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent Gemini"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "output": "Es sind 4 Wörter.",
+                "intermediateSteps": [
+                  {
+                    "action": {
+                      "tool": "Wortz_hler_2",
+                      "toolInput": "a b c d",
+                      "log": "Calling Wortzähler 2 with input: {\"input\":\"a b c d\",\"id\":\"toolu_wz\"}",
+                      "messageLog": [
+                        {
+                          "lc": 1,
+                          "type": "constructor",
+                          "id": [
+                            "langchain_core",
+                            "messages",
+                            "AIMessage"
+                          ],
+                          "kwargs": {
+                            "content": "Calling Wortzähler 2 with input: {\"input\":\"a b c d\",\"id\":\"toolu_wz\"}",
+                            "tool_calls": [
+                              {
+                                "id": "toolu_wz",
+                                "name": "Wortz_hler_2",
+                                "args": {
+                                  "input": "a b c d",
+                                  "id": "toolu_wz"
+                                },
+                                "type": "tool_call",
+                                "additional_kwargs": {}
+                              }
+                            ],
+                            "invalid_tool_calls": [],
+                            "additional_kwargs": {},
+                            "response_metadata": {}
+                          }
+                        }
+                      ],
+                      "toolCallId": "toolu_wz",
+                      "type": "tool_call"
+                    },
+                    "observation": "[{\"response\":\"4\"}]"
+                  }
+                ]
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ]
+  }
+}

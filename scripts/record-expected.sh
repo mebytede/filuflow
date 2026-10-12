@@ -40,7 +40,7 @@ fi
 [[ ${#NAMES[@]} -eq 0 ]] && { echo "Nichts zu tun."; exit 0; }
 
 # Mock-Server für HTTP-Fixtures
-MOCK_LOG="$WORK/requests.jsonl" node "$ROOT/scripts/mock-server.mjs" "$FIXTURES" 18089 > "$WORK/mock.log" 2>&1 &
+MOCK_LOG="$WORK/requests.jsonl" MOCK_UNMATCHED="$WORK/unmatched.jsonl" node "$ROOT/scripts/mock-server.mjs" "$FIXTURES" 18089 > "$WORK/mock.log" 2>&1 &
 MOCK_PID=$!
 sleep 1
 
@@ -108,6 +108,11 @@ if [[ ${#BATCH[@]} -gt 0 ]]; then
       ' "$WORK/requests.jsonl" "$name" "$FIXTURES/$name/requests.json"
     fi
   done
+fi
+
+if [[ -s "$WORK/unmatched.jsonl" ]]; then
+  echo "Anfragen ohne passenden Mock:" >&2
+  cut -c1-3000 "$WORK/unmatched.jsonl" >&2
 fi
 
 for name in "${WEBHOOK[@]}"; do

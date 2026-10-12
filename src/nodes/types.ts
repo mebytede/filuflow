@@ -44,6 +44,34 @@ export interface WebhookResponse {
   binary?: { data: Buffer; mimeType?: string; fileName?: string };
 }
 
+/**
+ * Anfrage eines Nodes an die Engine, andere Nodes auszuführen (Agent V3: Tools).
+ * n8n packages/workflow/src/interfaces.ts EngineRequest
+ */
+export interface EngineAction {
+  actionType: 'ExecutionNodeAction';
+  nodeName: string;
+  input: Record<string, unknown>;
+  type: string;
+  id: string;
+  metadata: { itemIndex?: number; [key: string]: unknown };
+}
+
+export interface EngineRequest<M = unknown> {
+  actions: EngineAction[];
+  metadata: M;
+}
+
+/** Antwort der Engine nach Ausführung der angefragten Nodes (n8n EngineResponse) */
+export interface EngineResponse<M = unknown> {
+  actionResponses: Array<{ action: EngineAction; data: import('../types.js').TaskData }>;
+  metadata: M;
+}
+
+export function isEngineRequest(value: unknown): value is EngineRequest {
+  return !!value && typeof value === 'object' && !Array.isArray(value) && 'actions' in value;
+}
+
 export interface ExecContext {
   readonly node: WorkflowNode;
   readonly workflow: WorkflowGraph;
@@ -87,6 +115,8 @@ export interface ExecContext {
   addOutputData(connectionType: string, index: number, data: Item[][] | Error, sourceRunIndex?: number): void;
   /** Nächster Run-Index dieses Nodes */
   getNextRunIndex(): number;
+  /** Ergebnisse der angefragten Nodes, wenn der Node nach einer EngineRequest fortgesetzt wird */
+  readonly engineResponse?: EngineResponse;
   /** Eltern-Node bei Sub-Nodes */
   readonly parent?: { node: WorkflowNode; runIndex: number };
   /** Code-Node: console.log ins Execution-Log */
@@ -128,7 +158,7 @@ export interface NodeType {
    * Ausführen. `null` bedeutet: Node lief erfolgreich, aber der Zweig endet
    * (n8n-Semantik: nodeSuccessData === null).
    */
-  execute(ctx: ExecContext): Promise<NodeOutput | null>;
+  execute(ctx: ExecContext): Promise<NodeOutput | null | EngineRequest>;
   /** Instanz für Sub-Nodes (KI): wird vom Eltern-Node über getSubNodeInstance geholt */
   supplyData?(ctx: ExecContext, itemIndex: number): Promise<unknown>;
 }

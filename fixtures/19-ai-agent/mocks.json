@@ -1,0 +1,279 @@
+[
+  {
+    "method": "POST",
+    "path": "/v1/chat/completions",
+    "bodyContains": [
+      "Wörter hat",
+      "call_wz"
+    ],
+    "log": true,
+    "body": {
+      "id": "chatcmpl-2",
+      "object": "chat.completion",
+      "created": 1700000000,
+      "model": "gpt-4o-mini-2024-07-18",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "Es sind 3 Wörter.",
+            "refusal": null,
+            "annotations": []
+          },
+          "logprobs": null,
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 80,
+        "completion_tokens": 9,
+        "total_tokens": 89
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/v1/chat/completions",
+    "bodyContains": [
+      "Wörter hat"
+    ],
+    "log": true,
+    "body": {
+      "id": "chatcmpl-3",
+      "object": "chat.completion",
+      "created": 1700000000,
+      "model": "gpt-4o-mini-2024-07-18",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "call_wz",
+                "type": "function",
+                "function": {
+                  "name": "Wortz_hler",
+                  "arguments": "{\"input\": \"eins zwei drei\"}"
+                }
+              }
+            ],
+            "refusal": null,
+            "annotations": []
+          },
+          "logprobs": null,
+          "finish_reason": "tool_calls"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 70,
+        "completion_tokens": 15,
+        "total_tokens": 85
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/v1/chat/completions",
+    "bodyContains": [
+      "21 mal 2",
+      "call_calc"
+    ],
+    "log": true,
+    "body": {
+      "id": "chatcmpl-2",
+      "object": "chat.completion",
+      "created": 1700000000,
+      "model": "gpt-4o-mini-2024-07-18",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "Das Ergebnis ist 42.",
+            "refusal": null,
+            "annotations": []
+          },
+          "logprobs": null,
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 80,
+        "completion_tokens": 9,
+        "total_tokens": 89
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/v1/chat/completions",
+    "bodyContains": [
+      "21 mal 2"
+    ],
+    "log": true,
+    "body": {
+      "id": "chatcmpl-3",
+      "object": "chat.completion",
+      "created": 1700000000,
+      "model": "gpt-4o-mini-2024-07-18",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "call_calc",
+                "type": "function",
+                "function": {
+                  "name": "Rechner",
+                  "arguments": "{\"input\": \"21*2\"}"
+                }
+              }
+            ],
+            "refusal": null,
+            "annotations": []
+          },
+          "logprobs": null,
+          "finish_reason": "tool_calls"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 70,
+        "completion_tokens": 15,
+        "total_tokens": 85
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "pathPrefix": "/v1beta/models/gemini-2.5-flash:generateContent",
+    "bodyContains": [
+      "7 hoch 2",
+      "functionResponse"
+    ],
+    "log": true,
+    "body": {
+      "candidates": [
+        {
+          "content": {
+            "parts": [
+              {
+                "text": "7 hoch 2 ist 49."
+              }
+            ],
+            "role": "model"
+          },
+          "finishReason": "STOP",
+          "index": 0
+        }
+      ],
+      "usageMetadata": {
+        "promptTokenCount": 70,
+        "candidatesTokenCount": 8,
+        "totalTokenCount": 78
+      },
+      "modelVersion": "gemini-2.5-flash"
+    }
+  },
+  {
+    "method": "POST",
+    "pathPrefix": "/v1beta/models/gemini-2.5-flash:generateContent",
+    "bodyContains": [
+      "7 hoch 2"
+    ],
+    "log": true,
+    "body": {
+      "candidates": [
+        {
+          "content": {
+            "parts": [
+              {
+                "functionCall": {
+                  "name": "Rechner 2",
+                  "args": {
+                    "input": "7^2"
+                  }
+                }
+              }
+            ],
+            "role": "model"
+          },
+          "finishReason": "STOP",
+          "index": 0
+        }
+      ],
+      "usageMetadata": {
+        "promptTokenCount": 60,
+        "candidatesTokenCount": 5,
+        "totalTokenCount": 65
+      },
+      "modelVersion": "gemini-2.5-flash"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/v1/messages",
+    "bodyContains": [
+      "a b c d",
+      "toolu_wz"
+    ],
+    "log": true,
+    "body": {
+      "id": "msg_03",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-sonnet-4-5-20250929",
+      "content": [
+        {
+          "type": "text",
+          "text": "Es sind 4 Wörter."
+        }
+      ],
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "usage": {
+        "input_tokens": 120,
+        "output_tokens": 10
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/v1/messages",
+    "bodyContains": [
+      "a b c d"
+    ],
+    "log": true,
+    "body": {
+      "id": "msg_02",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-sonnet-4-5-20250929",
+      "content": [
+        {
+          "type": "text",
+          "text": "Ich zähle nach."
+        },
+        {
+          "type": "tool_use",
+          "id": "toolu_wz",
+          "name": "Wortz_hler_2",
+          "input": {
+            "input": "a b c d"
+          }
+        }
+      ],
+      "stop_reason": "tool_use",
+      "stop_sequence": null,
+      "usage": {
+        "input_tokens": 90,
+        "output_tokens": 20
+      }
+    }
+  }
+]

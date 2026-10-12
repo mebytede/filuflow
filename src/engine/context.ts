@@ -1,5 +1,5 @@
 // Ausführungskontext eines Nodes (n8n ExecuteContext).
-import type { ExecContext, ExecuteWorkflowRequest, ExecuteWorkflowResult, GetParamOptions, WebhookResponse } from '../nodes/types.js';
+import type { EngineResponse, ExecContext, ExecuteWorkflowRequest, ExecuteWorkflowResult, GetParamOptions, WebhookResponse } from '../nodes/types.js';
 import type { ExecutionMode, Item, SourceData, WorkflowNode } from '../types.js';
 import type { WorkflowGraph } from './graph.js';
 import type { Logger } from '../logger.js';
@@ -36,6 +36,7 @@ export interface ContextInit {
   runIndex: number;
   /** Sub-Node-Kontext: Eltern-Node (n8n SupplyDataContext.parentNode) */
   parent?: { node: WorkflowNode; runIndex: number };
+  engineResponse?: EngineResponse;
 }
 
 export class NodeExecutionContext implements ExecContext {
@@ -57,6 +58,7 @@ export class NodeExecutionContext implements ExecContext {
   private readonly executeData: ExecuteData;
   readonly connectionInputData: Item[];
   readonly parent?: { node: WorkflowNode; runIndex: number };
+  readonly engineResponse?: EngineResponse;
 
   constructor(init: ContextInit) {
     const ex = init.executor;
@@ -77,6 +79,7 @@ export class NodeExecutionContext implements ExecContext {
     this.logger = ex.logger.child({ node: init.node.name });
     this.triggerData = ex.triggerItems;
     this.parent = init.parent;
+    this.engineResponse = init.engineResponse;
   }
 
   getDataProxy(itemIndex: number, options: { cloneInput?: boolean; contextNodeName?: string } = {}): Record<string, unknown> {
@@ -173,9 +176,14 @@ export class NodeExecutionContext implements ExecContext {
     return (await this.executor.supplySubNode(sub, this, type, itemIndex)) as T;
   }
 
+  /** Reihenfolge wie n8n getInputConnectionData (getParentNodes, Tiefe 1) */
   async getSubNodeInstances<T = unknown>(type: string, itemIndex = 0): Promise<T[]> {
     const out: T[] = [];
-    for (const sub of this.getSubNodes(type)) out.push((await this.executor.supplySubNode(sub, this, type, itemIndex)) as T);
+    const nodes = this.workflow
+      .getParentNodes(this.node.name, type, 1)
+      .map((n) => this.workflow.getNode(n))
+      .filter((n): n is WorkflowNode => !!n && !n.disabled);
+    for (const sub of nodes) out.push((await this.executor.supplySubNode(sub, this, type, itemIndex)) as T);
     return out;
   }
 

@@ -1,0 +1,451 @@
+{
+  "status": "error",
+  "lastNodeExecuted": "Stimmung",
+  "error": "Error during parsing of LLM output, please check your LLM model and configuration",
+  "order": [
+    "Start",
+    "Texte",
+    "Claude Kette",
+    "Claude",
+    "Claude",
+    "GPT Kette",
+    "GPT",
+    "GPT",
+    "Extraktion",
+    "GPT 2",
+    "GPT 2",
+    "Klassifizieren",
+    "Claude 2",
+    "Claude 2",
+    "Rechnung Ziel",
+    "Stimmung",
+    "Gemini S",
+    "Positiv",
+    "Anfrage Ziel",
+    "Stimmung",
+    "Gemini S"
+  ],
+  "nodes": {
+    "Start": [
+      {
+        "status": "success",
+        "source": [],
+        "main": [
+          [
+            {
+              "json": {},
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Texte": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Start"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "text": "Der Lieferant Müller GmbH schickt am 2024-03-01 eine Rechnung über 120 Euro.",
+                "kurz": "Toll, alles bestens!"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "text": "Herr Schmidt fragt nach dem Status seiner Bestellung.",
+                "kurz": "Leider kaputt angekommen."
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Claude": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Claude Kette",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      },
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Claude Kette",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      }
+    ],
+    "Claude Kette": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Texte"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "text": "Eine Rechnung von Müller."
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "text": "Eine Statusanfrage."
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "GPT": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "GPT Kette",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      },
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "GPT Kette",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      }
+    ],
+    "GPT Kette": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Claude Kette"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "text": "Müller GmbH stellt 120 Euro in Rechnung."
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "text": "Statusfrage von Herrn Schmidt."
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "GPT 2": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Extraktion",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      },
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Extraktion",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      }
+    ],
+    "Extraktion": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "GPT Kette"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "output": {
+                  "firma": "Müller GmbH",
+                  "betrag": 120,
+                  "datum": "2024-03-01"
+                }
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "output": {
+                  "firma": "unbekannt",
+                  "dringend": false
+                }
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Claude 2": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Klassifizieren",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      },
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Klassifizieren",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      }
+    ],
+    "Klassifizieren": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Extraktion"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "output": {
+                  "firma": "Müller GmbH",
+                  "betrag": 120,
+                  "datum": "2024-03-01"
+                }
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ],
+          [
+            {
+              "json": {
+                "output": {
+                  "firma": "unbekannt",
+                  "dringend": false
+                }
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ],
+          []
+        ]
+      }
+    ],
+    "Rechnung Ziel": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Klassifizieren"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "output": {
+                  "firma": "Müller GmbH",
+                  "betrag": 120,
+                  "datum": "2024-03-01"
+                }
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Gemini S": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Stimmung",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      },
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Stimmung",
+            "previousNodeRun": 1
+          }
+        ],
+        "main": []
+      }
+    ],
+    "Stimmung": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Rechnung Ziel"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "output": {
+                  "firma": "Müller GmbH",
+                  "betrag": 120,
+                  "datum": "2024-03-01"
+                },
+                "sentimentAnalysis": {
+                  "category": "Positive",
+                  "strength": 0.9,
+                  "confidence": 0.8
+                }
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ],
+          [],
+          []
+        ]
+      },
+      {
+        "status": "error",
+        "source": [
+          {
+            "previousNode": "Anfrage Ziel"
+          }
+        ],
+        "main": [],
+        "error": "Error during parsing of LLM output, please check your LLM model and configuration"
+      }
+    ],
+    "Positiv": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Stimmung"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "output": {
+                  "firma": "Müller GmbH",
+                  "betrag": 120,
+                  "datum": "2024-03-01"
+                },
+                "sentimentAnalysis": {
+                  "category": "Positive",
+                  "strength": 0.9,
+                  "confidence": 0.8
+                }
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Anfrage Ziel": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Klassifizieren",
+            "previousNodeOutput": 1
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "output": {
+                  "firma": "unbekannt",
+                  "dringend": false
+                }
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ]
+  }
+}

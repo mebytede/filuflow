@@ -1,0 +1,277 @@
+[
+  {
+    "method": "POST",
+    "path": "/v1/messages",
+    "bodyContains": "Antworte knapp: Der Lieferant",
+    "log": true,
+    "body": {
+      "id": "msg_01",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-sonnet-4-5-20250929",
+      "content": [
+        {
+          "type": "text",
+          "text": "Eine Rechnung von Müller."
+        }
+      ],
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "usage": {
+        "input_tokens": 30,
+        "output_tokens": 12
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/v1/messages",
+    "bodyContains": "Antworte knapp: Herr Schmidt",
+    "log": true,
+    "body": {
+      "id": "msg_01",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-sonnet-4-5-20250929",
+      "content": [
+        {
+          "type": "text",
+          "text": "Eine Statusanfrage."
+        }
+      ],
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "usage": {
+        "input_tokens": 30,
+        "output_tokens": 12
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/v1/messages",
+    "bodyContains": "Der Lieferant M",
+    "log": true,
+    "body": {
+      "id": "msg_01",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-3-5-haiku-20241022",
+      "content": [
+        {
+          "type": "text",
+          "text": "```json\n{\"Rechnung\": true, \"Anfrage\": false, \"fallback\": false}\n```"
+        }
+      ],
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "usage": {
+        "input_tokens": 30,
+        "output_tokens": 12
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/v1/messages",
+    "bodyContains": "Herr Schmidt fragt",
+    "log": true,
+    "body": {
+      "id": "msg_01",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-3-5-haiku-20241022",
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"Rechnung\": false, \"Anfrage\": true, \"fallback\": false}"
+        }
+      ],
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "usage": {
+        "input_tokens": 30,
+        "output_tokens": 12
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/v1/chat/completions",
+    "bodyContains": [
+      "expert extraction algorithm",
+      "Lieferant"
+    ],
+    "log": true,
+    "body": {
+      "id": "chatcmpl-1",
+      "object": "chat.completion",
+      "created": 1700000000,
+      "model": "gpt-4o-mini-2024-07-18",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "```json\n{\"firma\": \"Müller GmbH\", \"betrag\": 120, \"datum\": \"2024-03-01\"}\n```",
+            "refusal": null,
+            "annotations": []
+          },
+          "logprobs": null,
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 40,
+        "completion_tokens": 9,
+        "total_tokens": 49
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/v1/chat/completions",
+    "bodyContains": "Der Lieferant",
+    "log": true,
+    "body": {
+      "id": "chatcmpl-1",
+      "object": "chat.completion",
+      "created": 1700000000,
+      "model": "gpt-4o-mini-2024-07-18",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "Müller GmbH stellt 120 Euro in Rechnung.",
+            "refusal": null,
+            "annotations": []
+          },
+          "logprobs": null,
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 40,
+        "completion_tokens": 9,
+        "total_tokens": 49
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/v1/chat/completions",
+    "bodyContains": "expert extraction algorithm",
+    "log": true,
+    "body": {
+      "id": "chatcmpl-1",
+      "object": "chat.completion",
+      "created": 1700000000,
+      "model": "gpt-4o-mini-2024-07-18",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "{\"firma\": \"unbekannt\", \"dringend\": false}",
+            "refusal": null,
+            "annotations": []
+          },
+          "logprobs": null,
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 40,
+        "completion_tokens": 9,
+        "total_tokens": 49
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/v1/chat/completions",
+    "bodyContains": "Herr Schmidt",
+    "log": true,
+    "body": {
+      "id": "chatcmpl-1",
+      "object": "chat.completion",
+      "created": 1700000000,
+      "model": "gpt-4o-mini-2024-07-18",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "Statusfrage von Herrn Schmidt.",
+            "refusal": null,
+            "annotations": []
+          },
+          "logprobs": null,
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 40,
+        "completion_tokens": 9,
+        "total_tokens": 49
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "pathPrefix": "/v1beta/models/gemini-2.5-flash:generateContent",
+    "bodyContains": "Toll, alles",
+    "log": true,
+    "body": {
+      "candidates": [
+        {
+          "content": {
+            "parts": [
+              {
+                "text": "```json\n{\"sentiment\": \"Positive\", \"strength\": 0.9, \"confidence\": 0.8}\n```"
+              }
+            ],
+            "role": "model"
+          },
+          "finishReason": "STOP",
+          "index": 0
+        }
+      ],
+      "usageMetadata": {
+        "promptTokenCount": 50,
+        "candidatesTokenCount": 10,
+        "totalTokenCount": 60
+      },
+      "modelVersion": "gemini-2.5-flash"
+    }
+  },
+  {
+    "method": "POST",
+    "pathPrefix": "/v1beta/models/gemini-2.5-flash:generateContent",
+    "bodyContains": "Leider kaputt",
+    "log": true,
+    "body": {
+      "candidates": [
+        {
+          "content": {
+            "parts": [
+              {
+                "text": "{\"sentiment\": \"negative\", \"strength\": 0.7, \"confidence\": 0.95}"
+              }
+            ],
+            "role": "model"
+          },
+          "finishReason": "STOP",
+          "index": 0
+        }
+      ],
+      "usageMetadata": {
+        "promptTokenCount": 50,
+        "candidatesTokenCount": 10,
+        "totalTokenCount": 60
+      },
+      "modelVersion": "gemini-2.5-flash"
+    }
+  }
+]

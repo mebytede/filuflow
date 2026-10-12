@@ -380,7 +380,8 @@ export function zodToJsonSchema(root: ZType): JsonSchema {
       seen.set(z, path);
     }
     const out = convert(z, path);
-    if (z.description && z.kind !== 'optional' && z.kind !== 'default') out.description = z.description;
+    // zod-to-json-schema addMeta: Beschreibung des jeweiligen Typs (auch bei optional) ans Ende
+    if (z.description) out.description = z.description;
     return out;
   };
   const convert = (z: ZType, path: string[]): JsonSchema => {

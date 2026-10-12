@@ -33,6 +33,15 @@ import { errorTriggerNode } from './errorTrigger.js';
 import { chainLlmNode } from './chainLlm.js';
 import { lmChatGoogleGeminiNode } from './lmChatGoogleGemini.js';
 import { outputParserStructuredNode } from './outputParserStructured.js';
+import { lmChatOpenAiNode } from './lmChatOpenAi.js';
+import { lmChatAnthropicNode } from './lmChatAnthropic.js';
+import { informationExtractorNode } from './informationExtractor.js';
+import { textClassifierNode } from './textClassifier.js';
+import { sentimentAnalysisNode } from './sentimentAnalysis.js';
+import { agentNode } from './agent.js';
+import { toolCalculatorNode } from './toolCalculator.js';
+import { toolCodeNode } from './toolCode.js';
+import { memoryBufferWindowNode } from './memoryBufferWindow.js';
 
 export const builtinNodeTypes: NodeType[] = [
   manualTriggerNode,
@@ -67,6 +76,15 @@ export const builtinNodeTypes: NodeType[] = [
   chainLlmNode,
   lmChatGoogleGeminiNode,
   outputParserStructuredNode,
+  lmChatOpenAiNode,
+  lmChatAnthropicNode,
+  informationExtractorNode,
+  textClassifierNode,
+  sentimentAnalysisNode,
+  agentNode,
+  toolCalculatorNode,
+  toolCodeNode,
+  memoryBufferWindowNode,
 ];
 
 let defaultRegistry: NodeRegistry | undefined;

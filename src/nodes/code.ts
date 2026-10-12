@@ -225,7 +225,7 @@ function validateNoDisallowedMethodsInRunForEach(code: string, itemIndex: number
   }
 }
 
-function buildContext(ctx: ExecContext, index: number, mode: string, logs: (level: 'log' | 'info' | 'warn' | 'error' | 'debug', args: unknown[]) => void) {
+export function buildContext(ctx: ExecContext, index: number, mode: string, logs: (level: 'log' | 'info' | 'warn' | 'error' | 'debug', args: unknown[]) => void) {
   const proxy = ctx.getDataProxy(index, { cloneInput: true });
   // n8n getSandboxContext: { $getNodeParameter, $getWorkflowStaticData, helpers, ...dataProxy }
   const context: Record<string, unknown> = {
@@ -279,7 +279,7 @@ function buildContext(ctx: ExecContext, index: number, mode: string, logs: (leve
   return context;
 }
 
-async function runInSandbox(ctx: ExecContext, code: string, context: Record<string, unknown>): Promise<unknown> {
+export async function runInSandbox(ctx: ExecContext, code: string, context: Record<string, unknown>): Promise<unknown> {
   const vmContext = vm.createContext(context, { codeGeneration: { strings: false, wasm: false }, name: `flowlite-code:${ctx.node.name}` });
   // Eine Zeile Präfix, damit Zeilennummern im Stack dem Code entsprechen (wie n8n "module.exports = async function() {…")
   const script = new vm.Script(`(async function() {${code}\n})()`, { filename: 'Code' });

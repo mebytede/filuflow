@@ -4,7 +4,8 @@
 // Antworten stehen in fixtures/<name>/mocks.json:
 //   [{ "method": "GET", "path": "/geo/search?name=Berlin", "status": 200,
 //      "headers": { "content-type": "application/json" }, "body": { ... } }]
-// "path" vergleicht Pfad + Query exakt; "pathPrefix" nur den Anfang; "bodyContains" verlangt einen Text im Body.
+// "path" vergleicht Pfad + Query exakt; "pathPrefix" nur den Anfang; "bodyContains" verlangt einen Text
+// (oder bei einem Array alle Texte) im Body.
 // Requests an Mocks mit "log": true werden mitgeschrieben (server.requests; mit MOCK_LOG=<datei> auch als JSON-Zeilen),
 // damit Golden-Tests die Anfragen von n8n und flowlite vergleichen können (z. B. Prompts an KI-APIs).
 // Zusätzlich: /echo/* liefert die Anfrage zurück (Methode, Pfad, Query, ausgewählte Header, Body).
@@ -79,7 +80,7 @@ export function startMockServer(fixturesDir, port = 18089) {
         (m) =>
           (m.method ?? 'GET').toUpperCase() === req.method &&
           (m.path ? m.path === url : url.startsWith(m.pathPrefix ?? '\u0000')) &&
-          (m.bodyContains === undefined || text.includes(m.bodyContains)),
+          (m.bodyContains === undefined || [].concat(m.bodyContains).every((needle) => text.includes(needle))),
       );
       if (mock?.log) {
         let parsedBody = text;
@@ -95,6 +96,8 @@ export function startMockServer(fixturesDir, port = 18089) {
         if (process.env.MOCK_LOG) appendFileSync(process.env.MOCK_LOG, `${JSON.stringify(entry)}\n`);
       }
       if (!mock) {
+        // Zur Fehlersuche: nicht passende Anfragen mitschreiben
+        if (process.env.MOCK_UNMATCHED) appendFileSync(process.env.MOCK_UNMATCHED, `${JSON.stringify({ method: req.method, url, body: text })}\n`);
         res.writeHead(404, { 'content-type': 'application/json' });
         res.end(JSON.stringify({ error: 'no mock', method: req.method, url }));
         return;

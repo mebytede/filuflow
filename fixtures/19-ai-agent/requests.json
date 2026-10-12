@@ -1,0 +1,496 @@
+[
+  {
+    "method": "POST",
+    "url": "/v1/chat/completions",
+    "headers": {
+      "authorization": "Bearer openai-test-key",
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "gpt-4o-mini",
+      "stream": false,
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "Wortz_hler",
+            "description": "Zählt die Wörter im Text",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "input": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "$schema": "http://json-schema.org/draft-07/schema#"
+            }
+          }
+        },
+        {
+          "type": "function",
+          "function": {
+            "name": "Rechner",
+            "description": "Useful for getting the result of a math expression. The input to this tool should be a valid mathematical expression that could be executed by a simple calculator.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "input": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "$schema": "http://json-schema.org/draft-07/schema#"
+            }
+          }
+        }
+      ],
+      "messages": [
+        {
+          "role": "system",
+          "content": "Du bist ein Rechenassistent."
+        },
+        {
+          "role": "user",
+          "content": "Was ist 21 mal 2?"
+        }
+      ]
+    }
+  },
+  {
+    "method": "POST",
+    "url": "/v1/chat/completions",
+    "headers": {
+      "authorization": "Bearer openai-test-key",
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "gpt-4o-mini",
+      "stream": false,
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "Wortz_hler",
+            "description": "Zählt die Wörter im Text",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "input": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "$schema": "http://json-schema.org/draft-07/schema#"
+            }
+          }
+        },
+        {
+          "type": "function",
+          "function": {
+            "name": "Rechner",
+            "description": "Useful for getting the result of a math expression. The input to this tool should be a valid mathematical expression that could be executed by a simple calculator.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "input": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "$schema": "http://json-schema.org/draft-07/schema#"
+            }
+          }
+        }
+      ],
+      "messages": [
+        {
+          "role": "system",
+          "content": "Du bist ein Rechenassistent."
+        },
+        {
+          "role": "user",
+          "content": "Wie viele Wörter hat eins zwei drei?"
+        }
+      ]
+    }
+  },
+  {
+    "method": "POST",
+    "url": "/v1/chat/completions",
+    "headers": {
+      "authorization": "Bearer openai-test-key",
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "gpt-4o-mini",
+      "stream": false,
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "Wortz_hler",
+            "description": "Zählt die Wörter im Text",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "input": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "$schema": "http://json-schema.org/draft-07/schema#"
+            }
+          }
+        },
+        {
+          "type": "function",
+          "function": {
+            "name": "Rechner",
+            "description": "Useful for getting the result of a math expression. The input to this tool should be a valid mathematical expression that could be executed by a simple calculator.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "input": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "$schema": "http://json-schema.org/draft-07/schema#"
+            }
+          }
+        }
+      ],
+      "messages": [
+        {
+          "role": "system",
+          "content": "Du bist ein Rechenassistent."
+        },
+        {
+          "role": "user",
+          "content": "Was ist 21 mal 2?"
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "tool_calls": [
+            {
+              "id": "call_calc",
+              "type": "function",
+              "function": {
+                "name": "Rechner",
+                "arguments": "{\"input\":\"21*2\",\"id\":\"call_calc\"}"
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "content": "[{\"response\":\"42\"}]",
+          "tool_call_id": "call_calc"
+        }
+      ]
+    }
+  },
+  {
+    "method": "POST",
+    "url": "/v1/chat/completions",
+    "headers": {
+      "authorization": "Bearer openai-test-key",
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "gpt-4o-mini",
+      "stream": false,
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "Wortz_hler",
+            "description": "Zählt die Wörter im Text",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "input": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "$schema": "http://json-schema.org/draft-07/schema#"
+            }
+          }
+        },
+        {
+          "type": "function",
+          "function": {
+            "name": "Rechner",
+            "description": "Useful for getting the result of a math expression. The input to this tool should be a valid mathematical expression that could be executed by a simple calculator.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "input": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "$schema": "http://json-schema.org/draft-07/schema#"
+            }
+          }
+        }
+      ],
+      "messages": [
+        {
+          "role": "system",
+          "content": "Du bist ein Rechenassistent."
+        },
+        {
+          "role": "user",
+          "content": "Was ist 21 mal 2?"
+        },
+        {
+          "role": "assistant",
+          "content": "[Used tools: Tool: Rechner, Input: \"21*2\", Result: [{\"response\":\"42\"}]] Das Ergebnis ist 42."
+        },
+        {
+          "role": "user",
+          "content": "Wie viele Wörter hat eins zwei drei?"
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "tool_calls": [
+            {
+              "id": "call_wz",
+              "type": "function",
+              "function": {
+                "name": "Wortz_hler",
+                "arguments": "{\"input\":\"eins zwei drei\",\"id\":\"call_wz\"}"
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "content": "[{\"response\":\"3\"}]",
+          "tool_call_id": "call_wz"
+        }
+      ]
+    }
+  },
+  {
+    "method": "POST",
+    "url": "/v1beta/models/gemini-2.5-flash:generateContent",
+    "headers": {
+      "content-type": "application/json",
+      "x-goog-api-key": "gemini-test-key"
+    },
+    "body": {
+      "generationConfig": {
+        "stopSequences": []
+      },
+      "safetySettings": [],
+      "tools": [
+        {
+          "functionDeclarations": [
+            {
+              "name": "Rechner 2",
+              "description": "Useful for getting the result of a math expression. The input to this tool should be a valid mathematical expression that could be executed by a simple calculator.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "input": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "contents": [
+        {
+          "role": "user",
+          "parts": [
+            {
+              "text": "Berechne 7 hoch 2"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "method": "POST",
+    "url": "/v1beta/models/gemini-2.5-flash:generateContent",
+    "headers": {
+      "content-type": "application/json",
+      "x-goog-api-key": "gemini-test-key"
+    },
+    "body": {
+      "generationConfig": {
+        "stopSequences": []
+      },
+      "safetySettings": [],
+      "tools": [
+        {
+          "functionDeclarations": [
+            {
+              "name": "Rechner 2",
+              "description": "Useful for getting the result of a math expression. The input to this tool should be a valid mathematical expression that could be executed by a simple calculator.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "input": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "contents": [
+        {
+          "role": "user",
+          "parts": [
+            {
+              "text": "Berechne 7 hoch 2"
+            }
+          ]
+        },
+        {
+          "role": "model",
+          "parts": [
+            {
+              "functionCall": {
+                "name": "Rechner 2",
+                "args": {
+                  "input": "7^2"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "role": "user",
+          "parts": [
+            {
+              "functionResponse": {
+                "name": "Rechner 2",
+                "response": {
+                  "result": "49"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "method": "POST",
+    "url": "/v1/messages",
+    "headers": {
+      "anthropic-version": "2023-06-01",
+      "x-api-key": "anthropic-test-key",
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "claude-sonnet-4-5-20250929",
+      "stream": false,
+      "max_tokens": 500,
+      "tools": [
+        {
+          "name": "Wortz_hler_2",
+          "description": "Zählt die Wörter im Text",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "input": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "$schema": "http://json-schema.org/draft-07/schema#"
+          }
+        }
+      ],
+      "thinking": {
+        "type": "disabled"
+      },
+      "messages": [
+        {
+          "role": "user",
+          "content": "Zähle die Wörter in: a b c d"
+        }
+      ]
+    }
+  },
+  {
+    "method": "POST",
+    "url": "/v1/messages",
+    "headers": {
+      "anthropic-version": "2023-06-01",
+      "x-api-key": "anthropic-test-key",
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "claude-sonnet-4-5-20250929",
+      "stream": false,
+      "max_tokens": 500,
+      "tools": [
+        {
+          "name": "Wortz_hler_2",
+          "description": "Zählt die Wörter im Text",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "input": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "$schema": "http://json-schema.org/draft-07/schema#"
+          }
+        }
+      ],
+      "thinking": {
+        "type": "disabled"
+      },
+      "messages": [
+        {
+          "role": "user",
+          "content": "Zähle die Wörter in: a b c d"
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Calling Wortzähler 2 with input: {\"input\":\"a b c d\",\"id\":\"toolu_wz\"}"
+            },
+            {
+              "type": "tool_use",
+              "id": "toolu_wz",
+              "name": "Wortz_hler_2",
+              "input": {
+                "input": "a b c d",
+                "id": "toolu_wz"
+              }
+            }
+          ]
+        },
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "content": "[{\"response\":\"4\"}]",
+              "tool_use_id": "toolu_wz"
+            }
+          ]
+        }
+      ]
+    }
+  }
+]

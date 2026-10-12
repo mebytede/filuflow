@@ -69,3 +69,21 @@ der Wiederholungsprüfung sind gegen moment-timezone aus dem n8n-Image getestet 
   ein neues Token geholt und der Request einmal wiederholt. Andere Grant-Typen (authorizationCode, pkce) fehlen.
 - Maskierung in Ausgaben und im Execution-Log betrifft geheime Felder (Namen mit pass, secret, token, value, json,
   private, apiKey). Werte kürzer als 4 Zeichen werden nicht maskiert.
+
+## KI-Nodes
+- **Kein LangChain:** Modelle, Prompts, Parser, Memory und der Agent-Ablauf sind eigene Umsetzungen nach dem Verhalten von
+  n8n 1.123.0 mit @langchain/core 1.1 und @langchain/classic 1.0.5. Request-Bodies an Gemini, OpenAI und Anthropic sind
+  gegen die von n8n gesendeten Requests getestet (Fixtures 17 bis 19, `requests.json`).
+- **Tracing im runData der Sub-Nodes** (`ai_languageModel`, `ai_memory`, `ai_tool`, `ai_outputParser`): Läufe, Reihenfolge und
+  Quelle wie n8n. Die Token-Schätzung (`estimatedTokens`, `tokenUsageEstimate`) rechnet grob mit 4 Zeichen pro Token statt tiktoken.
+- **OpenAI Responses API** (lmChatOpenAi v1.3 mit `responsesApiEnabled`, Default in v1.3) wird nicht unterstützt; `validate` meldet es.
+- **Simple Memory** liegt wie in n8n im Speicher des Prozesses (je Workflow-ID und Session-ID, nach 1 h Leerlauf gelöscht).
+  Unter der CLI beginnt also jeder Lauf mit leerem Speicher.
+- **Calculator-Tool:** eigener Ausdrucksauswerter (Grundrechenarten, `^`, `%`, Vergleich, Funktionen wie `sqrt`, `sin`, `log`,
+  Konstanten `PI`, `E`) statt mathjs. Seltene mathjs-Syntax (Einheiten, Matrizen, Brüche) liefert "I don't know how to do that.".
+- **Agent:** Streaming (`enableStreaming` mit Chat-Trigger) fehlt, die Antwort kommt immer vollständig. `maxTokensFromMemory`
+  wird von `validate` gemeldet. Bei Agent V2 enthält `intermediateSteps[].action.messageLog` die Modellantwort in vereinfachter
+  LangChain-Serialisierung (ohne `id`, `usage_metadata` und anbieterspezifische Felder).
+- **Output Fixing Parser** (Information Extractor, Text Classifier): Der Text der Fehlermeldung an das Modell ist nachgebaut, aber
+  nicht byte-gleich mit der zod-Fehlermeldung von LangChain.
+- Agent typeVersion 1.x (ReAct, SQL, Plan-and-Execute, OpenAI Functions) wird nicht unterstützt.

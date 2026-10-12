@@ -1,0 +1,260 @@
+[
+  {
+    "method": "POST",
+    "url": "/v1/messages",
+    "headers": {
+      "anthropic-version": "2023-06-01",
+      "x-api-key": "anthropic-test-key",
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "claude-sonnet-4-5-20250929",
+      "temperature": 0.3,
+      "stream": false,
+      "max_tokens": 300,
+      "thinking": {
+        "type": "disabled"
+      },
+      "messages": [
+        {
+          "role": "assistant",
+          "content": "Verstanden."
+        },
+        {
+          "role": "user",
+          "content": "Antworte knapp: Der Lieferant Müller GmbH schickt am 2024-03-01 eine Rechnung über 120 Euro."
+        }
+      ],
+      "system": "Du antwortest auf Deutsch."
+    }
+  },
+  {
+    "method": "POST",
+    "url": "/v1/messages",
+    "headers": {
+      "anthropic-version": "2023-06-01",
+      "x-api-key": "anthropic-test-key",
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "claude-sonnet-4-5-20250929",
+      "temperature": 0.3,
+      "stream": false,
+      "max_tokens": 300,
+      "thinking": {
+        "type": "disabled"
+      },
+      "messages": [
+        {
+          "role": "assistant",
+          "content": "Verstanden."
+        },
+        {
+          "role": "user",
+          "content": "Antworte knapp: Herr Schmidt fragt nach dem Status seiner Bestellung."
+        }
+      ],
+      "system": "Du antwortest auf Deutsch."
+    }
+  },
+  {
+    "method": "POST",
+    "url": "/v1/chat/completions",
+    "headers": {
+      "authorization": "Bearer openai-test-key",
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "gpt-4o-mini",
+      "temperature": 0.1,
+      "stream": false,
+      "max_tokens": 200,
+      "messages": [
+        {
+          "role": "user",
+          "content": "Der Lieferant Müller GmbH schickt am 2024-03-01 eine Rechnung über 120 Euro."
+        }
+      ]
+    }
+  },
+  {
+    "method": "POST",
+    "url": "/v1/chat/completions",
+    "headers": {
+      "authorization": "Bearer openai-test-key",
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "gpt-4o-mini",
+      "temperature": 0.1,
+      "stream": false,
+      "max_tokens": 200,
+      "messages": [
+        {
+          "role": "user",
+          "content": "Herr Schmidt fragt nach dem Status seiner Bestellung."
+        }
+      ]
+    }
+  },
+  {
+    "method": "POST",
+    "url": "/v1/chat/completions",
+    "headers": {
+      "authorization": "Bearer openai-test-key",
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "gpt-4o-mini",
+      "stream": false,
+      "messages": [
+        {
+          "role": "system",
+          "content": "You are an expert extraction algorithm.\nOnly extract relevant information from the text.\nIf you do not know the value of an attribute asked to extract, you may omit the attribute's value.\nYou must format your output as a JSON value that adheres to a given \"JSON Schema\" instance.\n\n\"JSON Schema\" is a declarative language that allows you to annotate and validate JSON documents.\n\nFor example, the example \"JSON Schema\" instance {{\"properties\": {{\"foo\": {{\"description\": \"a list of test words\", \"type\": \"array\", \"items\": {{\"type\": \"string\"}}}}}}, \"required\": [\"foo\"]}}}}\nwould match an object with one required property, \"foo\". The \"type\" property specifies \"foo\" must be an \"array\", and the \"description\" property semantically describes it as \"a list of test words\". The items within \"foo\" must be strings.\nThus, the object {{\"foo\": [\"bar\", \"baz\"]}} is a well-formatted instance of this example \"JSON Schema\". The object {{\"properties\": {{\"foo\": [\"bar\", \"baz\"]}}}} is not well-formatted.\n\nYour output will be parsed and type-checked according to the provided schema instance, so make sure all fields in your output match the schema exactly and there are no trailing commas!\n\nHere is the JSON Schema instance your output must adhere to. Include the enclosing markdown codeblock:\n```json\n{\"type\":\"object\",\"properties\":{\"firma\":{\"type\":\"string\",\"description\":\"Name der Firma\"},\"betrag\":{\"type\":\"number\",\"description\":\"Rechnungsbetrag in Euro\"},\"datum\":{\"type\":\"string\",\"format\":\"date\",\"description\":\"Datum der Rechnung\"},\"dringend\":{\"type\":\"boolean\",\"description\":\"Ist es dringend?\"}},\"required\":[\"firma\"],\"additionalProperties\":false,\"$schema\":\"http://json-schema.org/draft-07/schema#\"}\n```\n"
+        },
+        {
+          "role": "user",
+          "content": "Der Lieferant Müller GmbH schickt am 2024-03-01 eine Rechnung über 120 Euro."
+        }
+      ]
+    }
+  },
+  {
+    "method": "POST",
+    "url": "/v1/chat/completions",
+    "headers": {
+      "authorization": "Bearer openai-test-key",
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "gpt-4o-mini",
+      "stream": false,
+      "messages": [
+        {
+          "role": "system",
+          "content": "You are an expert extraction algorithm.\nOnly extract relevant information from the text.\nIf you do not know the value of an attribute asked to extract, you may omit the attribute's value.\nYou must format your output as a JSON value that adheres to a given \"JSON Schema\" instance.\n\n\"JSON Schema\" is a declarative language that allows you to annotate and validate JSON documents.\n\nFor example, the example \"JSON Schema\" instance {{\"properties\": {{\"foo\": {{\"description\": \"a list of test words\", \"type\": \"array\", \"items\": {{\"type\": \"string\"}}}}}}, \"required\": [\"foo\"]}}}}\nwould match an object with one required property, \"foo\". The \"type\" property specifies \"foo\" must be an \"array\", and the \"description\" property semantically describes it as \"a list of test words\". The items within \"foo\" must be strings.\nThus, the object {{\"foo\": [\"bar\", \"baz\"]}} is a well-formatted instance of this example \"JSON Schema\". The object {{\"properties\": {{\"foo\": [\"bar\", \"baz\"]}}}} is not well-formatted.\n\nYour output will be parsed and type-checked according to the provided schema instance, so make sure all fields in your output match the schema exactly and there are no trailing commas!\n\nHere is the JSON Schema instance your output must adhere to. Include the enclosing markdown codeblock:\n```json\n{\"type\":\"object\",\"properties\":{\"firma\":{\"type\":\"string\",\"description\":\"Name der Firma\"},\"betrag\":{\"type\":\"number\",\"description\":\"Rechnungsbetrag in Euro\"},\"datum\":{\"type\":\"string\",\"format\":\"date\",\"description\":\"Datum der Rechnung\"},\"dringend\":{\"type\":\"boolean\",\"description\":\"Ist es dringend?\"}},\"required\":[\"firma\"],\"additionalProperties\":false,\"$schema\":\"http://json-schema.org/draft-07/schema#\"}\n```\n"
+        },
+        {
+          "role": "user",
+          "content": "Herr Schmidt fragt nach dem Status seiner Bestellung."
+        }
+      ]
+    }
+  },
+  {
+    "method": "POST",
+    "url": "/v1/messages",
+    "headers": {
+      "anthropic-version": "2023-06-01",
+      "x-api-key": "anthropic-test-key",
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "claude-3-5-haiku-20241022",
+      "stream": false,
+      "max_tokens": 4096,
+      "thinking": {
+        "type": "disabled"
+      },
+      "messages": [
+        {
+          "role": "user",
+          "content": "Der Lieferant Müller GmbH schickt am 2024-03-01 eine Rechnung über 120 Euro."
+        }
+      ],
+      "system": "Please classify the text provided by the user into one of the following categories: Rechnung, Anfrage, and use the provided formatting instructions below. Don't explain, and only output the json.\n\tYou must format your output as a JSON value that adheres to a given \"JSON Schema\" instance.\n\n\"JSON Schema\" is a declarative language that allows you to annotate and validate JSON documents.\n\nFor example, the example \"JSON Schema\" instance {{\"properties\": {{\"foo\": {{\"description\": \"a list of test words\", \"type\": \"array\", \"items\": {{\"type\": \"string\"}}}}}}, \"required\": [\"foo\"]}}}}\nwould match an object with one required property, \"foo\". The \"type\" property specifies \"foo\" must be an \"array\", and the \"description\" property semantically describes it as \"a list of test words\". The items within \"foo\" must be strings.\nThus, the object {{\"foo\": [\"bar\", \"baz\"]}} is a well-formatted instance of this example \"JSON Schema\". The object {{\"properties\": {{\"foo\": [\"bar\", \"baz\"]}}}} is not well-formatted.\n\nYour output will be parsed and type-checked according to the provided schema instance, so make sure all fields in your output match the schema exactly and there are no trailing commas!\n\nHere is the JSON Schema instance your output must adhere to. Include the enclosing markdown codeblock:\n```json\n{\"type\":\"object\",\"properties\":{\"Rechnung\":{\"type\":\"boolean\",\"description\":\"Should be true if the input has category \\\"Rechnung\\\" (description: Zahlungsaufforderungen)\"},\"Anfrage\":{\"type\":\"boolean\",\"description\":\"Should be true if the input has category \\\"Anfrage\\\" (description: Fragen von Kunden)\"},\"fallback\":{\"type\":\"boolean\",\"description\":\"Should be true if none of the other categories apply\"}},\"required\":[\"Rechnung\",\"Anfrage\",\"fallback\"],\"additionalProperties\":false,\"$schema\":\"http://json-schema.org/draft-07/schema#\"}\n```\n\n\tCategories are mutually exclusive, and only one can be true\n\tIf no categories apply, select the \"fallback\" option."
+    }
+  },
+  {
+    "method": "POST",
+    "url": "/v1/messages",
+    "headers": {
+      "anthropic-version": "2023-06-01",
+      "x-api-key": "anthropic-test-key",
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "claude-3-5-haiku-20241022",
+      "stream": false,
+      "max_tokens": 4096,
+      "thinking": {
+        "type": "disabled"
+      },
+      "messages": [
+        {
+          "role": "user",
+          "content": "Herr Schmidt fragt nach dem Status seiner Bestellung."
+        }
+      ],
+      "system": "Please classify the text provided by the user into one of the following categories: Rechnung, Anfrage, and use the provided formatting instructions below. Don't explain, and only output the json.\n\tYou must format your output as a JSON value that adheres to a given \"JSON Schema\" instance.\n\n\"JSON Schema\" is a declarative language that allows you to annotate and validate JSON documents.\n\nFor example, the example \"JSON Schema\" instance {{\"properties\": {{\"foo\": {{\"description\": \"a list of test words\", \"type\": \"array\", \"items\": {{\"type\": \"string\"}}}}}}, \"required\": [\"foo\"]}}}}\nwould match an object with one required property, \"foo\". The \"type\" property specifies \"foo\" must be an \"array\", and the \"description\" property semantically describes it as \"a list of test words\". The items within \"foo\" must be strings.\nThus, the object {{\"foo\": [\"bar\", \"baz\"]}} is a well-formatted instance of this example \"JSON Schema\". The object {{\"properties\": {{\"foo\": [\"bar\", \"baz\"]}}}} is not well-formatted.\n\nYour output will be parsed and type-checked according to the provided schema instance, so make sure all fields in your output match the schema exactly and there are no trailing commas!\n\nHere is the JSON Schema instance your output must adhere to. Include the enclosing markdown codeblock:\n```json\n{\"type\":\"object\",\"properties\":{\"Rechnung\":{\"type\":\"boolean\",\"description\":\"Should be true if the input has category \\\"Rechnung\\\" (description: Zahlungsaufforderungen)\"},\"Anfrage\":{\"type\":\"boolean\",\"description\":\"Should be true if the input has category \\\"Anfrage\\\" (description: Fragen von Kunden)\"},\"fallback\":{\"type\":\"boolean\",\"description\":\"Should be true if none of the other categories apply\"}},\"required\":[\"Rechnung\",\"Anfrage\",\"fallback\"],\"additionalProperties\":false,\"$schema\":\"http://json-schema.org/draft-07/schema#\"}\n```\n\n\tCategories are mutually exclusive, and only one can be true\n\tIf no categories apply, select the \"fallback\" option."
+    }
+  },
+  {
+    "method": "POST",
+    "url": "/v1beta/models/gemini-2.5-flash:generateContent",
+    "headers": {
+      "content-type": "application/json",
+      "x-goog-api-key": "gemini-test-key"
+    },
+    "body": {
+      "generationConfig": {
+        "stopSequences": [],
+        "topP": 0.8,
+        "topK": 20
+      },
+      "safetySettings": [],
+      "systemInstruction": {
+        "role": "system",
+        "parts": [
+          {
+            "text": "You are highly intelligent and accurate sentiment analyzer. Analyze the sentiment of the provided text. Categorize it into one of the following: Positive, Neutral, Negative. Use the provided formatting instructions. Only output the JSON.\n\t\t\tYou must format your output as a JSON value that adheres to a given \"JSON Schema\" instance.\n\n\"JSON Schema\" is a declarative language that allows you to annotate and validate JSON documents.\n\nFor example, the example \"JSON Schema\" instance {{\"properties\": {{\"foo\": {{\"description\": \"a list of test words\", \"type\": \"array\", \"items\": {{\"type\": \"string\"}}}}}}, \"required\": [\"foo\"]}}}}\nwould match an object with one required property, \"foo\". The \"type\" property specifies \"foo\" must be an \"array\", and the \"description\" property semantically describes it as \"a list of test words\". The items within \"foo\" must be strings.\nThus, the object {{\"foo\": [\"bar\", \"baz\"]}} is a well-formatted instance of this example \"JSON Schema\". The object {{\"properties\": {{\"foo\": [\"bar\", \"baz\"]}}}} is not well-formatted.\n\nYour output will be parsed and type-checked according to the provided schema instance, so make sure all fields in your output match the schema exactly and there are no trailing commas!\n\nHere is the JSON Schema instance your output must adhere to. Include the enclosing markdown codeblock:\n```json\n{\"type\":\"object\",\"properties\":{\"sentiment\":{\"type\":\"string\",\"enum\":[\"Positive\",\"Neutral\",\"Negative\"]},\"strength\":{\"type\":\"number\",\"minimum\":0,\"maximum\":1,\"description\":\"Strength score for sentiment in relation to the category\"},\"confidence\":{\"type\":\"number\",\"minimum\":0,\"maximum\":1}},\"required\":[\"sentiment\",\"strength\",\"confidence\"],\"additionalProperties\":false,\"$schema\":\"http://json-schema.org/draft-07/schema#\"}\n```\n"
+          }
+        ]
+      },
+      "contents": [
+        {
+          "role": "user",
+          "parts": [
+            {
+              "text": "Toll, alles bestens!"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "method": "POST",
+    "url": "/v1beta/models/gemini-2.5-flash:generateContent",
+    "headers": {
+      "content-type": "application/json",
+      "x-goog-api-key": "gemini-test-key"
+    },
+    "body": {
+      "generationConfig": {
+        "stopSequences": [],
+        "topP": 0.8,
+        "topK": 20
+      },
+      "safetySettings": [],
+      "systemInstruction": {
+        "role": "system",
+        "parts": [
+          {
+            "text": "You are highly intelligent and accurate sentiment analyzer. Analyze the sentiment of the provided text. Categorize it into one of the following: Positive, Neutral, Negative. Use the provided formatting instructions. Only output the JSON.\n\t\t\tYou must format your output as a JSON value that adheres to a given \"JSON Schema\" instance.\n\n\"JSON Schema\" is a declarative language that allows you to annotate and validate JSON documents.\n\nFor example, the example \"JSON Schema\" instance {{\"properties\": {{\"foo\": {{\"description\": \"a list of test words\", \"type\": \"array\", \"items\": {{\"type\": \"string\"}}}}}}, \"required\": [\"foo\"]}}}}\nwould match an object with one required property, \"foo\". The \"type\" property specifies \"foo\" must be an \"array\", and the \"description\" property semantically describes it as \"a list of test words\". The items within \"foo\" must be strings.\nThus, the object {{\"foo\": [\"bar\", \"baz\"]}} is a well-formatted instance of this example \"JSON Schema\". The object {{\"properties\": {{\"foo\": [\"bar\", \"baz\"]}}}} is not well-formatted.\n\nYour output will be parsed and type-checked according to the provided schema instance, so make sure all fields in your output match the schema exactly and there are no trailing commas!\n\nHere is the JSON Schema instance your output must adhere to. Include the enclosing markdown codeblock:\n```json\n{\"type\":\"object\",\"properties\":{\"sentiment\":{\"type\":\"string\",\"enum\":[\"Positive\",\"Neutral\",\"Negative\"]},\"strength\":{\"type\":\"number\",\"minimum\":0,\"maximum\":1,\"description\":\"Strength score for sentiment in relation to the category\"},\"confidence\":{\"type\":\"number\",\"minimum\":0,\"maximum\":1}},\"required\":[\"sentiment\",\"strength\",\"confidence\"],\"additionalProperties\":false,\"$schema\":\"http://json-schema.org/draft-07/schema#\"}\n```\n"
+          }
+        ]
+      },
+      "contents": [
+        {
+          "role": "user",
+          "parts": [
+            {
+              "text": "Leider kaputt angekommen."
+            }
+          ]
+        }
+      ]
+    }
+  }
+]

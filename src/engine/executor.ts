@@ -22,7 +22,15 @@ import type {
 import { WorkflowGraph, STICKY_NOTE_TYPE } from './graph.js';
 import { NodeExecutionContext } from './context.js';
 import type { NodeRegistry } from '../nodes/registry.js';
-import type { ExecuteWorkflowRequest, ExecuteWorkflowResult, NodeType, WebhookResponse } from '../nodes/types.js';
+import {
+  isEngineRequest,
+  type EngineRequest,
+  type EngineResponse,
+  type ExecuteWorkflowRequest,
+  type ExecuteWorkflowResult,
+  type NodeType,
+  type WebhookResponse,
+} from '../nodes/types.js';
 import { getLogger, type Logger } from '../logger.js';
 import { UndiciHttpClient, type HttpClient } from '../http.js';
 import { FileBinaryStore, type BinaryStore } from '../binary.js';
@@ -87,11 +95,24 @@ export interface ExecutorOptions {
   sleep?: (ms: number) => Promise<void>;
 }
 
+/** n8n ITaskMetadata (nur die Felder für Engine-Requests) */
+interface StackMetadata {
+  /** Tool-Ausführung für einen Agent: sourceOverwrite der pairedItems behalten */
+  preserveSourceOverwrite?: boolean;
+  /** Agent wird nach seinen Tool-Aufrufen fortgesetzt */
+  nodeWasResumed?: boolean;
+  subNodeExecutionData?: {
+    actions: Array<{ action: EngineRequest['actions'][number]; nodeName: string; runIndex: number }>;
+    metadata: EngineRequest['metadata'];
+  };
+}
+
 interface StackItem {
   node: WorkflowNode;
   data: { main: Array<Item[] | null> };
   source: { main: Array<SourceData | null> } | null;
   runIndex?: number;
+  metadata?: StackMetadata;
 }
 
 type WaitingEntry = { main: Array<Item[] | null> };
@@ -152,6 +173,8 @@ export class WorkflowExecutor {
   private stoppedAt?: Date;
   private error?: SerializedError;
   private webhookResponseSent = false;
+  /** n8n node.rewireOutputLogTo: Ausgabe von Tool-Nodes wird unter diesem Verbindungstyp gespeichert */
+  private readonly rewireOutputLogTo = new Map<string, string>();
 
   constructor(options: ExecutorOptions) {
     this.options = options;
@@ -421,15 +444,20 @@ export class WorkflowExecutor {
       const taskExecutionIndex = this.executionIndex++;
       const taskSource = executionData.source ? executionData.source.main : [];
 
-      // Paired-Item-Information der Eingänge setzen
+      // Paired-Item-Information der Eingänge setzen; Tool-Ausführungen behalten sourceOverwrite
+      const isToolExecution = !!executionData.metadata?.preserveSourceOverwrite;
       executionData.data = {
         main: executionData.data.main.map((input, inputIndex) =>
           input === null
             ? null
-            : input.map((item, itemIndex) => ({
-                ...item,
-                pairedItem: inputIndex ? { item: itemIndex, input: inputIndex } : { item: itemIndex },
-              })),
+            : input.map((item, itemIndex) => {
+                const pairedItem: Item['pairedItem'] = inputIndex ? { item: itemIndex, input: inputIndex } : { item: itemIndex };
+                const previous = item.pairedItem;
+                if (isToolExecution && typeof previous === 'object' && !Array.isArray(previous) && 'sourceOverwrite' in previous) {
+                  pairedItem.sourceOverwrite = previous.sourceOverwrite;
+                }
+                return { ...item, pairedItem };
+              }),
         ),
       };
 
@@ -437,7 +465,8 @@ export class WorkflowExecutor {
       if (executionData.runIndex !== undefined) runIndex = executionData.runIndex;
       else if (Object.hasOwn(this.runData, node.name)) runIndex = this.runData[node.name].length;
 
-      this.options.hooks?.nodeExecuteBefore?.(node.name);
+      // Fortgesetzte Agents lösen den Hook nicht erneut aus (n8n AI-1414)
+      if (!executionData.metadata?.nodeWasResumed) this.options.hooks?.nodeExecuteBefore?.(node.name);
 
       let maxTries = 1;
       let waitBetweenTries = 0;
@@ -455,13 +484,19 @@ export class WorkflowExecutor {
           if (this.pinData && !node.disabled && this.pinData[node.name] !== undefined) {
             nodeSuccessData = [this.pinData[node.name].map((p) => ({ ...p })) as Item[]];
           } else {
-            let runNodeData = await this.runNode(executionData, runIndex);
-            let nodeFailed = runNodeData?.[0]?.[0]?.json?.error !== undefined;
+            const engineResponse = this.buildEngineResponse(executionData);
+            let runNodeData = await this.runNode(executionData, runIndex, engineResponse);
+            let nodeFailed = !isEngineRequest(runNodeData) && runNodeData?.[0]?.[0]?.json?.error !== undefined;
             while (nodeFailed && tryIndex !== maxTries - 1) {
               await this.sleep(waitBetweenTries);
               runNodeData = await this.runNode(executionData, runIndex);
-              nodeFailed = runNodeData?.[0]?.[0]?.json?.error !== undefined;
+              nodeFailed = !isEngineRequest(runNodeData) && runNodeData?.[0]?.[0]?.json?.error !== undefined;
               tryIndex++;
+            }
+            if (isEngineRequest(runNodeData)) {
+              // Kein runData-Eintrag für diesen Versuch; angefragte Nodes und der Node selbst kommen auf den Stack
+              this.handleEngineRequest(node, runNodeData, runIndex, executionData);
+              continue executionLoop;
             }
             nodeSuccessData = runNodeData;
             if (nodeSuccessData && node.onError === 'continueErrorOutput') {
@@ -544,8 +579,12 @@ export class WorkflowExecutor {
       }
 
       taskData.data = { main: (nodeSuccessData ?? []) as Array<Item[] | null> };
-      list.push(taskData);
-      this.options.hooks?.nodeExecuteAfter?.(node.name, taskData);
+      const rewireTo = this.rewireOutputLogTo.get(node.name);
+      if (rewireTo) taskData.data = { [rewireTo]: (nodeSuccessData ?? []) as Array<Item[] | null> };
+      // Platzhalter einer Tool-Ausführung (handleEngineRequest) wird ergänzt
+      if (list[runIndex]) Object.assign(list[runIndex], taskData);
+      else list.push(taskData);
+      this.options.hooks?.nodeExecuteAfter?.(node.name, list[runIndex] ?? taskData);
 
       // Kinder auf den Stack legen
       const outputs = this.graph.bySource[node.name]?.main;
@@ -638,6 +677,82 @@ export class WorkflowExecutor {
     ws[runIndex] = { main: new Array(numberOfConnections).fill(null) };
   }
 
+  /** Antworten auf eine frühere EngineRequest zusammenstellen (n8n processRunExecutionData, subNodeExecutionData) */
+  private buildEngineResponse(executionData: StackItem): EngineResponse | undefined {
+    const sub = executionData.metadata?.subNodeExecutionData;
+    if (!sub) return undefined;
+    const response: EngineResponse = { actionResponses: [], metadata: sub.metadata };
+    for (const subNode of sub.actions) {
+      const data = this.runData[subNode.nodeName]?.[subNode.runIndex];
+      if (data) response.actionResponses.push({ data, action: subNode.action });
+    }
+    return response;
+  }
+
+  /**
+   * n8n requests-response.ts handleRequest und WorkflowExecute.handleEngineRequest:
+   * je Aktion einen Platzhalter-Lauf am Tool-Node anlegen und den Tool-Node mit den Eingangsdaten des Agents
+   * (plus Tool-Argumente) auf den Stack legen; den anfragenden Node dahinter zum Fortsetzen.
+   */
+  private handleEngineRequest(currentNode: WorkflowNode, request: EngineRequest, runIndex: number, executionData: StackItem): void {
+    const toExecute: Array<{
+      connection: { node: string; index: number };
+      parentNode: string;
+      parentOutputData: NodeOutput;
+      nodeRunIndex: number;
+      metadata: StackMetadata;
+    }> = [];
+    const subNodeExecutionData: NonNullable<StackMetadata['subNodeExecutionData']> = { actions: [], metadata: request.metadata };
+    for (const action of request.actions) {
+      const node = this.graph.getNode(action.nodeName);
+      if (!node) throw new FlowliteError(`Workflow does not contain a node with the name of "${action.nodeName}".`);
+      this.rewireOutputLogTo.set(node.name, action.type);
+      const parentSourceData = executionData.source?.main?.[runIndex];
+      const parentOutputIndex = parentSourceData?.previousNodeOutput ?? 0;
+      const parentRunIndex = parentSourceData?.previousNodeRun ?? 0;
+      const parentSourceNode = parentSourceData?.previousNode ?? currentNode.name;
+      const itemIndex = action.metadata?.itemIndex ?? 0;
+      const agentInputData = executionData.data.main?.[0]?.[itemIndex];
+      const parentOutputData: NodeOutput = [
+        [
+          {
+            json: { ...(agentInputData?.json ?? {}), ...action.input, toolCallId: action.id },
+            pairedItem: {
+              item: parentRunIndex,
+              input: parentOutputIndex,
+              sourceOverwrite: { previousNode: parentSourceNode, previousNodeOutput: parentOutputIndex, previousNodeRun: parentRunIndex },
+            },
+          },
+        ],
+      ];
+      const nodeRunData = (this.runData[node.name] ??= []);
+      const nodeRunIndex = nodeRunData.length;
+      // Platzhalter wie n8n (ohne executionStatus; wird beim Ausführen des Tools ergänzt)
+      nodeRunData.push({ source: [], executionIndex: 0, executionTime: 0, startTime: 0, data: {} } as unknown as TaskData);
+      toExecute.push({
+        connection: { node: node.name, index: 0 },
+        parentNode: currentNode.name,
+        parentOutputData,
+        nodeRunIndex,
+        metadata: { preserveSourceOverwrite: true },
+      });
+      subNodeExecutionData.actions.push({ action, nodeName: action.nodeName, runIndex: nodeRunIndex });
+    }
+    const resumeParent = executionData.source?.main?.[0]?.previousNode;
+    if (!resumeParent) {
+      this.logger.error({ node: currentNode.name }, 'Eltern-Node für die Ausführung der Sub-Nodes nicht gefunden; Anfrage wird ignoriert');
+      return;
+    }
+    toExecute.unshift({
+      connection: { node: currentNode.name, index: 0 },
+      parentNode: resumeParent,
+      parentOutputData: executionData.data.main as NodeOutput,
+      nodeRunIndex: runIndex,
+      metadata: { nodeWasResumed: true, subNodeExecutionData },
+    });
+    for (const n of toExecute) this.addNodeToBeExecuted(n.connection, 0, n.parentNode, n.parentOutputData, runIndex, n.nodeRunIndex, n.metadata);
+  }
+
   /** n8n addNodeToBeExecuted (v1-Pfad) */
   private addNodeToBeExecuted(
     connection: { node: string; index: number },
@@ -645,6 +760,8 @@ export class WorkflowExecutor {
     parentNodeName: string,
     nodeSuccessData: NodeOutput,
     runIndex: number,
+    newRunIndex?: number,
+    metadata?: StackMetadata,
   ): void {
     const target = connection.node;
     const numberOfInputs = this.graph.mainInputCount(target);
@@ -699,11 +816,13 @@ export class WorkflowExecutor {
       node: this.graph.getNode(target)!,
       data: { main: connectionDataArray },
       source: { main: [source] },
+      ...(newRunIndex !== undefined ? { runIndex: newRunIndex } : {}),
+      ...(metadata ? { metadata } : {}),
     });
   }
 
   /** n8n runNode: liefert null, wenn der Node keine Daten hat */
-  private async runNode(executionData: StackItem, runIndex: number): Promise<NodeOutput | null> {
+  private async runNode(executionData: StackItem, runIndex: number, engineResponse?: EngineResponse): Promise<NodeOutput | null | EngineRequest> {
     const node = executionData.node;
     const inputData = executionData.data;
     if (node.disabled === true) {
@@ -741,6 +860,7 @@ export class WorkflowExecutor {
       inputs,
       connectionInputData,
       runIndex,
+      engineResponse,
     });
     const result = await nodeType.execute(ctx);
     return result ?? null;
