@@ -6,7 +6,7 @@ Referenzversion: n8n **1.123.0** (Docker-Image `n8nio/n8n:1.123.0`, Quellcode-Ta
 | # | Stand |
 |---|---|
 | M0 | fertig: Gerüst, Lint, Tests |
-| M1 | offen |
+| M1 | fertig: Loader, Validator (alle Fehlerklassen aus SPEC 6), `flowlite validate`, `flowlite nodes` |
 | M2 | offen |
 | M3a | offen |
 | M3b | offen |
