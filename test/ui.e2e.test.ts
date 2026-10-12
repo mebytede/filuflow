@@ -71,9 +71,10 @@ describe('Weboberfläche', () => {
     await page.waitForSelector('.empty');
 
     // Neuer Workflow mit Start-Node; Set-Node hinter dem ausgewählten Start einfügen
-    await page.click('a:has-text("Neuer Workflow")');
+    await page.click('.page-head-main a:has-text("Neuer Workflow")');
     await page.waitForSelector('.node[data-node="Start"]');
     await page.click('.node[data-node="Start"]');
+    await page.click('.canvas-tools button:has-text("Knoten")');
     await page.fill('.palette-search', 'Edit Fields');
     await page.press('.palette-search', 'Enter');
     await page.waitForSelector('.node[data-node="Edit Fields (Set)"]');
@@ -87,7 +88,7 @@ describe('Weboberfläche', () => {
     await page.waitForSelector('.node[data-node="Antwort"]');
 
     // Rückgängig und Wiederholen (Umbenennen)
-    await page.click('.canvas', { position: { x: 20, y: 20 } });
+    await page.click('.canvas', { position: { x: 300, y: 120 } });
     await page.keyboard.press('Control+z');
     await page.waitForSelector('.node[data-node="Edit Fields (Set)"]');
     await page.keyboard.press('Control+Shift+z');
@@ -106,14 +107,16 @@ describe('Weboberfläche', () => {
     expect(saved.nodes[1].parameters.assignments.assignments[0].value).toBe('={{ 20 + 22 }}');
 
     // Ausführen und Ergebnis ansehen
-    await page.click('button:has-text("Ausführen")');
+    await page.click('button:has-text("Testlauf")');
     await page.waitForSelector('.node[data-node="Antwort"].status-success');
     await page.click('.node[data-node="Antwort"]');
     await page.click('.tab:has-text("Ergebnis")');
     expect((await page.locator('.data-table').innerText()).replace(/\s+/g, ' ')).toContain('feld 1 42');
 
     // Ausführung in der Liste und als Detailansicht
-    await page.click('.nav-link:has-text("Ausführungen")');
+    // Bereich "Letzter Lauf" zeigt den Lauf
+    await page.waitForSelector('.run-panel.open .run-row[data-node="Antwort"]');
+    await page.click('a.rail-tile[aria-label="Ausführungen"]');
     await page.waitForSelector('.list-table');
     await page.click('.list-table tbody tr >> nth=0');
     await page.waitForSelector('.editor.readonly .node.status-success');

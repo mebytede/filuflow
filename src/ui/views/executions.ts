@@ -1,8 +1,9 @@
 // Ausführungen: Liste mit Filter und Detailansicht (Workflow-Stand der Ausführung mit Ergebnissen).
 import { api } from '../api.js';
-import { formatDate, formatDuration, h, toast } from '../dom.js';
+import { h, toast } from '../dom.js';
 import type { CredentialInfo, Execution, NodeTypeInfo } from '../types.js';
 import { Editor, type EditorBackend } from '../editor/editor.js';
+import { button, duration, pageHead, shortTime, statusWord } from '../shell.js';
 
 /** Herkunft der Ausführungen: Server im Einzelbetrieb oder Worker eines Projekts (über den Master) */
 export interface ExecutionSource {
@@ -16,10 +17,13 @@ export interface ExecutionSource {
   get(id: string): Promise<Execution>;
   /** Ohne cancel: kein Abbrechen-Knopf (fehlendes Recht) */
   cancel?(id: string): Promise<unknown>;
-  /** Kopf über der Liste (z. B. Projektnavigation) */
+  /** Kopf über der Liste (z. B. Projektnavigation); ersetzt den Seitenkopf */
   header?: HTMLElement;
   /** Prüfen im Editor der Detailansicht */
   backend?: EditorBackend;
+  /** Breadcrumb der Detailansicht vor "Ausführungen" (z. B. Projekt) */
+  crumbs?: Array<{ label: string; href?: string }>;
+  brandHref?: string;
 }
 
 export const standaloneExecutions: ExecutionSource = {
@@ -32,7 +36,20 @@ export const standaloneExecutions: ExecutionSource = {
   cancel: (id) => api.cancel(id),
 };
 
-const STATUSES = ['', 'success', 'error', 'running', 'waiting', 'canceled', 'crashed'];
+const STATUSES: Array<[string, string]> = [
+  ['', 'Alle'],
+  ['success', 'Erfolgreich'],
+  ['error', 'Fehler'],
+  ['running', 'Läuft'],
+  ['waiting', 'Wartet'],
+  ['canceled', 'Abgebrochen'],
+];
+
+const MODES: Record<string, string> = { manual: 'Manuell', trigger: 'Trigger', webhook: 'Webhook', cli: 'CLI', integrated: 'Unter-Workflow', error: 'Fehler-Workflow' };
+
+function runMs(e: Execution): number | undefined {
+  return e.stoppedAt ? new Date(e.stoppedAt).getTime() - new Date(e.startedAt).getTime() : undefined;
+}
 
 export async function executionsView(params: URLSearchParams, source: ExecutionSource = standaloneExecutions): Promise<HTMLElement> {
   const workflow = params.get('workflow') ?? '';
@@ -48,20 +65,20 @@ export async function executionsView(params: URLSearchParams, source: ExecutionS
   };
   const wfSel = h(
     'select',
-    { class: 'param-input', 'aria-label': 'Workflow', onchange: () => navigate(wfSel.value, stSel.value) },
+    { class: 'param-input', 'aria-label': 'Workflow', style: { width: '280px' }, onchange: () => navigate(wfSel.value, status) },
     h('option', { value: '' }, 'Alle Workflows'),
     workflows.map((w) => h('option', { value: w.id, selected: w.id === workflow }, w.name)),
   );
-  const stSel = h(
-    'select',
-    { class: 'param-input', 'aria-label': 'Status', onchange: () => navigate(wfSel.value, stSel.value) },
-    STATUSES.map((s) => h('option', { value: s, selected: s === status }, s || 'Alle Status')),
+  const filter = h(
+    'div',
+    { class: 'segmented', role: 'group', 'aria-label': 'Status' },
+    STATUSES.map(([value, text]) => h('button', { type: 'button', class: value === status ? 'on' : '', 'aria-pressed': String(value === status), onclick: () => navigate(workflow, value) }, text)),
   );
   const root = h(
     'section',
     { class: 'page' },
-    source.header ?? null,
-    h('div', { class: 'page-head' }, h(source.header ? 'h2' : 'h1', null, source.title), h('div', { class: 'spacer' }), wfSel, stSel, h('button', { type: 'button', class: 'btn', onclick: () => navigate(wfSel.value, stSel.value) }, 'Aktualisieren')),
+    source.header ?? pageHead('Ausführungen', 'Ausführungen dieser Instanz'),
+    h('div', { class: 'toolbar-row', style: source.header ? { marginTop: '0' } : undefined }, wfSel, filter, h('span', { class: 'source' }, `${list.length} Einträge`), button('Aktualisieren', { icon: 'refresh-cw', onclick: () => navigate(workflow, status) })),
   );
   if (!list.length) {
     root.append(h('div', { class: 'empty' }, h('p', null, 'Keine Ausführungen gefunden.')));
@@ -70,11 +87,15 @@ export async function executionsView(params: URLSearchParams, source: ExecutionS
   root.append(
     h(
       'div',
-      { class: 'table-wrap card' },
+      { class: 'table-wrap' },
       h(
         'table',
         { class: 'list-table' },
-        h('thead', null, h('tr', null, h('th', null, 'Status'), h('th', null, 'Workflow'), h('th', null, 'Modus'), h('th', null, 'Start'), h('th', { class: 'num' }, 'Dauer'), h('th', null, 'Fehler'), h('th', null, ''))),
+        h(
+          'thead',
+          null,
+          h('tr', null, h('th', null, 'Status'), h('th', null, 'Workflow'), h('th', null, 'Modus'), h('th', null, 'Start'), h('th', { class: 'num' }, 'Dauer'), h('th', null, 'Fehler'), h('th', null, '')),
+        ),
         h(
           'tbody',
           null,
@@ -82,33 +103,27 @@ export async function executionsView(params: URLSearchParams, source: ExecutionS
             h(
               'tr',
               { class: 'clickable', onclick: (ev: MouseEvent) => !(ev.target as Element).closest('button, a') && (location.hash = source.detailHref(e.id)) },
-              h('td', null, h('span', { class: `pill pill-${e.status === 'success' ? 'success' : e.status === 'error' || e.status === 'crashed' ? 'error' : e.status === 'running' ? 'running' : ''}` }, e.status)),
-              h('td', null, h('a', { href: source.detailHref(e.id) }, e.workflowName)),
-              h('td', null, e.mode),
-              h('td', null, formatDate(e.startedAt)),
-              h('td', { class: 'num' }, formatDuration(e.startedAt, e.stoppedAt)),
-              h('td', { class: 'small error-text' }, e.error?.message ?? ''),
+              h('td', null, statusWord(e.status)),
+              h('td', null, h('a', { href: source.detailHref(e.id), class: 'cell-name' }, e.workflowName), h('div', { class: 'cell-sub' }, e.id.slice(0, 8))),
+              h('td', { class: 'mono' }, MODES[e.mode] ?? e.mode),
+              h('td', { class: 'mono', title: new Date(e.startedAt).toLocaleString('de-DE') }, shortTime(e.startedAt)),
+              h('td', { class: 'num' }, duration(runMs(e))),
+              h('td', { class: 'mono' }, h('div', { class: 'ellipsis status-error', style: { maxWidth: '360px' }, title: e.error?.message ?? '' }, e.error?.message ?? '')),
               h(
                 'td',
                 { class: 'actions' },
                 source.cancel && (e.status === 'running' || e.status === 'new')
-                  ? h(
-                      'button',
-                      {
-                        type: 'button',
-                        class: 'btn btn-small',
-                        onclick: async () => {
-                          try {
-                            await source.cancel!(e.id);
-                            toast('Abgebrochen', 'success');
-                            navigate(workflow, status);
-                          } catch (error) {
-                            toast((error as Error).message, 'error');
-                          }
-                        },
+                  ? button('Abbrechen', {
+                      onclick: async () => {
+                        try {
+                          await source.cancel!(e.id);
+                          toast('Abgebrochen', 'success');
+                          navigate(workflow, status);
+                        } catch (error) {
+                          toast((error as Error).message, 'error');
+                        }
                       },
-                      'Abbrechen',
-                    )
+                    })
                   : null,
               ),
             ),
@@ -130,13 +145,16 @@ export async function executionDetailView(
   if (!execution.workflow) {
     return { el: h('section', { class: 'page' }, h('h1', null, 'Ausführung'), h('p', null, 'Zu dieser Ausführung ist kein Workflow gespeichert.')) };
   }
-  const header = h(
-    'div',
-    { class: 'exec-header' },
-    h('a', { href: source.listHref, class: 'link' }, `← ${source.title}`),
-    h('span', { class: 'muted' }, ` Ausführung ${execution.id} · ${formatDuration(execution.startedAt, execution.stoppedAt)}`),
-    execution.error ? h('span', { class: 'error-text' }, ` · ${execution.error.node ? `${execution.error.node}: ` : ''}${execution.error.message}`) : null,
-  );
-  const editor = new Editor({ workflow: execution.workflow, types, credentials, readonly: true, execution, header, workflowHref: source.workflowHref, backend: source.backend });
+  const editor = new Editor({
+    workflow: execution.workflow,
+    types,
+    credentials,
+    readonly: true,
+    execution,
+    brandHref: source.brandHref,
+    crumbs: [...(source.crumbs ?? []), { label: source.title, href: source.listHref }, { label: execution.id.slice(0, 8) }],
+    workflowHref: source.workflowHref,
+    backend: source.backend,
+  });
   return { el: editor.el, editor };
 }

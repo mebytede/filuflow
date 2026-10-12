@@ -93,7 +93,7 @@ describe('Editor-API', () => {
     expect(byType['n8n-nodes-base.if']).toMatchObject({ outputs: 2, group: 'Kern' });
     expect(byType['@n8n/n8n-nodes-langchain.lmChatOpenAi']).toMatchObject({ isSubNode: true, aiOutput: 'ai_languageModel', group: 'KI: Sub-Nodes' });
     expect(byType['n8n-nodes-base.stickyNote']).toMatchObject({ group: 'Sonstiges' });
-    expect((await api('GET', '/api/editor/info')).json).toEqual({ webhookBaseUrl: 'https://flows.example/' });
+    expect((await api('GET', '/api/editor/info')).json).toMatchObject({ webhookBaseUrl: 'https://flows.example/' });
   });
 
   it('gibt bei Credentials nur Name, ID und Typ heraus', async () => {

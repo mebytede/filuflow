@@ -99,13 +99,13 @@ describe('Master-Oberfläche', () => {
     await page.waitForSelector('h1:has-text("Projekte")');
 
     // Mandant und Worker anlegen
-    await page.click('.nav-link:has-text("Verwaltung")');
+    await page.click('.side-link:has-text("Verwaltung")');
     await page.click('.tab:has-text("Mandanten und Worker")');
     await page.click('button:has-text("Neuer Mandant")');
     await dialogField(page, 'Name', 'Kunde A');
     await page.click('.modal .btn-primary');
     await page.waitForSelector('.tenant-card h2:has-text("Kunde A")');
-    await page.click('.tenant-card button:has-text("+ Worker")');
+    await page.click('.tenant-card button:has-text("Worker hinzufügen")');
     await dialogField(page, 'Name', 'Produktion');
     await dialogField(page, 'Adresse', workerUrl);
     await dialogField(page, 'Token', WORKER_KEY);
@@ -113,7 +113,7 @@ describe('Master-Oberfläche', () => {
     await page.waitForSelector('.tenant-card .pill-success:has-text("online")');
 
     // Projekt mit diesem Worker
-    await page.click('.nav-link:has-text("Projekte")');
+    await page.click('.side-link:has-text("Projekte")');
     await page.click('button:has-text("Neues Projekt")');
     await dialogField(page, 'Name', 'Buchhaltung');
     await page.locator('.modal select').selectOption({ label: 'Kunde A · Produktion (online)' });
@@ -124,11 +124,12 @@ describe('Master-Oberfläche', () => {
     // Neuer Workflow: sofort angelegt und verteilt
     await page.click('button:has-text("Neuer Workflow")');
     await page.waitForSelector('.node[data-node="Start"]');
-    await page.waitForSelector('.exec-header:has-text("Produktion")');
+    await page.waitForSelector('.editor-header:has-text("Produktion")');
     expect(worker!.workflows.list()).toHaveLength(1);
 
     // Set-Node einfügen, umbenennen, speichern
     await page.click('.node[data-node="Start"]');
+    await page.click('.canvas-tools button:has-text("Knoten")');
     await page.fill('.palette-search', 'Edit Fields');
     await page.press('.palette-search', 'Enter');
     await page.waitForSelector('.node[data-node="Edit Fields (Set)"]');
@@ -145,7 +146,7 @@ describe('Master-Oberfläche', () => {
     expect(file.name).toBe('Rechnungen');
 
     // Ausführen beim Worker
-    await page.click('button:has-text("Ausführen")');
+    await page.click('button:has-text("Testlauf")');
     await page.waitForSelector('.node[data-node="Edit Fields (Set)"].status-success');
     await page.click('.node[data-node="Edit Fields (Set)"]');
     await page.click('.tab:has-text("Ergebnis")');
@@ -153,7 +154,7 @@ describe('Master-Oberfläche', () => {
     await shot(page, '03-editor');
 
     // Webhook-Adresse des Workers im Editor
-    expect(await page.locator('.exec-header').innerText()).toContain('Kunde A / Produktion');
+    expect(await page.locator('.editor-header').innerText()).toContain('Kunde A · Produktion');
 
     // Versionen
     await page.click('button:has-text("Versionen")');
@@ -162,7 +163,7 @@ describe('Master-Oberfläche', () => {
     await page.click('.modal button:has-text("Schließen")');
 
     // Ausführungen des Projekts
-    await page.click('a:has-text("Ausführungen")');
+    await page.click('a.head-tab:has-text("Ausführungen")');
     await page.waitForSelector('.list-table td:has-text("Rechnungen")');
     await shot(page, '04-executions');
     await page.click('.list-table tbody tr >> nth=0');
@@ -174,7 +175,7 @@ describe('Master-Oberfläche', () => {
     await shot(page, '05-overview');
     await page.click('a.strong:has-text("Produktion")');
     await page.waitForSelector('h2:has-text("Credentials beim Worker")');
-    await page.click('button:has-text("+ Credential")');
+    await page.click('button:has-text("Credential hinzufügen")');
     await dialogField(page, 'Name', 'API Kunde A');
     await dialogField(page, 'Typ', 'httpHeaderAuth');
     const rows = page.locator('.modal .kv-row');
@@ -196,7 +197,7 @@ describe('Master-Oberfläche', () => {
     await dialogField(page, 'Passwort', 'veras-langes-passwort');
     await page.click('.modal .btn-primary');
     await page.waitForSelector('td:has-text("vera@example.org")');
-    await page.click('.nav-link:has-text("Projekte")');
+    await page.click('.side-link:has-text("Projekte")');
     await page.click('.project-card');
     await page.click('.tab:has-text("Mitglieder")');
     await page.locator('.inline-form select').nth(0).selectOption({ label: 'Vera (vera@example.org)' });
@@ -205,13 +206,13 @@ describe('Master-Oberfläche', () => {
     await page.waitForSelector('td:has-text("Vera")');
 
     // Profil: TOTP einrichten zeigt den Schlüssel
-    await page.click('.topbar a[href="#/profile"]');
+    await page.click('.side-link[href="#/profile"]');
     await page.click('button:has-text("Einrichten")');
     await page.waitForSelector('code.secret');
     await shot(page, '07-profile');
 
     // Abmelden, als Vera anmelden: nur lesen
-    await page.click('button:has-text("Abmelden")');
+    await page.click('.sidebar-foot button:has-text("Abmelden")');
     await page.waitForSelector('.login-card input[type=email]');
     await page.fill('.login-card input[type=email]', 'vera@example.org');
     await page.fill('.login-card input[type=password]', 'falsch-falsch-falsch');
@@ -220,14 +221,14 @@ describe('Master-Oberfläche', () => {
     await page.fill('.login-card input[type=password]', 'veras-langes-passwort');
     await page.click('.login-card button[type=submit]');
     await page.waitForSelector('.project-card');
-    expect(await page.locator('.nav-link:has-text("Verwaltung")').count()).toBe(0);
+    expect(await page.locator('.side-link:has-text("Verwaltung")').count()).toBe(0);
     await page.click('.project-card');
     await page.waitForSelector('td a:has-text("Rechnungen")');
     expect(await page.locator('button:has-text("Neuer Workflow")').count()).toBe(0);
     await page.click('td a:has-text("Rechnungen")');
     await page.waitForSelector('.editor.readonly .node[data-node="Start"]');
-    await page.waitForSelector('.toolbar .pill:has-text("nur lesen")');
-    expect(await page.locator('button:has-text("Ausführen")').count()).toBe(0);
+    await page.waitForSelector('.editor-header .pill:has-text("nur lesen")');
+    expect(await page.locator('button:has-text("Testlauf")').count()).toBe(0);
     await shot(page, '08-viewer');
 
     expect(errors).toEqual([]);
@@ -266,10 +267,10 @@ describe('Master-Oberfläche', () => {
 
       idp.autoLogin = { sub: 'sam', email: 'sam@example.org', email_verified: true, name: 'Sam SSO' };
       await page.click('a:has-text("Mit Firmen-Konto anmelden")');
-      await page.waitForSelector('.topbar a:has-text("Sam SSO")');
+      await page.waitForSelector('.sidebar-foot:has-text("Sam SSO")');
       await page.waitForSelector('h1:has-text("Projekte")');
       // Profil ohne Passwort und ohne TOTP-Bereich
-      await page.click('.topbar a[href="#/profile"]');
+      await page.click('.side-link[href="#/profile"]');
       await page.waitForSelector('h2:has-text("API-Tokens")');
       expect(await page.locator('h2:has-text("Zwei-Faktor")').count()).toBe(0);
       expect(errors).toEqual([]);

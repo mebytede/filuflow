@@ -27,11 +27,27 @@ function configuredOutputs(node: WorkflowNode): number {
   return rules.length + extra;
 }
 
+/**
+ * Namen der Ausgänge für den Editor, wie configuredOutputs in SwitchV3.node.ts (n8n 1.123.0): Regel mit
+ * outputKey (Umbenennen) oder Index, Fallback-Ausgang renameFallbackOutput oder "Fallback".
+ */
+function outputNames(node: WorkflowNode): string[] {
+  const p = node.parameters;
+  if ((p.mode ?? 'rules') === 'expression') return Array.from({ length: Number(p.numberOutputs ?? 4) }, (_, i) => String(i));
+  const rules = (((p.rules ?? DEFAULT_RULES) as { values?: Array<Record<string, unknown>> }).values ?? []).map((rule, i) =>
+    typeof rule.outputKey === 'string' && rule.outputKey ? rule.outputKey : String(i),
+  );
+  const options = p.options as Record<string, unknown> | undefined;
+  if (options?.fallbackOutput === 'extra') rules.push(typeof options.renameFallbackOutput === 'string' && options.renameFallbackOutput ? options.renameFallbackOutput : 'Fallback');
+  return rules;
+}
+
 export const switchNode: NodeType = {
   type: 'n8n-nodes-base.switch',
   displayName: 'Switch',
   versions: [3, 3.1, 3.2, 3.3, 3.4],
   outputs: configuredOutputs,
+  outputNames,
   async execute(ctx) {
     let returnData: Item[][] = [];
     const items = ctx.items;

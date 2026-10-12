@@ -6,7 +6,8 @@ import type { CredentialInfo, NodeTypeInfo, Workflow, WorkflowStatus } from '../
 import { Editor, type EditorBackend } from '../editor/editor.js';
 import { executionDetailView } from '../views/executions.js';
 import { mapi } from './api.js';
-import { can, projectExecutionSource } from './projects.js';
+import { can, projectExecutionSource, workerBadge } from './projects.js';
+import { button } from '../shell.js';
 import type { MasterWorkflow } from './types.js';
 
 const e = encodeURIComponent;
@@ -48,7 +49,7 @@ export async function masterWorkflowView(id: string, types: NodeTypeInfo[]): Pro
               'div',
               { class: 'form' },
               h('p', null, err.message),
-              h('p', { class: 'muted small' }, 'Überschreiben speichert deinen Stand als neue Version (die andere Änderung bleibt in den Versionen erhalten). Neu laden verwirft deine ungespeicherten Änderungen.'),
+              h('p', { class: 'muted small' }, 'Überschreiben speichert Ihren Stand als neue Version (die andere Änderung bleibt in den Versionen erhalten). Abbrechen lässt Ihre Änderungen ungespeichert im Editor.'),
             ),
             { confirm: 'Überschreiben', cancel: 'Abbrechen', onConfirm: () => 'overwrite' },
           );
@@ -58,6 +59,11 @@ export async function masterWorkflowView(id: string, types: NodeTypeInfo[]): Pro
       }
     },
     run: (workflow, trigger, input) => mapi.run(id, workflow, trigger, input),
+    async lastExecution(wid) {
+      if (!project.worker) return undefined;
+      const [last] = await mapi.executions(project.id, { workflow: wid });
+      return last ? mapi.execution(project.id, last.id) : undefined;
+    },
   };
 
   const versionsDialog = async () => {
@@ -117,15 +123,6 @@ export async function masterWorkflowView(id: string, types: NodeTypeInfo[]): Pro
     await dialog('Versionen', h('div', { class: 'table-wrap' }, list), { confirm: '', cancel: 'Schließen', wide: true });
   };
 
-  const header = h(
-    'div',
-    { class: 'exec-header' },
-    h('a', { href: `#/project/${e(project.id)}`, class: 'link' }, `← ${project.name}`),
-    project.worker
-      ? h('span', { class: 'muted' }, ` · Worker ${project.worker.tenant?.name ?? '?'} / ${project.worker.name} (${project.worker.status})`)
-      : h('span', { class: 'error-text' }, ' · kein Worker zugeordnet: Ausführen und Aktivieren nicht möglich'),
-  );
-
   const editor: Editor = new Editor({
     id,
     workflow: detail.workflow,
@@ -136,9 +133,17 @@ export async function masterWorkflowView(id: string, types: NodeTypeInfo[]): Pro
     readonly: !can(detail, 'workflow.edit'),
     readonlyNote: 'nur lesen',
     backend,
-    header,
+    brandHref: '#/projects',
+    crumbs: [
+      { label: 'Projekte', href: '#/projects' },
+      { label: project.name, href: `#/project/${e(project.id)}` },
+    ],
+    savedAt: detail.updatedAt,
     executionsHref: (wid) => `#/project/${e(project.id)}/executions?workflow=${e(wid)}`,
-    toolbarExtras: () => [h('button', { type: 'button', class: 'btn', title: 'Gespeicherte Versionen', onclick: () => void versionsDialog() }, 'Versionen')],
+    toolbarExtras: () => [
+      workerBadge(project),
+      button('Versionen', { icon: 'history', title: 'Gespeicherte Versionen', onclick: () => void versionsDialog() }),
+    ],
   });
   return { el: editor.el, editor };
 }

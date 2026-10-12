@@ -138,6 +138,29 @@ export interface WorkflowSummary {
   activationError?: string;
   webhooks: Array<{ method: string; path: string }>;
   schedules: unknown[];
+  triggers?: Array<{ kind: 'webhook' | 'schedule' | 'error' | 'manual' | 'workflow' | 'other'; label: string }>;
+  valid?: boolean;
+  /** Erster Validierungsfehler (ungültige Workflows) */
+  problem?: string;
+}
+
+export interface Overview {
+  days: number;
+  dir: string;
+  reloadedAt: string | null;
+  running: number;
+  queued: number;
+  concurrency: number;
+  executions: number;
+  errors: number;
+  workflows: Record<string, { runs: number; last?: Execution }>;
+}
+
+export interface InstanceInfo {
+  webhookBaseUrl: string;
+  instance: string;
+  imprintUrl?: string;
+  privacyUrl?: string;
 }
 
 export interface WorkflowStatus extends WorkflowSummary {

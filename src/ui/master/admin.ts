@@ -2,6 +2,8 @@
 // Einstellungen, Audit-Log.
 import { confirmDialog, dialog, formatDate, h, toast } from '../dom.js';
 import { mapi } from './api.js';
+import { pageHead } from '../shell.js';
+import { iconButton } from '../shell.js';
 import type { AuditEntry, OverviewWorker, Tenant, User, WorkerInfo } from './types.js';
 
 const e = encodeURIComponent;
@@ -24,7 +26,7 @@ export function adminTabs(active: string): HTMLElement {
 }
 
 function page(active: string, title: string): HTMLElement {
-  return h('section', { class: 'page' }, h('div', { class: 'page-head' }, h('h1', null, 'Verwaltung')), adminTabs(active), title ? h('h2', { class: 'sr-only' }, title) : null);
+  return h('section', { class: 'page' }, pageHead('Verwaltung', title), adminTabs(active));
 }
 
 export function workerStatus(w: { status: string; lastError?: string | null; lastSeenAt?: string | null }): HTMLElement {
@@ -193,7 +195,7 @@ export async function tenantsPage(): Promise<HTMLElement> {
             }
           },
         },
-        '+ Neuer Mandant',
+        'Neuer Mandant',
       ),
     ),
   );
@@ -230,7 +232,7 @@ export async function tenantsPage(): Promise<HTMLElement> {
                 }
               },
             },
-            '+ Worker',
+            'Worker hinzufügen',
           ),
           h(
             'button',
@@ -320,7 +322,7 @@ async function credentialDialog(name?: string, type?: string): Promise<{ name: s
   const addRow = (k = '', v = '') => {
     const key = text(k, { placeholder: 'Feld, z. B. name', 'aria-label': 'Feld' });
     const value = h('input', { type: 'password', class: 'param-input', value: v, placeholder: 'Wert', autocomplete: 'off', 'aria-label': 'Wert' });
-    const row = h('div', { class: 'kv-row' }, key, value, h('button', { type: 'button', class: 'icon-btn', title: 'Entfernen', 'aria-label': 'Feld entfernen', onclick: () => row.remove() }, '×'));
+    const row = h('div', { class: 'kv-row' }, key, value, iconButton('x', 'Feld entfernen', () => row.remove()));
     rows.append(row);
   };
   const json = h('textarea', { class: 'param-input json-editor', rows: 5, spellcheck: false, placeholder: '{ "name": "X-Api-Key", "value": "..." }  (optional statt Feldern)' });
@@ -334,7 +336,7 @@ async function credentialDialog(name?: string, type?: string): Promise<{ name: s
       list,
       field('Name', nameInput, 'So referenzieren Workflows das Credential (credentials.<typ>.name).'),
       field('Typ', typeInput),
-      h('div', { class: 'field' }, h('span', null, 'Werte'), rows, h('button', { type: 'button', class: 'btn btn-small', onclick: () => addRow() }, '+ Feld')),
+      h('div', { class: 'field' }, h('span', null, 'Werte'), rows, h('button', { type: 'button', class: 'btn btn-small', onclick: () => addRow() }, 'Feld hinzufügen')),
       field('oder als JSON', json),
       h('p', { class: 'muted small' }, 'Die Werte werden direkt an den Worker übertragen und dort (mit FILUFLOW_ENCRYPTION_KEY verschlüsselt) gespeichert. Sie können danach nicht mehr angezeigt werden. Verweise auf Umgebungsvariablen des Workers wie {{ env.API_KEY }} sind möglich.'),
     ),
@@ -379,7 +381,7 @@ export async function workerPage(id: string): Promise<HTMLElement> {
   if (!w) return h('section', { class: 'page' }, h('h1', null, 'Worker nicht gefunden'), h('a', { href: '#/admin/tenants' }, 'Zurück'));
   const tenant = tenants.find((t) => t.id === w.tenantId);
   const ov = overview.tenants.flatMap((t) => t.workers).find((x) => x.id === id);
-  const root = h('section', { class: 'page' }, adminTabs('tenants'));
+  const root = h('section', { class: 'page' }, pageHead('Verwaltung', 'Worker'), adminTabs('tenants'));
   const reload = async () => root.replaceWith(await workerPage(id));
   const action = (label: string, fn: () => Promise<void>, cls = 'btn') =>
     h(
@@ -499,7 +501,7 @@ export async function workerPage(id: string): Promise<HTMLElement> {
             { class: 'page-head' },
             h('h2', null, 'Credentials beim Worker'),
             h('div', { class: 'spacer' }),
-            action('+ Credential', async () => {
+            action('Credential hinzufügen', async () => {
               const r = await credentialDialog();
               if (!r) return;
               await mapi.setWorkerCredential(id, r.name, r.type, r.data);
@@ -604,7 +606,7 @@ export async function usersPage(me: User): Promise<HTMLElement> {
       toast(message(err), 'error');
     }
   };
-  root.append(h('div', { class: 'page-head' }, h('div', { class: 'spacer' }), h('button', { type: 'button', class: 'btn btn-primary', onclick: () => void create() }, '+ Neuer Benutzer')));
+  root.append(h('div', { class: 'page-head' }, h('div', { class: 'spacer' }), h('button', { type: 'button', class: 'btn btn-primary', onclick: () => void create() }, 'Neuer Benutzer')));
   root.append(
     h(
       'div',
@@ -620,7 +622,7 @@ export async function usersPage(me: User): Promise<HTMLElement> {
             h(
               'tr',
               { class: u.disabled ? 'row-disabled' : '' },
-              h('td', null, h('span', { class: 'strong' }, u.name), u.id === me.id ? h('span', { class: 'muted small' }, ' (du)') : null, h('div', { class: 'muted small' }, u.email)),
+              h('td', null, h('span', { class: 'strong' }, u.name), u.id === me.id ? h('span', { class: 'muted small' }, ' (Sie)') : null, h('div', { class: 'muted small' }, u.email)),
               h(
                 'td',
                 null,

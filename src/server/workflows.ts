@@ -82,8 +82,17 @@ export class WorkflowManager implements WorkflowSource {
   }
 
   /** Lädt das Verzeichnis neu und gleicht Aktivierungen ab */
+  /** Zeitpunkt des letzten Ladens des Verzeichnisses (Hot Reload) */
+  reloadedAt?: string;
+
+  get dir(): string {
+    return this.options.dir;
+  }
+
   reload(): Promise<void> {
-    this.reloading = this.reloading.then(() => this.doReload()).catch((error: unknown) => {
+    this.reloading = this.reloading.then(() => this.doReload()).then(() => {
+      this.reloadedAt = new Date().toISOString();
+    }).catch((error: unknown) => {
       this.options.logger.error({ err: (error as Error).message }, 'Neuladen der Workflows fehlgeschlagen');
     });
     return this.reloading;

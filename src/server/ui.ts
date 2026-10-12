@@ -13,6 +13,8 @@ const CONTENT_TYPES: Record<string, string> = {
   '.svg': 'image/svg+xml',
   '.json': 'application/json; charset=utf-8',
   '.map': 'application/json; charset=utf-8',
+  '.woff2': 'font/woff2',
+  '.png': 'image/png',
 };
 
 // Nur eigene Skripte und Styles; Inline-Styles über das CSSOM sind davon nicht betroffen

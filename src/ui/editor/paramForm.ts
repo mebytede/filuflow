@@ -2,6 +2,7 @@
 // Beschreibungen nicht, daher bearbeitet das Formular den Parameterbaum direkt: Texte, Zahlen, Ja/Nein, Objekte
 // und Listen. Texte mit führendem "=" sind Expressions (wie in n8n).
 import { h } from '../dom.js';
+import { icon } from '../icons.js';
 import { newId } from './model.js';
 
 export type ParamChange = (coalesceKey: string) => void;
@@ -158,7 +159,7 @@ function tree(container: Record<string, unknown> | unknown[], path: string, ctx:
                   rerender();
                 },
               },
-              '×',
+              icon('x', 14),
             ),
           ),
       ),
@@ -188,7 +189,7 @@ function tree(container: Record<string, unknown> | unknown[], path: string, ctx:
                 rerender();
               },
             },
-            '+ Eintrag',
+            'Eintrag hinzufügen',
           ),
         ),
       );
@@ -208,7 +209,7 @@ function tree(container: Record<string, unknown> | unknown[], path: string, ctx:
       nameInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') add();
       });
-      box.append(h('div', { class: 'param-add' }, nameInput, kindSel, h('button', { type: 'button', class: 'btn btn-small', onclick: add }, '+')));
+      box.append(h('div', { class: 'param-add' }, nameInput, kindSel, h('button', { type: 'button', class: 'icon-btn', title: 'Parameter hinzufügen', 'aria-label': 'Parameter hinzufügen', onclick: add }, icon('plus', 16))));
     }
   }
   return box;

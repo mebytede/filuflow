@@ -95,6 +95,11 @@ export class ExecutionManager {
     await Promise.race([all, new Promise((r) => setTimeout(r, timeoutMs).unref())]);
   }
 
+  /** Auslastung: laufende und wartende Ausführungen, Limit (FILUFLOW_CONCURRENCY) */
+  load(): { running: number; queued: number; concurrency: number } {
+    return { running: this.running, queued: this.queue.length, concurrency: this.concurrency };
+  }
+
   private async acquire(): Promise<void> {
     if (this.running < this.concurrency) {
       this.running++;

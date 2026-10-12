@@ -9,6 +9,8 @@ import { projectExecutionsPage, projectMembersPage, projectSettingsPage, project
 import { masterExecutionView, masterWorkflowView } from './workflow.js';
 import { auditPage, overviewPage, settingsPage, tenantsPage, usersPage, workerPage } from './admin.js';
 import type { AuthStatus, User } from './types.js';
+import { icon } from '../icons.js';
+import { editorLayout, sidebarLayout, type NavItem } from '../shell.js';
 
 export function startMaster(app: HTMLElement): void {
   let status: AuthStatus | undefined;
@@ -23,35 +25,43 @@ export function startMaster(app: HTMLElement): void {
 
   const loadTypes = async () => (types ??= await mapi.nodeTypes());
 
-  const header = (active: string): HTMLElement => {
+  const logout = async () => {
+    if (current.editor?.isDirty && !window.confirm('Ungespeicherte Änderungen verwerfen?')) return;
+    current.editor?.destroy();
+    current = {};
+    await mapi.logout().catch(() => undefined);
+    status = await mapi.status();
+    skipNextRoute = location.hash !== '#/login';
+    location.hash = '#/login';
+    showAuth();
+  };
+
+  const nav = (): NavItem[] => {
     const u = user()!;
-    const link = (href: string, label: string, key: string) => h('a', { href, class: `nav-link${active === key ? ' on' : ''}` }, label);
-    return h(
-      'header',
-      { class: 'topbar' },
-      h('a', { href: '#/projects', class: 'brand', 'aria-label': 'filuflow Start' }, h('span', { class: 'brand-mark' }), 'filuflow'),
-      h('nav', null, link('#/projects', 'Projekte', 'projects'), u.role === 'admin' ? link('#/admin/overview', 'Verwaltung', 'admin') : null),
-      h('div', { class: 'spacer' }),
-      h('a', { href: '#/profile', class: `nav-link${active === 'profile' ? ' on' : ''}`, title: u.email }, u.name || u.email),
-      h(
-        'button',
-        {
-          type: 'button',
-          class: 'btn btn-ghost',
-          onclick: async () => {
-            if (current.editor?.isDirty && !window.confirm('Ungespeicherte Änderungen verwerfen?')) return;
-            current.editor?.destroy();
-            current = {};
-            await mapi.logout().catch(() => undefined);
-            status = await mapi.status();
-            skipNextRoute = location.hash !== '#/login';
-            location.hash = '#/login';
-            showAuth();
-          },
-        },
-        'Abmelden',
-      ),
-    );
+    return [
+      { key: 'projects', label: 'Projekte', icon: 'folder', href: '#/projects' },
+      ...(u.role === 'admin' ? [{ key: 'admin', label: 'Verwaltung', icon: 'building-2', href: '#/admin/overview' }] : []),
+    ];
+  };
+  const navBottom = (): NavItem[] => [{ key: 'profile', label: 'Profil', icon: 'user', href: '#/profile' }];
+
+  /** Fuß der Seitenleiste: angemeldete Person, Instanz, Kompatibilität, Impressum, Abmelden */
+  const footer = (): Array<Node | null> => {
+    const u = user()!;
+    return [
+      h('div', { class: 'foot-row', title: u.email }, icon('user', 16), h('span', { class: 'ellipsis' }, u.name || u.email)),
+      h('div', { class: 'foot-row' }, icon('server', 16), `Master ${status?.instance ?? ''}`),
+      h('div', null, 'Kompatibel mit n8n 1.123'),
+      status?.imprintUrl || status?.privacyUrl
+        ? h(
+            'div',
+            { class: 'foot-links' },
+            status.imprintUrl ? h('a', { href: status.imprintUrl, target: '_blank', rel: 'noopener' }, 'Impressum') : null,
+            status.privacyUrl ? h('a', { href: status.privacyUrl, target: '_blank', rel: 'noopener' }, 'Datenschutz') : null,
+          )
+        : null,
+      h('button', { type: 'button', class: 'link', onclick: () => void logout() }, 'Abmelden'),
+    ];
   };
 
   const setPage = (active: string, content: HTMLElement, editor?: Editor, seq = routeSeq) => {
@@ -61,7 +71,8 @@ export function startMaster(app: HTMLElement): void {
     }
     current.editor?.destroy();
     current = { editor };
-    app.replaceChildren(header(active), h('main', { class: `content${editor ? ' content-editor' : ''}` }, content));
+    if (editor) app.replaceChildren(editorLayout({ rail: nav(), railBottom: navBottom(), active }, editor.header, content));
+    else app.replaceChildren(sidebarLayout({ nav: nav(), navBottom: navBottom(), active, footer: footer(), brandHref: '#/projects' }, content));
   };
 
   const afterLogin = async () => {
@@ -127,7 +138,7 @@ export function startMaster(app: HTMLElement): void {
             const blockedBefore = totpBlocked();
             status = { ...status!, user: changed };
             if (blockedBefore && !totpBlocked()) toast('Danke, die Oberfläche ist wieder freigeschaltet', 'success');
-            const name = app.querySelector<HTMLAnchorElement>('.topbar a[href="#/profile"]');
+            const name = app.querySelector<HTMLElement>('.sidebar-foot .foot-row .ellipsis');
             if (name) name.textContent = changed.name || changed.email;
           }),
           undefined,

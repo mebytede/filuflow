@@ -2,13 +2,16 @@
 import { ApiError } from '../api.js';
 import { appendAll, confirmDialog, dialog, formatDate, h, toast } from '../dom.js';
 import { mapi } from './api.js';
+import { brand } from '../brand.js';
+import { pageHead } from '../shell.js';
+import { themeChooser } from '../views/settings.js';
 import type { AuthStatus, User } from './types.js';
 
 function card(...children: Array<Node | string | null | false>): HTMLElement {
   return h(
     'main',
     { class: 'login' },
-    h('div', { class: 'login-card card' }, h('div', { class: 'brand brand-large' }, h('span', { class: 'brand-mark' }), 'filuflow'), ...children),
+    h('div', { class: 'login-card' }, brand(32), ...children),
   );
 }
 
@@ -165,7 +168,7 @@ export async function profilePage(status: AuthStatus, onChanged: (user: User) =>
     root.replaceChildren();
     appendAll(
       root,
-      h('div', { class: 'page-head' }, h('h1', null, 'Profil'), h('div', { class: 'spacer' }), h('span', { class: 'muted' }, user.email)),
+      pageHead('Profil', user.name || user.email),
       status.requireTotp && user.hasPassword && !user.totpEnabled
         ? h('div', { class: 'notice notice-warning', role: 'alert' }, 'Zwei-Faktor-Anmeldung ist Pflicht. Bitte jetzt einrichten, danach steht die Oberfläche wieder zur Verfügung.')
         : null,
@@ -173,6 +176,7 @@ export async function profilePage(status: AuthStatus, onChanged: (user: User) =>
       user.hasPassword || !status.oidc.enabled ? passwordCard() : null,
       user.hasPassword ? totpCard() : null,
       tokenCard(tokens),
+      h('div', { class: 'card card-pad' }, h('h2', null, 'Darstellung'), h('div', { class: 'field' }, h('span', null, 'Farbschema'), h('div', null, themeChooser()), h('span', { class: 'muted small' }, 'Gilt für diesen Browser.'))),
     );
   };
 
@@ -329,7 +333,7 @@ export async function profilePage(status: AuthStatus, onChanged: (user: User) =>
       'div',
       { class: 'card card-pad' },
       h('h2', null, 'API-Tokens'),
-      h('p', { class: 'muted small' }, 'Für Skripte und Automatisierung: Header "Authorization: Bearer ffl_…". Ein Token hat dieselben Rechte wie dein Konto.'),
+      h('p', { class: 'muted small' }, 'Für Skripte und Automatisierung: Header "Authorization: Bearer ffl_…". Ein Token hat dieselben Rechte wie Ihr Konto.'),
       tokens.length
         ? h(
             'table',

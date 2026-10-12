@@ -35,6 +35,9 @@ export interface AuthStatus {
   setupRequired: boolean;
   oidc: { enabled: boolean; label?: string };
   requireTotp: boolean;
+  instance?: string;
+  imprintUrl?: string;
+  privacyUrl?: string;
 }
 
 export interface ApiToken {
@@ -74,6 +77,8 @@ export interface Member {
 
 export interface MasterWorkflow {
   id: string;
+  nodes?: number;
+  triggers?: Array<{ kind: string; label: string }>;
   projectId: string;
   name: string;
   version: number;

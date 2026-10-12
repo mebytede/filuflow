@@ -1,6 +1,7 @@
 // REST-Endpunkte für die Weboberfläche (M8): Node-Typen, Credentials (ohne Werte), Prüfen und Ausführen
 // ungespeicherter Workflows, Speichern und Löschen von Workflow-Dateien.
 // Alle Routen liegen im API-Scope und brauchen den X-API-Key.
+import { hostname } from 'node:os';
 import type { FastifyInstance } from 'fastify';
 import type { Item, Workflow, WorkflowNode } from '../types.js';
 import type { NodeRegistry } from '../nodes/registry.js';
@@ -120,7 +121,7 @@ export function asWorkflow(body: unknown): Workflow | string {
 export async function registerEditorApi(api: FastifyInstance, o: EditorApiOptions): Promise<void> {
   const validate = (wf: Workflow) => validateWorkflow(wf, { registry: o.registry, credentials: o.credentials, checkCredentials: true });
 
-  api.get('/api/editor/info', async () => ({ webhookBaseUrl: o.webhookBaseUrl }));
+  api.get('/api/editor/info', async () => ({ webhookBaseUrl: o.webhookBaseUrl, ...instanceInfo() }));
 
   api.get('/api/editor/node-types', async () => ({ data: nodeTypeList(o.registry) }));
 
@@ -217,4 +218,14 @@ export async function registerEditorApi(api: FastifyInstance, o: EditorApiOption
       return reply.code(e.code).send({ message: e.message });
     }
   });
+}
+
+/** Angaben für den Fuß der Seitenleiste: Name der Instanz, Impressum und Datenschutz (nur wenn gesetzt) */
+export function instanceInfo(): { instance: string; imprintUrl?: string; privacyUrl?: string } {
+  const env = process.env;
+  return {
+    instance: env.FILUFLOW_INSTANCE_NAME || hostname(),
+    ...(env.FILUFLOW_IMPRINT_URL ? { imprintUrl: env.FILUFLOW_IMPRINT_URL } : {}),
+    ...(env.FILUFLOW_PRIVACY_URL ? { privacyUrl: env.FILUFLOW_PRIVACY_URL } : {}),
+  };
 }

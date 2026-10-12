@@ -40,6 +40,22 @@ Neben dem Stack aus CLAUDE.md (luxon, better-sqlite3, fastify, croner, pino):
 - `playwright-core` (Dev-Abhängigkeit, Version passend zum vorinstallierten Chromium) für den Browser-Test `test/ui.e2e.test.ts`;
   ohne Chromium wird der Test übersprungen.
 
+## Design filuflow
+- Umgesetzt nach dem Design-Handoff (Logo "Strang", Tokens `--ff-*` dunkel und hell, IBM Plex Sans und Mono, Lucide-Icons,
+  Editor mit Kopfzeile, Icon-Leiste und Bereich "Letzter Lauf", Workflow-Übersicht mit Kennzahlen). Die Gestaltungsregeln
+  (Radius 0, keine Schatten und Verläufe, Status immer als Wort, Sie-Anrede) gelten für die ganze Oberfläche, auch für Master und
+  Verwaltung, die das Handoff nicht entwirft.
+- Das Handoff empfiehlt Vite, React und React Flow. Die Oberfläche bleibt bei TypeScript ohne Framework (siehe M8): Der Editor mit
+  Canvas, Verbinden, Rückgängig und Parameterformular existiert und ist getestet; ein Umbau brächte drei Laufzeit-Abhängigkeiten
+  und eine zweite Build-Kette ohne Gewinn für die Funktion. Die Knoten- und Kantendarstellung aus dem Handoff (176 x 104,
+  Kopfleiste in der Kategoriefarbe, orthogonale Kanten mit 8 px Radius, quadratische Ports) ist im eigenen SVG-Canvas nachgebaut.
+- Schriften (IBM Plex, SIL Open Font License 1.1) liegen als woff2 in `src/ui/static/fonts`, Icons (Lucide 0.545.0, ISC-Lizenz) als
+  Pfaddaten in `src/ui/icons.ts`. Keine Laufzeit-Abhängigkeit, keine externen Quellen (CSP bleibt `default-src 'self'`).
+- Dialoge haben keine abdunkelnde Fläche (Regel: keine Transparenz-Overlays); sie heben sich über Rahmen und die 2-px-Verlaufslinie ab.
+- Für die Übersicht liefert der Server `GET /api/overview` (Kennzahlen aus SQLite, Auslastung der Warteschlange, Quelle und Zeitpunkt
+  des letzten Ladens) und in `GET /api/workflows` je Workflow Auslöser und Gültigkeit. Der Master reicht die Kennzahlen eines Projekts
+  vom Worker durch (`GET /api/projects/:pid/overview`, nur Workflows des Projekts).
+
 ## Master und Worker (M9)
 - **Master verbindet sich zum Worker** (nicht umgekehrt): Der Worker ist ein normales `filuflow serve` mit zusätzlicher Worker-API,
   geschützt mit seinem `FILUFLOW_API_KEY`. Der Master braucht Netzzugang zum Worker (direkt, VPN oder Reverse Proxy mit TLS);

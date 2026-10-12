@@ -15,6 +15,7 @@ import {
   verifyTotp,
 } from '../auth.js';
 import { API_TOKEN_PREFIX, RateLimiter } from '../session.js';
+import { instanceInfo } from '../../server/editorApi.js';
 
 const LOCK_AFTER = 10;
 const LOCK_MINUTES = 15;
@@ -52,6 +53,7 @@ export function registerAuthRoutes(api: FastifyInstance, ctx: MasterContext): vo
       setupRequired: db.countUsers() === 0,
       oidc: ctx.oidc ? { enabled: true, label: ctx.oidc.label } : { enabled: false },
       requireTotp: db.getSetting('requireTotp') === 'true',
+      ...instanceInfo(),
     };
   });
 

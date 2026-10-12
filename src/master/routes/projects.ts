@@ -9,6 +9,7 @@ import { WorkerError } from '../workers.js';
 import { getDefaultRegistry } from '../../nodes/index.js';
 import { validateWorkflow } from '../../validator.js';
 import { asWorkflow, describeNodes, nodeTypeList } from '../../server/editorApi.js';
+import { triggersOf } from '../../server/overview.js';
 
 function str(v: unknown, max = 500): string {
   return typeof v === 'string' ? v.slice(0, max) : '';
@@ -81,7 +82,10 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
 
   const workflowView = (row: WorkflowRow, withData = false) => {
     const updatedBy = row.updated_by ? db.getUser(row.updated_by) : undefined;
+    const wf = JSON.parse(row.data) as Workflow;
     return {
+      nodes: (wf.nodes ?? []).filter((n) => n.type !== 'n8n-nodes-base.stickyNote').length,
+      triggers: triggersOf(wf),
       id: row.id,
       projectId: row.project_id,
       name: row.name,
@@ -96,7 +100,7 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
         error: row.deploy_error,
         upToDate: row.deployed_version === row.version && !!row.deployed_worker_id,
       },
-      ...(withData ? { workflow: JSON.parse(row.data) as Workflow } : {}),
+      ...(withData ? { workflow: wf } : {}),
     };
   };
 
@@ -372,6 +376,20 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
       return await hub.call(worker, 'GET', `/api/executions?${params.toString()}`, undefined, 15_000);
     } catch (error) {
       return workerError(reply, error);
+    }
+  });
+
+  // Kennzahlen und letzte Ausführung je Workflow vom Worker (nur Workflows des Projekts)
+  api.get('/api/projects/:pid/overview', async (request, reply) => {
+    const a = access(request, reply, (request.params as { pid: string }).pid, 'execution.read');
+    if (!a) return;
+    const worker = hub.workerForProject(a.project.id);
+    const ids = db.listWorkflows(a.project.id).map((w) => w.id);
+    if (!worker || !ids.length) return { overview: null };
+    try {
+      return { overview: await hub.call(worker, 'GET', `/api/overview?workflowIds=${encodeURIComponent(ids.join(','))}`, undefined, 15_000) };
+    } catch (error) {
+      return { overview: null, error: (error as Error).message };
     }
   });
 

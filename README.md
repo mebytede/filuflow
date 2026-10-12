@@ -96,21 +96,28 @@ docker run -p 5678:5678 -e FILUFLOW_API_KEY=geheim -v "$PWD/data:/data" filuflow
 
 ## Weboberfläche
 `filuflow serve` liefert unter `http://localhost:5678/` eine Weboberfläche mit Workflow-Editor aus. Anmeldung mit dem Wert von
-`FILUFLOW_API_KEY`.
+`FILUFLOW_API_KEY`. Gestaltet nach dem filuflow-Design (IBM Plex, dunkel als Standard, hell unter **Einstellungen**).
 
-- **Workflows:** Liste mit Status, Webhooks und Zeitplänen; neu anlegen, n8n-JSON importieren (Datei oder Einfügen), löschen.
-- **Editor:** Nodes aus der Palette per Klick (hängt sich an den ausgewählten Node an) oder per Ziehen einfügen; Ausgang auf Eingang
-  ziehen zum Verbinden (KI-Sub-Nodes von der Raute oben auf den passenden Eingang des Eltern-Nodes); Verbindung anklicken und
-  Entf zum Löschen. Rechts die Details des ausgewählten Nodes: Parameter (Formular oder JSON, `fx` schaltet zwischen festem Wert
-  und Expression), Credentials, Einstellungen (deaktiviert, Fehlerverhalten, Wiederholen, Notizen) und nach dem Ausführen das Ergebnis
-  als Tabelle oder JSON. Fehler und Warnungen der Prüfung erscheinen an den Nodes und unten rechts.
-- **Speichern** schreibt die Datei im Workflow-Verzeichnis; **Aktivieren** schaltet Webhooks und Zeitpläne an. **Ausführen** läuft
-  mit dem aktuellen, auch ungespeicherten Stand und zeigt Item-Zahlen an Nodes und Verbindungen.
-- **Ausführungen:** Liste mit Filter, Detailansicht mit dem Workflow-Stand der Ausführung und den Daten jedes Nodes.
+- **Workflows:** Kennzahlen (aktiv, Ausführungen und Fehler der letzten 14 Tage, gleichzeitige Ausführungen), Suche und Filter
+  (Alle, Aktiv, Inaktiv, Ungültig), Tabelle mit Auslöser, Zustand, letztem Lauf, Dauer und Läufen; neu anlegen, n8n-Export
+  importieren (Datei oder Einfügen), löschen.
+- **Editor:** Knoten über **Knoten** oben links (oder Taste N) per Klick (hängt sich an den ausgewählten Knoten an) oder per Ziehen
+  einfügen; Ausgang auf Eingang ziehen zum Verbinden (KI-Sub-Nodes vom Port oben auf den passenden Eingang unten am Eltern-Node);
+  Verbindung anklicken und Entf zum Löschen. Rechts die Details des ausgewählten Knotens: Parameter (Formular oder JSON, `fx`
+  schaltet zwischen festem Wert und Expression), Credentials, Einstellungen (deaktiviert, Fehlerverhalten, Wiederholen, Notizen)
+  und nach dem Ausführen das Ergebnis als Tabelle oder JSON. Fehler und Hinweise der Prüfung stehen im Fuß der Knoten und oben rechts.
+- **Speichern** schreibt die Datei im Workflow-Verzeichnis; der Schalter **Aktiv** schaltet Webhooks und Zeitpläne an (speichert).
+  **Testlauf** läuft mit dem aktuellen, auch ungespeicherten Stand. Durchlaufene Knoten, Ports und Kanten sind hervorgehoben, jeder
+  Knoten zeigt Status und Dauer.
+- **Letzter Lauf** unter dem Canvas: die letzte Ausführung des Workflows mit Status, Typ, Ausgabe und Dauer je Knoten und einer
+  Zeitleiste; Klick auf eine Zeile wählt den Knoten.
+- **Ausführungen:** Liste mit Filter nach Workflow und Status, Detailansicht mit dem Workflow-Stand der Ausführung.
+- Optionale Angaben für den Fuß der Seitenleiste: `FILUFLOW_INSTANCE_NAME` (Default: Hostname), `FILUFLOW_IMPRINT_URL` und
+  `FILUFLOW_PRIVACY_URL` (Links "Impressum" und "Datenschutz", nur wenn gesetzt).
 
-Tastatur im Editor: Strg+S speichern, Strg+Enter ausführen, Strg+Z / Strg+Umschalt+Z rückgängig / wiederholen, Strg+C / Strg+X / Strg+V
-kopieren, ausschneiden, einfügen (kompatibel mit kopierten n8n-Nodes), Strg+A alles auswählen, Entf löschen, D deaktivieren,
-1 einpassen, Esc Auswahl aufheben. Umschalt+Ziehen auf freier Fläche wählt mit einem Rahmen aus, Strg+Mausrad zoomt.
+Tastatur im Editor: Strg+S speichern, Strg+Enter Testlauf, N Knoten hinzufügen, Strg+Z / Strg+Umschalt+Z rückgängig / wiederholen,
+Strg+C / Strg+X / Strg+V kopieren, ausschneiden, einfügen (kompatibel mit kopierten n8n-Nodes), Strg+A alles auswählen, Entf löschen,
+D deaktivieren, 1 einpassen, Esc Auswahl aufheben. Umschalt+Ziehen auf freier Fläche wählt mit einem Rahmen aus, Strg+Mausrad zoomt.
 
 ## Mehrbenutzer-Betrieb: Master und Worker
 Für Teams und mehrere Mandanten gibt es zwei weitere Betriebsarten. Der Einzelbetrieb mit `filuflow serve` bleibt unverändert.

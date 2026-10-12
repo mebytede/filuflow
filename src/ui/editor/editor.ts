@@ -1,7 +1,9 @@
 // Workflow-Editor: Werkzeugleiste, Palette, Canvas, Detail-Panel. Hält die Arbeitskopie des Workflows,
 // den Verlauf (Rückgängig/Wiederholen), prüft Änderungen am Server und führt den Workflow aus.
 import { api, ApiError } from '../api.js';
-import { appendAll, dialog, h, toast, formatDate } from '../dom.js';
+import { appendAll, dialog, h, toast } from '../dom.js';
+import { button, editorHeader, iconButton, statusWord, shortTime } from '../shell.js';
+import { RunPanel } from './runPanel.js';
 import type { CredentialInfo, Execution, InspectResult, NodePorts, NodeTypeInfo, ValidationIssue, Workflow, WorkflowNode, WorkflowStatus } from '../types.js';
 import { Canvas, GRID, NODE_H, NODE_W, type CanvasModel } from './canvas.js';
 import { Panel } from './panel.js';
@@ -29,12 +31,18 @@ export interface EditorBackend {
   /** Ohne id: neu anlegen. Liefert null, wenn das Speichern abgebrochen wurde (z. B. Konfliktdialog). */
   save(id: string | undefined, workflow: Workflow): Promise<(Partial<WorkflowStatus> & { id: string; saveWarning?: string }) | null>;
   run(workflow: Workflow, trigger?: string, input?: unknown): Promise<Execution>;
+  /** Letzte Ausführung des Workflows (für den Bereich "Letzter Lauf") */
+  lastExecution?(id: string): Promise<Execution | undefined>;
 }
 
 export const standaloneBackend: EditorBackend = {
   inspect: (workflow) => api.inspect(workflow),
   save: (id, workflow) => (id ? api.save(id, workflow) : api.create(workflow)),
   run: (workflow, trigger, input) => api.run(workflow, trigger, input),
+  async lastExecution(id) {
+    const [last] = await api.executions({ workflow: id, limit: 1 });
+    return last ? api.execution(last.id) : undefined;
+  },
 };
 
 export interface EditorOptions {
@@ -60,8 +68,12 @@ export interface EditorOptions {
   execution?: Execution;
   /** Nach dem ersten Speichern (neue ID) */
   onCreated?(id: string): void;
-  /** Kopfzeile für die Execution-Ansicht */
-  header?: HTMLElement;
+  /** Ziel des Logos in der Kopfzeile */
+  brandHref?: string;
+  /** Breadcrumb vor dem Workflow-Namen, z. B. Workflows / */
+  crumbs?: Array<{ label: string; href?: string }>;
+  /** Zeitpunkt der letzten Speicherung (für "Gespeichert hh:mm") */
+  savedAt?: string;
 }
 
 const HISTORY_LIMIT = 100;
@@ -87,13 +99,19 @@ export class Editor {
   private inspectSeq = 0;
   private execution?: Execution;
   private running = false;
-  private readonly toolbar: HTMLElement;
+  /** Kopfzeile (56 px); die App setzt sie über die Icon-Leiste */
+  readonly header: HTMLElement;
   private readonly issuesBar: HTMLElement;
+  private readonly runPanel: RunPanel;
+  private readonly paletteEl?: HTMLElement;
+  private readonly zoomLabel: HTMLButtonElement;
+  private savedAt?: string;
   private readonly keyHandler = (e: KeyboardEvent) => this.onKey(e);
   private readonly backend: EditorBackend;
 
   constructor(private readonly opts: EditorOptions) {
     this.backend = opts.backend ?? standaloneBackend;
+    this.zoomLabel = h('button', { type: 'button', class: 'zoom-level', title: 'Auf 100 % setzen', onclick: () => this.canvas.zoomTo(1) }, '100 %');
     this.wf = cloneWorkflow(opts.workflow);
     this.wf.connections ??= {};
     this.wf.nodes ??= [];
@@ -134,6 +152,9 @@ export class Editor {
       }),
       open: (name) => this.select([name], false),
       dropType: (type, at) => this.addNode(type, at),
+      zoomed: (k) => {
+        this.zoomLabel.textContent = `${Math.round(k * 100)} %`;
+      },
     });
     this.panel = new Panel({
       readonly: !!opts.readonly,
@@ -149,11 +170,50 @@ export class Editor {
       close: () => this.select([], false),
     });
 
+    this.runPanel = new RunPanel({
+      workflow: () => this.wf,
+      types: () => this.types,
+      ports: (name) => this.model.ports[name],
+      selected: () => (this.model.selection.size === 1 ? [...this.model.selection][0] : undefined),
+      select: (name) => {
+        if (!findNode(this.wf, name)) return;
+        this.select([name], false);
+        this.canvas.ensureVisible([name]);
+      },
+    });
+    this.savedAt = opts.savedAt;
     this.issuesBar = h('div', { class: 'issues-bar' });
     host.append(this.issuesBar, this.zoomControls());
-    this.toolbar = h('div', { class: 'toolbar' });
-    const main = h('div', { class: 'editor-main' }, opts.readonly ? null : palette(opts.types, (type) => this.addNode(type)), host, this.panel.el);
-    this.el = h('div', { class: `editor${opts.readonly ? ' readonly' : ''}` }, opts.header ?? null, this.toolbar, main);
+    if (!opts.readonly) {
+      const closePalette = () => {
+        if (this.paletteEl) this.paletteEl.hidden = true;
+      };
+      const pal = palette(opts.types, (type) => {
+        closePalette();
+        this.addNode(type);
+      }, closePalette);
+      pal.hidden = true;
+      this.paletteEl = pal;
+      const toggle = button('Knoten', {
+        icon: 'plus',
+        title: 'Knoten hinzufügen (N)',
+        onclick: () => this.togglePalette(),
+      });
+      host.append(h('div', { class: 'canvas-tools' }, toggle), pal);
+    }
+    this.header = h('header', { class: 'editor-header' });
+    const main = h('div', { class: 'editor-main' }, host);
+    this.el = h('div', { class: `editor${opts.readonly ? ' readonly' : ''}` }, main, this.panel.el, this.runPanel.el);
+    this.runPanel.set(opts.execution);
+    if (!opts.execution && opts.id && this.backend.lastExecution) {
+      const id = opts.id;
+      void this.backend
+        .lastExecution(id)
+        .then((execution) => {
+          if (execution && !this.execution) this.showExecution(execution, false);
+        })
+        .catch(() => undefined);
+    }
 
     document.addEventListener('keydown', this.keyHandler);
     this.renderToolbar();
@@ -276,6 +336,7 @@ export class Editor {
     this.model.selectedEdge = undefined;
     this.panel.show(this.model.selection.size === 1 ? [...this.model.selection][0] : undefined);
     this.refresh();
+    this.runPanel.highlight();
   }
 
   private rename(oldName: string, newName: string): string | undefined {
@@ -429,6 +490,7 @@ export class Editor {
       this.id = result.id;
       this.wf.id = result.id;
       this.committed = JSON.stringify(this.wf);
+      this.savedAt = new Date().toISOString();
       this.status = { ...(this.status ?? ({} as WorkflowStatus)), ...result };
       this.model.issues = result.issues ?? this.model.issues;
       this.setDirty(false);
@@ -491,6 +553,10 @@ export class Editor {
       if (!ok) return;
     }
     this.running = true;
+    this.model.running = true;
+    this.model.runData = undefined;
+    this.runPanel.setRunning(true);
+    this.refresh();
     this.renderToolbar();
     try {
       const execution = await this.backend.run(this.wf, trigger, payload);
@@ -505,16 +571,21 @@ export class Editor {
       toast(`Ausführen fehlgeschlagen: ${(error as Error).message}`, 'error');
     } finally {
       this.running = false;
+      this.model.running = false;
+      this.runPanel.setRunning(false);
+      if (!this.execution) this.model.runData = undefined;
+      this.refresh();
       this.renderToolbar();
     }
   }
 
-  private showExecution(execution: Execution | undefined): void {
+  private showExecution(execution: Execution | undefined, focusError = true): void {
     this.execution = execution;
     this.model.runData = execution?.runData;
+    this.runPanel.set(execution);
     this.refresh();
     const failed = execution?.error?.node ?? (execution?.status === 'error' ? execution.lastNodeExecuted : undefined);
-    if (failed && findNode(this.wf, failed)) {
+    if (focusError && failed && findNode(this.wf, failed)) {
       this.select([failed], false);
       this.panel.show(failed, 'output');
     } else {
@@ -574,11 +645,19 @@ export class Editor {
   private zoomControls(): HTMLElement {
     return h(
       'div',
-      { class: 'zoom-controls' },
-      h('button', { type: 'button', class: 'icon-btn', title: 'Vergrößern', 'aria-label': 'Vergrößern', onclick: () => this.canvas.zoomBy(1.2) }, '+'),
-      h('button', { type: 'button', class: 'icon-btn', title: 'Verkleinern', 'aria-label': 'Verkleinern', onclick: () => this.canvas.zoomBy(1 / 1.2) }, '−'),
-      h('button', { type: 'button', class: 'icon-btn', title: 'Einpassen (1)', 'aria-label': 'Einpassen', onclick: () => this.canvas.fit() }, '⤢'),
+      { class: 'zoom-controls', role: 'group', 'aria-label': 'Zoom' },
+      iconButton('minus', 'Verkleinern', () => this.canvas.zoomBy(1 / 1.2)),
+      this.zoomLabel,
+      iconButton('plus', 'Vergrößern', () => this.canvas.zoomBy(1.2)),
+      iconButton('maximize-2', 'Einpassen (1)', () => this.canvas.fit()),
     );
+  }
+
+  private togglePalette(force?: boolean): void {
+    const pal = this.paletteEl;
+    if (!pal) return;
+    pal.hidden = force === undefined ? !pal.hidden : !force;
+    if (!pal.hidden) pal.querySelector<HTMLInputElement>('.palette-search')?.focus();
   }
 
   private renderIssues(): void {
@@ -615,59 +694,110 @@ export class Editor {
     this.issuesBar.append(details);
   }
 
+  /** Kopfzeile: Marke, Breadcrumb mit Workflow-Name, Tabs, rechts Schalter "Aktiv", Speicherstand, Aktionen */
   private renderToolbar(): void {
     const ro = !!this.opts.readonly;
-    const tb = this.toolbar;
-    tb.replaceChildren();
-    const name = h('input', { type: 'text', class: 'wf-name', value: this.wf.name ?? '', disabled: ro, 'aria-label': 'Workflow-Name' });
+    const executionView = ro && !!this.opts.execution;
+    const name = h('input', { type: 'text', class: 'wf-name', value: this.wf.name ?? '', disabled: ro, 'aria-label': 'Workflow-Name', size: Math.max(8, (this.wf.name ?? '').length + 1) });
     name.addEventListener('change', () => this.update((wf) => (wf.name = name.value.trim() || 'Ohne Namen')));
     name.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') name.blur();
     });
-    tb.append(name);
-    if (!ro) {
-      const active = this.status?.active;
-      const activeLabel = !this.id ? 'neu' : active ? 'aktiv' : this.wf.active ? 'Aktivierung fehlgeschlagen' : 'inaktiv';
-      appendAll(
-        tb,
-        h('span', { class: `pill ${active ? 'pill-success' : this.wf.active && this.id ? 'pill-error' : ''}`, title: this.status?.activationError ?? '' }, activeLabel),
-        this.dirty ? h('span', { class: 'dirty', title: 'Ungespeicherte Änderungen' }, '● ungespeichert') : null,
-      );
-    } else if (!this.execution && this.opts.readonlyNote) {
-      tb.append(h('span', { class: 'pill' }, this.opts.readonlyNote));
-    } else if (this.execution) {
-      const e = this.execution;
-      tb.append(h('span', { class: `pill pill-${e.status === 'success' ? 'success' : e.status === 'error' ? 'error' : ''}` }, e.status), h('span', { class: 'muted' }, ` ${formatDate(e.startedAt)} · ${e.mode}`));
+    const crumbs: Array<Node | string> = [];
+    for (const c of this.opts.crumbs ?? []) {
+      crumbs.push(c.href ? h('a', { href: c.href }, c.label) : h('span', null, c.label), h('span', { class: 'crumb-sep', 'aria-hidden': 'true' }, '/'));
     }
-    const spacer = h('div', { class: 'spacer' });
-    tb.append(spacer);
-    if (!ro) {
-      appendAll(
-        tb,
-        h('button', { type: 'button', class: 'icon-btn', title: 'Rückgängig (Strg+Z)', 'aria-label': 'Rückgängig', disabled: !this.undoStack.length, onclick: () => this.undo() }, '↶'),
-        h('button', { type: 'button', class: 'icon-btn', title: 'Wiederholen (Strg+Umschalt+Z)', 'aria-label': 'Wiederholen', disabled: !this.redoStack.length, onclick: () => this.redo() }, '↷'),
-        h('button', { type: 'button', class: 'btn', title: 'Nodes aus JSON einfügen', onclick: () => void this.importDialog() }, 'Einfügen'),
-        h('button', { type: 'button', class: 'btn', title: 'Als JSON herunterladen', onclick: () => this.exportJson() }, 'Export'),
-        h('button', { type: 'button', class: 'btn', title: 'Workflow-Einstellungen', onclick: () => void this.settingsDialog() }, 'Einstellungen'),
-        this.id
-          ? h('button', { type: 'button', class: 'btn', title: 'Webhooks und Zeitpläne an- oder abschalten (speichert)', onclick: () => void this.toggleActive() }, this.wf.active ? 'Deaktivieren' : 'Aktivieren')
-          : null,
-        this.id ? h('a', { class: 'btn', href: this.opts.executionsHref?.(this.id) ?? `#/executions?workflow=${encodeURIComponent(this.id)}` }, 'Ausführungen') : null,
-        ...(this.opts.toolbarExtras?.() ?? []),
-        this.model.runData ? h('button', { type: 'button', class: 'btn', title: 'Ergebnis ausblenden', onclick: () => this.showExecution(undefined) }, 'Ergebnis löschen') : null,
-        h('button', { type: 'button', class: 'btn', title: 'Speichern (Strg+S)', disabled: !this.dirty && !!this.id, onclick: () => void this.save() }, 'Speichern'),
+    if (executionView) crumbs.push(h('span', { class: 'crumb-current' }, this.wf.name || 'Ohne Namen'));
+    else crumbs.push(name);
+
+    const tabs: Array<{ label: string; href?: string; active?: boolean; onclick?: () => void }> = [];
+    if (!executionView && this.id) {
+      tabs.push({ label: 'Editor', active: true, onclick: () => undefined });
+      tabs.push({ label: 'Ausführungen', href: this.opts.executionsHref?.(this.id) ?? `#/executions?workflow=${encodeURIComponent(this.id)}` });
+      if (!ro) tabs.push({ label: 'Einstellungen', onclick: () => void this.settingsDialog() });
+    }
+
+    const actions: Array<Node | null | false | undefined> = [];
+    const extras = (this.opts.toolbarExtras?.() ?? []).filter((e): e is HTMLElement => !!e);
+    if (executionView) {
+      const e = this.opts.execution!;
+      actions.push(statusWord(e.status, e.error?.message), h('span', { class: 'saved-at' }, shortTime(e.startedAt)));
+      if (e.workflowId && e.workflowId !== 'editor') {
+        actions.push(button('Workflow öffnen', { href: this.opts.workflowHref?.(e.workflowId) ?? `#/workflow/${encodeURIComponent(e.workflowId)}` }));
+      }
+    } else if (ro) {
+      actions.push(h('span', { class: 'pill' }, this.opts.readonlyNote ?? 'Nur lesen'), ...extras);
+    } else {
+      if (this.id) actions.push(this.activeToggle());
+      actions.push(
+        this.dirty
+          ? h('span', { class: 'saved-at dirty', title: 'Ungespeicherte Änderungen' }, 'Nicht gespeichert')
+          : h('span', { class: 'saved-at' }, this.id ? `Gespeichert${this.savedAt ? ` ${new Date(this.savedAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}` : ''}` : 'Neu'),
         h(
-          'button',
-          { type: 'button', class: 'btn btn-primary', title: 'Workflow ausführen (Strg+Enter)', disabled: this.running, onclick: () => void this.run() },
-          this.running ? 'Läuft …' : '▶ Ausführen',
+          'div',
+          { class: 'head-icons' },
+          iconButton('undo-2', 'Rückgängig (Strg+Z)', () => this.undo(), { disabled: !this.undoStack.length }),
+          iconButton('redo-2', 'Wiederholen (Strg+Umschalt+Z)', () => this.redo(), { disabled: !this.redoStack.length }),
+          this.moreMenu(),
         ),
+        ...extras,
+        button(this.running ? 'Läuft' : 'Testlauf', { icon: 'play', title: 'Workflow ausführen (Strg+Enter)', disabled: this.running, onclick: () => void this.run() }),
+        button('Speichern', { variant: 'primary', title: 'Speichern (Strg+S)', disabled: !this.dirty && !!this.id, onclick: () => void this.save() }),
       );
-    } else if (this.execution?.workflowId && this.execution.workflowId !== 'editor') {
-      tb.append(h('a', { class: 'btn', href: this.opts.workflowHref?.(this.execution.workflowId) ?? `#/workflow/${encodeURIComponent(this.execution.workflowId)}` }, 'Workflow öffnen'));
     }
-    if (ro && !this.execution) {
-      tb.append(...(this.opts.toolbarExtras?.() ?? []).filter((e): e is HTMLElement => !!e));
-    }
+    const fresh = editorHeaderContent(this.opts.brandHref ?? '#/', crumbs, tabs, actions);
+    this.header.replaceChildren(...fresh);
+  }
+
+  /** Schalter "Aktiv": setzt active und speichert; bei ungültigem Workflow nur zum Abschalten */
+  private activeToggle(): HTMLElement {
+    const on = this.wf.active === true;
+    const errors = this.model.issues.filter((i) => i.severity === 'error');
+    const blocked = !on && errors.length > 0;
+    const failed = on && this.status && !this.status.active ? (this.status.activationError ?? 'Aktivierung fehlgeschlagen') : undefined;
+    const toggle = h(
+      'button',
+      {
+        type: 'button',
+        class: 'toggle',
+        role: 'switch',
+        'aria-checked': String(on),
+        disabled: blocked || this.running,
+        title: blocked ? `Ungültig: ${errors[0].message}` : 'Webhooks und Zeitpläne an- oder abschalten (speichert)',
+        onclick: () => void this.toggleActive(),
+      },
+      h('span', { class: 'toggle-track' }, h('span', { class: 'toggle-knob' })),
+      h('span', null, 'Aktiv'),
+    );
+    return failed ? h('span', { class: 'head-icons' }, toggle, statusWord('error', failed)) : toggle;
+  }
+
+  /** Weitere Aktionen: Einfügen, Export, Ergebnis ausblenden */
+  private moreMenu(): HTMLElement {
+    const list = h('div', { class: 'menu-list', role: 'menu' });
+    list.hidden = true;
+    const close = () => {
+      list.hidden = true;
+      document.removeEventListener('pointerdown', outside, true);
+    };
+    const outside = (e: Event) => {
+      if (!wrap.contains(e.target as Node)) close();
+    };
+    const item = (label: string, fn: () => void) =>
+      h('button', { type: 'button', class: 'menu-item', role: 'menuitem', onclick: () => (close(), fn()) }, label);
+    appendAll(
+      list,
+      item('Knoten aus JSON einfügen', () => void this.importDialog()),
+      item('Als JSON herunterladen', () => this.exportJson()),
+      this.model.runData ? item('Ergebnis ausblenden', () => this.showExecution(undefined)) : null,
+    );
+    const toggle = iconButton('ellipsis', 'Weitere Aktionen', () => {
+      list.hidden = !list.hidden;
+      if (!list.hidden) document.addEventListener('pointerdown', outside, true);
+    });
+    toggle.setAttribute('aria-haspopup', 'menu');
+    const wrap = h('div', { class: 'menu' }, toggle, list);
+    return wrap;
   }
 
   private onKey(e: KeyboardEvent): void {
@@ -686,6 +816,15 @@ export class Editor {
       return;
     }
     if (typing || document.querySelector('.modal-backdrop')) return;
+    if (e.key.toLowerCase() === 'n' && !mod && !this.opts.readonly) {
+      e.preventDefault();
+      this.togglePalette(true);
+      return;
+    }
+    if (e.key === 'Escape' && this.paletteEl && !this.paletteEl.hidden) {
+      this.togglePalette(false);
+      return;
+    }
     if (mod && e.key.toLowerCase() === 'z') {
       e.preventDefault();
       if (e.shiftKey) this.redo();
@@ -719,4 +858,14 @@ export class Editor {
       this.panel.render();
     }
   }
+}
+
+/** Inhalt der Kopfzeile (die Kopfzeile selbst bleibt dasselbe Element) */
+function editorHeaderContent(
+  brandHref: string,
+  crumbs: Array<Node | string>,
+  tabs: Array<{ label: string; href?: string; active?: boolean; onclick?: () => void }>,
+  actions: Array<Node | null | false | undefined>,
+): Node[] {
+  return [...editorHeader({ brandHref, crumbs, tabs, actions }).childNodes];
 }

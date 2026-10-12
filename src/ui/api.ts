@@ -3,6 +3,8 @@ import type {
   CredentialInfo,
   Execution,
   InspectResult,
+  InstanceInfo,
+  Overview,
   NodeTypeInfo,
   ValidationIssue,
   Workflow,
@@ -93,7 +95,8 @@ export const api = {
   remove: (id: string) => request<void>('DELETE', `/api/workflows/${encodeURIComponent(id)}`),
   inspect: (workflow: Workflow) => request<InspectResult>('POST', '/api/editor/inspect', { workflow }),
   run: (workflow: Workflow, trigger?: string, input?: unknown) => request<Execution>('POST', '/api/editor/run', { workflow, trigger, input }),
-  info: () => request<{ webhookBaseUrl: string }>('GET', '/api/editor/info'),
+  info: () => request<InstanceInfo>('GET', '/api/editor/info'),
+  overview: () => request<Overview>('GET', '/api/overview'),
   nodeTypes: () => request<{ data: NodeTypeInfo[] }>('GET', '/api/editor/node-types').then((r) => r.data),
   credentials: () => request<{ data: CredentialInfo[] }>('GET', '/api/editor/credentials').then((r) => r.data),
   executions: (filter: { workflow?: string; status?: string; limit?: number } = {}) => {

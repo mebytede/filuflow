@@ -20,6 +20,7 @@ import { toItems } from '../cli/run.js';
 import { registerEditorApi } from './editorApi.js';
 import { registerUi } from './ui.js';
 import { registerWorkerApi } from './workerApi.js';
+import { registerOverview, triggersOf } from './overview.js';
 import type { LayeredCredentialProvider } from '../credentials/managed.js';
 
 export interface ServerOptions {
@@ -213,8 +214,12 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
         ...(m.activationError ? { activationError: m.activationError } : {}),
         webhooks: m.webhooks.map((w) => ({ method: w.method, path: `/webhook/${w.path}` })),
         schedules: scheduler.list(m.workflow),
+        triggers: triggersOf(m.workflow, scheduler.list(m.workflow)),
+        valid: !m.issues.some((i) => i.severity === 'error'),
+        ...(m.issues.some((i) => i.severity === 'error') ? { problem: m.issues.find((i) => i.severity === 'error')!.message } : {}),
       })),
     }));
+    registerOverview(api, { workflows: () => workflows!, store, manager, scheduler });
 
     api.get('/api/workflows/:id', async (request, reply) => {
       const m = workflows!.get((request.params as { id: string }).id);

@@ -1,5 +1,6 @@
 // Seitenleiste mit den Details des ausgewählten Nodes: Parameter, Credentials, Einstellungen, Ergebnis.
 import { h } from '../dom.js';
+import { iconButton } from '../shell.js';
 import type { CredentialInfo, Item, NodePorts, NodeTypeInfo, TaskData, ValidationIssue, Workflow, WorkflowNode } from '../types.js';
 import { paramEditor } from './paramForm.js';
 import { itemsView } from './dataView.js';
@@ -114,7 +115,7 @@ export class Panel {
       h(
         'div',
         { class: 'panel-head' },
-        h('div', { class: 'panel-title-row' }, nameInput, h('button', { type: 'button', class: 'icon-btn', title: 'Schließen (Esc)', 'aria-label': 'Panel schließen', onclick: () => this.host.close() }, '×')),
+        h('div', { class: 'panel-title-row' }, nameInput, iconButton('x', 'Panel schließen (Esc)', () => this.host.close())),
         h('div', { class: 'panel-type' }, h('span', { title: node.type }, info?.displayName ?? node.type), versionSel),
       ),
       tabs,

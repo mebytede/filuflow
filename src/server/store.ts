@@ -47,6 +47,12 @@ interface Row {
   parent_id: string | null;
 }
 
+export interface ExecutionStats {
+  total: number;
+  errors: number;
+  workflows: Record<string, { runs: number; last?: ExecutionSummary }>;
+}
+
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS executions (
   id TEXT PRIMARY KEY,
@@ -188,6 +194,34 @@ export class ExecutionStore {
     const limit = Math.min(Math.max(1, filter.limit ?? 20), 1000);
     const sql = `SELECT * FROM executions ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY started_at DESC, rowid DESC LIMIT ${limit}`;
     return (this.db.prepare(sql).all(...args) as Row[]).map(toSummary);
+  }
+
+  /**
+   * Kennzahlen für die Übersicht: Ausführungen und Fehler seit `since`, je Workflow die Zahl der Läufe seit
+   * `since` und die letzte Ausführung. Optional auf Workflow-IDs begrenzt (Master: nur ein Projekt).
+   */
+  stats(since: string, workflowIds?: string[]): ExecutionStats {
+    if (workflowIds && !workflowIds.length) return { total: 0, errors: 0, workflows: {} };
+    const only = workflowIds ? ` AND workflow_id IN (${workflowIds.map(() => '?').join(', ')})` : '';
+    const ids = workflowIds ?? [];
+    const totals = this.db
+      .prepare(`SELECT COUNT(*) AS n, COALESCE(SUM(status IN ('error', 'crashed')), 0) AS e FROM executions WHERE started_at >= ?${only}`)
+      .get(since, ...ids) as { n: number; e: number };
+    const workflows: ExecutionStats['workflows'] = {};
+    for (const r of this.db.prepare(`SELECT workflow_id AS id, COUNT(*) AS n FROM executions WHERE started_at >= ? AND workflow_id IS NOT NULL${only} GROUP BY workflow_id`).all(since, ...ids) as Array<{ id: string; n: number }>) {
+      workflows[r.id] = { runs: r.n };
+    }
+    const last = this.db
+      .prepare(
+        `SELECT e.* FROM executions e JOIN (SELECT workflow_id, MAX(started_at) AS m FROM executions WHERE workflow_id IS NOT NULL${only} GROUP BY workflow_id) l
+         ON e.workflow_id = l.workflow_id AND e.started_at = l.m`,
+      )
+      .all(...ids) as Row[];
+    for (const row of last) {
+      const id = row.workflow_id as string;
+      workflows[id] = { runs: workflows[id]?.runs ?? 0, last: toSummary(row) };
+    }
+    return { total: totals.n, errors: totals.e, workflows };
   }
 
   /** Löscht abgeschlossene Executions älter als `days` Tage; liefert die Anzahl */

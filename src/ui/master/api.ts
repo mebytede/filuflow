@@ -1,6 +1,6 @@
 // REST-Client für den Master. Anmeldung über das Sitzungs-Cookie (HttpOnly), ändernde Requests mit CSRF-Header.
 import { request } from '../api.js';
-import type { CredentialInfo, Execution, InspectResult, NodeTypeInfo, Workflow } from '../types.js';
+import type { CredentialInfo, Execution, InspectResult, NodeTypeInfo, Overview as WorkerOverview, Workflow } from '../types.js';
 import type {
   ApiToken,
   AuditEntry,
@@ -87,6 +87,8 @@ export const mapi = {
   moveWorkflow: (id: string, projectId: string) => request<MasterWorkflow>('POST', `/api/workflows/${e(id)}/move`, { projectId }),
   versions: (id: string) => request<{ data: VersionInfo[] }>('GET', `/api/workflows/${e(id)}/versions`).then((r) => r.data),
   version: (id: string, version: number) => request<{ version: number; workflow: Workflow }>('GET', `/api/workflows/${e(id)}/versions/${version}`),
+
+  projectOverview: (projectId: string) => request<{ overview: WorkerOverview | null; error?: string }>('GET', `/api/projects/${e(projectId)}/overview`),
 
   // Editor und Ausführungen (beim Worker des Projekts)
   nodeTypes: () => request<{ data: NodeTypeInfo[] }>('GET', '/api/editor/node-types').then((r) => r.data),

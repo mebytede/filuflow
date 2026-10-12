@@ -3,6 +3,8 @@ import { ApiError } from '../api.js';
 import { confirmDialog, dialog, formatDate, h, toast } from '../dom.js';
 import type { Workflow } from '../types.js';
 import { executionsView, type ExecutionSource } from '../views/executions.js';
+import { workflowTable, type WorkflowRow } from '../views/workflowTable.js';
+import { button, kpis, pageHead } from '../shell.js';
 import { mapi } from './api.js';
 import type { MasterWorkflow, Project, ProjectAction, ProjectRole, User, WorkerInfo } from './types.js';
 
@@ -62,20 +64,14 @@ export async function projectsPage(user: User): Promise<HTMLElement> {
     }
   };
   root.append(
-    h(
-      'div',
-      { class: 'page-head' },
-      h('h1', null, 'Projekte'),
-      h('div', { class: 'spacer' }),
-      user.role === 'admin' ? h('button', { type: 'button', class: 'btn btn-primary', onclick: () => void create() }, '+ Neues Projekt') : null,
-    ),
+    pageHead('Projekte', 'Projekte und ihre Worker', [user.role === 'admin' ? button('Neues Projekt', { icon: 'plus', size: 'm', variant: 'primary', onclick: () => void create() }) : null]),
   );
   if (!projects.length) {
     root.append(
       h(
         'div',
         { class: 'empty' },
-        h('p', null, user.role === 'admin' ? 'Noch keine Projekte. Lege ein Projekt an und ordne ihm einen Worker zu.' : 'Du bist noch in keinem Projekt Mitglied. Ein Administrator kann dich hinzufügen.'),
+        h('p', null, user.role === 'admin' ? 'Noch keine Projekte. Legen Sie ein Projekt an und ordnen Sie ihm einen Worker zu.' : 'Sie sind noch in keinem Projekt Mitglied. Ein Administrator kann Sie hinzufügen.'),
       ),
     );
     return root;
@@ -105,8 +101,8 @@ export function projectHeader(p: Project, active: string): HTMLElement {
     { class: 'project-head' },
     h(
       'div',
-      { class: 'page-head' },
-      h('div', null, h('a', { href: '#/projects', class: 'muted small' }, 'Projekte'), h('h1', null, p.name)),
+      { class: 'page-head page-head-main' },
+      h('div', null, h('a', { href: '#/projects', class: 'label label-accent', style: { textDecoration: 'none' } }, 'Projekt'), h('h1', null, p.name)),
       h('div', { class: 'spacer' }),
       workerBadge(p),
       h('span', { class: 'pill' }, ROLE_LABEL[p.role]),
@@ -120,19 +116,6 @@ export function projectHeader(p: Project, active: string): HTMLElement {
       can(p, 'project.manage') ? tab('settings', 'Einstellungen', `#/project/${e(p.id)}/settings`) : null,
     ),
   );
-}
-
-export function deploymentCell(w: MasterWorkflow): HTMLElement {
-  const d = w.deployment;
-  if (d.error) return h('div', { class: 'small error-text' }, d.error);
-  if (d.upToDate) return h('span', { class: 'muted small' }, `v${d.version} verteilt${d.at ? `, ${formatDate(d.at)}` : ''}`);
-  return h('span', { class: 'small' }, d.version ? `v${d.version} beim Worker, v${w.version} ausstehend` : 'nicht verteilt');
-}
-
-export function statusPill(w: MasterWorkflow): HTMLElement {
-  if (!w.active) return h('span', { class: 'pill' }, 'inaktiv');
-  if (w.deployment.error) return h('span', { class: 'pill pill-error', title: w.deployment.error }, 'Fehler');
-  return h('span', { class: `pill ${w.deployment.upToDate ? 'pill-success' : ''}` }, w.deployment.upToDate ? 'aktiv' : 'aktiv (ausstehend)');
 }
 
 async function importDialog(): Promise<Workflow | null> {
@@ -186,21 +169,35 @@ export async function projectWorkflowsPage(projectId: string): Promise<HTMLEleme
     }
   };
   const edit = can(p, 'workflow.edit');
-  root.append(
-    h(
-      'div',
-      { class: 'page-head' },
-      h('h2', null, 'Workflows'),
-      h('div', { class: 'spacer' }),
-      edit ? h('button', { type: 'button', class: 'btn', onclick: () => void doImport() }, 'Importieren') : null,
-      edit ? h('button', { type: 'button', class: 'btn btn-primary', onclick: () => void createNew() }, '+ Neuer Workflow') : null,
-    ),
+  const actions = h(
+    'div',
+    { class: 'page-head', style: { marginBottom: '0' } },
+    h('div', { class: 'spacer' }),
+    edit ? button('n8n-Export importieren', { icon: 'upload', onclick: () => void doImport() }) : null,
+    edit ? button('Neuer Workflow', { icon: 'plus', variant: 'primary', onclick: () => void createNew() }) : null,
   );
-  if (!p.worker) root.append(h('div', { class: 'notice notice-warning' }, 'Diesem Projekt ist kein Worker zugeordnet. Workflows können bearbeitet, aber nicht ausgeführt oder aktiviert werden.'));
+  root.append(actions);
+  if (!p.worker) root.append(h('div', { class: 'notice notice-warning', style: { marginTop: '24px' } }, 'Diesem Projekt ist kein Worker zugeordnet. Workflows können bearbeitet, aber nicht ausgeführt oder aktiviert werden.'));
   if (!list.length) {
-    root.append(h('div', { class: 'empty' }, h('p', null, 'Noch keine Workflows in diesem Projekt.')));
+    root.append(h('div', { class: 'empty' }, h('p', null, 'Noch keine Workflows in diesem Projekt. Legen Sie einen Workflow an oder importieren Sie einen n8n-Export.')));
     return root;
   }
+  const { overview, error } = p.worker && can(p, 'execution.read') ? await mapi.projectOverview(p.id).catch((err: Error) => ({ overview: null, error: err.message })) : { overview: null, error: undefined };
+  const active = list.filter((w) => w.active).length;
+  root.insertBefore(
+    h(
+      'div',
+      { style: { marginBottom: '8px' } },
+      kpis([
+        { label: 'Aktiv', value: `${active} von ${list.length}` },
+        { label: `Ausführungen ${overview?.days ?? 14} Tage`, value: overview ? String(overview.executions) : '' },
+        { label: `Fehler ${overview?.days ?? 14} Tage`, value: overview ? String(overview.errors) : '', tone: overview?.errors ? 'error' : undefined },
+        { label: 'Worker', value: p.worker ? (p.worker.status === 'online' ? 'erreichbar' : 'nicht erreichbar') : 'keiner', tone: p.worker?.status === 'online' ? undefined : 'warning' },
+      ]),
+    ),
+    actions,
+  );
+  if (error) root.append(h('div', { class: 'notice notice-error', style: { marginTop: '24px' } }, `Letzte Läufe konnten nicht vom Worker geladen werden: ${error}`));
   const move = async (w: MasterWorkflow) => {
     const targets = (await mapi.projects()).filter((x) => x.id !== p.id && can(x, 'workflow.edit'));
     if (!targets.length) return toast('Kein anderes Projekt mit Bearbeitungsrecht', 'error');
@@ -218,59 +215,44 @@ export async function projectWorkflowsPage(projectId: string): Promise<HTMLEleme
       toast(message(err), 'error');
     }
   };
-  root.append(
-    h(
-      'div',
-      { class: 'table-wrap card' },
-      h(
-        'table',
-        { class: 'list-table' },
-        h('thead', null, h('tr', null, h('th', null, 'Name'), h('th', null, 'Status'), h('th', null, 'Verteilung'), h('th', { class: 'num' }, 'Version'), h('th', null, 'Geändert'), h('th', null, ''))),
-        h(
-          'tbody',
-          null,
-          list.map((w) =>
-            h(
-              'tr',
-              { class: 'clickable', onclick: (ev: MouseEvent) => !(ev.target as Element).closest('button, a') && (location.hash = `#/workflow/${e(w.id)}`) },
-              h('td', null, h('a', { href: `#/workflow/${e(w.id)}`, class: 'strong' }, w.name)),
-              h('td', null, statusPill(w)),
-              h('td', null, deploymentCell(w)),
-              h('td', { class: 'num' }, String(w.version)),
-              h('td', { class: 'small' }, formatDate(w.updatedAt), w.updatedBy ? h('div', { class: 'muted' }, w.updatedBy.name || w.updatedBy.email) : null),
-              h(
-                'td',
-                { class: 'actions' },
-                h('a', { class: 'btn btn-small', href: `#/project/${e(p.id)}/executions?workflow=${e(w.id)}` }, 'Ausführungen'),
-                can(p, 'workflow.delete') ? h('button', { type: 'button', class: 'btn btn-small', onclick: () => void move(w) }, 'Verschieben') : null,
-                can(p, 'workflow.delete')
-                  ? h(
-                      'button',
-                      {
-                        type: 'button',
-                        class: 'btn btn-small btn-danger',
-                        onclick: async () => {
-                          if (!(await confirmDialog('Workflow löschen', `"${w.name}" wird mit allen Versionen gelöscht und beim Worker entfernt.`))) return;
-                          try {
-                            await mapi.deleteWorkflow(w.id);
-                            toast('Gelöscht', 'success');
-                            await reload();
-                          } catch (err) {
-                            toast(message(err), 'error');
-                          }
-                        },
-                      },
-                      'Löschen',
-                    )
-                  : null,
-              ),
-            ),
-          ),
-        ),
-      ),
-    ),
-  );
+  const remove = async (w: MasterWorkflow) => {
+    if (!(await confirmDialog('Workflow löschen', `"${w.name}" wird mit allen Versionen gelöscht und beim Worker entfernt.`))) return;
+    try {
+      await mapi.deleteWorkflow(w.id);
+      toast('Gelöscht', 'success');
+      await reload();
+    } catch (err) {
+      toast(message(err), 'error');
+    }
+  };
+  const rows: WorkflowRow[] = list.map((w) => ({
+    id: w.id,
+    name: w.name,
+    href: `#/workflow/${e(w.id)}`,
+    nodes: w.nodes,
+    triggers: w.triggers ?? [],
+    state: w.active ? 'aktiv' : 'inaktiv',
+    stateTitle: deploymentText(w),
+    stateWarning: w.deployment.error ?? (w.active && !w.deployment.upToDate ? 'Verteilung ausstehend' : undefined),
+    last: overview?.workflows[w.id]?.last,
+    runs: overview ? (overview.workflows[w.id]?.runs ?? 0) : undefined,
+    menu: [
+      { label: 'Im Editor öffnen', onclick: () => (location.hash = `#/workflow/${e(w.id)}`) },
+      { label: 'Ausführungen', onclick: () => (location.hash = `#/project/${e(p.id)}/executions?workflow=${e(w.id)}`) },
+      ...(can(p, 'workflow.delete') ? [{ label: 'Verschieben', onclick: () => void move(w) }, { label: 'Löschen', danger: true, onclick: () => void remove(w) }] : []),
+    ],
+  }));
+  const updated = list.reduce((max, w) => (w.updatedAt > max ? w.updatedAt : max), '');
+  root.append(workflowTable(rows, { source: `Worker ${p.worker ? `${p.worker.tenant?.name ?? '?'} / ${p.worker.name}` : 'keiner'}${updated ? ` · geändert ${formatDate(updated)}` : ''}` }));
   return root;
+}
+
+/** Stand der Verteilung als Text (Tooltip am Zustand) */
+function deploymentText(w: MasterWorkflow): string {
+  const d = w.deployment;
+  if (d.error) return d.error;
+  if (d.upToDate) return `Version ${d.version} beim Worker${d.at ? `, verteilt ${formatDate(d.at)}` : ''}`;
+  return d.version ? `Version ${d.version} beim Worker, Version ${w.version} ausstehend` : 'Nicht verteilt';
 }
 
 export function projectExecutionSource(p: Project): ExecutionSource {
@@ -284,6 +266,11 @@ export function projectExecutionSource(p: Project): ExecutionSource {
     get: (id) => mapi.execution(p.id, id),
     cancel: can(p, 'execution.cancel') ? (id) => mapi.cancel(p.id, id) : undefined,
     header: projectHeader(p, 'executions'),
+    brandHref: '#/projects',
+    crumbs: [
+      { label: 'Projekte', href: '#/projects' },
+      { label: p.name, href: `#/project/${e(p.id)}` },
+    ],
     backend: {
       inspect: (workflow) => mapi.inspect(p.id, workflow),
       save: () => Promise.resolve(null),
