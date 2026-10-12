@@ -39,6 +39,8 @@ export interface HttpResponse {
   statusCode: number;
   headers: Record<string, string>;
   body?: string | Buffer;
+  /** Direkt schreiben (n8n res.writeHead/res.end): keine Standard-Header wie Content-Type ergänzen */
+  raw?: boolean;
 }
 
 const WEBHOOK_SANDBOX_CSP =
@@ -295,7 +297,7 @@ export class WebhookService {
       return errorResponse(new Error(message));
     }
 
-    if (result.directResponse) return result.directResponse;
+    if (result.directResponse) return { ...result.directResponse, raw: true };
 
     const baseHeaders = Object.fromEntries(opts.responseHeaders);
     return new Promise<HttpResponse>((resolve) => {
@@ -320,7 +322,7 @@ export class WebhookService {
         const headers = { ...baseHeaders, ...lowerKeys(response.headers) };
         if (Buffer.isBuffer(response.body)) {
           // setupResponseNodePromise: res.header(...) + res.end(buffer)
-          respond({ statusCode: response.statusCode, headers, body: response.body });
+          respond({ statusCode: response.statusCode, headers, body: response.body, raw: true });
           return;
         }
         respond(expressResponse(response.statusCode, headers, response.body, true));

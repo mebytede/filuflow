@@ -1,0 +1,270 @@
+{
+  "responses": [
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "body": {
+        "ok": "basic 1"
+      }
+    },
+    {
+      "status": 403,
+      "headers": {
+        "www-authenticate": "Basic realm=\"Webhook\""
+      },
+      "body": "Authorization data is wrong!"
+    },
+    {
+      "status": 401,
+      "headers": {
+        "www-authenticate": "Basic realm=\"Webhook\""
+      },
+      "body": "Authorization is required!"
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "body": {
+        "message": "Workflow was started"
+      }
+    },
+    {
+      "status": 403,
+      "headers": {
+        "www-authenticate": "Basic realm=\"Webhook\""
+      },
+      "body": "Authorization data is wrong!"
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "body": {
+        "sub": "nutzer-1",
+        "payload": {
+          "sub": "nutzer-1",
+          "rolle": "admin",
+          "iat": 1700000000
+        }
+      }
+    },
+    {
+      "status": 403,
+      "headers": {
+        "www-authenticate": "Basic realm=\"Webhook\""
+      },
+      "body": "invalid signature"
+    },
+    {
+      "status": 403,
+      "headers": {
+        "www-authenticate": "Basic realm=\"Webhook\""
+      },
+      "body": "jwt expired"
+    },
+    {
+      "status": 401,
+      "headers": {
+        "www-authenticate": "Basic realm=\"Webhook\""
+      },
+      "body": "No token provided"
+    },
+    {
+      "status": 403,
+      "headers": {
+        "www-authenticate": "Basic realm=\"Webhook\""
+      },
+      "body": "jwt malformed"
+    }
+  ],
+  "executions": [
+    {
+      "mode": "webhook",
+      "status": "success",
+      "lastNodeExecuted": "Basic OK",
+      "order": [
+        "Basic",
+        "Basic OK"
+      ],
+      "nodes": {
+        "Basic": [
+          {
+            "status": "success",
+            "source": [],
+            "main": [
+              [
+                {
+                  "json": {
+                    "headers": {
+                      "host": "localhost:5678",
+                      "user-agent": "flowlite-fixture",
+                      "accept": "*/*",
+                      "content-type": "application/json",
+                      "authorization": "Basic aG9vazpwYSBzczox",
+                      "content-length": "7",
+                      "connection": "close"
+                    },
+                    "params": {},
+                    "query": {},
+                    "body": {
+                      "n": 1
+                    },
+                    "webhookUrl": "http://localhost:5678/webhook/fl-08c-basic",
+                    "executionMode": "production"
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ],
+        "Basic OK": [
+          {
+            "status": "success",
+            "source": [
+              {
+                "previousNode": "Basic"
+              }
+            ],
+            "main": [
+              [
+                {
+                  "json": {
+                    "ok": "basic 1"
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "mode": "webhook",
+      "status": "success",
+      "lastNodeExecuted": "Header",
+      "order": [
+        "Header"
+      ],
+      "nodes": {
+        "Header": [
+          {
+            "status": "success",
+            "source": [],
+            "main": [
+              [
+                {
+                  "json": {
+                    "headers": {
+                      "host": "localhost:5678",
+                      "user-agent": "flowlite-fixture",
+                      "accept": "*/*",
+                      "content-type": "application/json",
+                      "x-hook-token": "tok-987",
+                      "content-length": "7",
+                      "connection": "close"
+                    },
+                    "params": {},
+                    "query": {},
+                    "body": {
+                      "h": 1
+                    },
+                    "webhookUrl": "http://localhost:5678/webhook/fl-08c-header",
+                    "executionMode": "production"
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "mode": "webhook",
+      "status": "success",
+      "lastNodeExecuted": "JWT Daten",
+      "order": [
+        "JWT",
+        "JWT Daten"
+      ],
+      "nodes": {
+        "JWT": [
+          {
+            "status": "success",
+            "source": [],
+            "main": [
+              [
+                {
+                  "json": {
+                    "headers": {
+                      "host": "localhost:5678",
+                      "user-agent": "flowlite-fixture",
+                      "accept": "*/*",
+                      "content-type": "application/json",
+                      "authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJudXR6ZXItMSIsInJvbGxlIjoiYWRtaW4iLCJpYXQiOjE3MDAwMDAwMDB9.s8IGyt2GT7df1YVNe57-gLdvLm8KSz2UxiS23hKIy9U",
+                      "content-length": "2",
+                      "connection": "close"
+                    },
+                    "params": {},
+                    "query": {},
+                    "body": {},
+                    "webhookUrl": "http://localhost:5678/webhook/fl-08c-jwt",
+                    "executionMode": "production",
+                    "jwtPayload": {
+                      "sub": "nutzer-1",
+                      "rolle": "admin",
+                      "iat": 1700000000
+                    }
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ],
+        "JWT Daten": [
+          {
+            "status": "success",
+            "source": [
+              {
+                "previousNode": "JWT"
+              }
+            ],
+            "main": [
+              [
+                {
+                  "json": {
+                    "sub": "nutzer-1",
+                    "payload": {
+                      "sub": "nutzer-1",
+                      "rolle": "admin",
+                      "iat": 1700000000
+                    }
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

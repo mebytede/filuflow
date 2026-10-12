@@ -60,6 +60,12 @@ function checkApiKey(expected: string | undefined, request: FastifyRequest): boo
 }
 
 function sendHttp(reply: FastifyReply, response: HttpResponse): FastifyReply {
+  if (response.raw) {
+    reply.hijack();
+    reply.raw.writeHead(response.statusCode, response.headers);
+    reply.raw.end(response.body ?? '');
+    return reply;
+  }
   reply.code(response.statusCode);
   for (const [k, v] of Object.entries(response.headers)) reply.header(k, v);
   return reply.send(response.body ?? '');

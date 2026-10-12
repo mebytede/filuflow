@@ -1,0 +1,301 @@
+{
+  "status": "success",
+  "lastNodeExecuted": "OAuth Formular",
+  "order": [
+    "Start",
+    "Daten",
+    "Header",
+    "Basic",
+    "Query",
+    "Bearer",
+    "Custom",
+    "OAuth Header",
+    "OAuth Body",
+    "OAuth Formular"
+  ],
+  "nodes": {
+    "Start": [
+      {
+        "status": "success",
+        "source": [],
+        "main": [
+          [
+            {
+              "json": {},
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Daten": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Start"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "nr": 1
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Header": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "method": "GET",
+                "path": "/echo/header",
+                "rawQuery": "",
+                "query": {},
+                "headers": {
+                  "accept": "application/json,text/html,application/xhtml+xml,application/xml,text/*;q=0.9, image/*;q=0.8, */*;q=0.7",
+                  "x-api-key": "schluessel-123"
+                },
+                "body": ""
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Basic": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Header"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "method": "GET",
+                "path": "/echo/basic",
+                "rawQuery": "",
+                "query": {},
+                "headers": {
+                  "accept": "application/json,text/html,application/xhtml+xml,application/xml,text/*;q=0.9, image/*;q=0.8, */*;q=0.7",
+                  "authorization": "Basic YW5uYTpwYTpzcyB3w7ZydA=="
+                },
+                "body": ""
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Query": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Basic"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "method": "GET",
+                "path": "/echo/query",
+                "rawQuery": "?vorher=1&q=x%20y&api_key=q%2F123%20%C3%A4",
+                "query": {
+                  "vorher": "1",
+                  "q": "x y",
+                  "api_key": "q/123 ä"
+                },
+                "headers": {
+                  "accept": "application/json,text/html,application/xhtml+xml,application/xml,text/*;q=0.9, image/*;q=0.8, */*;q=0.7"
+                },
+                "body": ""
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Bearer": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Query"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "method": "GET",
+                "path": "/echo/bearer",
+                "rawQuery": "",
+                "query": {},
+                "headers": {
+                  "accept": "application/json,text/html,application/xhtml+xml,application/xml,text/*;q=0.9, image/*;q=0.8, */*;q=0.7",
+                  "authorization": "Bearer bearer-abc"
+                },
+                "body": ""
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Custom": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Bearer"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "method": "GET",
+                "path": "/echo/custom",
+                "rawQuery": "?cq=2",
+                "query": {
+                  "cq": "2"
+                },
+                "headers": {
+                  "accept": "application/json,text/html,application/xhtml+xml,application/xml,text/*;q=0.9, image/*;q=0.8, */*;q=0.7",
+                  "x-custom": "c1"
+                },
+                "body": ""
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "OAuth Header": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Custom"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "method": "GET",
+                "path": "/echo/oauth",
+                "rawQuery": "",
+                "query": {},
+                "headers": {
+                  "accept": "application/json,text/html,application/xhtml+xml,application/xml,text/*;q=0.9, image/*;q=0.8, */*;q=0.7",
+                  "authorization": "Bearer tok.eyJtZXRob2QiOiJQT1NUIiwiY29udGVudFR5cGUiOiJhcHBsaWNhdGlvbi94LXd3dy1mb3JtLXVybGVuY29kZWQiLCJhY2NlcHQiOiJhcHBsaWNhdGlvbi9qc29uLCBhcHBsaWNhdGlvbi94LXd3dy1mb3JtLXVybGVuY29kZWQiLCJhdXRob3JpemF0aW9uIjoiQmFzaWMgWTJ4cFpXNTBPbVZwYm5NNloyVm9aV2x0SU1PayIsImJvZHkiOiJncmFudF90eXBlPWNsaWVudF9jcmVkZW50aWFscyZzY29wZT0ifQ"
+                },
+                "body": ""
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "OAuth Body": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "OAuth Header"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "method": "GET",
+                "path": "/echo/oauth2",
+                "rawQuery": "",
+                "query": {},
+                "headers": {
+                  "accept": "application/json,text/html,application/xhtml+xml,application/xml,text/*;q=0.9, image/*;q=0.8, */*;q=0.7",
+                  "authorization": "Bearer tok.eyJtZXRob2QiOiJQT1NUIiwiY29udGVudFR5cGUiOiJhcHBsaWNhdGlvbi94LXd3dy1mb3JtLXVybGVuY29kZWQiLCJhY2NlcHQiOiJhcHBsaWNhdGlvbi9qc29uLCBhcHBsaWNhdGlvbi94LXd3dy1mb3JtLXVybGVuY29kZWQiLCJib2R5IjoiZ3JhbnRfdHlwZT1jbGllbnRfY3JlZGVudGlhbHMmc2NvcGU9bGVzZW4lMjBzY2hyZWliZW4mY2xpZW50X2lkPWNsaWVudC16d2VpJmNsaWVudF9zZWNyZXQ9czNjcjN0In0"
+                },
+                "body": ""
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "OAuth Formular": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "OAuth Body"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "method": "GET",
+                "path": "/echo/oauth3",
+                "rawQuery": "",
+                "query": {},
+                "headers": {
+                  "accept": "application/json,text/html,application/xhtml+xml,application/xml,text/*;q=0.9, image/*;q=0.8, */*;q=0.7",
+                  "authorization": "Bearer tok.eyJtZXRob2QiOiJQT1NUIiwiY29udGVudFR5cGUiOiJhcHBsaWNhdGlvbi94LXd3dy1mb3JtLXVybGVuY29kZWQiLCJhY2NlcHQiOiJhcHBsaWNhdGlvbi9qc29uLCBhcHBsaWNhdGlvbi94LXd3dy1mb3JtLXVybGVuY29kZWQiLCJhdXRob3JpemF0aW9uIjoiQmFzaWMgWTJ4cFpXNTBMV1J5WldrNmVBPT0iLCJib2R5IjoiZ3JhbnRfdHlwZT1jbGllbnRfY3JlZGVudGlhbHMmc2NvcGU9YSJ9"
+                },
+                "body": ""
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ]
+  }
+}

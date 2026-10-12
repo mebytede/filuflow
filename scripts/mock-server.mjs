@@ -6,12 +6,15 @@
 //      "headers": { "content-type": "application/json" }, "body": { ... } }]
 // "path" vergleicht Pfad + Query exakt; "pathPrefix" nur den Anfang.
 // Zusätzlich: /echo/* liefert die Anfrage zurück (Methode, Pfad, Query, ausgewählte Header, Body).
+// /oauth-echo/token liefert ein OAuth2-Token, das die Token-Anfrage kodiert enthält (Methode, Header, Body),
+// damit Golden-Tests die Token-Anfrage über den nachfolgenden Authorization-Header vergleichen können.
+// /oauth-echo/token-form antwortet im Format application/x-www-form-urlencoded.
 //
 // Aufruf: node scripts/mock-server.mjs <fixtures-verzeichnis> <port>
 import { createServer } from 'node:http';
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, URLSearchParams } from 'node:url';
 
 export function loadMocks(fixturesDir) {
   const mocks = [];
@@ -32,6 +35,24 @@ export function startMockServer(fixturesDir, port = 18089) {
     req.on('end', () => {
       const body = Buffer.concat(chunks);
       const url = req.url ?? '/';
+      if (url.startsWith('/oauth-echo/')) {
+        const summary = {
+          method: req.method,
+          contentType: req.headers['content-type'],
+          accept: req.headers.accept,
+          authorization: req.headers.authorization,
+          body: body.toString('utf8'),
+        };
+        const token = `tok.${Buffer.from(JSON.stringify(summary)).toString('base64url')}`;
+        if (url.startsWith('/oauth-echo/token-form')) {
+          res.writeHead(200, { 'content-type': 'application/x-www-form-urlencoded' });
+          res.end(new URLSearchParams({ access_token: token, token_type: 'Bearer', expires_in: '3600' }).toString());
+        } else {
+          res.writeHead(200, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ access_token: token, token_type: 'bearer', expires_in: 3600 }));
+        }
+        return;
+      }
       if (url.startsWith('/echo')) {
         const u = new URL(url, 'http://localhost');
         const headers = {};

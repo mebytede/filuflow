@@ -32,9 +32,14 @@ ENV_ARGS=(-e GENERIC_TIMEZONE=Europe/Berlin -e TZ=Europe/Berlin -e N8N_DIAGNOSTI
   -e N8N_RUNNERS_ENABLED=false -e N8N_BLOCK_ENV_ACCESS_IN_NODE=false -e FL_COMPAT=ja
   -e N8N_PORT=5678 -e N8N_LISTEN_ADDRESS=127.0.0.1 -e N8N_PERSONALIZATION_ENABLED=false -e N8N_VERSION_NOTIFICATIONS_ENABLED=false)
 
-# 1. Import (Unter-Workflows und Credentials ggf. mit)
+# 1. Import (Credentials ggf. vorher)
+IMPORT="n8n import:workflow --input=/data/workflow.json"
+if [[ -f "$FIX/credentials.json" ]]; then
+  node "$ROOT/scripts/credentials-to-n8n.mjs" "$FIX/credentials.json" "$WORK/credentials.json"
+  IMPORT="n8n import:credentials --input=/data/credentials.json && $IMPORT"
+fi
 docker run --rm --network host -v "$WORK:/data" "${ENV_ARGS[@]}" --entrypoint sh "$N8N_IMAGE" -c \
-  "n8n import:workflow --input=/data/workflow.json" >"$WORK/import.log" 2>&1 || { cat "$WORK/import.log"; exit 1; }
+  "$IMPORT" >"$WORK/import.log" 2>&1 || { cat "$WORK/import.log"; exit 1; }
 # 2. Aktivieren direkt in der Datenbank (siehe scripts/activate-n8n-workflow.mjs)
 node "$ROOT/scripts/activate-n8n-workflow.mjs" "$WORK/home/.n8n/database.sqlite" "$ID"
 # 3. n8n starten

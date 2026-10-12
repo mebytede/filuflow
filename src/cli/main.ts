@@ -11,7 +11,8 @@ Befehle:
   flowlite serve [--dir ./workflows] [--port 5678] [--db ./flowlite.db]
   flowlite executions list|show <id> [--json] [--db ./flowlite.db]
   flowlite nodes [--json]
-  flowlite credentials encrypt <credentials.json>
+  flowlite credentials encrypt|decrypt <credentials.json> [--out datei]
+  flowlite credentials check [<credentials.json>]
 `;
 
 export type CommandHandler = (args: string[]) => Promise<number>;

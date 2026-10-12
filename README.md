@@ -84,6 +84,22 @@ FLOWLITE_API_KEY=geheim docker compose up -d --build
 `docker-compose.yml` bindet `./workflows` (nur lesend), `./credentials.json` und ein Volume für die Datenbank ein.
 Das Image basiert auf `node:22-slim` und läuft als Benutzer `node`.
 
+## Credentials
+`credentials.json` (oder ein Verzeichnis mit einer Datei je Credential), Schlüssel = Credential-Name wie im Workflow,
+Fallback auf die ID:
+```json
+{
+  "API Header": { "id": "abc123", "type": "httpHeaderAuth", "data": { "name": "X-Api-Key", "value": "{{ env.API_KEY }}" } },
+  "Token-Server": { "type": "oAuth2Api", "data": { "grantType": "clientCredentials", "accessTokenUrl": "https://auth.example/token",
+                    "clientId": "flowlite", "clientSecret": "{{ env.OAUTH_SECRET }}", "scope": "lesen", "authentication": "header" } }
+}
+```
+- Feldnamen wie in n8n (`httpHeaderAuth`, `httpBasicAuth`, `httpQueryAuth`, `httpBearerAuth`, `httpCustomAuth`, `oAuth2Api`, `jwtAuth`).
+- `{{ env.NAME }}` holt Werte aus der Umgebung; `flowlite validate` meldet fehlende Credentials und Variablen.
+- Exporte von `n8n export:credentials --decrypted` funktionieren direkt.
+- Verschlüsseln: `FLOWLITE_ENCRYPTION_KEY=... flowlite credentials encrypt credentials.json --out credentials.enc.json`
+  (Namen und Typen bleiben lesbar, `decrypt` zum Bearbeiten, `check` zum Prüfen).
+
 ## Tests
 ```
 npm test             # Unit-Tests und Orakel (Filter, Expressions)

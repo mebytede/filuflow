@@ -1,5 +1,71 @@
-// flowlite credentials (folgt in einem späteren Meilenstein)
-export async function cmdCredentials(_args: string[]): Promise<number> {
-  process.stderr.write('flowlite credentials ist noch nicht implementiert\n');
-  return 1;
+// flowlite credentials encrypt <credentials.json> [--out <datei>]
+// flowlite credentials decrypt <credentials.json> [--out <datei>]
+// flowlite credentials check [<credentials.json>]
+// Schlüssel aus FLOWLITE_ENCRYPTION_KEY (AES-256-GCM, Schlüssel = SHA-256 des Werts).
+import { parseArgs } from 'node:util';
+import { readFile, writeFile } from 'node:fs/promises';
+import { decryptCredentialsFile, encryptCredentialsFile, loadDefaultCredentials } from '../credentials/store.js';
+
+const USAGE = `Aufruf:
+  flowlite credentials encrypt <credentials.json> [--out <datei>]   Werte je Eintrag verschlüsseln
+  flowlite credentials decrypt <credentials.json> [--out <datei>]   zum Bearbeiten entschlüsseln
+  flowlite credentials check [<credentials.json>]                    laden, Env-Referenzen prüfen, Namen auflisten
+
+Ohne --out wird nach stdout geschrieben. Schlüssel: FLOWLITE_ENCRYPTION_KEY.
+`;
+
+export async function cmdCredentials(args: string[]): Promise<number> {
+  let parsed;
+  try {
+    parsed = parseArgs({ args, allowPositionals: true, options: { out: { type: 'string' } } });
+  } catch (error) {
+    process.stderr.write(`${(error as Error).message}\n\n${USAGE}`);
+    return 1;
+  }
+  const { values, positionals } = parsed;
+  const [sub, file] = positionals;
+  if (sub === 'check') {
+    try {
+      const provider = await loadDefaultCredentials(file);
+      let ok = true;
+      for (const entry of provider.list()) {
+        try {
+          provider.resolve(entry);
+          process.stdout.write(`OK      ${entry.name}${entry.type ? ` (${entry.type})` : ''}\n`);
+        } catch (error) {
+          ok = false;
+          process.stdout.write(`FEHLER  ${entry.name}: ${(error as Error).message}\n`);
+        }
+      }
+      if (provider.size === 0) process.stdout.write('Keine Credentials gefunden.\n');
+      return ok ? 0 : 1;
+    } catch (error) {
+      process.stderr.write(`${(error as Error).message}\n`);
+      return 1;
+    }
+  }
+  if ((sub !== 'encrypt' && sub !== 'decrypt') || !file) {
+    process.stderr.write(USAGE);
+    return 1;
+  }
+  const key = process.env.FLOWLITE_ENCRYPTION_KEY;
+  if (!key) {
+    process.stderr.write('FLOWLITE_ENCRYPTION_KEY ist nicht gesetzt\n');
+    return 1;
+  }
+  try {
+    const raw = JSON.parse(await readFile(file, 'utf8')) as unknown;
+    const result = sub === 'encrypt' ? encryptCredentialsFile(raw, key) : decryptCredentialsFile(raw, key);
+    const text = `${JSON.stringify(result, null, 2)}\n`;
+    if (values.out) {
+      await writeFile(values.out, text, { mode: 0o600 });
+      process.stderr.write(`geschrieben: ${values.out}\n`);
+    } else {
+      process.stdout.write(text);
+    }
+    return 0;
+  } catch (error) {
+    process.stderr.write(`${(error as Error).message}\n`);
+    return 1;
+  }
 }

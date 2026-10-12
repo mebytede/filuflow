@@ -59,3 +59,13 @@ Wie in n8n gehen Fehler-Items bei `continueOnFail` verloren (n8n überschreibt d
 ## Schedule Trigger
 n8n rechnet mit moment-timezone und dem Paket `cron`, flowlite mit luxon und croner. Die Ausgabefelder und die Kalenderwerte
 der Wiederholungsprüfung sind gegen moment-timezone aus dem n8n-Image getestet (`test/oracle/schedule-moment.json`).
+
+## Credentials
+- Credentials kommen aus `credentials.json` bzw. einem Verzeichnis statt aus der n8n-Datenbank. Exporte von
+  `n8n export:credentials --decrypted` werden direkt gelesen; mit dem n8n-Schlüssel verschlüsselte Exporte nicht.
+- Verschlüsselung: eigenes Format (AES-256-GCM, Schlüssel = SHA-256 von `FLOWLITE_ENCRYPTION_KEY`), nicht kompatibel mit n8n.
+- OAuth2 (client_credentials): n8n speichert das Token im Credential und nutzt es auch nach einem Neustart weiter;
+  flowlite hält es im Speicher des Prozesses. Wie n8n wird das Ablaufdatum nicht geprüft, sondern nach einer 401-Antwort
+  ein neues Token geholt und der Request einmal wiederholt. Andere Grant-Typen (authorizationCode, pkce) fehlen.
+- Maskierung in Ausgaben und im Execution-Log betrifft geheime Felder (Namen mit pass, secret, token, value, json,
+  private, apiKey). Werte kürzer als 4 Zeichen werden nicht maskiert.

@@ -7,7 +7,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { Runner, StaticWorkflowSource } from '../../src/runner.js';
 import { applyIgnore, executionToSnapshot } from '../../src/snapshot.js';
-import { StaticCredentialProvider, loadCredentials } from '../../src/credentials/store.js';
+import { StaticCredentialProvider, loadCredentials, maskDeep } from '../../src/credentials/store.js';
 import type { Execution, Item, Workflow } from '../../src/types.js';
 // @ts-expect-error -- reines JS-Modul ohne Typen
 import { startMockServer } from '../../scripts/mock-server.mjs';
@@ -79,7 +79,9 @@ describe('Kompatibilität über flowlite run', () => {
       );
       const exec = JSON.parse(stdout) as Execution;
       const actual = applyIgnore(executionToSnapshot(exec), ignore);
-      expect(actual).toEqual(applyIgnore(expected, ignore));
+      // --json maskiert Credential-Werte; die erwarteten Werte werden genauso maskiert
+      const secrets = existsSync(join(dir, 'credentials.json')) ? (await loadCredentials(join(dir, 'credentials.json'))).secretValues() : [];
+      expect(actual).toEqual(maskDeep(applyIgnore(expected, ignore), secrets));
     }, 30_000);
   }
 });

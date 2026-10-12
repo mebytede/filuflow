@@ -235,12 +235,20 @@ export function validateWorkflow(input: unknown, options: ValidateOptions): Vali
           add({ code: 'credentials.notAssigned', message: `Node braucht Credentials vom Typ "${credType}", im Workflow ist keins zugewiesen`, node: node.name });
           continue;
         }
-        if (options.credentials && !options.credentials.find(ref, credType)) {
+        const entry = options.credentials?.find(ref, credType);
+        if (options.credentials && !entry) {
           add({
             code: 'credentials.missing',
             message: `Credential "${ref.name}" (Typ ${credType}${ref.id ? `, ID ${ref.id}` : ''}) fehlt in der Credential-Datei`,
             node: node.name,
           });
+        } else if (options.credentials && entry) {
+          // {{ env.NAME }}-Referenzen müssen auflösbar sein
+          try {
+            options.credentials.resolve(entry);
+          } catch (error) {
+            add({ code: 'credentials.env', message: `Credential "${ref.name}": ${(error as Error).message}`, node: node.name });
+          }
         }
       }
     }

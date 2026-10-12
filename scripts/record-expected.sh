@@ -73,6 +73,10 @@ if [[ ${#BATCH[@]} -gt 0 ]]; then
   SCRIPT="$WORK/run.sh"
   echo 'set -u' > "$SCRIPT"
   for name in "${BATCH[@]}"; do
+    if [[ -f "$FIXTURES/$name/credentials.json" ]]; then
+      node "$ROOT/scripts/credentials-to-n8n.mjs" "$FIXTURES/$name/credentials.json" "$WORK/$name.credentials.json"
+      echo "n8n import:credentials --input=/data/$name.credentials.json >/dev/null 2>&1 || echo 'Credential-Import fehlgeschlagen: $name'" >> "$SCRIPT"
+    fi
     if [[ -d "$FIXTURES/$name/sub" ]]; then
       for sub in "$FIXTURES/$name/sub"/*.json; do
         subname="$name--$(basename "$sub" .json)"

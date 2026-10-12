@@ -11,7 +11,7 @@ import type { Item, WorkflowNode } from '../types.js';
 import { NodeApiError, NodeOperationError } from '../errors.js';
 import type { HttpRequest, HttpResponse } from '../http.js';
 import { jsonParse } from './shared/utils.js';
-import { getOAuth2Token } from '../credentials/oauth2.js';
+import { getOAuth2Token, signRequest } from '../credentials/oauth2.js';
 
 const BINARY_CONTENT_TYPES = [
   'image/', 'audio/', 'video/', 'application/octet-stream', 'application/gzip', 'application/zip', 'application/vnd.rar',
@@ -173,6 +173,8 @@ function mimeTypeFromResponse(contentType: string | undefined): string | undefin
 
 interface RequestSpec {
   request: HttpRequest;
+  /** oAuth2Api: Credential für Signatur und erneuten Versuch nach 401 */
+  oauth2?: Record<string, unknown>;
   /** n8n `simple: false` */
   neverError: boolean;
   json: boolean;
@@ -330,6 +332,7 @@ async function buildRequest(ctx: ExecContext, itemIndex: number, items: Item[]):
   if (contentType === 'raw') headers['content-type'] = ctx.getParam<string>('rawContentType', itemIndex, '');
 
   // Authentifizierung
+  let oauth2: Record<string, unknown> | undefined;
   const authentication = ctx.getParam<string>('authentication', 0, 'none');
   if (authentication === 'genericCredentialType') {
     const type = ctx.getParam<string>('genericAuthType', 0, '');
@@ -351,8 +354,8 @@ async function buildRequest(ctx: ExecContext, itemIndex: number, items: Item[]):
       if (custom.body) bodyObject = { ...((bodyObject as object) ?? {}), ...custom.body };
       if (custom.qs) qsParams = { ...(qsParams ?? {}), ...custom.qs };
     } else if (type === 'oAuth2Api') {
-      const token = await getOAuth2Token(ctx, cred);
-      headers.Authorization = `Bearer ${token}`;
+      // Signatur nach dem Aufbau des Requests (signRequest), siehe unten
+      oauth2 = cred;
     } else {
       throw new NodeOperationError(node.name, `Credential-Typ "${type}" wird nicht unterstützt`, { itemIndex });
     }
@@ -393,10 +396,11 @@ async function buildRequest(ctx: ExecContext, itemIndex: number, items: Item[]):
   if (redirect?.redirect?.maxRedirects || defaultRedirect) maxRedirects = redirect?.redirect?.maxRedirects;
 
   const finalUrl = buildUrl(url, qsParams, sendQuery ? options.queryParameterArrays : undefined);
-  return {
+  const spec: RequestSpec = {
     url: finalUrl,
     json,
     neverError: !!options.response?.response?.neverError,
+    ...(oauth2 ? { oauth2 } : {}),
     request: {
       method,
       url: finalUrl,
@@ -410,6 +414,8 @@ async function buildRequest(ctx: ExecContext, itemIndex: number, items: Item[]):
       signal: ctx.signal,
     },
   };
+  if (oauth2) spec.request = signRequest(spec.request, await getOAuth2Token(ctx, oauth2), node.name);
+  return spec;
 }
 
 function parseJsonLoose(text: string): unknown {
@@ -460,7 +466,16 @@ export const httpRequestNode: NodeType = {
           await new Promise((r) => setTimeout(r, batchInterval));
         }
         const spec = await buildRequest(ctx, itemIndex, items);
-        const p = ctx.helpers.http.request(spec.request).then((response) => {
+        // oAuth2Api: bei 401 neues Token holen und einmal wiederholen (n8n requestOAuth2)
+        const send = async () => {
+          const response = await ctx.helpers.http.request(spec.request);
+          if (response.statusCode === 401 && spec.oauth2) {
+            spec.request = signRequest(spec.request, await getOAuth2Token(ctx, spec.oauth2, true), node.name);
+            return ctx.helpers.http.request(spec.request);
+          }
+          return response;
+        };
+        const p = send().then((response) => {
           if (response.statusCode >= 400 && !spec.neverError) {
             let errBody: unknown = response.body.toString('utf8');
             if (spec.json) errBody = parseJsonLoose(errBody as string);

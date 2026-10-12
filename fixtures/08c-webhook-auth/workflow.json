@@ -1,0 +1,156 @@
+{
+  "name": "08c Webhook-Authentifizierung",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "fl-08c-basic",
+        "authentication": "basicAuth",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "d4000000-0000-4000-8000-000000000001",
+      "name": "Basic",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "aaaaaaaa-0000-4000-8000-000000000001",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "whBasic00001",
+          "name": "Webhook Basic"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "x1",
+              "name": "ok",
+              "value": "=basic {{ $json.body.n }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d4000000-0000-4000-8000-000000000002",
+      "name": "Basic OK",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "fl-08c-header",
+        "authentication": "headerAuth",
+        "options": {}
+      },
+      "id": "d4000000-0000-4000-8000-000000000003",
+      "name": "Header",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        200
+      ],
+      "webhookId": "aaaaaaaa-0000-4000-8000-000000000002",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "whHeader0001",
+          "name": "Webhook Header"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "fl-08c-jwt",
+        "authentication": "jwtAuth",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "d4000000-0000-4000-8000-000000000004",
+      "name": "JWT",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        400
+      ],
+      "webhookId": "aaaaaaaa-0000-4000-8000-000000000003",
+      "credentials": {
+        "jwtAuth": {
+          "id": "whJwt0000001",
+          "name": "Webhook JWT"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "x2",
+              "name": "sub",
+              "value": "={{ $json.jwtPayload.sub }}",
+              "type": "string"
+            },
+            {
+              "id": "x3",
+              "name": "payload",
+              "value": "={{ $json.jwtPayload }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d4000000-0000-4000-8000-000000000005",
+      "name": "JWT Daten",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Basic": {
+      "main": [
+        [
+          {
+            "node": "Basic OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "JWT": {
+      "main": [
+        [
+          {
+            "node": "JWT Daten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

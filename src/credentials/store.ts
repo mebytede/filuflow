@@ -41,10 +41,55 @@ export function decryptValue(encoded: string, secret: string): unknown {
   const iv = raw.subarray(0, 12);
   const tag = raw.subarray(12, 28);
   const ct = raw.subarray(28);
-  const decipher = createDecipheriv('aes-256-gcm', deriveKey(secret), iv);
-  decipher.setAuthTag(tag);
-  const plain = Buffer.concat([decipher.update(ct), decipher.final()]).toString('utf8');
+  let plain: string;
+  try {
+    const decipher = createDecipheriv('aes-256-gcm', deriveKey(secret), iv);
+    decipher.setAuthTag(tag);
+    plain = Buffer.concat([decipher.update(ct), decipher.final()]).toString('utf8');
+  } catch {
+    throw new Error('Entschlüsselung fehlgeschlagen: falscher FLOWLITE_ENCRYPTION_KEY oder beschädigte Daten');
+  }
   return JSON.parse(plain);
+}
+
+/** Verschlüsselt eine Credential-Datei (flowlite-Format oder n8n-Export) je Eintrag; Namen, IDs und Typen bleiben lesbar */
+export function encryptCredentialsFile(raw: unknown, secret: string): unknown {
+  const encryptEntry = (entry: unknown): unknown => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return entry;
+    const obj = entry as Record<string, unknown>;
+    if (typeof obj.encrypted === 'string') return obj;
+    if (obj.data && typeof obj.data === 'object' && !Array.isArray(obj.data)) {
+      const data = obj.data as Record<string, unknown>;
+      if (typeof data.encrypted === 'string' && Object.keys(data).length === 1) return obj;
+      return { ...obj, data: { encrypted: encryptValue(data, secret) } };
+    }
+    return { data: { encrypted: encryptValue(obj, secret) } };
+  };
+  if (Array.isArray(raw)) return raw.map(encryptEntry);
+  if (raw && typeof raw === 'object') {
+    const obj = raw as Record<string, unknown>;
+    if (typeof obj.encrypted === 'string' && Object.keys(obj).length === 1) return obj;
+    return Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, encryptEntry(v)]));
+  }
+  throw new Error('Credential-Datei: erwartet ein Objekt oder ein Array');
+}
+
+/** Gegenstück zu encryptCredentialsFile */
+export function decryptCredentialsFile(raw: unknown, secret: string): unknown {
+  const dec = (v: unknown): unknown => {
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      const obj = v as Record<string, unknown>;
+      if (typeof obj.encrypted === 'string' && Object.keys(obj).length === 1) return decryptValue(obj.encrypted, secret);
+      if (obj.data && typeof obj.data === 'object') return { ...obj, data: dec(obj.data) };
+    }
+    return v;
+  };
+  if (Array.isArray(raw)) return raw.map(dec);
+  const top = dec(raw);
+  if (top && typeof top === 'object' && !Array.isArray(top)) {
+    return Object.fromEntries(Object.entries(top).map(([k, v]) => [k, dec(v)]));
+  }
+  return top;
 }
 
 function maybeDecrypt(value: unknown, where: string): unknown {
@@ -88,6 +133,9 @@ function toEntry(name: string, raw: unknown, where: string): CredentialEntry {
     throw new Error(`${where}: Credential "${name}" ist kein Objekt`);
   }
   const obj = value as Record<string, unknown>;
+  if (typeof obj.data === 'string' && obj.type) {
+    throw new Error(`${where}: Credential "${name}" ist mit dem n8n-Schlüssel verschlüsselt; bitte mit "n8n export:credentials --decrypted" exportieren`);
+  }
   if (obj.data && typeof obj.data === 'object') {
     return {
       name: typeof obj.name === 'string' ? obj.name : name,
@@ -99,8 +147,12 @@ function toEntry(name: string, raw: unknown, where: string): CredentialEntry {
   return { name, data: obj };
 }
 
-/** Felder ohne Geheimnis (Header-Name, OAuth2-Konfiguration); werden nicht maskiert */
-const PUBLIC_CREDENTIAL_KEYS = new Set(['name', 'grantType', 'authentication', 'accessTokenUrl', 'authUrl', 'scope']);
+/**
+ * Geheime Felder (in n8n die Felder mit typeOptions.password der Credential-Typen, z. B. password, value,
+ * token, clientSecret, privateKey). Nur diese werden in Ausgaben und im Execution-Log maskiert.
+ */
+const SECRET_KEY = /pass|secret|token|value|json|private|apikey|api_key/i;
+const PUBLIC_KEY = /^(publicKey|keyType|tokenType|accessTokenUrl|authUrl|grantType)$/;
 
 export class StaticCredentialProvider implements CredentialProvider {
   private readonly entries: CredentialEntry[];
@@ -125,21 +177,29 @@ export class StaticCredentialProvider implements CredentialProvider {
     return this.entries.length;
   }
 
+  list(): CredentialEntry[] {
+    return [...this.entries];
+  }
+
   secretValues(): string[] {
     const out = new Set<string>();
-    const walk = (v: unknown, key = ''): void => {
-      if (PUBLIC_CREDENTIAL_KEYS.has(key)) return;
-      if (typeof v === 'string') out.add(v);
-      else if (typeof v === 'number') out.add(String(v));
-      else if (Array.isArray(v)) v.forEach((x) => walk(x));
-      else if (v && typeof v === 'object') Object.entries(v).forEach(([k, x]) => walk(x, k));
+    const walk = (v: unknown, secret: boolean): void => {
+      if (typeof v === 'string') {
+        if (secret) out.add(v);
+      } else if (typeof v === 'number') {
+        if (secret) out.add(String(v));
+      } else if (Array.isArray(v)) {
+        v.forEach((x) => walk(x, secret));
+      } else if (v && typeof v === 'object') {
+        Object.entries(v).forEach(([k, x]) => walk(x, secret || (SECRET_KEY.test(k) && !PUBLIC_KEY.test(k))));
+      }
     };
     for (const e of this.entries) {
       try {
-        walk(this.resolve(e));
+        walk(this.resolve(e), false);
       } catch {
         // nicht auflösbare Env-Referenzen: nur Rohwerte maskieren
-        walk(e.data);
+        walk(e.data, false);
       }
     }
     // Kurze Werte (z. B. "1", "true") würden zu viel maskieren
@@ -159,10 +219,18 @@ export async function loadCredentials(path: string): Promise<StaticCredentialPro
     }
   } else {
     const parsed = maybeDecrypt(JSON.parse(await readFile(path, 'utf8')), path);
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      throw new Error(`${path}: erwartet ein Objekt { "<Name>": {...} }`);
+    if (Array.isArray(parsed)) {
+      // Export von `n8n export:credentials --decrypted`: [{ id, name, type, data }]
+      for (const [i, raw] of parsed.entries()) {
+        const name = (raw as { name?: unknown })?.name;
+        if (typeof name !== 'string') throw new Error(`${path}: Eintrag ${i} hat keinen Namen`);
+        entries.push(toEntry(name, raw, path));
+      }
+    } else if (!parsed || typeof parsed !== 'object') {
+      throw new Error(`${path}: erwartet ein Objekt { "<Name>": {...} } oder einen n8n-Export (Array)`);
+    } else {
+      for (const [name, raw] of Object.entries(parsed)) entries.push(toEntry(name, raw, path));
     }
-    for (const [name, raw] of Object.entries(parsed)) entries.push(toEntry(name, raw, path));
   }
   return new StaticCredentialProvider(entries);
 }

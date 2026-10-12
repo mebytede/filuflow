@@ -1,0 +1,107 @@
+{
+  "responseHeaders": [
+    "content-type",
+    "www-authenticate"
+  ],
+  "delayMs": 200,
+  "requests": [
+    {
+      "method": "POST",
+      "path": "/webhook/fl-08c-basic",
+      "headers": {
+        "content-type": "application/json",
+        "authorization": "Basic aG9vazpwYSBzczox"
+      },
+      "body": {
+        "n": 1
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/webhook/fl-08c-basic",
+      "headers": {
+        "content-type": "application/json",
+        "authorization": "Basic aG9vazpmYWxzY2g="
+      },
+      "body": {
+        "n": 2
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/webhook/fl-08c-basic",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": {
+        "n": 3
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/webhook/fl-08c-header",
+      "headers": {
+        "content-type": "application/json",
+        "x-hook-token": "tok-987"
+      },
+      "body": {
+        "h": 1
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/webhook/fl-08c-header",
+      "headers": {
+        "content-type": "application/json",
+        "x-hook-token": "tok-000"
+      },
+      "body": {
+        "h": 2
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/webhook/fl-08c-jwt",
+      "headers": {
+        "content-type": "application/json",
+        "authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJudXR6ZXItMSIsInJvbGxlIjoiYWRtaW4iLCJpYXQiOjE3MDAwMDAwMDB9.s8IGyt2GT7df1YVNe57-gLdvLm8KSz2UxiS23hKIy9U"
+      },
+      "body": {}
+    },
+    {
+      "method": "POST",
+      "path": "/webhook/fl-08c-jwt",
+      "headers": {
+        "content-type": "application/json",
+        "authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJudXR6ZXItMSIsImlhdCI6MTcwMDAwMDAwMH0.HHlWBHtEr5vNP63bx1_WdjQesqhATGASB6WFEpzoOrA"
+      },
+      "body": {}
+    },
+    {
+      "method": "POST",
+      "path": "/webhook/fl-08c-jwt",
+      "headers": {
+        "content-type": "application/json",
+        "authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ4IiwiaWF0IjoxNTAwMDAwMDAwLCJleHAiOjE1MDAwMDAxMDB9.kESQBlL3VbpWlBXZf_KKtsqAkJQ1tvD2MzAfeF7wFxs"
+      },
+      "body": {}
+    },
+    {
+      "method": "POST",
+      "path": "/webhook/fl-08c-jwt",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": {}
+    },
+    {
+      "method": "POST",
+      "path": "/webhook/fl-08c-jwt",
+      "headers": {
+        "content-type": "application/json",
+        "authorization": "Bearer kaputt"
+      },
+      "body": {}
+    }
+  ]
+}

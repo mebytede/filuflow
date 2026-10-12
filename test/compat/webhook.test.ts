@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import type { AddressInfo } from 'node:net';
 import { createServer } from '../../src/server/app.js';
 import { applyIgnore, executionToSnapshot } from '../../src/snapshot.js';
-import { StaticCredentialProvider, loadCredentials } from '../../src/credentials/store.js';
+import { StaticCredentialProvider, loadCredentials, maskDeep } from '../../src/credentials/store.js';
 import type { Execution, Workflow } from '../../src/types.js';
 // @ts-expect-error -- reines JS-Modul ohne Typen
 import { sendRequests } from '../../scripts/webhook-client.mjs';
@@ -55,7 +55,9 @@ describe('Webhook-Kompatibilität mit n8n', () => {
           });
         // ignore.json-Pfade beziehen sich auf { responses, executions }
         const actual = applyIgnore({ responses, executions }, ignore) as typeof expected;
+        // Das Execution-Log maskiert Credential-Werte; die erwarteten Executions werden genauso maskiert
         const wanted = applyIgnore(structuredClone(expected), ignore) as typeof expected;
+        wanted.executions = maskDeep(wanted.executions, credentials.secretValues());
         expect(actual.responses).toEqual(wanted.responses);
         expect(actual.executions).toEqual(wanted.executions);
       } finally {
