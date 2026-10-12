@@ -3,10 +3,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Server } from 'node:http';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { Runner, StaticWorkflowSource } from '../../src/runner.js';
 import { applyIgnore, executionToSnapshot } from '../../src/snapshot.js';
 import { StaticCredentialProvider, loadCredentials } from '../../src/credentials/store.js';
-import type { Item, Workflow } from '../../src/types.js';
+import type { Execution, Item, Workflow } from '../../src/types.js';
 // @ts-expect-error -- reines JS-Modul ohne Typen
 import { startMockServer } from '../../scripts/mock-server.mjs';
 
@@ -50,5 +52,34 @@ describe('Kompatibilität mit n8n', () => {
       const actual = applyIgnore(executionToSnapshot(exec), ignore);
       expect(actual).toEqual(applyIgnore(expected, ignore));
     });
+  }
+});
+
+// M4: dieselben Fixtures über die echte CLI (eigener Prozess, --json)
+const run = promisify(execFile);
+const BIN = join(__dirname, '..', '..', 'bin', 'flowlite.js');
+
+describe('Kompatibilität über flowlite run', () => {
+  for (const name of fixtures) {
+    it(name, async () => {
+      const dir = join(FIXTURES, name);
+      const expected = JSON.parse(readFileSync(join(dir, 'expected.json'), 'utf8')) as Record<string, unknown>;
+      const ignore = existsSync(join(dir, 'ignore.json'))
+        ? (JSON.parse(readFileSync(join(dir, 'ignore.json'), 'utf8')) as { paths: string[] }).paths
+        : [];
+      const args = [BIN, 'run', join(dir, 'workflow.json'), '--json', '--no-pin'];
+      if (existsSync(join(dir, 'input.json'))) args.push('--input', join(dir, 'input.json'));
+      if (existsSync(join(dir, 'credentials.json'))) args.push('--credentials', join(dir, 'credentials.json'));
+      // Exit-Code 1 bei fehlgeschlagener Execution ist erwartet (z. B. Stop and Error)
+      const { stdout } = await run(process.execPath, args, { cwd: dir, env: { ...process.env, FL_COMPAT: 'ja', FLOWLITE_CREDENTIALS: undefined } }).catch(
+        (error: { stdout?: string; stderr?: string }) => {
+          if (!error.stdout) throw new Error(error.stderr ?? String(error));
+          return { stdout: error.stdout };
+        },
+      );
+      const exec = JSON.parse(stdout) as Execution;
+      const actual = applyIgnore(executionToSnapshot(exec), ignore);
+      expect(actual).toEqual(applyIgnore(expected, ignore));
+    }, 30_000);
   }
 });

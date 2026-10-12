@@ -21,6 +21,8 @@ export interface CredentialProvider {
   find(ref: { name: string; id?: string | null }, type?: string): CredentialEntry | undefined;
   /** Werte mit aufgelösten Env-Referenzen */
   resolve(entry: CredentialEntry): Record<string, unknown>;
+  /** Alle geheimen Werte (für Maskierung in Ausgaben und Execution-Log) */
+  secretValues?(): string[];
 }
 
 function deriveKey(secret: string): Buffer {
@@ -97,6 +99,9 @@ function toEntry(name: string, raw: unknown, where: string): CredentialEntry {
   return { name, data: obj };
 }
 
+/** Felder ohne Geheimnis (Header-Name, OAuth2-Konfiguration); werden nicht maskiert */
+const PUBLIC_CREDENTIAL_KEYS = new Set(['name', 'grantType', 'authentication', 'accessTokenUrl', 'authUrl', 'scope']);
+
 export class StaticCredentialProvider implements CredentialProvider {
   private readonly entries: CredentialEntry[];
 
@@ -118,6 +123,27 @@ export class StaticCredentialProvider implements CredentialProvider {
 
   get size(): number {
     return this.entries.length;
+  }
+
+  secretValues(): string[] {
+    const out = new Set<string>();
+    const walk = (v: unknown, key = ''): void => {
+      if (PUBLIC_CREDENTIAL_KEYS.has(key)) return;
+      if (typeof v === 'string') out.add(v);
+      else if (typeof v === 'number') out.add(String(v));
+      else if (Array.isArray(v)) v.forEach((x) => walk(x));
+      else if (v && typeof v === 'object') Object.entries(v).forEach(([k, x]) => walk(x, k));
+    };
+    for (const e of this.entries) {
+      try {
+        walk(this.resolve(e));
+      } catch {
+        // nicht auflösbare Env-Referenzen: nur Rohwerte maskieren
+        walk(e.data);
+      }
+    }
+    // Kurze Werte (z. B. "1", "true") würden zu viel maskieren
+    return [...out].filter((s) => s.length >= 4).sort((a, b) => b.length - a.length);
   }
 }
 
@@ -151,6 +177,21 @@ export async function loadDefaultCredentials(explicit?: string): Promise<StaticC
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return new StaticCredentialProvider();
     throw error;
   }
+}
+
+/** Maskiert Credential-Werte in einer beliebigen JSON-Struktur (liefert eine Kopie) */
+export function maskDeep<T>(value: T, secrets: string[]): T {
+  if (secrets.length === 0) return value;
+  const mask = (v: unknown): unknown => {
+    if (typeof v === 'string') return maskSecrets(v, secrets);
+    if (Array.isArray(v)) return v.map(mask);
+    if (v && typeof v === 'object') {
+      if (typeof (v as { toJSON?: unknown }).toJSON === 'function') return mask(JSON.parse(JSON.stringify(v)));
+      return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, mask(x)]));
+    }
+    return v;
+  };
+  return mask(value) as T;
 }
 
 /** Maskiert Credential-Werte in beliebigen Strukturen (für Logs) */
