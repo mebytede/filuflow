@@ -10,6 +10,13 @@ export const agentNode: NodeType = {
   displayName: 'AI Agent',
   versions: [2, 2.1, 2.2, 3],
   outputs: () => 1,
+  aiInputs: (node) => [
+    { type: 'ai_languageModel', index: 0, label: 'Chat Model' },
+    ...(node.parameters.needsFallback === true ? [{ type: 'ai_languageModel', index: 1, label: 'Fallback Model' }] : []),
+    { type: 'ai_memory', index: 0, label: 'Memory' },
+    { type: 'ai_tool', index: 0, label: 'Tool' },
+    ...(node.parameters.hasOutputParser === true ? [{ type: 'ai_outputParser', index: 0, label: 'Output Parser' }] : []),
+  ],
   validate(node) {
     const issues: NodeIssue[] = [];
     const options = (node.parameters.options ?? {}) as Record<string, unknown>;

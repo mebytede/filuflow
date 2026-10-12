@@ -1,6 +1,8 @@
 // Workflows aus --dir: Laden, Validieren, Aktivieren (Webhooks, Schedules), Hot Reload.
 import { watch, existsSync, type FSWatcher } from 'node:fs';
-import { basename } from 'node:path';
+import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
+import { basename, join } from 'node:path';
+import { randomBytes } from 'node:crypto';
 import type { Workflow } from '../types.js';
 import { loadWorkflowDir } from '../loader.js';
 import { validateWorkflow } from '../validator.js';
@@ -32,6 +34,27 @@ export interface WorkflowManagerOptions {
   webhooks: WebhookService;
   scheduler: Scheduler;
   logger: Logger;
+}
+
+export class WorkflowNotFoundError extends Error {
+  constructor(id: string) {
+    super(`Workflow "${id}" nicht gefunden`);
+  }
+}
+
+export class WorkflowConflictError extends Error {}
+
+/** Dateiname aus dem Workflow-Namen: Kleinbuchstaben, Ziffern und Bindestriche */
+function slugify(name: string | undefined): string {
+  return (name ?? '')
+    .toLowerCase()
+    .replace(/ä/g, 'ae')
+    .replace(/ö/g, 'oe')
+    .replace(/ü/g, 'ue')
+    .replace(/ß/g, 'ss')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
 }
 
 export class WorkflowManager implements WorkflowSource {
@@ -162,6 +185,48 @@ export class WorkflowManager implements WorkflowSource {
     this.options.webhooks.test.remove(managed.workflow.id, managed.workflow.name);
     this.options.scheduler.remove(managed.workflow);
     managed.active = false;
+  }
+
+  /** Dateiinhalt eines Workflows, so wie er auf der Platte steht (Editor) */
+  async source(id: string): Promise<unknown> {
+    const m = this.get(id);
+    if (!m) return undefined;
+    return JSON.parse(await readFile(m.file, 'utf8')) as unknown;
+  }
+
+  /**
+   * Speichert einen Workflow (Editor). Mit `id` wird die bestehende Datei überschrieben, sonst eine neue
+   * Datei angelegt (Name aus dem Workflow-Namen). Danach wird neu geladen und aktiviert.
+   */
+  async save(workflow: Workflow, id?: string): Promise<ManagedWorkflow> {
+    let file: string;
+    if (id !== undefined) {
+      const existing = this.get(id);
+      if (!existing) throw new WorkflowNotFoundError(id);
+      file = existing.file;
+      workflow.id = existing.workflow.id;
+    } else {
+      workflow.id ??= randomBytes(8).toString('hex');
+      if (this.items.has(workflow.id)) throw new WorkflowConflictError(`Workflow-ID "${workflow.id}" ist bereits vergeben`);
+      const base = slugify(workflow.name) || workflow.id;
+      file = join(this.options.dir, `${base}.json`);
+      if (existsSync(file)) file = join(this.options.dir, `${base}-${workflow.id}.json`);
+    }
+    await mkdir(this.options.dir, { recursive: true });
+    await writeFile(file, `${JSON.stringify(workflow, null, 2)}\n`, 'utf8');
+    await this.reload();
+    const savedId = workflow.id as string;
+    const saved = this.get(savedId);
+    if (!saved) throw new Error(`Workflow "${savedId}" wurde gespeichert, aber nicht geladen`);
+    return saved;
+  }
+
+  /** Löscht die Datei eines Workflows (Editor) */
+  async remove(id: string): Promise<void> {
+    const m = this.get(id);
+    if (!m) throw new WorkflowNotFoundError(id);
+    await unlink(m.file);
+    await this.reload();
   }
 
   /** Beobachtet das Verzeichnis (Hot Reload, entprellt) */

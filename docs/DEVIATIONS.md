@@ -70,6 +70,15 @@ der Wiederholungsprüfung sind gegen moment-timezone aus dem n8n-Image getestet 
 - Maskierung in Ausgaben und im Execution-Log betrifft geheime Felder (Namen mit pass, secret, token, value, json,
   private, apiKey). Werte kürzer als 4 Zeichen werden nicht maskiert.
 
+## Weboberfläche
+Die Oberfläche ist ein eigener, schlanker Editor, kein Nachbau des n8n-Editors:
+- Parameter werden als Baum (Formular) oder JSON bearbeitet, ohne die Felder, Auswahllisten und Hilfetexte der n8n-Nodes.
+- Ausführen startet immer den ganzen Workflow (Modus `manual`, mit pinData), keine Teilausführung ab einem Node. pinData lässt sich
+  über die JSON-Ansicht des Workflows (Export/Import) pflegen, nicht per Klick.
+- Test-Webhooks (`/webhook-test/...`) sind für alle gültigen Workflows registriert; ein "Auf Test-Event warten" wie in n8n gibt es nicht.
+- Credentials werden nicht in der Oberfläche angelegt oder bearbeitet, sondern in `credentials.json`.
+- Mehrere Personen, die gleichzeitig denselben Workflow speichern: der letzte Stand gewinnt (keine Sperre, keine Versionen).
+
 ## KI-Nodes
 - **Kein LangChain:** Modelle, Prompts, Parser, Memory und der Agent-Ablauf sind eigene Umsetzungen nach dem Verhalten von
   n8n 1.123.0 mit @langchain/core 1.1 und @langchain/classic 1.0.5. Request-Bodies an Gemini, OpenAI und Anthropic sind

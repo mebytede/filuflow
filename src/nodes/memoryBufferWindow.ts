@@ -10,6 +10,7 @@ export const memoryBufferWindowNode: NodeType = {
   displayName: 'Simple Memory',
   versions: [1, 1.1, 1.2, 1.3],
   isSubNode: true,
+  aiOutput: 'ai_memory',
   inputs: () => 0,
   outputs: () => 0,
   async execute() {

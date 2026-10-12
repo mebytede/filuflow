@@ -16,8 +16,9 @@ const USAGE = `Aufruf: flowlite serve [Optionen]
   --vars <pfad>         Variablen für $vars (Default: FLOWLITE_VARS, ./vars.json)
   --concurrency <zahl>  gleichzeitige Executions (Default: FLOWLITE_CONCURRENCY oder 5)
 
-Umgebung: FLOWLITE_API_KEY (REST-API), FLOWLITE_PRUNE_DAYS (Default 14),
-FLOWLITE_WEBHOOK_URL bzw. WEBHOOK_URL (öffentliche Basis-URL für webhookUrl)
+Umgebung: FLOWLITE_API_KEY (REST-API und Weboberfläche), FLOWLITE_PRUNE_DAYS (Default 14),
+FLOWLITE_WEBHOOK_URL bzw. WEBHOOK_URL (öffentliche Basis-URL für webhookUrl),
+FLOWLITE_UI=false (Weboberfläche abschalten)
 `;
 
 export async function cmdServe(args: string[]): Promise<number> {
@@ -62,9 +63,19 @@ export async function cmdServe(args: string[]): Promise<number> {
     credentials: await loadDefaultCredentials(values.credentials),
     vars: await loadVars(values.vars),
     logger,
+    ...(env.FLOWLITE_UI === 'false' ? { uiDir: false as const } : {}),
   });
   await server.app.listen({ port, host });
-  logger.info({ port, host, webhookBaseUrl, api: env.FLOWLITE_API_KEY ? 'aktiv' : 'deaktiviert (FLOWLITE_API_KEY fehlt)' }, 'flowlite läuft');
+  logger.info(
+    {
+      port,
+      host,
+      webhookBaseUrl,
+      api: env.FLOWLITE_API_KEY ? 'aktiv' : 'deaktiviert (FLOWLITE_API_KEY fehlt)',
+      ui: env.FLOWLITE_UI === 'false' ? 'aus' : `http://${host === '0.0.0.0' ? 'localhost' : host}:${port}/`,
+    },
+    'flowlite läuft',
+  );
 
   await new Promise<void>((resolveStop) => {
     const stop = (signal: string) => {

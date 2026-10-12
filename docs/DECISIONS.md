@@ -20,6 +20,19 @@ Neben dem Stack aus CLAUDE.md (luxon, better-sqlite3, fastify, croner, pino):
 | `qs` | HTTP Request: n8n serialisiert Formular- und Query-Daten mit `qs`; gleiche Bibliothek = gleiche Kodierung |
 | `math-expression-evaluator` | Calculator-Tool (M7): n8n nutzt den LangChain-Calculator, der genau diese Bibliothek (2.0.7) aufruft. Eigene Syntax (Winkel in Grad, `root`, `Mod`, `C(n,k)` usw.); ein Nachbau würde zwangsläufig abweichen. MIT-Lizenz, ohne Abhängigkeiten |
 
+## Weboberfläche (M8)
+- TypeScript ohne Framework und ohne Bundler: `tsc -p tsconfig.ui.json` erzeugt ES-Module für den Browser, `scripts/copy-ui-assets.mjs`
+  kopiert HTML, CSS und Icon nach `dist/ui`. Keine neue Laufzeit-Abhängigkeit, keine Build-Kette neben tsc; für ein internes Werkzeug
+  mit überschaubarem Umfang reichen DOM und SVG.
+- Der Server liefert `dist/ui` selbst aus (kein `@fastify/static`), mit Content-Security-Policy ohne Inline-Skripte.
+- Parameter: flowlite kennt die Parameterbeschreibungen der n8n-Nodes nicht. Statt sie nachzubauen, bearbeitet der Editor den
+  Parameterbaum direkt (Text, Zahl, Ja/Nein, Objekt, Liste, Expression) oder als JSON. Neue Nodes bekommen Startwerte aus
+  `src/ui/editor/templates.ts`.
+- Speichern schreibt die Workflow-Datei im Workflow-Verzeichnis (n8n-Format, 2 Leerzeichen eingerückt); Hot Reload und Aktivierung
+  laufen wie bei Änderungen von Hand. Neue Workflows bekommen eine zufällige ID und einen Dateinamen aus dem Workflow-Namen.
+- `playwright-core` (Dev-Abhängigkeit, Version passend zum vorinstallierten Chromium) für den Browser-Test `test/ui.e2e.test.ts`;
+  ohne Chromium wird der Test übersprungen.
+
 ## Server
 - fastify mit eigenem Content-Type-Parser für Webhooks: Der Body wird roh gelesen (gzip/deflate wie n8n) und im Webhook-Node
   nach den Regeln von n8n (`parseRequestBody`, `body-parser.ts`) ausgewertet. Antworten bauen die Semantik von Express nach

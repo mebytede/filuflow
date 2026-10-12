@@ -15,7 +15,8 @@ services:
       FLOWLITE_PRUNE_DAYS: ${FLOWLITE_PRUNE_DAYS:-14}
       FLOWLITE_CONCURRENCY: ${FLOWLITE_CONCURRENCY:-5}
     volumes:
-      - ./workflows:/data/workflows:ro
+      # beschreibbar, damit der Editor der Weboberfläche speichern kann (":ro" = nur lesen)
+      - ./workflows:/data/workflows
       - ./credentials.json:/data/credentials.json:ro
       - flowlite-data:/data/state
     command: ["node", "/app/bin/flowlite.js", "serve", "--db", "/data/state/flowlite.db"]

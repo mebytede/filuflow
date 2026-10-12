@@ -17,6 +17,8 @@ import { WebhookService, type HttpResponse } from './webhooks.js';
 import { Scheduler } from './schedules.js';
 import { WorkflowManager } from './workflows.js';
 import { toItems } from '../cli/run.js';
+import { registerEditorApi } from './editorApi.js';
+import { registerUi } from './ui.js';
 
 export interface ServerOptions {
   dir: string;
@@ -36,6 +38,8 @@ export interface ServerOptions {
   /** Maximale Request-Größe in MB (n8n N8N_PAYLOAD_SIZE_MAX, Default 16) */
   payloadSizeMaxMb?: number;
   watch?: boolean;
+  /** Verzeichnis der gebauten Weboberfläche; false schaltet sie ab (Default: dist/ui) */
+  uiDir?: string | false;
 }
 
 export interface FlowliteServer {
@@ -148,6 +152,7 @@ export async function createServer(options: ServerOptions): Promise<FlowliteServ
   });
 
   app.get('/healthz', async () => ({ status: 'ok' }));
+  if (options.uiDir !== false) registerUi(app, options.uiDir);
 
   // Webhooks: Body roh lesen (gzip/deflate wie n8n rawBodyReader), Auswertung im Webhook-Node
   await app.register(async (scope) => {
@@ -244,6 +249,8 @@ export async function createServer(options: ServerOptions): Promise<FlowliteServ
       const execution = await entry.promise;
       return executionView(store.get(execution.id) as unknown as Execution, true);
     });
+
+    await registerEditorApi(api, { registry, credentials, runner, manager, store, workflows: () => workflows!, webhookBaseUrl: options.webhookBaseUrl });
 
     api.get('/api/executions', async (request) => {
       const q = request.query as { workflow?: string; status?: string; limit?: string };

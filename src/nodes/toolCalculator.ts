@@ -14,6 +14,7 @@ export const toolCalculatorNode: NodeType = {
   displayName: 'Calculator',
   versions: [1],
   isSubNode: true,
+  aiOutput: 'ai_tool',
   inputs: () => 0,
   outputs: () => 0,
   async supplyData(ctx) {

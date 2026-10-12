@@ -134,6 +134,12 @@ export interface ExecContext {
   readonly logger: Logger;
 }
 
+export interface AiInput {
+  type: string;
+  index: number;
+  label: string;
+}
+
 export interface NodeType {
   /** z. B. "n8n-nodes-base.set" */
   type: string;
@@ -145,6 +151,12 @@ export interface NodeType {
   ignored?: boolean;
   /** Sub-Node, wird nur vom Eltern-Node angefordert (KI) */
   isSubNode?: boolean;
+  /** Sub-Node: Verbindungstyp seines Ausgangs (z. B. ai_languageModel), für Editor und Validierung */
+  aiOutput?: string;
+  /** Eltern-Node: Eingänge für Sub-Nodes (Typ, Index, Beschriftung), für den Editor */
+  aiInputs?(node: WorkflowNode): AiInput[];
+  /** Namen der Main-Ausgänge (z. B. IF: true, false), für den Editor */
+  outputNames?(node: WorkflowNode): string[];
   /** Anzahl Main-Ausgänge; kann von Parametern abhängen. Fehlerausgang wird von der Engine ergänzt. */
   outputs(node: WorkflowNode): number;
   /** Anzahl Main-Eingänge (Default: 1, Trigger 0) */

@@ -44,6 +44,13 @@ export const chainLlmNode: NodeType = {
   displayName: 'Basic LLM Chain',
   versions: [1, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7],
   outputs: () => 1,
+  aiInputs: (node) => [
+    { type: 'ai_languageModel', index: 0, label: 'Chat Model' },
+    ...(node.parameters.needsFallback === true ? [{ type: 'ai_languageModel', index: 1, label: 'Fallback Model' }] : []),
+    ...([1, 1.1, 1.3].includes(node.typeVersion) || node.parameters.hasOutputParser === true
+      ? [{ type: 'ai_outputParser', index: 0, label: 'Output Parser' }]
+      : []),
+  ],
   async execute(ctx) {
     const items = ctx.items;
     const out: Item[] = [];

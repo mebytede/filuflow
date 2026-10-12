@@ -28,6 +28,7 @@ export const textClassifierNode: NodeType = {
   displayName: 'Text Classifier',
   versions: [1, 1.1],
   outputs: outputCount,
+  aiInputs: () => [{ type: 'ai_languageModel', index: 0, label: 'Chat Model' }],
   async execute(ctx) {
     const items = ctx.items;
     const batchSize = ctx.getParam<number>('options.batching.batchSize', 0, 5);

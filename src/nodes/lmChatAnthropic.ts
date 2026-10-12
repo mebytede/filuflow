@@ -12,6 +12,7 @@ export const lmChatAnthropicNode: NodeType = {
   displayName: 'Anthropic Chat Model',
   versions: [1, 1.1, 1.2, 1.3],
   isSubNode: true,
+  aiOutput: 'ai_languageModel',
   inputs: () => 0,
   outputs: () => 0,
   credentialTypes: () => ['anthropicApi'],

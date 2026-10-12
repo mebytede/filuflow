@@ -586,6 +586,7 @@ export const toolHttpRequestNode: NodeType = {
   displayName: 'HTTP Request Tool',
   versions: [1, 1.1],
   isSubNode: true,
+  aiOutput: 'ai_tool',
   inputs: () => 0,
   outputs: () => 0,
   credentialTypes(node) {

@@ -11,6 +11,7 @@ export const ifNode: NodeType = {
   displayName: 'If',
   versions: [2, 2.1, 2.2, 2.3],
   outputs: () => 2,
+  outputNames: () => ['true', 'false'],
   async execute(ctx) {
     const trueItems: Item[] = [];
     const falseItems: Item[] = [];

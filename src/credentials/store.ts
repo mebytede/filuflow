@@ -23,6 +23,8 @@ export interface CredentialProvider {
   resolve(entry: CredentialEntry): Record<string, unknown>;
   /** Alle geheimen Werte (für Maskierung in Ausgaben und Execution-Log) */
   secretValues?(): string[];
+  /** Alle Einträge (Editor: Auswahl nach Name und Typ, ohne Werte) */
+  list?(): CredentialEntry[];
 }
 
 function deriveKey(secret: string): Buffer {

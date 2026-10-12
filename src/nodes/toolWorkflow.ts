@@ -257,6 +257,7 @@ export const toolWorkflowNode: NodeType = {
   displayName: 'Call n8n Workflow Tool',
   versions: [1, 1.1, 1.2, 1.3, 2, 2.1, 2.2],
   isSubNode: true,
+  aiOutput: 'ai_tool',
   inputs: () => 0,
   outputs: () => 0,
   validate(node) {

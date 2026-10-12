@@ -44,6 +44,7 @@ export const outputParserStructuredNode: NodeType = {
   displayName: 'Structured Output Parser',
   versions: [1, 1.1, 1.2, 1.3],
   isSubNode: true,
+  aiOutput: 'ai_outputParser',
   inputs: () => 0,
   outputs: () => 0,
   validate(node) {

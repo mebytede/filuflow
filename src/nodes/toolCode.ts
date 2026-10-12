@@ -48,6 +48,7 @@ export const toolCodeNode: NodeType = {
   displayName: 'Code Tool',
   versions: [1, 1.1, 1.2, 1.3],
   isSubNode: true,
+  aiOutput: 'ai_tool',
   inputs: () => 0,
   outputs: () => 0,
   validate(node) {

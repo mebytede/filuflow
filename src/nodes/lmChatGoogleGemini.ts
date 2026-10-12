@@ -9,6 +9,7 @@ export const lmChatGoogleGeminiNode: NodeType = {
   displayName: 'Google Gemini Chat Model',
   versions: [1],
   isSubNode: true,
+  aiOutput: 'ai_languageModel',
   inputs: () => 0,
   outputs: () => 0,
   credentialTypes: () => ['googlePalmApi'],

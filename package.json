@@ -18,11 +18,12 @@
     "bin"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && npm run build:ui",
     "test": "vitest run --exclude 'test/compat/**'",
     "test:compat": "vitest run test/compat",
-    "lint": "eslint . && tsc --noEmit",
-    "flowlite": "tsx src/cli/main.ts"
+    "lint": "eslint . && tsc --noEmit && tsc -p tsconfig.ui.json --noEmit",
+    "flowlite": "tsx src/cli/main.ts",
+    "build:ui": "tsc -p tsconfig.ui.json && node scripts/copy-ui-assets.mjs"
   },
   "dependencies": {
     "acorn": "^8.19.0",
@@ -55,6 +56,7 @@
     "@types/qs": "^6.15.1",
     "@types/xml2js": "^0.4.14",
     "eslint": "^10.12.0",
+    "playwright-core": "1.56.1",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.71.1",

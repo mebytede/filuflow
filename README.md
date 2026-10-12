@@ -1,6 +1,6 @@
 # flowlite
 
-Schlanke, n8n-kompatible Workflow-Engine ohne Editor. Exportierte n8n-Workflows (JSON, `executionOrder: v1`)
+Schlanke, n8n-kompatible Workflow-Engine mit eigener Weboberfläche. Exportierte n8n-Workflows (JSON, `executionOrder: v1`)
 laufen unverändert und liefern dieselben Items an denselben Nodes wie n8n 1.x (Referenz: n8n 1.123.0).
 
 Details: [docs/SPEC.md](docs/SPEC.md), Stand: [docs/STATUS.md](docs/STATUS.md),
@@ -9,7 +9,7 @@ bewusste Abweichungen: [docs/DEVIATIONS.md](docs/DEVIATIONS.md), Sicherheitsmode
 ## Installation
 ```
 npm install
-npm run build        # optional, sonst läuft die CLI über tsx
+npm run build        # CLI und Weboberfläche (dist/); ohne Build läuft die CLI über tsx, die Oberfläche fehlt dann
 ```
 
 ## CLI
@@ -81,13 +81,31 @@ flowlite executions list --db /tmp/fl/flowlite.db
 ```
 FLOWLITE_API_KEY=geheim docker compose up -d --build
 ```
-`docker-compose.yml` bindet `./workflows` (nur lesend), `./credentials.json` und ein Volume für die Datenbank ein.
+`docker-compose.yml` bindet `./workflows` (beschreibbar, für den Editor), `./credentials.json` und ein Volume für die Datenbank ein.
 Das Image basiert auf `node:22-slim` und läuft als Benutzer `node` im Arbeitsverzeichnis `/data`
 (Workflows unter `/data/workflows`, optional `/data/credentials.json` und `/data/vars.json`). Ohne Compose:
 ```
 docker build -t flowlite .
 docker run -p 5678:5678 -e FLOWLITE_API_KEY=geheim -v "$PWD/data:/data" flowlite
 ```
+
+## Weboberfläche
+`flowlite serve` liefert unter `http://localhost:5678/` eine Weboberfläche mit Workflow-Editor aus. Anmeldung mit dem Wert von
+`FLOWLITE_API_KEY`.
+
+- **Workflows:** Liste mit Status, Webhooks und Zeitplänen; neu anlegen, n8n-JSON importieren (Datei oder Einfügen), löschen.
+- **Editor:** Nodes aus der Palette per Klick (hängt sich an den ausgewählten Node an) oder per Ziehen einfügen; Ausgang auf Eingang
+  ziehen zum Verbinden (KI-Sub-Nodes von der Raute oben auf den passenden Eingang des Eltern-Nodes); Verbindung anklicken und
+  Entf zum Löschen. Rechts die Details des ausgewählten Nodes: Parameter (Formular oder JSON, `fx` schaltet zwischen festem Wert
+  und Expression), Credentials, Einstellungen (deaktiviert, Fehlerverhalten, Wiederholen, Notizen) und nach dem Ausführen das Ergebnis
+  als Tabelle oder JSON. Fehler und Warnungen der Prüfung erscheinen an den Nodes und unten rechts.
+- **Speichern** schreibt die Datei im Workflow-Verzeichnis; **Aktivieren** schaltet Webhooks und Zeitpläne an. **Ausführen** läuft
+  mit dem aktuellen, auch ungespeicherten Stand und zeigt Item-Zahlen an Nodes und Verbindungen.
+- **Ausführungen:** Liste mit Filter, Detailansicht mit dem Workflow-Stand der Ausführung und den Daten jedes Nodes.
+
+Tastatur im Editor: Strg+S speichern, Strg+Enter ausführen, Strg+Z / Strg+Umschalt+Z rückgängig / wiederholen, Strg+C / Strg+X / Strg+V
+kopieren, ausschneiden, einfügen (kompatibel mit kopierten n8n-Nodes), Strg+A alles auswählen, Entf löschen, D deaktivieren,
+1 einpassen, Esc Auswahl aufheben. Umschalt+Ziehen auf freier Fläche wählt mit einem Rahmen aus, Strg+Mausrad zoomt.
 
 ## Credentials
 `credentials.json` (oder ein Verzeichnis mit einer Datei je Credential), Schlüssel = Credential-Name wie im Workflow,
@@ -114,7 +132,7 @@ Eltern-Node und erscheinen im Execution-Log mit eigenen Läufen. Abweichungen: `
 
 ## Tests
 ```
-npm test             # Unit-Tests und Orakel (Filter, Expressions, KI)
+npm test             # Unit-Tests, Orakel (Filter, Expressions, KI) und Browser-Test der Oberfläche (Chromium)
 npm run test:compat  # Golden-Tests gegen Ergebnisse aus echtem n8n (CLI, Engine, Webhooks)
 npm run lint
 ```

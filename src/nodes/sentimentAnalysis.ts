@@ -75,6 +75,7 @@ export const sentimentAnalysisNode: NodeType = {
   displayName: 'Sentiment Analysis',
   versions: [1, 1.1],
   outputs: outputCount,
+  aiInputs: () => [{ type: 'ai_languageModel', index: 0, label: 'Chat Model' }],
   async execute(ctx) {
     const items = ctx.items;
     const model = await ctx.getSubNodeInstance<ChatModel>('ai_languageModel', 0, 0);
