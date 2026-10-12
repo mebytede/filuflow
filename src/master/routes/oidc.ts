@@ -6,7 +6,7 @@ import type { MasterContext } from '../app.js';
 import { cookie, parseCookies } from '../session.js';
 import { pkcePair } from '../oidc.js';
 
-const STATE_COOKIE = 'flowlite_oidc';
+const STATE_COOKIE = 'filuflow_oidc';
 const STATE_PATH = '/api/auth/oidc';
 
 export function registerOidcRoutes(api: FastifyInstance, ctx: MasterContext): void {

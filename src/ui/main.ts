@@ -30,7 +30,7 @@ function header(active: string): HTMLElement {
   return h(
     'header',
     { class: 'topbar' },
-    h('a', { href: '#/workflows', class: 'brand', 'aria-label': 'flowlite Start' }, h('span', { class: 'brand-mark' }), 'flowlite'),
+    h('a', { href: '#/workflows', class: 'brand', 'aria-label': 'filuflow Start' }, h('span', { class: 'brand-mark' }), 'filuflow'),
     h('nav', null, link('#/workflows', 'Workflows', 'workflows'), link('#/executions', 'Ausführungen', 'executions'), link('#/credentials', 'Credentials', 'credentials')),
     h('div', { class: 'spacer' }),
     h(
@@ -62,7 +62,7 @@ function setPage(active: string, content: HTMLElement, editor?: Editor, seq = ro
 function showLogin(message?: string): void {
   current.editor?.destroy();
   current = {};
-  const input = h('input', { type: 'password', class: 'param-input', placeholder: 'FLOWLITE_API_KEY', autocomplete: 'current-password', 'aria-label': 'API-Key' });
+  const input = h('input', { type: 'password', class: 'param-input', placeholder: 'FILUFLOW_API_KEY', autocomplete: 'current-password', 'aria-label': 'API-Key' });
   const error = h('p', { class: 'error-text', role: 'alert' }, message ?? '');
   const submit = async (e: Event) => {
     e.preventDefault();
@@ -73,7 +73,7 @@ function showLogin(message?: string): void {
       void route();
     } catch (err) {
       setApiKey(null);
-      error.textContent = err instanceof ApiError && err.status === 401 ? 'API-Key ist falsch oder die REST-API ist deaktiviert (FLOWLITE_API_KEY nicht gesetzt).' : `Fehler: ${(err as Error).message}`;
+      error.textContent = err instanceof ApiError && err.status === 401 ? 'API-Key ist falsch oder die REST-API ist deaktiviert (FILUFLOW_API_KEY nicht gesetzt).' : `Fehler: ${(err as Error).message}`;
     }
   };
   app.replaceChildren(
@@ -83,8 +83,8 @@ function showLogin(message?: string): void {
       h(
         'form',
         { class: 'login-card card', onsubmit: submit },
-        h('div', { class: 'brand brand-large' }, h('span', { class: 'brand-mark' }), 'flowlite'),
-        h('p', { class: 'muted' }, 'Anmeldung mit dem API-Key des Servers (Umgebungsvariable FLOWLITE_API_KEY).'),
+        h('div', { class: 'brand brand-large' }, h('span', { class: 'brand-mark' }), 'filuflow'),
+        h('p', { class: 'muted' }, 'Anmeldung mit dem API-Key des Servers (Umgebungsvariable FILUFLOW_API_KEY).'),
         input,
         error,
         h('button', { type: 'submit', class: 'btn btn-primary' }, 'Anmelden'),

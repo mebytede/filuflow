@@ -19,7 +19,7 @@ import { OidcClient } from './oidc.js';
 
 export interface MasterOptions {
   dbFile: string;
-  /** FLOWLITE_ENCRYPTION_KEY: verschlüsselt TOTP-Schlüssel und Worker-Tokens in der Datenbank */
+  /** FILUFLOW_ENCRYPTION_KEY: verschlüsselt TOTP-Schlüssel und Worker-Tokens in der Datenbank */
   encryptionKey: string;
   /** Öffentliche Adresse des Masters (für Cookies mit Secure und OIDC-Redirect) */
   publicUrl: string;

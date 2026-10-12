@@ -1,4 +1,4 @@
-// flowlite master: Master-Server (Benutzer, Rechte, Projekte, Mandanten, Worker) und Benutzerverwaltung
+// filuflow master: Master-Server (Benutzer, Rechte, Projekte, Mandanten, Worker) und Benutzerverwaltung
 // auf der Kommandozeile (z. B. erster Admin, Notfall-Zugang bei verlorenem TOTP).
 import { parseArgs } from 'node:util';
 import { resolve } from 'node:path';
@@ -9,48 +9,48 @@ import { checkPasswordPolicy, hashPassword } from '../master/auth.js';
 import type { OidcConfig } from '../master/oidc.js';
 import { getLogger } from '../logger.js';
 
-const USAGE = `Aufruf: flowlite master [Optionen]
-       flowlite master user add --email <adresse> [--name <name>] [--admin]
-       flowlite master user list
-       flowlite master user set-password --email <adresse>
-       flowlite master user reset-totp --email <adresse>
+const USAGE = `Aufruf: filuflow master [Optionen]
+       filuflow master user add --email <adresse> [--name <name>] [--admin]
+       filuflow master user list
+       filuflow master user set-password --email <adresse>
+       filuflow master user reset-totp --email <adresse>
 
-  --port <zahl>      Port (Default: FLOWLITE_PORT oder 5679)
-  --host <adresse>   Adresse (Default: FLOWLITE_HOST oder 0.0.0.0)
-  --db <pfad>        SQLite-Datei des Masters (Default: FLOWLITE_MASTER_DB oder ./master.db)
+  --port <zahl>      Port (Default: FILUFLOW_PORT oder 5679)
+  --host <adresse>   Adresse (Default: FILUFLOW_HOST oder 0.0.0.0)
+  --db <pfad>        SQLite-Datei des Masters (Default: FILUFLOW_MASTER_DB oder ./master.db)
 
 Umgebung:
-  FLOWLITE_ENCRYPTION_KEY   Pflicht: verschlüsselt Worker-Tokens und TOTP-Schlüssel
-  FLOWLITE_PUBLIC_URL       öffentliche Adresse, z. B. https://flowlite.example (Cookies mit Secure bei https)
-  FLOWLITE_ADMIN_EMAIL, FLOWLITE_ADMIN_PASSWORD   erster Admin beim ersten Start (sonst Einrichtungs-Token im Log)
-  FLOWLITE_SESSION_HOURS    Sitzung läuft nach so vielen Stunden ohne Aktivität ab (Default 12)
-  FLOWLITE_SYNC_SECONDS     Abgleich mit den Workern (Default 60, 0 = aus)
-  FLOWLITE_TRUST_PROXY=true X-Forwarded-For auswerten (nur hinter einem Reverse Proxy)
-  FLOWLITE_OIDC_ISSUER, FLOWLITE_OIDC_CLIENT_ID, FLOWLITE_OIDC_CLIENT_SECRET   OIDC-Anmeldung
-  FLOWLITE_OIDC_LABEL, FLOWLITE_OIDC_SCOPES, FLOWLITE_OIDC_AUTO_CREATE=true, FLOWLITE_OIDC_ADMIN_GROUP,
-  FLOWLITE_OIDC_GROUPS_CLAIM, FLOWLITE_OIDC_ALLOWED_DOMAINS (kommagetrennt)
-  Passwort für "user add/set-password": FLOWLITE_NEW_PASSWORD oder Eingabe
+  FILUFLOW_ENCRYPTION_KEY   Pflicht: verschlüsselt Worker-Tokens und TOTP-Schlüssel
+  FILUFLOW_PUBLIC_URL       öffentliche Adresse, z. B. https://filuflow.example (Cookies mit Secure bei https)
+  FILUFLOW_ADMIN_EMAIL, FILUFLOW_ADMIN_PASSWORD   erster Admin beim ersten Start (sonst Einrichtungs-Token im Log)
+  FILUFLOW_SESSION_HOURS    Sitzung läuft nach so vielen Stunden ohne Aktivität ab (Default 12)
+  FILUFLOW_SYNC_SECONDS     Abgleich mit den Workern (Default 60, 0 = aus)
+  FILUFLOW_TRUST_PROXY=true X-Forwarded-For auswerten (nur hinter einem Reverse Proxy)
+  FILUFLOW_OIDC_ISSUER, FILUFLOW_OIDC_CLIENT_ID, FILUFLOW_OIDC_CLIENT_SECRET   OIDC-Anmeldung
+  FILUFLOW_OIDC_LABEL, FILUFLOW_OIDC_SCOPES, FILUFLOW_OIDC_AUTO_CREATE=true, FILUFLOW_OIDC_ADMIN_GROUP,
+  FILUFLOW_OIDC_GROUPS_CLAIM, FILUFLOW_OIDC_ALLOWED_DOMAINS (kommagetrennt)
+  Passwort für "user add/set-password": FILUFLOW_NEW_PASSWORD oder Eingabe
 `;
 
 function oidcFromEnv(publicUrl: string): OidcConfig | undefined {
   const env = process.env;
-  if (!env.FLOWLITE_OIDC_ISSUER || !env.FLOWLITE_OIDC_CLIENT_ID) return undefined;
+  if (!env.FILUFLOW_OIDC_ISSUER || !env.FILUFLOW_OIDC_CLIENT_ID) return undefined;
   return {
-    issuer: env.FLOWLITE_OIDC_ISSUER,
-    clientId: env.FLOWLITE_OIDC_CLIENT_ID,
-    clientSecret: env.FLOWLITE_OIDC_CLIENT_SECRET || undefined,
+    issuer: env.FILUFLOW_OIDC_ISSUER,
+    clientId: env.FILUFLOW_OIDC_CLIENT_ID,
+    clientSecret: env.FILUFLOW_OIDC_CLIENT_SECRET || undefined,
     redirectUrl: `${publicUrl}/api/auth/oidc/callback`,
-    scopes: env.FLOWLITE_OIDC_SCOPES || undefined,
-    label: env.FLOWLITE_OIDC_LABEL || undefined,
-    autoCreate: env.FLOWLITE_OIDC_AUTO_CREATE === 'true',
-    adminGroup: env.FLOWLITE_OIDC_ADMIN_GROUP || undefined,
-    groupsClaim: env.FLOWLITE_OIDC_GROUPS_CLAIM || undefined,
-    allowedDomains: (env.FLOWLITE_OIDC_ALLOWED_DOMAINS ?? '').split(',').map((d) => d.trim()).filter(Boolean),
+    scopes: env.FILUFLOW_OIDC_SCOPES || undefined,
+    label: env.FILUFLOW_OIDC_LABEL || undefined,
+    autoCreate: env.FILUFLOW_OIDC_AUTO_CREATE === 'true',
+    adminGroup: env.FILUFLOW_OIDC_ADMIN_GROUP || undefined,
+    groupsClaim: env.FILUFLOW_OIDC_GROUPS_CLAIM || undefined,
+    allowedDomains: (env.FILUFLOW_OIDC_ALLOWED_DOMAINS ?? '').split(',').map((d) => d.trim()).filter(Boolean),
   };
 }
 
 async function askPassword(prompt: string): Promise<string> {
-  if (process.env.FLOWLITE_NEW_PASSWORD) return process.env.FLOWLITE_NEW_PASSWORD;
+  if (process.env.FILUFLOW_NEW_PASSWORD) return process.env.FILUFLOW_NEW_PASSWORD;
   if (!process.stdin.isTTY) {
     // Aus einer Pipe lesen (erste Zeile)
     const rl = createInterface({ input: process.stdin });
@@ -151,7 +151,7 @@ export async function cmdMaster(args: string[]): Promise<number> {
   const env = process.env;
   if (args[0] === 'user') {
     const dbIndex = args.indexOf('--db');
-    const dbFile = resolve(dbIndex >= 0 ? args[dbIndex + 1] : (env.FLOWLITE_MASTER_DB ?? 'master.db'));
+    const dbFile = resolve(dbIndex >= 0 ? args[dbIndex + 1] : (env.FILUFLOW_MASTER_DB ?? 'master.db'));
     const rest = dbIndex >= 0 ? args.slice(1).filter((_a, i) => i + 1 !== dbIndex && i + 1 !== dbIndex + 1) : args.slice(1);
     return userCommand(rest, dbFile);
   }
@@ -167,40 +167,40 @@ export async function cmdMaster(args: string[]): Promise<number> {
     return 0;
   }
   const logger = getLogger();
-  const port = Number(values.port ?? env.FLOWLITE_PORT ?? 5679);
-  const host = values.host ?? env.FLOWLITE_HOST ?? '0.0.0.0';
-  const publicUrl = (env.FLOWLITE_PUBLIC_URL ?? `http://localhost:${port}`).replace(/\/+$/, '');
-  const dbFile = resolve(values.db ?? env.FLOWLITE_MASTER_DB ?? 'master.db');
+  const port = Number(values.port ?? env.FILUFLOW_PORT ?? 5679);
+  const host = values.host ?? env.FILUFLOW_HOST ?? '0.0.0.0';
+  const publicUrl = (env.FILUFLOW_PUBLIC_URL ?? `http://localhost:${port}`).replace(/\/+$/, '');
+  const dbFile = resolve(values.db ?? env.FILUFLOW_MASTER_DB ?? 'master.db');
   let server;
   try {
     server = await createMasterServer({
       dbFile,
-      encryptionKey: env.FLOWLITE_ENCRYPTION_KEY ?? '',
+      encryptionKey: env.FILUFLOW_ENCRYPTION_KEY ?? '',
       publicUrl,
       logger,
-      sessionIdleHours: Number(env.FLOWLITE_SESSION_HOURS ?? 12),
-      syncIntervalMs: Number(env.FLOWLITE_SYNC_SECONDS ?? 60) * 1000,
+      sessionIdleHours: Number(env.FILUFLOW_SESSION_HOURS ?? 12),
+      syncIntervalMs: Number(env.FILUFLOW_SYNC_SECONDS ?? 60) * 1000,
       oidc: oidcFromEnv(publicUrl),
-      trustProxy: env.FLOWLITE_TRUST_PROXY === 'true',
-      ...(env.FLOWLITE_UI === 'false' ? { uiDir: false as const } : {}),
+      trustProxy: env.FILUFLOW_TRUST_PROXY === 'true',
+      ...(env.FILUFLOW_UI === 'false' ? { uiDir: false as const } : {}),
     });
   } catch (error) {
-    process.stderr.write(`flowlite master: ${(error as Error).message}\n`);
+    process.stderr.write(`filuflow master: ${(error as Error).message}\n`);
     return 1;
   }
   // Erster Admin aus der Umgebung
-  if (server.db.countUsers() === 0 && env.FLOWLITE_ADMIN_EMAIL && env.FLOWLITE_ADMIN_PASSWORD) {
-    const policy = checkPasswordPolicy(env.FLOWLITE_ADMIN_PASSWORD);
+  if (server.db.countUsers() === 0 && env.FILUFLOW_ADMIN_EMAIL && env.FILUFLOW_ADMIN_PASSWORD) {
+    const policy = checkPasswordPolicy(env.FILUFLOW_ADMIN_PASSWORD);
     if (policy) {
-      process.stderr.write(`FLOWLITE_ADMIN_PASSWORD: ${policy}\n`);
+      process.stderr.write(`FILUFLOW_ADMIN_PASSWORD: ${policy}\n`);
       await server.close();
       return 1;
     }
-    server.db.createUser({ email: env.FLOWLITE_ADMIN_EMAIL, name: env.FLOWLITE_ADMIN_EMAIL, passwordHash: await hashPassword(env.FLOWLITE_ADMIN_PASSWORD), role: 'admin' });
-    logger.info({ email: env.FLOWLITE_ADMIN_EMAIL }, 'Erster Admin angelegt');
+    server.db.createUser({ email: env.FILUFLOW_ADMIN_EMAIL, name: env.FILUFLOW_ADMIN_EMAIL, passwordHash: await hashPassword(env.FILUFLOW_ADMIN_PASSWORD), role: 'admin' });
+    logger.info({ email: env.FILUFLOW_ADMIN_EMAIL }, 'Erster Admin angelegt');
   }
   await server.app.listen({ port, host });
-  logger.info({ port, host, publicUrl, oidc: env.FLOWLITE_OIDC_ISSUER ? 'aktiv' : 'aus' }, 'flowlite-Master läuft');
+  logger.info({ port, host, publicUrl, oidc: env.FILUFLOW_OIDC_ISSUER ? 'aktiv' : 'aus' }, 'filuflow-Master läuft');
   if (server.db.countUsers() === 0 && server.setupToken) {
     logger.warn({ url: `${publicUrl}/#/setup`, setupToken: server.setupToken }, 'Noch kein Benutzer: ersten Admin mit diesem Einrichtungs-Token anlegen');
   }

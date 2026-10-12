@@ -9,7 +9,7 @@ import type { ExecContext, NodeType } from './types.js';
 import type { Item } from '../types.js';
 import { NodeOperationError } from '../errors.js';
 
-export const CODE_TIMEOUT_MS = Number(process.env.FLOWLITE_CODE_TIMEOUT_MS ?? 60_000);
+export const CODE_TIMEOUT_MS = Number(process.env.FILUFLOW_CODE_TIMEOUT_MS ?? 60_000);
 
 const REQUIRED_N8N_ITEM_KEYS = new Set(['json', 'binary', 'pairedItem', 'error', 'index']);
 
@@ -280,7 +280,7 @@ export function buildContext(ctx: ExecContext, index: number, mode: string, logs
 }
 
 export async function runInSandbox(ctx: ExecContext, code: string, context: Record<string, unknown>): Promise<unknown> {
-  const vmContext = vm.createContext(context, { codeGeneration: { strings: false, wasm: false }, name: `flowlite-code:${ctx.node.name}` });
+  const vmContext = vm.createContext(context, { codeGeneration: { strings: false, wasm: false }, name: `filuflow-code:${ctx.node.name}` });
   // Eine Zeile Präfix, damit Zeilennummern im Stack dem Code entsprechen (wie n8n "module.exports = async function() {…")
   const script = new vm.Script(`(async function() {${code}\n})()`, { filename: 'Code' });
   let timer: NodeJS.Timeout | undefined;
@@ -325,7 +325,7 @@ export const codeNode: NodeType = {
     const node = ctx.node;
     const language = node.typeVersion === 2 ? ctx.getParam<string>('language', 0, 'javaScript') : 'javaScript';
     if (language !== 'javaScript') {
-      throw new NodeOperationError(node.name, `Python im Code-Node wird von flowlite nicht unterstützt (language: ${language})`);
+      throw new NodeOperationError(node.name, `Python im Code-Node wird von filuflow nicht unterstützt (language: ${language})`);
     }
     const mode = ctx.getParam<string>('mode', 0, 'runOnceForAllItems');
     const logs = (level: 'log' | 'info' | 'warn' | 'error' | 'debug', args: unknown[]) => ctx.logOutput(level, args);

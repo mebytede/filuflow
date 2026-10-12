@@ -620,9 +620,9 @@ export function createDataProxy(state: ProxyState): Record<string, unknown> {
   });
 }
 
-/** Freigegebene Umgebungsvariablen für $env (FLOWLITE_ENV_ALLOW, Default: Präfix FL_) */
+/** Freigegebene Umgebungsvariablen für $env (FILUFLOW_ENV_ALLOW, Default: Präfix FL_) */
 export function allowedEnv(env: NodeJS.ProcessEnv = process.env): Record<string, string | undefined> {
-  const spec = env.FLOWLITE_ENV_ALLOW;
+  const spec = env.FILUFLOW_ENV_ALLOW;
   const rules = (spec ?? 'FL_*')
     .split(',')
     .map((r) => r.trim())

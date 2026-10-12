@@ -1,27 +1,27 @@
-# flowlite-Master: Benutzer, Projekte, Mandanten, Worker. Führt selbst keine Workflows aus.
-#   FLOWLITE_ENCRYPTION_KEY=... FLOWLITE_PUBLIC_URL=https://flowlite.example docker compose -f docker-compose.master.yml up -d
-# Beim ersten Start steht das Einrichtungs-Token im Log (docker compose logs), alternativ FLOWLITE_ADMIN_EMAIL/-PASSWORD setzen.
+# filuflow-Master: Benutzer, Projekte, Mandanten, Worker. Führt selbst keine Workflows aus.
+#   FILUFLOW_ENCRYPTION_KEY=... FILUFLOW_PUBLIC_URL=https://filuflow.example docker compose -f docker-compose.master.yml up -d
+# Beim ersten Start steht das Einrichtungs-Token im Log (docker compose logs), alternativ FILUFLOW_ADMIN_EMAIL/-PASSWORD setzen.
 services:
   master:
     build: .
-    image: flowlite:latest
+    image: filuflow:latest
     restart: unless-stopped
     ports:
       - "5679:5679"
     environment:
-      FLOWLITE_PORT: "5679"
-      FLOWLITE_ENCRYPTION_KEY: ${FLOWLITE_ENCRYPTION_KEY:?FLOWLITE_ENCRYPTION_KEY setzen (mindestens 16 Zeichen, gut aufbewahren)}
-      FLOWLITE_PUBLIC_URL: ${FLOWLITE_PUBLIC_URL:-http://localhost:5679}
+      FILUFLOW_PORT: "5679"
+      FILUFLOW_ENCRYPTION_KEY: ${FILUFLOW_ENCRYPTION_KEY:?FILUFLOW_ENCRYPTION_KEY setzen (mindestens 16 Zeichen, gut aufbewahren)}
+      FILUFLOW_PUBLIC_URL: ${FILUFLOW_PUBLIC_URL:-http://localhost:5679}
       # hinter einem Reverse Proxy mit HTTPS:
-      FLOWLITE_TRUST_PROXY: ${FLOWLITE_TRUST_PROXY:-false}
-      FLOWLITE_ADMIN_EMAIL: ${FLOWLITE_ADMIN_EMAIL:-}
-      FLOWLITE_ADMIN_PASSWORD: ${FLOWLITE_ADMIN_PASSWORD:-}
-      # OIDC (optional): FLOWLITE_OIDC_ISSUER, FLOWLITE_OIDC_CLIENT_ID, FLOWLITE_OIDC_CLIENT_SECRET, ...
-      FLOWLITE_OIDC_ISSUER: ${FLOWLITE_OIDC_ISSUER:-}
-      FLOWLITE_OIDC_CLIENT_ID: ${FLOWLITE_OIDC_CLIENT_ID:-}
-      FLOWLITE_OIDC_CLIENT_SECRET: ${FLOWLITE_OIDC_CLIENT_SECRET:-}
+      FILUFLOW_TRUST_PROXY: ${FILUFLOW_TRUST_PROXY:-false}
+      FILUFLOW_ADMIN_EMAIL: ${FILUFLOW_ADMIN_EMAIL:-}
+      FILUFLOW_ADMIN_PASSWORD: ${FILUFLOW_ADMIN_PASSWORD:-}
+      # OIDC (optional): FILUFLOW_OIDC_ISSUER, FILUFLOW_OIDC_CLIENT_ID, FILUFLOW_OIDC_CLIENT_SECRET, ...
+      FILUFLOW_OIDC_ISSUER: ${FILUFLOW_OIDC_ISSUER:-}
+      FILUFLOW_OIDC_CLIENT_ID: ${FILUFLOW_OIDC_CLIENT_ID:-}
+      FILUFLOW_OIDC_CLIENT_SECRET: ${FILUFLOW_OIDC_CLIENT_SECRET:-}
     volumes:
-      - flowlite-master:/data/state
-    command: ["node", "/app/bin/flowlite.js", "master", "--db", "/data/state/master.db"]
+      - filuflow-master:/data/state
+    command: ["node", "/app/bin/filuflow.js", "master", "--db", "/data/state/master.db"]
 volumes:
-  flowlite-master:
+  filuflow-master:

@@ -3,7 +3,7 @@
 // GenericFunctions.ts: toCronExpression, intervalToRecurrence, recurrenceCheck, validateInterval).
 // n8n nutzt moment-timezone und das Paket "cron"; hier luxon und croner (gleiche 6-Felder-Syntax).
 // Der Server registriert die Cron-Ausdrücke; in der Execution reicht der Node die Zeitdaten durch.
-// Ohne Server-Daten (z. B. flowlite run) erzeugt er die Daten für "jetzt" wie n8n im manuellen Modus.
+// Ohne Server-Daten (z. B. filuflow run) erzeugt er die Daten für "jetzt" wie n8n im manuellen Modus.
 import { randomInt } from 'node:crypto';
 import { DateTime } from 'luxon';
 import { Cron } from 'croner';

@@ -1,4 +1,4 @@
-// API für den Master (M9, nur mit `flowlite worker`): Informationen, Workflows verteilen und entfernen,
+// API für den Master (M9, nur mit `filuflow worker`): Informationen, Workflows verteilen und entfernen,
 // Credentials setzen und löschen (ohne Rücklesen der Werte). Geschützt mit dem API-Key des Workers.
 import type { FastifyInstance } from 'fastify';
 import type { Workflow } from '../types.js';
@@ -6,7 +6,9 @@ import type { WorkflowManager } from './workflows.js';
 import type { LayeredCredentialProvider } from '../credentials/managed.js';
 import { asWorkflow } from './editorApi.js';
 
-export const MASTER_MARKER = 'flowliteMaster';
+export const MASTER_MARKER = 'filuflowMaster';
+/** Kennzeichnung vor der Umbenennung in filuflow; vom Master verteilte Dateien können sie noch tragen */
+const LEGACY_MASTER_MARKER = 'flowliteMaster';
 
 export interface WorkerApiOptions {
   version: string;
@@ -18,7 +20,7 @@ export interface WorkerApiOptions {
 
 function masterVersion(wf: Workflow): number | undefined {
   const meta = wf.meta as Record<string, unknown> | undefined;
-  const marker = meta?.[MASTER_MARKER] as { version?: unknown } | undefined;
+  const marker = (meta?.[MASTER_MARKER] ?? meta?.[LEGACY_MASTER_MARKER]) as { version?: unknown } | undefined;
   return typeof marker?.version === 'number' ? marker.version : undefined;
 }
 

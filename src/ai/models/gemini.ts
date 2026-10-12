@@ -56,7 +56,7 @@ export class GeminiChatModel extends ChatModel {
     if (Array.isArray(message.content)) parts.push(...message.content.map((c) => this.contentPart(c)));
     if (message.role === 'ai' && message.toolCalls?.length) {
       for (const tc of message.toolCalls) {
-        parts.push({ functionCall: { name: tc.name, args: tc.args }, ...(this.model.includes(DUMMY_SIGNATURE_MODEL) ? { thoughtSignature: 'flowlite' } : {}) });
+        parts.push({ functionCall: { name: tc.name, args: tc.args }, ...(this.model.includes(DUMMY_SIGNATURE_MODEL) ? { thoughtSignature: 'filuflow' } : {}) });
       }
     }
     return parts;

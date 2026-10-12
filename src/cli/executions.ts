@@ -1,5 +1,5 @@
-// flowlite executions list [--workflow <id|name>] [--status <s>] [--limit n] [--json] [--db pfad]
-// flowlite executions show <id> [--json] [--db pfad]
+// filuflow executions list [--workflow <id|name>] [--status <s>] [--limit n] [--json] [--db pfad]
+// filuflow executions show <id> [--json] [--db pfad]
 import { parseArgs } from 'node:util';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -8,8 +8,8 @@ import { formatSummary } from './run.js';
 import type { Execution } from '../types.js';
 
 const USAGE = `Aufruf:
-  flowlite executions list [--workflow <id|name>] [--status <status>] [--limit <n>] [--json] [--db <pfad>]
-  flowlite executions show <id> [--json] [--db <pfad>]
+  filuflow executions list [--workflow <id|name>] [--status <status>] [--limit <n>] [--json] [--db <pfad>]
+  filuflow executions show <id> [--json] [--db <pfad>]
 `;
 
 export async function cmdExecutions(args: string[]): Promise<number> {
@@ -32,7 +32,7 @@ export async function cmdExecutions(args: string[]): Promise<number> {
   }
   const { values, positionals } = parsed;
   const [sub, id] = positionals;
-  const dbFile = resolve(values.db ?? process.env.FLOWLITE_DB ?? 'flowlite.db');
+  const dbFile = resolve(values.db ?? process.env.FILUFLOW_DB ?? 'filuflow.db');
   if (!existsSync(dbFile)) {
     process.stderr.write(`Datenbank ${dbFile} nicht gefunden\n`);
     return 1;

@@ -1,4 +1,4 @@
-// flowlite serve [--dir ./workflows] [--port 5678] [--db ./flowlite.db]
+// filuflow serve [--dir ./workflows] [--port 5678] [--db ./filuflow.db]
 import { parseArgs } from 'node:util';
 import { resolve } from 'node:path';
 import { createServer } from '../server/app.js';
@@ -10,30 +10,30 @@ import { dirname, join } from 'node:path';
 import { loadVars } from '../runner.js';
 import { getLogger } from '../logger.js';
 
-const USAGE = `Aufruf: flowlite serve [Optionen]
+const USAGE = `Aufruf: filuflow serve [Optionen]
 
-  --dir <pfad>          Workflow-Verzeichnis (Default: FLOWLITE_DIR oder ./workflows)
-  --port <zahl>         Port (Default: FLOWLITE_PORT oder 5678)
-  --host <adresse>      Adresse (Default: FLOWLITE_HOST oder 0.0.0.0)
-  --db <pfad>           SQLite-Datei für das Execution-Log (Default: FLOWLITE_DB oder ./flowlite.db)
-  --credentials <pfad>  credentials.json oder Verzeichnis (Default: FLOWLITE_CREDENTIALS, ./credentials.json)
-  --vars <pfad>         Variablen für $vars (Default: FLOWLITE_VARS, ./vars.json)
-  --concurrency <zahl>  gleichzeitige Executions (Default: FLOWLITE_CONCURRENCY oder 5)
+  --dir <pfad>          Workflow-Verzeichnis (Default: FILUFLOW_DIR oder ./workflows)
+  --port <zahl>         Port (Default: FILUFLOW_PORT oder 5678)
+  --host <adresse>      Adresse (Default: FILUFLOW_HOST oder 0.0.0.0)
+  --db <pfad>           SQLite-Datei für das Execution-Log (Default: FILUFLOW_DB oder ./filuflow.db)
+  --credentials <pfad>  credentials.json oder Verzeichnis (Default: FILUFLOW_CREDENTIALS, ./credentials.json)
+  --vars <pfad>         Variablen für $vars (Default: FILUFLOW_VARS, ./vars.json)
+  --concurrency <zahl>  gleichzeitige Executions (Default: FILUFLOW_CONCURRENCY oder 5)
 
-Umgebung: FLOWLITE_API_KEY (REST-API und Weboberfläche), FLOWLITE_PRUNE_DAYS (Default 14),
-FLOWLITE_WEBHOOK_URL bzw. WEBHOOK_URL (öffentliche Basis-URL für webhookUrl),
-FLOWLITE_UI=false (Weboberfläche abschalten)
+Umgebung: FILUFLOW_API_KEY (REST-API und Weboberfläche), FILUFLOW_PRUNE_DAYS (Default 14),
+FILUFLOW_WEBHOOK_URL bzw. WEBHOOK_URL (öffentliche Basis-URL für webhookUrl),
+FILUFLOW_UI=false (Weboberfläche abschalten)
 `;
 
-const WORKER_USAGE = `Aufruf: flowlite worker [Optionen]
+const WORKER_USAGE = `Aufruf: filuflow worker [Optionen]
 
-Worker für einen flowlite-Master (läuft in der Umgebung eines Mandanten). Führt die vom Master verteilten
+Worker für einen filuflow-Master (läuft in der Umgebung eines Mandanten). Führt die vom Master verteilten
 Workflows aus (Webhooks, Zeitpläne, manuelle Ausführung), speichert Ausführungen und Credentials lokal.
-Optionen wie bei "flowlite serve".
+Optionen wie bei "filuflow serve".
 
-Umgebung: FLOWLITE_API_KEY (Pflicht, mindestens 16 Zeichen; diesen Token im Master beim Worker eintragen),
-FLOWLITE_MANAGED_CREDENTIALS (vom Master beschreibbare Credential-Datei, Default ./credentials.managed.json),
-FLOWLITE_ENCRYPTION_KEY (verschlüsselt diese Datei), FLOWLITE_WEBHOOK_URL, FLOWLITE_UI=true (eigene Oberfläche)
+Umgebung: FILUFLOW_API_KEY (Pflicht, mindestens 16 Zeichen; diesen Token im Master beim Worker eintragen),
+FILUFLOW_MANAGED_CREDENTIALS (vom Master beschreibbare Credential-Datei, Default ./credentials.managed.json),
+FILUFLOW_ENCRYPTION_KEY (verschlüsselt diese Datei), FILUFLOW_WEBHOOK_URL, FILUFLOW_UI=true (eigene Oberfläche)
 `;
 
 /** Version aus package.json */
@@ -80,29 +80,29 @@ export async function cmdServe(args: string[], worker = false): Promise<number> 
     return 0;
   }
   const env = process.env;
-  const port = Number(values.port ?? env.FLOWLITE_PORT ?? 5678);
-  const host = values.host ?? env.FLOWLITE_HOST ?? '0.0.0.0';
-  let webhookBaseUrl = env.FLOWLITE_WEBHOOK_URL ?? env.WEBHOOK_URL ?? `http://localhost:${port}/`;
+  const port = Number(values.port ?? env.FILUFLOW_PORT ?? 5678);
+  const host = values.host ?? env.FILUFLOW_HOST ?? '0.0.0.0';
+  let webhookBaseUrl = env.FILUFLOW_WEBHOOK_URL ?? env.WEBHOOK_URL ?? `http://localhost:${port}/`;
   if (!webhookBaseUrl.endsWith('/')) webhookBaseUrl += '/';
   const logger = getLogger();
-  if (worker && (env.FLOWLITE_API_KEY ?? '').length < 16) {
-    process.stderr.write('flowlite worker: FLOWLITE_API_KEY muss gesetzt sein (mindestens 16 Zeichen)\n');
+  if (worker && (env.FILUFLOW_API_KEY ?? '').length < 16) {
+    process.stderr.write('filuflow worker: FILUFLOW_API_KEY muss gesetzt sein (mindestens 16 Zeichen)\n');
     return 1;
   }
   const baseCredentials = await loadDefaultCredentials(values.credentials);
   const credentials = worker
-    ? await new LayeredCredentialProvider(baseCredentials, resolve(env.FLOWLITE_MANAGED_CREDENTIALS ?? 'credentials.managed.json')).load()
+    ? await new LayeredCredentialProvider(baseCredentials, resolve(env.FILUFLOW_MANAGED_CREDENTIALS ?? 'credentials.managed.json')).load()
     : baseCredentials;
   // Worker: eigene Oberfläche nur auf Wunsch (bedient wird über den Master)
-  const uiOff = worker ? env.FLOWLITE_UI !== 'true' : env.FLOWLITE_UI === 'false';
+  const uiOff = worker ? env.FILUFLOW_UI !== 'true' : env.FILUFLOW_UI === 'false';
 
   const server = await createServer({
-    dir: resolve(values.dir ?? env.FLOWLITE_DIR ?? 'workflows'),
-    dbFile: resolve(values.db ?? env.FLOWLITE_DB ?? 'flowlite.db'),
-    apiKey: env.FLOWLITE_API_KEY || undefined,
-    concurrency: Number(values.concurrency ?? env.FLOWLITE_CONCURRENCY ?? 5),
-    pruneDays: Number(env.FLOWLITE_PRUNE_DAYS ?? 14),
-    payloadSizeMaxMb: Number(env.FLOWLITE_PAYLOAD_SIZE_MAX ?? env.N8N_PAYLOAD_SIZE_MAX ?? 16),
+    dir: resolve(values.dir ?? env.FILUFLOW_DIR ?? 'workflows'),
+    dbFile: resolve(values.db ?? env.FILUFLOW_DB ?? 'filuflow.db'),
+    apiKey: env.FILUFLOW_API_KEY || undefined,
+    concurrency: Number(values.concurrency ?? env.FILUFLOW_CONCURRENCY ?? 5),
+    pruneDays: Number(env.FILUFLOW_PRUNE_DAYS ?? 14),
+    payloadSizeMaxMb: Number(env.FILUFLOW_PAYLOAD_SIZE_MAX ?? env.N8N_PAYLOAD_SIZE_MAX ?? 16),
     webhookBaseUrl,
     credentials,
     vars: await loadVars(values.vars),
@@ -116,11 +116,11 @@ export async function cmdServe(args: string[], worker = false): Promise<number> 
       port,
       host,
       webhookBaseUrl,
-      api: env.FLOWLITE_API_KEY ? 'aktiv' : 'deaktiviert (FLOWLITE_API_KEY fehlt)',
+      api: env.FILUFLOW_API_KEY ? 'aktiv' : 'deaktiviert (FILUFLOW_API_KEY fehlt)',
       ui: uiOff ? 'aus' : `http://${host === '0.0.0.0' ? 'localhost' : host}:${port}/`,
       ...(worker ? { mode: 'worker' } : {}),
     },
-    worker ? 'flowlite-Worker läuft' : 'flowlite läuft',
+    worker ? 'filuflow-Worker läuft' : 'filuflow läuft',
   );
 
   await new Promise<void>((resolveStop) => {

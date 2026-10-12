@@ -26,31 +26,31 @@ function capture(): { out: () => string; err: () => string } {
   return { out: () => out, err: () => err };
 }
 
-describe('flowlite worker und master', () => {
-  it('Worker startet nicht ohne ausreichend langen FLOWLITE_API_KEY', async () => {
+describe('filuflow worker und master', () => {
+  it('Worker startet nicht ohne ausreichend langen FILUFLOW_API_KEY', async () => {
     const io = capture();
-    delete process.env.FLOWLITE_API_KEY;
+    delete process.env.FILUFLOW_API_KEY;
     expect(await cmdServe([], true)).toBe(1);
-    process.env.FLOWLITE_API_KEY = 'zu-kurz';
+    process.env.FILUFLOW_API_KEY = 'zu-kurz';
     expect(await cmdServe([], true)).toBe(1);
-    expect(io.err()).toMatch(/FLOWLITE_API_KEY/);
+    expect(io.err()).toMatch(/FILUFLOW_API_KEY/);
   });
 
-  it('Master startet nicht ohne FLOWLITE_ENCRYPTION_KEY', async () => {
+  it('Master startet nicht ohne FILUFLOW_ENCRYPTION_KEY', async () => {
     const io = capture();
-    dir = mkdtempSync(join(tmpdir(), 'flowlite-mcli-'));
-    delete process.env.FLOWLITE_ENCRYPTION_KEY;
+    dir = mkdtempSync(join(tmpdir(), 'filuflow-mcli-'));
+    delete process.env.FILUFLOW_ENCRYPTION_KEY;
     expect(await cmdMaster(['--db', join(dir, 'm.db'), '--port', '0'])).toBe(1);
-    expect(io.err()).toMatch(/FLOWLITE_ENCRYPTION_KEY/);
+    expect(io.err()).toMatch(/FILUFLOW_ENCRYPTION_KEY/);
   });
 
   it('Benutzer anlegen, auflisten, Passwort setzen, TOTP zurücksetzen', async () => {
     const io = capture();
-    dir = mkdtempSync(join(tmpdir(), 'flowlite-mcli-'));
+    dir = mkdtempSync(join(tmpdir(), 'filuflow-mcli-'));
     const db = join(dir, 'm.db');
-    process.env.FLOWLITE_NEW_PASSWORD = 'kurz';
+    process.env.FILUFLOW_NEW_PASSWORD = 'kurz';
     expect(await cmdMaster(['user', 'add', '--email', 'ada@example.org', '--admin', '--db', db])).toBe(1);
-    process.env.FLOWLITE_NEW_PASSWORD = 'ein-langes-passwort';
+    process.env.FILUFLOW_NEW_PASSWORD = 'ein-langes-passwort';
     expect(await cmdMaster(['user', 'add', '--email', 'ada@example.org', '--name', 'Ada', '--admin', '--db', db])).toBe(0);
     expect(await cmdMaster(['user', 'add', '--email', 'ada@example.org', '--db', db])).toBe(1);
     expect(await cmdMaster(['user', 'list', '--db', db])).toBe(0);
@@ -60,7 +60,7 @@ describe('flowlite worker und master', () => {
     const id = m.getUserByEmail('ada@example.org')!.id;
     m.updateUser(id, { totp_enabled: 1, totp_secret: 'x', locked_until: '2999-01-01T00:00:00.000Z' });
     m.close();
-    process.env.FLOWLITE_NEW_PASSWORD = 'neues-langes-passwort';
+    process.env.FILUFLOW_NEW_PASSWORD = 'neues-langes-passwort';
     expect(await cmdMaster(['user', 'set-password', '--email', 'ada@example.org', '--db', db])).toBe(0);
     expect(await cmdMaster(['user', 'reset-totp', '--email', 'ada@example.org', '--db', db])).toBe(0);
     expect(await cmdMaster(['user', 'reset-totp', '--email', 'niemand@example.org', '--db', db])).toBe(1);

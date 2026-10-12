@@ -4,7 +4,7 @@
 //   { "type": "httpHeaderAuth", "id": "abc", "data": { "name": "X-Key", "value": "{{ env.MY_KEY }}" } }
 // Kurzform ohne "data": das Objekt selbst sind die Felder.
 // Verschlüsselte Einträge oder Dateien: { "encrypted": "<base64(iv|tag|ciphertext)>" }
-// mit AES-256-GCM, Schlüssel = SHA-256(FLOWLITE_ENCRYPTION_KEY).
+// mit AES-256-GCM, Schlüssel = SHA-256(FILUFLOW_ENCRYPTION_KEY).
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { join, basename } from 'node:path';
@@ -49,12 +49,12 @@ export function decryptValue(encoded: string, secret: string): unknown {
     decipher.setAuthTag(tag);
     plain = Buffer.concat([decipher.update(ct), decipher.final()]).toString('utf8');
   } catch {
-    throw new Error('Entschlüsselung fehlgeschlagen: falscher FLOWLITE_ENCRYPTION_KEY oder beschädigte Daten');
+    throw new Error('Entschlüsselung fehlgeschlagen: falscher FILUFLOW_ENCRYPTION_KEY oder beschädigte Daten');
   }
   return JSON.parse(plain);
 }
 
-/** Verschlüsselt eine Credential-Datei (flowlite-Format oder n8n-Export) je Eintrag; Namen, IDs und Typen bleiben lesbar */
+/** Verschlüsselt eine Credential-Datei (filuflow-Format oder n8n-Export) je Eintrag; Namen, IDs und Typen bleiben lesbar */
 export function encryptCredentialsFile(raw: unknown, secret: string): unknown {
   const encryptEntry = (entry: unknown): unknown => {
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return entry;
@@ -98,8 +98,8 @@ function maybeDecrypt(value: unknown, where: string): unknown {
   if (value && typeof value === 'object' && !Array.isArray(value)) {
     const obj = value as Record<string, unknown>;
     if (typeof obj.encrypted === 'string' && Object.keys(obj).length === 1) {
-      const key = process.env.FLOWLITE_ENCRYPTION_KEY;
-      if (!key) throw new Error(`${where}: verschlüsselt, aber FLOWLITE_ENCRYPTION_KEY ist nicht gesetzt`);
+      const key = process.env.FILUFLOW_ENCRYPTION_KEY;
+      if (!key) throw new Error(`${where}: verschlüsselt, aber FILUFLOW_ENCRYPTION_KEY ist nicht gesetzt`);
       return decryptValue(obj.encrypted, key);
     }
   }
@@ -239,11 +239,11 @@ export async function loadCredentials(path: string): Promise<StaticCredentialPro
 
 /** Pfad aus Umgebung/Default; liefert leeren Provider, wenn nichts existiert */
 export async function loadDefaultCredentials(explicit?: string): Promise<StaticCredentialProvider> {
-  const candidate = explicit ?? process.env.FLOWLITE_CREDENTIALS ?? 'credentials.json';
+  const candidate = explicit ?? process.env.FILUFLOW_CREDENTIALS ?? 'credentials.json';
   try {
     return await loadCredentials(candidate);
   } catch (error) {
-    if (explicit || process.env.FLOWLITE_CREDENTIALS) throw error;
+    if (explicit || process.env.FILUFLOW_CREDENTIALS) throw error;
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return new StaticCredentialProvider();
     throw error;
   }

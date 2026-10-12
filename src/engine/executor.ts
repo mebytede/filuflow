@@ -37,7 +37,7 @@ import { FileBinaryStore, type BinaryStore } from '../binary.js';
 import type { CredentialProvider } from '../credentials/store.js';
 import {
   ExecutionCancelledError,
-  FlowliteError,
+  FiluflowError,
   NodeOperationError,
   WorkflowValidationError,
   serializeError,
@@ -45,7 +45,7 @@ import {
 import { createDataProxy, allowedEnv, type ExecuteData, type AdditionalKeys } from '../expressions/proxy.js';
 import { DEFAULT_EXPRESSION_TIMEOUT } from '../expressions/evaluator.js';
 
-export const DEFAULT_TIMEZONE = process.env.FLOWLITE_TIMEZONE ?? process.env.GENERIC_TIMEZONE ?? 'Europe/Berlin';
+export const DEFAULT_TIMEZONE = process.env.FILUFLOW_TIMEZONE ?? process.env.GENERIC_TIMEZONE ?? 'Europe/Berlin';
 
 export interface ExecutionLogEntry {
   time: number;
@@ -376,7 +376,7 @@ export class WorkflowExecutor {
     const order = this.graph.workflow.settings?.executionOrder;
     if (order !== 'v1') {
       throw new WorkflowValidationError(
-        `executionOrder "${order ?? '(fehlt)'}" wird nicht unterstützt; flowlite führt nur "v1" aus`,
+        `executionOrder "${order ?? '(fehlt)'}" wird nicht unterstützt; filuflow führt nur "v1" aus`,
         [{ severity: 'error', code: 'settings.executionOrder', message: 'nur v1' }],
       );
     }
@@ -529,7 +529,7 @@ export class WorkflowExecutor {
           if (this.signal.aborted && (this.status as ExecutionStatus) === 'canceled') {
             executionError = serializeError(new ExecutionCancelledError(this.executionId));
           } else {
-            if (error instanceof FlowliteError && error.nodeName === undefined) error.nodeName = node.name;
+            if (error instanceof FiluflowError && error.nodeName === undefined) error.nodeName = node.name;
             executionError = serializeError(error);
           }
           this.logger.debug({ node: node.name, err: executionError.message }, 'Node fehlgeschlagen');
@@ -594,7 +594,7 @@ export class WorkflowExecutor {
           if (!(outputIndex in outputs)) continue;
           for (const connection of outputs[outputIndex] ?? []) {
             if (!this.graph.getNode(connection.node)) {
-              throw new FlowliteError(`Destination node not found: ${connection.node}`);
+              throw new FiluflowError(`Destination node not found: ${connection.node}`);
             }
             const data = nodeSuccessData?.[outputIndex];
             if (data && data.length !== 0) {
@@ -705,7 +705,7 @@ export class WorkflowExecutor {
     const subNodeExecutionData: NonNullable<StackMetadata['subNodeExecutionData']> = { actions: [], metadata: request.metadata };
     for (const action of request.actions) {
       const node = this.graph.getNode(action.nodeName);
-      if (!node) throw new FlowliteError(`Workflow does not contain a node with the name of "${action.nodeName}".`);
+      if (!node) throw new FiluflowError(`Workflow does not contain a node with the name of "${action.nodeName}".`);
       this.rewireOutputLogTo.set(node.name, action.type);
       const parentSourceData = executionData.source?.main?.[runIndex];
       const parentOutputIndex = parentSourceData?.previousNodeOutput ?? 0;

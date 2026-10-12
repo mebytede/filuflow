@@ -5,6 +5,13 @@ Die Spezifikation verlangt Kompatibilität zu "aktueller 1.x". Gepinnt ist `n8ni
 (Docker Hub; `docker.n8n.io` ist aus der Build-Umgebung nicht erreichbar, das Image ist identisch).
 Quellcode-Fundstellen in Kommentaren beziehen sich auf den Tag `n8n@1.123.0`.
 
+## Name filuflow
+Das Projekt hieß zuerst flowlite und heißt seit Oktober 2026 filuflow (lat. *filum*, der Faden). Umbenannt sind Paket, CLI
+(`filuflow`), Umgebungsvariablen (`FILUFLOW_*`), Cookies, Header, Standard-Dateinamen und Doku. Übergang ohne Bruch:
+`FLOWLITE_*` wird beim Start der CLI übernommen, wenn die neue Variable fehlt (`src/cli/legacyEnv.ts`, mit Hinweis), API-Tokens
+`flt_…`, die Kennzeichnung `flowliteMaster` in verteilten Workflows und Binärverweise `flowlite-fs:` werden weiter gelesen.
+Die Golden-Fixtures behalten ihre Testdaten (z. B. User-Agent `flowlite-fixture`), weil sie gegen echtes n8n aufgenommen sind.
+
 ## Laufzeit-Abhängigkeiten
 Neben dem Stack aus CLAUDE.md (luxon, better-sqlite3, fastify, croner, pino):
 
@@ -25,7 +32,7 @@ Neben dem Stack aus CLAUDE.md (luxon, better-sqlite3, fastify, croner, pino):
   kopiert HTML, CSS und Icon nach `dist/ui`. Keine neue Laufzeit-Abhängigkeit, keine Build-Kette neben tsc; für ein internes Werkzeug
   mit überschaubarem Umfang reichen DOM und SVG.
 - Der Server liefert `dist/ui` selbst aus (kein `@fastify/static`), mit Content-Security-Policy ohne Inline-Skripte.
-- Parameter: flowlite kennt die Parameterbeschreibungen der n8n-Nodes nicht. Statt sie nachzubauen, bearbeitet der Editor den
+- Parameter: filuflow kennt die Parameterbeschreibungen der n8n-Nodes nicht. Statt sie nachzubauen, bearbeitet der Editor den
   Parameterbaum direkt (Text, Zahl, Ja/Nein, Objekt, Liste, Expression) oder als JSON. Neue Nodes bekommen Startwerte aus
   `src/ui/editor/templates.ts`.
 - Speichern schreibt die Workflow-Datei im Workflow-Verzeichnis (n8n-Format, 2 Leerzeichen eingerückt); Hot Reload und Aktivierung
@@ -34,14 +41,14 @@ Neben dem Stack aus CLAUDE.md (luxon, better-sqlite3, fastify, croner, pino):
   ohne Chromium wird der Test übersprungen.
 
 ## Master und Worker (M9)
-- **Master verbindet sich zum Worker** (nicht umgekehrt): Der Worker ist ein normales `flowlite serve` mit zusätzlicher Worker-API,
-  geschützt mit seinem `FLOWLITE_API_KEY`. Der Master braucht Netzzugang zum Worker (direkt, VPN oder Reverse Proxy mit TLS);
+- **Master verbindet sich zum Worker** (nicht umgekehrt): Der Worker ist ein normales `filuflow serve` mit zusätzlicher Worker-API,
+  geschützt mit seinem `FILUFLOW_API_KEY`. Der Master braucht Netzzugang zum Worker (direkt, VPN oder Reverse Proxy mit TLS);
   der Worker braucht keinen Zugang zum Master und läuft weiter, wenn der Master ausfällt.
 - **Daten beim Worker:** Credentials und Ausführungsdaten verlassen die Umgebung des Mandanten nicht dauerhaft. Der Master hält
   Benutzer, Rechte, Projekte und Workflows (mit Versionen) und fragt Ausführungen live ab. Credentials kann der Master beim Worker
   setzen und löschen, aber nicht lesen (Datei `credentials.managed.json` neben der von Hand gepflegten Credential-Datei).
 - **Verteilen:** Speichern im Master schreibt den Workflow sofort als `<id>.json` ins Workflow-Verzeichnis des Workers, gekennzeichnet
-  mit `meta.flowliteMaster` (Version, Projekt). Ein Abgleich (`FLOWLITE_SYNC_SECONDS`, Default 60) holt verpasste Änderungen nach und
+  mit `meta.filuflowMaster` (Version, Projekt). Ein Abgleich (`FILUFLOW_SYNC_SECONDS`, Default 60) holt verpasste Änderungen nach und
   entfernt gekennzeichnete Workflows, die der Master nicht mehr kennt. Dateien ohne Kennzeichnung bleiben unberührt, so können Worker
   zusätzlich lokale Workflows haben.
 - **Ein Projekt, ein Worker:** Ein Projekt ist genau einem Worker (und damit einem Mandanten) zugeordnet. Mehrere Worker je Mandant
@@ -64,7 +71,7 @@ Neben dem Stack aus CLAUDE.md (luxon, better-sqlite3, fastify, croner, pino):
 - Webhook-Golden-Tests: `scripts/record-webhook.sh` importiert den Workflow in n8n, aktiviert ihn direkt in der Datenbank
   (`update:workflow --active=true` scheitert in 1.123 nach einem Import, siehe `scripts/activate-n8n-workflow.mjs`), startet
   `n8n start`, sendet die Requests aus `webhook.json` mit `scripts/webhook-client.mjs` und liest die Executions aus der SQLite-Datei.
-  Derselbe Client sendet im Test an flowlite, damit Header und Reihenfolge identisch sind.
+  Derselbe Client sendet im Test an filuflow, damit Header und Reihenfolge identisch sind.
 
 ## Expression-Auswertung
 - Eigener Evaluator statt `@n8n/tournament`: Templates werden wie tournament zerlegt und in einen
@@ -73,15 +80,15 @@ Neben dem Stack aus CLAUDE.md (luxon, better-sqlite3, fastify, croner, pino):
   unbekannte Namen ergeben `undefined` (wie tournament, das jeden Bezeichner auf das Datenobjekt umschreibt).
 - Die Spezifikation sagt "sonst String-Verkettung (Objekte als JSON)". n8n verkettet über `Array.join`,
   Objekte werden dabei zu `[object Object]`. Laut CLAUDE.md gilt Kompatibilität, daher verhält sich
-  flowlite wie n8n.
+  filuflow wie n8n.
 
 ## Zeitzone
-Default `Europe/Berlin` (SPEC). Überschreibbar per `settings.timezone`, `FLOWLITE_TIMEZONE` oder `GENERIC_TIMEZONE`.
+Default `Europe/Berlin` (SPEC). Überschreibbar per `settings.timezone`, `FILUFLOW_TIMEZONE` oder `GENERIC_TIMEZONE`.
 n8n hat als Default `America/New_York`; für Golden-Tests wird der n8n-Container mit `GENERIC_TIMEZONE=Europe/Berlin` gestartet.
 
 ## Start-Node
 Explizit (`--trigger`), sonst der einzige aktive Trigger, sonst Fehler (SPEC 2.1). Die n8n-CLI wählt bei mehreren
-Triggern den ersten passenden; flowlite verlangt dann bewusst eine Angabe.
+Triggern den ersten passenden; filuflow verlangt dann bewusst eine Angabe.
 
 ## Golden-Tests und Orakel
 - `scripts/record-expected.sh` führt Fixtures in `n8nio/n8n:1.123.0` per `n8n import:workflow` + `n8n execute --rawOutput` aus.

@@ -124,9 +124,9 @@ describe('Expression-Variablen', () => {
   });
 
   it('$env nur mit freigegebenen Variablen', () => {
-    const env = allowedEnv({ FL_TOKEN: 'a', SECRET: 'b', FLOWLITE_ENV_ALLOW: undefined });
+    const env = allowedEnv({ FL_TOKEN: 'a', SECRET: 'b', FILUFLOW_ENV_ALLOW: undefined });
     expect(env).toEqual({ FL_TOKEN: 'a' });
-    expect(allowedEnv({ X: '1', Y: '2', FLOWLITE_ENV_ALLOW: 'X' })).toEqual({ X: '1' });
+    expect(allowedEnv({ X: '1', Y: '2', FILUFLOW_ENV_ALLOW: 'X' })).toEqual({ X: '1' });
     const d = data({}, { env });
     expect(evaluateTemplate('{{ $env.FL_TOKEN }}|{{ $env.SECRET }}', d)).toBe('a|');
   });

@@ -16,7 +16,7 @@ const dec = (v: unknown) => (v && typeof v === 'object' && (v as { __undef?: boo
 const cases = JSON.parse(gunzipSync(readFileSync(join(__dirname, 'oracle', 'filter-table.json.gz'))).toString('utf8')) as Case[];
 
 describe('Filter-Operatoren (Orakel n8n 1.123.0)', () => {
-  // Das Orakel lief mit TZ=Europe/Berlin; flowlite setzt die luxon-Zone wie n8n auf die Workflow-Zeitzone
+  // Das Orakel lief mit TZ=Europe/Berlin; filuflow setzt die luxon-Zone wie n8n auf die Workflow-Zeitzone
   beforeAll(() => {
     Settings.defaultZone = 'Europe/Berlin';
   });

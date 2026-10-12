@@ -1,4 +1,4 @@
-// Formular für Node-Parameter. n8n beschreibt Parameter im eigenen Code (INodeProperties); flowlite kennt diese
+// Formular für Node-Parameter. n8n beschreibt Parameter im eigenen Code (INodeProperties); filuflow kennt diese
 // Beschreibungen nicht, daher bearbeitet das Formular den Parameterbaum direkt: Texte, Zahlen, Ja/Nein, Objekte
 // und Listen. Texte mit führendem "=" sind Expressions (wie in n8n).
 import { h } from '../dom.js';

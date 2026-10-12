@@ -89,7 +89,7 @@ export function validateWorkflow(input: unknown, options: ValidateOptions): Vali
   if (order === undefined) {
     add({
       code: 'settings.executionOrder.missing',
-      message: 'settings.executionOrder fehlt. flowlite unterstützt nur "v1" (in n8n unter Workflow-Einstellungen setzen)',
+      message: 'settings.executionOrder fehlt. filuflow unterstützt nur "v1" (in n8n unter Workflow-Einstellungen setzen)',
       path: 'settings.executionOrder',
     });
   } else if (order !== 'v1') {

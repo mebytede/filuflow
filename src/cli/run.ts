@@ -1,4 +1,4 @@
-// flowlite run <wf.json> [--input items.json] [--trigger "Node-Name"] [--json] [--only-last] [--no-pin]
+// filuflow run <wf.json> [--input items.json] [--trigger "Node-Name"] [--json] [--only-last] [--no-pin]
 // Führt einen Workflow einmal aus. Vor dem Start wird validiert: unbekannte Node-Typen/Versionen
 // und andere Fehler brechen mit einer Liste ab, ohne dass ein Node läuft.
 import { parseArgs } from 'node:util';
@@ -13,15 +13,15 @@ import { DirectoryWorkflowSource, Runner, loadVars, type WorkflowSource } from '
 import { parseWorkflow } from '../loader.js';
 import { WorkflowValidationError } from '../errors.js';
 
-const USAGE = `Aufruf: flowlite run <wf.json> [Optionen]
+const USAGE = `Aufruf: filuflow run <wf.json> [Optionen]
 
   --input <items.json>     Start-Items (Array aus Items {json} oder einfachen Objekten)
   --trigger <Node-Name>    Start-Node (Default: der einzige Trigger des Workflows)
   --json                   vollständige Execution inkl. runData als JSON ausgeben
   --only-last              nur die Ausgabe des zuletzt ausgeführten Nodes als JSON ausgeben
   --no-pin                 pinData des Workflows ignorieren
-  --credentials <pfad>     credentials.json oder Verzeichnis (Default: FLOWLITE_CREDENTIALS, ./credentials.json)
-  --vars <pfad>            Variablen für $vars (Default: FLOWLITE_VARS, ./vars.json)
+  --credentials <pfad>     credentials.json oder Verzeichnis (Default: FILUFLOW_CREDENTIALS, ./credentials.json)
+  --vars <pfad>            Variablen für $vars (Default: FILUFLOW_VARS, ./vars.json)
   --workflows <dir>        Verzeichnis für Unter-Workflows (Default: Verzeichnis der Datei und ./sub)
 `;
 
@@ -93,7 +93,7 @@ export function formatSummary(execution: Execution): string {
 }
 
 export async function cmdRun(args: string[]): Promise<number> {
-  process.env.FLOWLITE_LOG_LEVEL ??= 'warn';
+  process.env.FILUFLOW_LOG_LEVEL ??= 'warn';
   let parsed;
   try {
     parsed = parseArgs({

@@ -15,7 +15,7 @@ set -euo pipefail
 N8N_IMAGE="${N8N_IMAGE:-n8nio/n8n:1.123.0}"   # docker.n8n.io/n8nio/n8n:1.123.0 ist identisch
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 FIXTURES="$ROOT/fixtures"
-WORK="$(mktemp -d "${TMPDIR:-/tmp}/flowlite-record.XXXXXX")"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/filuflow-record.XXXXXX")"
 chmod 777 "$WORK"
 trap 'rm -rf "$WORK"; [[ -n "${MOCK_PID:-}" ]] && kill "$MOCK_PID" 2>/dev/null || true' EXIT
 

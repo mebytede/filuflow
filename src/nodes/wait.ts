@@ -1,6 +1,6 @@
 // Wait, n8n-nodes-base.wait (typeVersion 1, 1.1)
 // Nachgebaut nach n8n 1.123.0 packages/nodes-base/nodes/Wait/Wait.node.ts
-// Phase 1: nur resume = timeInterval / specificTime. flowlite wartet immer im Prozess
+// Phase 1: nur resume = timeInterval / specificTime. filuflow wartet immer im Prozess
 // (n8n legt Executions ab 65 s in den Wartezustand, siehe docs/DEVIATIONS.md).
 import type { NodeType } from './types.js';
 import { NodeOperationError } from '../errors.js';

@@ -130,8 +130,8 @@ async function tenantDialog(t?: Tenant): Promise<{ name: string; description: st
 async function workerDialog(tenants: Tenant[], w?: WorkerInfo, tenantId?: string): Promise<Record<string, unknown> | null> {
   const tenant = h('select', { class: 'param-input' }, tenants.map((t) => h('option', { value: t.id, selected: t.id === (w?.tenantId ?? tenantId) }, t.name)));
   const name = text(w?.name ?? '');
-  const url = text(w?.url ?? '', { placeholder: 'https://flowlite.kunde.example' });
-  const token = h('input', { type: 'password', class: 'param-input', autocomplete: 'off', placeholder: w ? 'unverändert' : 'FLOWLITE_API_KEY des Workers' });
+  const url = text(w?.url ?? '', { placeholder: 'https://filuflow.kunde.example' });
+  const token = h('input', { type: 'password', class: 'param-input', autocomplete: 'off', placeholder: w ? 'unverändert' : 'FILUFLOW_API_KEY des Workers' });
   const tls = h('input', { type: 'checkbox', checked: w ? w.tlsVerify : true });
   const ca = h('textarea', { class: 'param-input json-editor', rows: 4, placeholder: w?.hasCaPem ? 'CA-Zertifikat hinterlegt (leer lassen = unverändert)' : '-----BEGIN CERTIFICATE----- (optional)' });
   return dialog(
@@ -141,8 +141,8 @@ async function workerDialog(tenants: Tenant[], w?: WorkerInfo, tenantId?: string
       { class: 'form' },
       field('Mandant', tenant),
       field('Name', name),
-      field('Adresse', url, 'URL, unter der der Master den Worker erreicht (flowlite worker).'),
-      field('Token', token, 'Wert von FLOWLITE_API_KEY beim Worker (mindestens 16 Zeichen). Wird verschlüsselt gespeichert.'),
+      field('Adresse', url, 'URL, unter der der Master den Worker erreicht (filuflow worker).'),
+      field('Token', token, 'Wert von FILUFLOW_API_KEY beim Worker (mindestens 16 Zeichen). Wird verschlüsselt gespeichert.'),
       h('label', { class: 'check' }, tls, ' TLS-Zertifikat prüfen'),
       field('Eigenes CA-Zertifikat (PEM)', ca),
     ),
@@ -336,7 +336,7 @@ async function credentialDialog(name?: string, type?: string): Promise<{ name: s
       field('Typ', typeInput),
       h('div', { class: 'field' }, h('span', null, 'Werte'), rows, h('button', { type: 'button', class: 'btn btn-small', onclick: () => addRow() }, '+ Feld')),
       field('oder als JSON', json),
-      h('p', { class: 'muted small' }, 'Die Werte werden direkt an den Worker übertragen und dort (mit FLOWLITE_ENCRYPTION_KEY verschlüsselt) gespeichert. Sie können danach nicht mehr angezeigt werden. Verweise auf Umgebungsvariablen des Workers wie {{ env.API_KEY }} sind möglich.'),
+      h('p', { class: 'muted small' }, 'Die Werte werden direkt an den Worker übertragen und dort (mit FILUFLOW_ENCRYPTION_KEY verschlüsselt) gespeichert. Sie können danach nicht mehr angezeigt werden. Verweise auf Umgebungsvariablen des Workers wie {{ env.API_KEY }} sind möglich.'),
     ),
     {
       confirm: 'Beim Worker speichern',

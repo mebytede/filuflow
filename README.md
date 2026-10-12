@@ -1,7 +1,12 @@
-# flowlite
+# filuflow
 
 Schlanke, n8n-kompatible Workflow-Engine mit eigener Weboberfläche. Exportierte n8n-Workflows (JSON, `executionOrder: v1`)
 laufen unverändert und liefern dieselben Items an denselben Nodes wie n8n 1.x (Referenz: n8n 1.123.0).
+
+> filuflow hieß bis Oktober 2026 **flowlite**. Alte Umgebungsvariablen (`FLOWLITE_*`) gelten weiter, solange die neue
+> (`FILUFLOW_*`) nicht gesetzt ist; beim Start erscheint dann ein Hinweis. Die Standard-Datenbank heißt jetzt `filuflow.db`
+> (vorhandene `flowlite.db` umbenennen oder mit `--db` angeben). API-Tokens mit `flt_` und vom Master verteilte Workflows
+> mit alter Kennzeichnung bleiben gültig.
 
 Details: [docs/SPEC.md](docs/SPEC.md), Stand: [docs/STATUS.md](docs/STATUS.md),
 bewusste Abweichungen: [docs/DEVIATIONS.md](docs/DEVIATIONS.md), Sicherheitsmodell: [docs/SECURITY.md](docs/SECURITY.md).
@@ -14,15 +19,15 @@ npm run build        # CLI und Weboberfläche (dist/); ohne Build läuft die CLI
 
 ## CLI
 ```
-flowlite validate <wf.json> [--json]
-flowlite run <wf.json> [--input items.json] [--trigger "Node-Name"] [--json] [--only-last] [--no-pin]
-flowlite nodes [--json]
+filuflow validate <wf.json> [--json]
+filuflow run <wf.json> [--input items.json] [--trigger "Node-Name"] [--json] [--only-last] [--no-pin]
+filuflow nodes [--json]
 ```
 
-`flowlite run` prüft den Workflow vorab (unbekannte Node-Typen oder Versionen brechen ab, bevor ein Node läuft)
+`filuflow run` prüft den Workflow vorab (unbekannte Node-Typen oder Versionen brechen ab, bevor ein Node läuft)
 und gibt danach eine Übersicht pro Node aus:
 ```
-$ flowlite run fixtures/01-linear/workflow.json
+$ filuflow run fixtures/01-linear/workflow.json
 Workflow "01 Lineare Kette", Execution efdf1bcf-...
   OK     Start        0 ms  1 Item
   OK     Felder      22 ms  1 Item
@@ -44,7 +49,7 @@ Exit-Code 0 bei Erfolg, 1 bei Fehlern (Validierung oder fehlgeschlagene Executio
 
 ## Server
 ```
-FLOWLITE_API_KEY=geheim flowlite serve --dir ./workflows --port 5678 --db ./flowlite.db
+FILUFLOW_API_KEY=geheim filuflow serve --dir ./workflows --port 5678 --db ./filuflow.db
 ```
 - Lädt alle `*.json` aus `--dir` und lädt bei Änderungen neu. Workflows mit `"active": true` registrieren
   Webhooks (`/webhook/<pfad>`) und Schedules; Test-URLs (`/webhook-test/<pfad>`) gibt es für alle gültigen Workflows.
@@ -52,20 +57,20 @@ FLOWLITE_API_KEY=geheim flowlite serve --dir ./workflows --port 5678 --db ./flow
 - REST-API mit Header `X-API-Key`: `GET /api/workflows`, `GET /api/workflows/:id`, `POST /api/workflows/:id/run`
   (Body = Items, `?wait=false` für asynchron), `GET /api/executions?workflow=&status=&limit=`, `GET /api/executions/:id`,
   `POST /api/executions/:id/cancel`, `GET /healthz`.
-- Execution-Log in SQLite, Aufbewahrung `FLOWLITE_PRUNE_DAYS` (Default 14), höchstens `FLOWLITE_CONCURRENCY` (Default 5) gleichzeitige Executions.
-- Öffentliche Basis-URL für `webhookUrl`: `FLOWLITE_WEBHOOK_URL` (oder `WEBHOOK_URL` wie bei n8n).
+- Execution-Log in SQLite, Aufbewahrung `FILUFLOW_PRUNE_DAYS` (Default 14), höchstens `FILUFLOW_CONCURRENCY` (Default 5) gleichzeitige Executions.
+- Öffentliche Basis-URL für `webhookUrl`: `FILUFLOW_WEBHOOK_URL` (oder `WEBHOOK_URL` wie bei n8n).
 
 Executions ansehen:
 ```
-flowlite executions list [--workflow <id>] [--status error] [--db ./flowlite.db]
-flowlite executions show <id> [--json]
+filuflow executions list [--workflow <id>] [--status error] [--db ./filuflow.db]
+filuflow executions show <id> [--json]
 ```
 
 ### Smoke-Test per curl
 Mit dem Webhook-Fixture (Respond-Node):
 ```
 mkdir -p /tmp/fl/workflows && cp fixtures/08-webhook-respond/workflow.json /tmp/fl/workflows/
-cd /tmp/fl && FLOWLITE_API_KEY=geheim flowlite serve --port 5690 --dir workflows &
+cd /tmp/fl && FILUFLOW_API_KEY=geheim filuflow serve --port 5690 --dir workflows &
 
 curl -i -X POST 'http://localhost:5690/webhook/fl-fixture-08?n=3' -H 'content-type: application/json' -d '{"name":"Ada"}'
 # HTTP/1.1 201 Created, x-flowlite: ja
@@ -74,24 +79,24 @@ curl -i -X POST 'http://localhost:5690/webhook/fl-fixture-08?n=3' -H 'content-ty
 curl -s -H 'X-API-Key: geheim' http://localhost:5690/api/workflows
 curl -s -H 'X-API-Key: geheim' 'http://localhost:5690/api/executions?limit=5'
 curl -s http://localhost:5690/healthz          # {"status":"ok"}
-flowlite executions list --db /tmp/fl/flowlite.db
+filuflow executions list --db /tmp/fl/filuflow.db
 ```
 
 ### Docker
 ```
-FLOWLITE_API_KEY=geheim docker compose up -d --build
+FILUFLOW_API_KEY=geheim docker compose up -d --build
 ```
 `docker-compose.yml` bindet `./workflows` (beschreibbar, für den Editor), `./credentials.json` und ein Volume für die Datenbank ein.
 Das Image basiert auf `node:22-slim` und läuft als Benutzer `node` im Arbeitsverzeichnis `/data`
 (Workflows unter `/data/workflows`, optional `/data/credentials.json` und `/data/vars.json`). Ohne Compose:
 ```
-docker build -t flowlite .
-docker run -p 5678:5678 -e FLOWLITE_API_KEY=geheim -v "$PWD/data:/data" flowlite
+docker build -t filuflow .
+docker run -p 5678:5678 -e FILUFLOW_API_KEY=geheim -v "$PWD/data:/data" filuflow
 ```
 
 ## Weboberfläche
-`flowlite serve` liefert unter `http://localhost:5678/` eine Weboberfläche mit Workflow-Editor aus. Anmeldung mit dem Wert von
-`FLOWLITE_API_KEY`.
+`filuflow serve` liefert unter `http://localhost:5678/` eine Weboberfläche mit Workflow-Editor aus. Anmeldung mit dem Wert von
+`FILUFLOW_API_KEY`.
 
 - **Workflows:** Liste mit Status, Webhooks und Zeitplänen; neu anlegen, n8n-JSON importieren (Datei oder Einfügen), löschen.
 - **Editor:** Nodes aus der Palette per Klick (hängt sich an den ausgewählten Node an) oder per Ziehen einfügen; Ausgang auf Eingang
@@ -108,7 +113,7 @@ kopieren, ausschneiden, einfügen (kompatibel mit kopierten n8n-Nodes), Strg+A a
 1 einpassen, Esc Auswahl aufheben. Umschalt+Ziehen auf freier Fläche wählt mit einem Rahmen aus, Strg+Mausrad zoomt.
 
 ## Mehrbenutzer-Betrieb: Master und Worker
-Für Teams und mehrere Mandanten gibt es zwei weitere Betriebsarten. Der Einzelbetrieb mit `flowlite serve` bleibt unverändert.
+Für Teams und mehrere Mandanten gibt es zwei weitere Betriebsarten. Der Einzelbetrieb mit `filuflow serve` bleibt unverändert.
 
 ```
           Team (Browser)
@@ -124,8 +129,8 @@ Für Teams und mehrere Mandanten gibt es zwei weitere Betriebsarten. Der Einzelb
    └──────────┘  └──────────┘
 ```
 
-- **Master** (`flowlite master`): Weboberfläche mit Anmeldung, Projekten, Editor und Verwaltung. Führt selbst nichts aus.
-- **Worker** (`flowlite worker`): ein `flowlite serve` mit API für den Master. Der Master verbindet sich zum Worker (der Worker
+- **Master** (`filuflow master`): Weboberfläche mit Anmeldung, Projekten, Editor und Verwaltung. Führt selbst nichts aus.
+- **Worker** (`filuflow worker`): ein `filuflow serve` mit API für den Master. Der Master verbindet sich zum Worker (der Worker
   braucht keinen Zugang zum Master) und verteilt Workflows beim Speichern. Fällt der Master aus, laufen die Worker weiter.
 - **Mandant:** Gruppe von Workern (z. B. Test und Produktion eines Kunden). **Projekt:** Ordner für Workflows mit Mitgliedern,
   genau einem Worker zugeordnet.
@@ -134,18 +139,18 @@ Für Teams und mehrere Mandanten gibt es zwei weitere Betriebsarten. Der Einzelb
 
 ### Worker starten (beim Mandanten)
 ```
-FLOWLITE_API_KEY=<langer-zufallswert> FLOWLITE_ENCRYPTION_KEY=<schluessel> FLOWLITE_WEBHOOK_URL=https://flows.kunde.example/ \
-  flowlite worker --dir ./workflows --port 5678
+FILUFLOW_API_KEY=<langer-zufallswert> FILUFLOW_ENCRYPTION_KEY=<schluessel> FILUFLOW_WEBHOOK_URL=https://flows.kunde.example/ \
+  filuflow worker --dir ./workflows --port 5678
 ```
-- `FLOWLITE_API_KEY` (mindestens 16 Zeichen) ist der Token, den der Master beim Worker einträgt.
+- `FILUFLOW_API_KEY` (mindestens 16 Zeichen) ist der Token, den der Master beim Worker einträgt.
 - Workflows vom Master landen als `<id>.json` in `--dir`; von Hand abgelegte Workflows ohne Kennzeichnung bleiben unberührt.
 - Credentials: die von Hand gepflegte `credentials.json` (nur lesen, Vorrang) plus `credentials.managed.json`
-  (`FLOWLITE_MANAGED_CREDENTIALS`), in die der Master schreibt. Mit `FLOWLITE_ENCRYPTION_KEY` verschlüsselt.
-- Die eigene Oberfläche ist im Worker-Modus aus (`FLOWLITE_UI=true` schaltet sie ein).
+  (`FILUFLOW_MANAGED_CREDENTIALS`), in die der Master schreibt. Mit `FILUFLOW_ENCRYPTION_KEY` verschlüsselt.
+- Die eigene Oberfläche ist im Worker-Modus aus (`FILUFLOW_UI=true` schaltet sie ein).
 
 ### Master starten
 ```
-FLOWLITE_ENCRYPTION_KEY=<schluessel> FLOWLITE_PUBLIC_URL=https://flowlite.example flowlite master --port 5679 --db ./master.db
+FILUFLOW_ENCRYPTION_KEY=<schluessel> FILUFLOW_PUBLIC_URL=https://filuflow.example filuflow master --port 5679 --db ./master.db
 ```
 Beim ersten Start ohne Benutzer schreibt der Master ein Einrichtungs-Token ins Log; damit legt man unter `/#/setup` den ersten
 Administrator an. Danach unter **Verwaltung**: Mandant anlegen, Worker mit Adresse und Token eintragen (der Master prüft die
@@ -153,41 +158,41 @@ Verbindung), Projekt anlegen und dem Worker zuordnen, Mitglieder hinzufügen.
 
 | Variable | Bedeutung |
 |---|---|
-| `FLOWLITE_ENCRYPTION_KEY` | Pflicht, mindestens 16 Zeichen. Verschlüsselt Worker-Tokens und TOTP-Schlüssel in der Datenbank. Gut aufbewahren: ohne ihn sind Worker und TOTP neu einzurichten |
-| `FLOWLITE_PUBLIC_URL` | Adresse des Masters für Browser (bei `https://` Cookies mit Secure) und OIDC-Redirect |
-| `FLOWLITE_MASTER_DB` / `--db` | SQLite-Datei (Default `./master.db`) |
-| `FLOWLITE_PORT` / `--port` | Port (Default 5679) |
-| `FLOWLITE_ADMIN_EMAIL`, `FLOWLITE_ADMIN_PASSWORD` | erster Admin beim ersten Start statt Einrichtungs-Token |
-| `FLOWLITE_SESSION_HOURS` | Sitzung endet nach so vielen Stunden ohne Aktivität (Default 12, spätestens nach 7 Tagen) |
-| `FLOWLITE_SYNC_SECONDS` | Abgleich mit den Workern (Default 60, 0 = aus) |
-| `FLOWLITE_TRUST_PROXY` | `true` hinter einem Reverse Proxy (IP aus `X-Forwarded-For` für die Begrenzung der Anmeldeversuche) |
+| `FILUFLOW_ENCRYPTION_KEY` | Pflicht, mindestens 16 Zeichen. Verschlüsselt Worker-Tokens und TOTP-Schlüssel in der Datenbank. Gut aufbewahren: ohne ihn sind Worker und TOTP neu einzurichten |
+| `FILUFLOW_PUBLIC_URL` | Adresse des Masters für Browser (bei `https://` Cookies mit Secure) und OIDC-Redirect |
+| `FILUFLOW_MASTER_DB` / `--db` | SQLite-Datei (Default `./master.db`) |
+| `FILUFLOW_PORT` / `--port` | Port (Default 5679) |
+| `FILUFLOW_ADMIN_EMAIL`, `FILUFLOW_ADMIN_PASSWORD` | erster Admin beim ersten Start statt Einrichtungs-Token |
+| `FILUFLOW_SESSION_HOURS` | Sitzung endet nach so vielen Stunden ohne Aktivität (Default 12, spätestens nach 7 Tagen) |
+| `FILUFLOW_SYNC_SECONDS` | Abgleich mit den Workern (Default 60, 0 = aus) |
+| `FILUFLOW_TRUST_PROXY` | `true` hinter einem Reverse Proxy (IP aus `X-Forwarded-For` für die Begrenzung der Anmeldeversuche) |
 
 Benutzer auf der Kommandozeile (z. B. Notfall-Zugang, wenn TOTP verloren ist):
 ```
-FLOWLITE_NEW_PASSWORD=... flowlite master user add --email ada@example.org --name "Ada" --admin --db ./master.db
-flowlite master user list --db ./master.db
-flowlite master user set-password --email ada@example.org --db ./master.db     # fragt nach dem Passwort
-flowlite master user reset-totp --email ada@example.org --db ./master.db
+FILUFLOW_NEW_PASSWORD=... filuflow master user add --email ada@example.org --name "Ada" --admin --db ./master.db
+filuflow master user list --db ./master.db
+filuflow master user set-password --email ada@example.org --db ./master.db     # fragt nach dem Passwort
+filuflow master user reset-totp --email ada@example.org --db ./master.db
 ```
 
 ### Anmeldung über SSO (OpenID Connect)
 Zusätzlich zu Passwort und TOTP kann der Master Benutzer über einen Identity Provider anmelden (Keycloak, Entra ID, Google,
 Authentik, Zitadel o. ä.; Authorization Code Flow mit PKCE). Beim Identity Provider einen Client mit der Redirect-URI
-`<FLOWLITE_PUBLIC_URL>/api/auth/oidc/callback` anlegen, dann:
+`<FILUFLOW_PUBLIC_URL>/api/auth/oidc/callback` anlegen, dann:
 
 | Variable | Bedeutung |
 |---|---|
-| `FLOWLITE_OIDC_ISSUER` | Aussteller-URL (Discovery unter `/.well-known/openid-configuration`) |
-| `FLOWLITE_OIDC_CLIENT_ID`, `FLOWLITE_OIDC_CLIENT_SECRET` | Client; das Secret wird per HTTP Basic gesendet (ohne Secret: öffentlicher Client mit PKCE) |
-| `FLOWLITE_OIDC_LABEL` | Text des Anmeldeknopfs (Default "Mit SSO anmelden") |
-| `FLOWLITE_OIDC_SCOPES` | Default `openid email profile` (für Gruppen ggf. `groups` ergänzen) |
-| `FLOWLITE_OIDC_AUTO_CREATE=true` | unbekannte Benutzer beim ersten Login als Mitglied anlegen (sonst muss ein Admin sie vorher anlegen) |
-| `FLOWLITE_OIDC_ALLOWED_DOMAINS` | nur diese E-Mail-Domains, kommagetrennt |
-| `FLOWLITE_OIDC_ADMIN_GROUP`, `FLOWLITE_OIDC_GROUPS_CLAIM` | Mitglieder dieser Gruppe (Claim, Default `groups`) werden Admin, alle anderen Mitglied; der letzte Admin bleibt Admin |
+| `FILUFLOW_OIDC_ISSUER` | Aussteller-URL (Discovery unter `/.well-known/openid-configuration`) |
+| `FILUFLOW_OIDC_CLIENT_ID`, `FILUFLOW_OIDC_CLIENT_SECRET` | Client; das Secret wird per HTTP Basic gesendet (ohne Secret: öffentlicher Client mit PKCE) |
+| `FILUFLOW_OIDC_LABEL` | Text des Anmeldeknopfs (Default "Mit SSO anmelden") |
+| `FILUFLOW_OIDC_SCOPES` | Default `openid email profile` (für Gruppen ggf. `groups` ergänzen) |
+| `FILUFLOW_OIDC_AUTO_CREATE=true` | unbekannte Benutzer beim ersten Login als Mitglied anlegen (sonst muss ein Admin sie vorher anlegen) |
+| `FILUFLOW_OIDC_ALLOWED_DOMAINS` | nur diese E-Mail-Domains, kommagetrennt |
+| `FILUFLOW_OIDC_ADMIN_GROUP`, `FILUFLOW_OIDC_GROUPS_CLAIM` | Mitglieder dieser Gruppe (Claim, Default `groups`) werden Admin, alle anderen Mitglied; der letzte Admin bleibt Admin |
 
 Zuordnung: zuerst über die Identität beim Identity Provider (Aussteller und `sub`), sonst über die E-Mail-Adresse eines vorhandenen
 Benutzers (nicht bei `email_verified: false`; die Identität wird dann verknüpft). Vorab angelegte Benutzer ohne Passwort können sich
-nur über SSO anmelden. Bei SSO fragt flowlite kein TOTP ab; die zweite Stufe liegt beim Identity Provider.
+nur über SSO anmelden. Bei SSO fragt filuflow kein TOTP ab; die zweite Stufe liegt beim Identity Provider.
 
 ### Arbeiten im Master
 - **Projekte:** Workflows anlegen (sofort gespeichert und an den Worker verteilt), aus n8n importieren, verschieben, löschen.
@@ -197,7 +202,7 @@ nur über SSO anmelden. Bei SSO fragt flowlite kein TOTP ab; die zweite Stufe li
   (überschreiben oder abbrechen). **Versionen** zeigt alle Stände, ältere lassen sich wiederherstellen.
 - **Ausführungen** je Projekt kommen live vom Worker.
 - **Profil:** Name, Passwort, Zwei-Faktor-Anmeldung (TOTP, Schlüssel für Authenticator-Apps), API-Tokens für Skripte
-  (`Authorization: Bearer flt_…`, gleiche Endpunkte wie die Oberfläche, z. B. `GET /api/projects`).
+  (`Authorization: Bearer ffl_…`, gleiche Endpunkte wie die Oberfläche, z. B. `GET /api/projects`).
 - **Verwaltung** (Admins): Übersicht über Mandanten, Worker (erreichbar, Version, nicht verteilte Workflows, Fehler), Worker prüfen
   und abgleichen, Credentials beim Worker setzen und löschen (Werte nur schreibbar), Benutzer, Pflicht-TOTP, Audit-Log.
 
@@ -212,14 +217,14 @@ Fallback auf die ID:
 {
   "API Header": { "id": "abc123", "type": "httpHeaderAuth", "data": { "name": "X-Api-Key", "value": "{{ env.API_KEY }}" } },
   "Token-Server": { "type": "oAuth2Api", "data": { "grantType": "clientCredentials", "accessTokenUrl": "https://auth.example/token",
-                    "clientId": "flowlite", "clientSecret": "{{ env.OAUTH_SECRET }}", "scope": "lesen", "authentication": "header" } }
+                    "clientId": "filuflow", "clientSecret": "{{ env.OAUTH_SECRET }}", "scope": "lesen", "authentication": "header" } }
 }
 ```
 - Feldnamen wie in n8n (`httpHeaderAuth`, `httpBasicAuth`, `httpQueryAuth`, `httpBearerAuth`, `httpCustomAuth`, `oAuth2Api`, `jwtAuth`).
 - KI-Modelle: `openAiApi` (`apiKey`, optional `url`), `anthropicApi` (`apiKey`, optional `url`), `googlePalmApi` (`apiKey`, optional `host`).
-- `{{ env.NAME }}` holt Werte aus der Umgebung; `flowlite validate` meldet fehlende Credentials und Variablen.
+- `{{ env.NAME }}` holt Werte aus der Umgebung; `filuflow validate` meldet fehlende Credentials und Variablen.
 - Exporte von `n8n export:credentials --decrypted` funktionieren direkt.
-- Verschlüsseln: `FLOWLITE_ENCRYPTION_KEY=... flowlite credentials encrypt credentials.json --out credentials.enc.json`
+- Verschlüsseln: `FILUFLOW_ENCRYPTION_KEY=... filuflow credentials encrypt credentials.json --out credentials.enc.json`
   (Namen und Typen bleiben lesbar, `decrypt` zum Bearbeiten, `check` zum Prüfen).
 
 ## KI-Nodes

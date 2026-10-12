@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, 
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { AddressInfo } from 'node:net';
-import { createServer, type FlowliteServer } from '../src/server/app.js';
+import { createServer, type FiluflowServer } from '../src/server/app.js';
 import { StaticCredentialProvider } from '../src/credentials/store.js';
 import { LayeredCredentialProvider } from '../src/credentials/managed.js';
 import type { MasterServer } from '../src/master/app.js';
@@ -15,7 +15,7 @@ import { addUser, Client, setupAdmin, startMaster } from './helpers/master.js';
 const WORKER_KEY = 'worker-schluessel-0123456789';
 
 interface TestWorker {
-  server: FlowliteServer;
+  server: FiluflowServer;
   url: string;
   dir: string;
   close(): Promise<void>;
@@ -48,7 +48,7 @@ async function startWorker(name: string, base: Record<string, { type: string; da
 }
 
 beforeEach(async () => {
-  root = mkdtempSync(join(tmpdir(), 'flowlite-mw-'));
+  root = mkdtempSync(join(tmpdir(), 'filuflow-mw-'));
   master = await startMaster();
   admin = await setupAdmin(master);
 });
@@ -135,13 +135,13 @@ describe('Worker-API', () => {
     expect(wrong.status).toBe('offline');
     expect(wrong.lastError).toMatch(/lehnt den Token ab/);
 
-    // Normaler flowlite serve ohne Worker-Modus
+    // Normaler filuflow serve ohne Worker-Modus
     const plain = await createServer({ dir: join(root, 'plain'), dbFile: ':memory:', apiKey: WORKER_KEY, webhookBaseUrl: 'http://x/', watch: false, uiDir: false });
     await plain.app.listen({ port: 0, host: '127.0.0.1' });
     workers.push({ server: plain, url: '', dir: '', close: () => plain.close() });
     const notWorker = await registerWorker({ url: `http://127.0.0.1:${(plain.app.server.address() as AddressInfo).port}` } as TestWorker);
     expect(notWorker.status).toBe('offline');
-    expect(notWorker.lastError).toMatch(/kein flowlite-Worker/);
+    expect(notWorker.lastError).toMatch(/kein filuflow-Worker/);
 
     const gone = await registerWorker({ url: 'http://127.0.0.1:1' } as TestWorker);
     expect(gone.status).toBe('offline');
@@ -168,7 +168,7 @@ describe('Verteilen und Abgleich', () => {
     expect(created.deployment).toMatchObject({ upToDate: true, error: null });
     const file = join(w.dir, 'workflows', `${created.id}.json`);
     const onDisk = JSON.parse(readFileSync(file, 'utf8')) as Workflow;
-    expect(onDisk.meta).toMatchObject({ flowliteMaster: { version: 1, projectId: pid } });
+    expect(onDisk.meta).toMatchObject({ filuflowMaster: { version: 1, projectId: pid } });
     expect(onDisk.active).toBe(false);
     expect((await fetch(`${w.url}/webhook/kunde-a`)).status).toBe(404);
 
@@ -321,8 +321,8 @@ describe('Credentials beim Worker', () => {
   });
 
   it('setzt Werte nur schreibend, verschlüsselt, schützt Einträge der Datei des Workers', async () => {
-    const previous = process.env.FLOWLITE_ENCRYPTION_KEY;
-    process.env.FLOWLITE_ENCRYPTION_KEY = 'worker-verschluesselung-123';
+    const previous = process.env.FILUFLOW_ENCRYPTION_KEY;
+    process.env.FILUFLOW_ENCRYPTION_KEY = 'worker-verschluesselung-123';
     try {
       const w = await startWorker('w1', { Handgepflegt: { type: 'httpHeaderAuth', data: { name: 'X', value: 'datei-geheim' } } });
       const wk = await registerWorker(w);
@@ -374,8 +374,8 @@ describe('Credentials beim Worker', () => {
       const member = await addUser(master, admin, 'mia@example.org');
       expect((await member.client.get(`/api/admin/workers/${wk.id}/credentials`)).statusCode).toBe(403);
     } finally {
-      if (previous === undefined) delete process.env.FLOWLITE_ENCRYPTION_KEY;
-      else process.env.FLOWLITE_ENCRYPTION_KEY = previous;
+      if (previous === undefined) delete process.env.FILUFLOW_ENCRYPTION_KEY;
+      else process.env.FILUFLOW_ENCRYPTION_KEY = previous;
     }
   });
 });

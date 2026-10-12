@@ -8,7 +8,7 @@ export interface OidcConfig {
   issuer: string;
   clientId: string;
   clientSecret?: string;
-  /** z. B. https://flowlite.example/api/auth/oidc/callback */
+  /** z. B. https://filuflow.example/api/auth/oidc/callback */
   redirectUrl: string;
   scopes?: string;
   /** Text auf dem Anmeldeknopf */
@@ -109,7 +109,7 @@ export class OidcClient {
     if (!value.authorization_endpoint || !value.token_endpoint || !value.jwks_uri) throw new OidcError('Discovery-Dokument ist unvollständig');
     // OpenID Connect Discovery 1.0, Abschnitt 4.3: issuer muss der konfigurierten Adresse entsprechen
     if (String(value.issuer ?? '').replace(/\/+$/, '') !== this.config.issuer.replace(/\/+$/, '')) {
-      throw new OidcError(`Aussteller im Discovery-Dokument (${value.issuer}) passt nicht zu FLOWLITE_OIDC_ISSUER`);
+      throw new OidcError(`Aussteller im Discovery-Dokument (${value.issuer}) passt nicht zu FILUFLOW_OIDC_ISSUER`);
     }
     this.discovery = { value, at: Date.now() };
     return value;

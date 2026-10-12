@@ -117,10 +117,10 @@ export class Canvas {
     });
     this.svg.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
     host.addEventListener('dragover', (e) => {
-      if (e.dataTransfer?.types.includes('application/x-flowlite-node')) e.preventDefault();
+      if (e.dataTransfer?.types.includes('application/x-filuflow-node')) e.preventDefault();
     });
     host.addEventListener('drop', (e) => {
-      const type = e.dataTransfer?.getData('application/x-flowlite-node');
+      const type = e.dataTransfer?.getData('application/x-filuflow-node');
       if (!type) return;
       e.preventDefault();
       const [x, y] = this.toWorld(e.clientX, e.clientY);

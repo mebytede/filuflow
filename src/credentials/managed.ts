@@ -1,6 +1,6 @@
-// Credentials eines Workers: die Datei aus FLOWLITE_CREDENTIALS (von Hand gepflegt, nur lesend) plus eine vom
+// Credentials eines Workers: die Datei aus FILUFLOW_CREDENTIALS (von Hand gepflegt, nur lesend) plus eine vom
 // Master verwaltete Datei (credentials.managed.json). Der Master kann Einträge setzen und löschen, aber nie lesen.
-// Mit FLOWLITE_ENCRYPTION_KEY werden die Werte je Eintrag verschlüsselt gespeichert (AES-256-GCM).
+// Mit FILUFLOW_ENCRYPTION_KEY werden die Werte je Eintrag verschlüsselt gespeichert (AES-256-GCM).
 import { existsSync } from 'node:fs';
 import { mkdir, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
@@ -72,7 +72,7 @@ export class LayeredCredentialProvider implements CredentialProvider {
   }
 
   private async write(all: Record<string, unknown>): Promise<void> {
-    const key = process.env.FLOWLITE_ENCRYPTION_KEY;
+    const key = process.env.FILUFLOW_ENCRYPTION_KEY;
     const content = key ? encryptCredentialsFile(all, key) : all;
     await mkdir(dirname(this.managedFile), { recursive: true });
     const tmp = `${this.managedFile}.${process.pid}.tmp`;

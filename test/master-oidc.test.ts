@@ -40,7 +40,7 @@ async function oidcLogin(claims: Record<string, unknown> | ((nonce: string) => R
   const now = Math.floor(Date.now() / 1000);
   const base = { iss: idp.base, aud: CLIENT_ID, iat: now, exp: now + 300, nonce };
   idp.codes.set(code, { claims: { ...base, ...(typeof claims === 'function' ? claims(nonce) : claims) }, challenge: p.get('code_challenge')! });
-  if (opts.dropCookie) c.cookies.delete('flowlite_oidc');
+  if (opts.dropCookie) c.cookies.delete('filuflow_oidc');
   const cb = await c.get(`/api/auth/oidc/callback?code=${code}&state=${encodeURIComponent(opts.state ?? p.get('state')!)}`);
   expect(cb.statusCode).toBe(302);
   const location = String(cb.headers.location);
@@ -67,7 +67,7 @@ describe('OIDC-Anmeldung', () => {
     expect(url.searchParams.get('nonce')!.length).toBeGreaterThan(15);
     // state, nonce und Verifier im verschlüsselten Cookie, nur für die OIDC-Pfade
     const cookie = String(res.headers['set-cookie']);
-    expect(cookie).toMatch(/^flowlite_oidc=/);
+    expect(cookie).toMatch(/^filuflow_oidc=/);
     expect(cookie).toMatch(/Path=\/api\/auth\/oidc/);
     expect(cookie).toMatch(/HttpOnly/);
     expect(cookie).not.toContain(url.searchParams.get('state')!);
@@ -102,24 +102,24 @@ describe('OIDC-Anmeldung', () => {
   });
 
   it('autoCreate legt Benutzer an, adminGroup vergibt und entzieht die Admin-Rolle', async () => {
-    await start({ autoCreate: true, adminGroup: 'flowlite-admins' });
+    await start({ autoCreate: true, adminGroup: 'filuflow-admins' });
     const admin = await setupAdmin(master);
     const r = await oidcLogin({ sub: 'carla', email: 'carla@example.org', email_verified: true, name: 'Carla C.', groups: ['team'] });
     expect((await r.client.get('/api/me')).json().user).toMatchObject({ email: 'carla@example.org', name: 'Carla C.', role: 'member' });
-    const r2 = await oidcLogin({ sub: 'carla', email: 'carla@example.org', email_verified: true, groups: ['team', 'flowlite-admins'] });
+    const r2 = await oidcLogin({ sub: 'carla', email: 'carla@example.org', email_verified: true, groups: ['team', 'filuflow-admins'] });
     expect((await r2.client.get('/api/me')).json().user.role).toBe('admin');
     const r3 = await oidcLogin({ sub: 'carla', email: 'carla@example.org', email_verified: true, groups: 'team' });
     expect((await r3.client.get('/api/me')).json().user.role).toBe('member');
     // Neuer Admin direkt über die Gruppe
-    const r4 = await oidcLogin({ sub: 'dora', email: 'dora@example.org', email_verified: true, groups: ['flowlite-admins'] });
+    const r4 = await oidcLogin({ sub: 'dora', email: 'dora@example.org', email_verified: true, groups: ['filuflow-admins'] });
     expect((await r4.client.get('/api/me')).json().user.role).toBe('admin');
     expect((await admin.get('/api/admin/audit')).json().data.some((a: { action: string }) => a.action === 'user.created_oidc')).toBe(true);
   });
 
   it('der letzte Admin verliert die Rolle nicht über die Gruppe', async () => {
-    await start({ autoCreate: true, adminGroup: 'flowlite-admins' });
+    await start({ autoCreate: true, adminGroup: 'filuflow-admins' });
     // Einziger Admin kommt per SSO
-    const r = await oidcLogin({ sub: 'solo', email: 'solo@example.org', email_verified: true, groups: ['flowlite-admins'] });
+    const r = await oidcLogin({ sub: 'solo', email: 'solo@example.org', email_verified: true, groups: ['filuflow-admins'] });
     expect((await r.client.get('/api/me')).json().user.role).toBe('admin');
     const r2 = await oidcLogin({ sub: 'solo', email: 'solo@example.org', email_verified: true, groups: [] });
     expect((await r2.client.get('/api/me')).json().user.role).toBe('admin');

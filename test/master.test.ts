@@ -99,21 +99,21 @@ describe('Einrichtung und Anmeldung', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ mfaRequired: false });
     const cookie = String(res.headers['set-cookie']);
-    expect(cookie).toMatch(/^flowlite_session=/);
+    expect(cookie).toMatch(/^filuflow_session=/);
     expect(cookie).toMatch(/HttpOnly/);
     expect(cookie).toMatch(/SameSite=Lax/);
     expect(cookie).not.toMatch(/Secure/);
     expect((await c.get('/api/projects')).statusCode).toBe(200);
     // Abmelden beendet die Sitzung auch serverseitig
-    const raw = c.cookies.get('flowlite_session')!;
+    const raw = c.cookies.get('filuflow_session')!;
     await c.post('/api/auth/logout');
     expect((await c.get('/api/projects')).statusCode).toBe(401);
-    c.cookies.set('flowlite_session', raw);
+    c.cookies.set('filuflow_session', raw);
     expect((await c.get('/api/projects')).statusCode).toBe(401);
   });
 
   it('Secure-Cookie bei https', async () => {
-    master = await startMaster({ publicUrl: 'https://flowlite.example' });
+    master = await startMaster({ publicUrl: 'https://filuflow.example' });
     const c = new Client(master.app);
     const res = await c.post('/api/auth/setup', { setupToken: master.setupToken, ...ADMIN });
     expect(String(res.headers['set-cookie'])).toMatch(/Secure/);
@@ -175,7 +175,7 @@ describe('TOTP', () => {
     const setup = await c.post('/api/me/totp/setup');
     expect(setup.statusCode).toBe(200);
     const { secret, uri } = setup.json() as { secret: string; uri: string };
-    expect(uri).toMatch(/^otpauth:\/\/totp\/flowlite:/);
+    expect(uri).toMatch(/^otpauth:\/\/totp\/filuflow:/);
     // Schlüssel liegt verschlüsselt in der Datenbank
     expect(m.db.getUserByEmail(ADMIN.email)!.totp_secret).not.toContain(secret);
     expect((await c.post('/api/me/totp/enable', { code: '000000' === totpCode(secret, totpCounter()) ? '111111' : '000000' })).statusCode).toBe(400);
@@ -257,7 +257,7 @@ describe('Profil und API-Tokens', () => {
     const created = await admin.post('/api/me/tokens', { name: 'CI' });
     expect(created.statusCode).toBe(201);
     const { token, id } = created.json() as { token: string; id: string };
-    expect(token).toMatch(/^flt_/);
+    expect(token).toMatch(/^ffl_/);
     expect(JSON.stringify((await admin.get('/api/me/tokens')).json())).not.toContain(token);
 
     const bot = new Client(m.app);
@@ -269,7 +269,7 @@ describe('Profil und API-Tokens', () => {
     expect((await bot.post('/api/me/tokens', { name: 'weiter' })).statusCode).toBe(403);
     expect((await admin.del(`/api/me/tokens/${id}`)).statusCode).toBe(204);
     expect((await bot.get('/api/me')).statusCode).toBe(401);
-    bot.bearer = 'flt_erfunden';
+    bot.bearer = 'ffl_erfunden';
     expect((await bot.get('/api/me')).statusCode).toBe(401);
   });
 });

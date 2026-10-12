@@ -1,6 +1,6 @@
 // Verbindung vom Master zu den Workern in den Umgebungen der Mandanten.
 // Der Master ruft die API des Workers auf (X-API-Key = Token des Workers). Workflows werden verteilt
-// (Datei beim Worker, Kennzeichnung in meta.flowliteMaster), ausgeführt wird nur beim Worker.
+// (Datei beim Worker, Kennzeichnung in meta.filuflowMaster), ausgeführt wird nur beim Worker.
 // Credentials und Ausführungsdaten bleiben beim Worker und werden bei Bedarf live abgefragt.
 import { Agent, EnvHttpProxyAgent, request as undiciRequest, type Dispatcher } from 'undici';
 import type { Logger } from '../logger.js';
@@ -8,7 +8,7 @@ import type { Workflow } from '../types.js';
 import type { MasterDb, WorkerRow, WorkflowRow } from './db.js';
 import type { SecretBox } from './auth.js';
 
-export const MASTER_MARKER = 'flowliteMaster';
+export const MASTER_MARKER = 'filuflowMaster';
 
 export class WorkerError extends Error {
   constructor(
@@ -70,7 +70,7 @@ export class WorkerHub {
         method: method as Dispatcher.HttpMethod,
         headers: {
           'x-api-key': this.o.secrets.open(worker.token_enc),
-          'x-flowlite-master': '1',
+          'x-filuflow-master': '1',
           ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
         },
         body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -100,7 +100,7 @@ export class WorkerHub {
   async check(worker: WorkerRow): Promise<WorkerRow> {
     try {
       const info = await this.call<{ version?: string; webhookBaseUrl?: string; mode?: string }>(worker, 'GET', '/api/worker/info', undefined, 10_000);
-      if (info?.mode !== 'worker') throw new WorkerError('Gegenstelle ist kein flowlite-Worker (flowlite worker starten)', 0);
+      if (info?.mode !== 'worker') throw new WorkerError('Gegenstelle ist kein filuflow-Worker (filuflow worker starten)', 0);
       this.o.db.updateWorker(worker.id, {
         status: 'online',
         last_seen_at: new Date().toISOString(),
@@ -109,8 +109,8 @@ export class WorkerHub {
         webhook_base_url: info.webhookBaseUrl ?? null,
       });
     } catch (error) {
-      // 404: flowlite serve ohne Worker-Modus (oder ein anderer Dienst unter der Adresse)
-      const message = error instanceof WorkerError && error.status === 404 ? 'Gegenstelle ist kein flowlite-Worker (flowlite worker starten)' : (error as Error).message;
+      // 404: filuflow serve ohne Worker-Modus (oder ein anderer Dienst unter der Adresse)
+      const message = error instanceof WorkerError && error.status === 404 ? 'Gegenstelle ist kein filuflow-Worker (filuflow worker starten)' : (error as Error).message;
       this.o.db.updateWorker(worker.id, { status: 'offline', last_error: message });
     }
     return this.o.db.getWorker(worker.id)!;

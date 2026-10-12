@@ -1,24 +1,24 @@
-# flowlite mit Volumes für Workflows, Datenbank und Credentials.
-#   FLOWLITE_API_KEY=... FLOWLITE_ENCRYPTION_KEY=... docker compose up -d
+# filuflow mit Volumes für Workflows, Datenbank und Credentials.
+#   FILUFLOW_API_KEY=... FILUFLOW_ENCRYPTION_KEY=... docker compose up -d
 services:
-  flowlite:
+  filuflow:
     build: .
-    image: flowlite:latest
+    image: filuflow:latest
     restart: unless-stopped
     ports:
       - "5678:5678"
     environment:
-      FLOWLITE_API_KEY: ${FLOWLITE_API_KEY:?FLOWLITE_API_KEY setzen}
-      FLOWLITE_ENCRYPTION_KEY: ${FLOWLITE_ENCRYPTION_KEY:-}
-      FLOWLITE_WEBHOOK_URL: ${FLOWLITE_WEBHOOK_URL:-http://localhost:5678/}
-      FLOWLITE_TIMEZONE: ${FLOWLITE_TIMEZONE:-Europe/Berlin}
-      FLOWLITE_PRUNE_DAYS: ${FLOWLITE_PRUNE_DAYS:-14}
-      FLOWLITE_CONCURRENCY: ${FLOWLITE_CONCURRENCY:-5}
+      FILUFLOW_API_KEY: ${FILUFLOW_API_KEY:?FILUFLOW_API_KEY setzen}
+      FILUFLOW_ENCRYPTION_KEY: ${FILUFLOW_ENCRYPTION_KEY:-}
+      FILUFLOW_WEBHOOK_URL: ${FILUFLOW_WEBHOOK_URL:-http://localhost:5678/}
+      FILUFLOW_TIMEZONE: ${FILUFLOW_TIMEZONE:-Europe/Berlin}
+      FILUFLOW_PRUNE_DAYS: ${FILUFLOW_PRUNE_DAYS:-14}
+      FILUFLOW_CONCURRENCY: ${FILUFLOW_CONCURRENCY:-5}
     volumes:
       # beschreibbar, damit der Editor der Weboberfläche speichern kann (":ro" = nur lesen)
       - ./workflows:/data/workflows
       - ./credentials.json:/data/credentials.json:ro
-      - flowlite-data:/data/state
-    command: ["node", "/app/bin/flowlite.js", "serve", "--db", "/data/state/flowlite.db"]
+      - filuflow-data:/data/state
+    command: ["node", "/app/bin/filuflow.js", "serve", "--db", "/data/state/filuflow.db"]
 volumes:
-  flowlite-data:
+  filuflow-data:

@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { AddressInfo } from 'node:net';
 import { chromium, type Browser, type Page } from 'playwright-core';
-import { createServer, type FlowliteServer } from '../src/server/app.js';
+import { createServer, type FiluflowServer } from '../src/server/app.js';
 import { StaticCredentialProvider } from '../src/credentials/store.js';
 import { LayeredCredentialProvider } from '../src/credentials/managed.js';
 import type { MasterServer } from '../src/master/app.js';
@@ -19,9 +19,9 @@ import { CLIENT_ID, CLIENT_SECRET, MockIdp } from './helpers/idp.js';
 const ROOT = join(__dirname, '..');
 const WORKER_KEY = 'worker-schluessel-0123456789';
 const PASSWORD = 'sehr-geheimes-passwort';
-const shots = process.env.FLOWLITE_SCREENSHOTS;
+const shots = process.env.FILUFLOW_SCREENSHOTS;
 let browser: Browser | undefined;
-let worker: FlowliteServer | undefined;
+let worker: FiluflowServer | undefined;
 let master: MasterServer | undefined;
 let dir: string;
 let base: string;
@@ -32,7 +32,7 @@ async function launch(): Promise<Browser | undefined> {
     return await chromium.launch();
   } catch {
     try {
-      return await chromium.launch({ executablePath: process.env.FLOWLITE_CHROMIUM ?? '/opt/pw-browsers/chromium' });
+      return await chromium.launch({ executablePath: process.env.FILUFLOW_CHROMIUM ?? '/opt/pw-browsers/chromium' });
     } catch {
       return undefined;
     }
@@ -44,7 +44,7 @@ beforeAll(async () => {
   if (!browser) return;
   execFileSync(process.execPath, [join(ROOT, 'node_modules', 'typescript', 'bin', 'tsc'), '-p', join(ROOT, 'tsconfig.ui.json')], { cwd: ROOT });
   execFileSync(process.execPath, [join(ROOT, 'scripts', 'copy-ui-assets.mjs')], { cwd: ROOT });
-  dir = mkdtempSync(join(tmpdir(), 'flowlite-master-e2e-'));
+  dir = mkdtempSync(join(tmpdir(), 'filuflow-master-e2e-'));
   mkdirSync(join(dir, 'workflows'));
   const credentials = await new LayeredCredentialProvider(new StaticCredentialProvider(), join(dir, 'credentials.managed.json')).load();
   worker = await createServer({
@@ -140,7 +140,7 @@ describe('Master-Oberfläche', () => {
     const deployed = worker!.workflows.list()[0].workflow;
     expect(deployed.name).toBe('Rechnungen');
     expect(deployed.nodes).toHaveLength(2);
-    expect((deployed.meta as Record<string, { version: number }>).flowliteMaster.version).toBe(2);
+    expect((deployed.meta as Record<string, { version: number }>).filuflowMaster.version).toBe(2);
     const file = JSON.parse(readFileSync(join(dir, 'workflows', `${deployed.id}.json`), 'utf8')) as { name: string };
     expect(file.name).toBe('Rechnungen');
 

@@ -10,7 +10,9 @@ import type {
   WorkflowSummary,
 } from './types.js';
 
-const KEY_STORAGE = 'flowlite.apiKey';
+const KEY_STORAGE = 'filuflow.apiKey';
+/** Schlüssel vor der Umbenennung in filuflow: einmal übernehmen */
+const LEGACY_KEY_STORAGE = 'flowlite.apiKey';
 
 export class ApiError extends Error {
   constructor(
@@ -25,6 +27,11 @@ export class ApiError extends Error {
 
 export function getApiKey(): string | null {
   try {
+    const legacy = localStorage.getItem(LEGACY_KEY_STORAGE);
+    if (legacy !== null) {
+      localStorage.removeItem(LEGACY_KEY_STORAGE);
+      if (localStorage.getItem(KEY_STORAGE) === null) localStorage.setItem(KEY_STORAGE, legacy);
+    }
     return localStorage.getItem(KEY_STORAGE);
   } catch {
     return null;
@@ -55,7 +62,7 @@ export async function request<T>(method: string, path: string, body?: unknown): 
   const res = await fetch(path, {
     method,
     headers: {
-      'x-flowlite-csrf': '1',
+      'x-filuflow-csrf': '1',
       ...(key ? { 'x-api-key': key } : {}),
       ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
     },

@@ -144,7 +144,7 @@ async function importDialog(): Promise<Workflow | null> {
   });
   return dialog<Workflow>(
     'Workflow importieren',
-    h('div', { class: 'form' }, h('p', { class: 'muted' }, 'Workflow-JSON aus n8n (Export) oder flowlite. Der Workflow wird inaktiv angelegt.'), file, ta),
+    h('div', { class: 'form' }, h('p', { class: 'muted' }, 'Workflow-JSON aus n8n (Export) oder filuflow. Der Workflow wird inaktiv angelegt.'), file, ta),
     {
       confirm: 'Importieren',
       wide: true,

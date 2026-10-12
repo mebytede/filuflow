@@ -5,7 +5,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { createHash, generateKeyPairSync, sign, type KeyObject } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
 
-export const CLIENT_ID = 'flowlite';
+export const CLIENT_ID = 'filuflow';
 export const CLIENT_SECRET = 'idp-geheimnis';
 
 export interface Pending {

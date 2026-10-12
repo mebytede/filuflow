@@ -129,7 +129,7 @@ export function registerWorkerRoutes(api: FastifyInstance, ctx: MasterContext): 
     if (!name) return reply.code(400).send({ message: 'Name fehlt' });
     const urlError = checkUrl(url);
     if (urlError) return reply.code(400).send({ message: urlError });
-    if (token.length < 16) return reply.code(400).send({ message: 'Token des Workers fehlt oder ist kürzer als 16 Zeichen (FLOWLITE_API_KEY des Workers)' });
+    if (token.length < 16) return reply.code(400).send({ message: 'Token des Workers fehlt oder ist kürzer als 16 Zeichen (FILUFLOW_API_KEY des Workers)' });
     const worker = db.createWorker({
       tenantId,
       name,

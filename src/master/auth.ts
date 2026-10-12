@@ -1,5 +1,5 @@
 // Anmeldung im Master: Passwörter (scrypt), TOTP (RFC 6238), Sitzungs- und API-Tokens, Verschlüsselung
-// gespeicherter Geheimnisse (TOTP-Schlüssel, Worker-Tokens) mit FLOWLITE_ENCRYPTION_KEY.
+// gespeicherter Geheimnisse (TOTP-Schlüssel, Worker-Tokens) mit FILUFLOW_ENCRYPTION_KEY.
 import { createHash, createHmac, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { decryptValue, encryptValue } from '../credentials/store.js';
@@ -41,7 +41,7 @@ export async function verifyPassword(password: string, stored: string | null): P
 /** Gleicher Zeitaufwand bei unbekannten Benutzern (kein Rückschluss auf vorhandene Konten) */
 let dummyHash: Promise<string> | undefined;
 export async function burnPasswordCheck(password: string): Promise<void> {
-  dummyHash ??= hashPassword('flowlite-dummy-password');
+  dummyHash ??= hashPassword('filuflow-dummy-password');
   await verifyPassword(password, await dummyHash);
 }
 
@@ -133,7 +133,7 @@ export function verifyTotp(secret: string, code: string, lastCounter: number | n
   return undefined;
 }
 
-export function totpUri(secret: string, account: string, issuer = 'flowlite'): string {
+export function totpUri(secret: string, account: string, issuer = 'filuflow'): string {
   return `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(account)}?secret=${secret}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=6&period=30`;
 }
 
@@ -142,7 +142,7 @@ export function totpUri(secret: string, account: string, issuer = 'flowlite'): s
 
 export class SecretBox {
   constructor(private readonly key: string) {
-    if (!key || key.length < 16) throw new Error('FLOWLITE_ENCRYPTION_KEY fehlt oder ist kürzer als 16 Zeichen (Pflicht im Master-Modus)');
+    if (!key || key.length < 16) throw new Error('FILUFLOW_ENCRYPTION_KEY fehlt oder ist kürzer als 16 Zeichen (Pflicht im Master-Modus)');
   }
 
   seal(value: string): string {

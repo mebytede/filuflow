@@ -8,7 +8,7 @@ function card(...children: Array<Node | string | null | false>): HTMLElement {
   return h(
     'main',
     { class: 'login' },
-    h('div', { class: 'login-card card' }, h('div', { class: 'brand brand-large' }, h('span', { class: 'brand-mark' }), 'flowlite'), ...children),
+    h('div', { class: 'login-card card' }, h('div', { class: 'brand brand-large' }, h('span', { class: 'brand-mark' }), 'filuflow'), ...children),
   );
 }
 
@@ -329,7 +329,7 @@ export async function profilePage(status: AuthStatus, onChanged: (user: User) =>
       'div',
       { class: 'card card-pad' },
       h('h2', null, 'API-Tokens'),
-      h('p', { class: 'muted small' }, 'Für Skripte und Automatisierung: Header "Authorization: Bearer flt_…". Ein Token hat dieselben Rechte wie dein Konto.'),
+      h('p', { class: 'muted small' }, 'Für Skripte und Automatisierung: Header "Authorization: Bearer ffl_…". Ein Token hat dieselben Rechte wie dein Konto.'),
       tokens.length
         ? h(
             'table',

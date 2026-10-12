@@ -7,11 +7,11 @@ set -euo pipefail
 
 NAME="$1"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-WORK_BASE="${2:-$(mktemp -d "${TMPDIR:-/tmp}/flowlite-webhook.XXXXXX")}"
+WORK_BASE="${2:-$(mktemp -d "${TMPDIR:-/tmp}/filuflow-webhook.XXXXXX")}"
 N8N_IMAGE="${3:-${N8N_IMAGE:-n8nio/n8n:1.123.0}}"
 FIX="$ROOT/fixtures/$NAME"
 WORK="$WORK_BASE/webhook-$NAME"
-CONTAINER="flowlite-record-$NAME-$$"
+CONTAINER="filuflow-record-$NAME-$$"
 mkdir -p "$WORK"
 chmod 777 "$WORK"
 trap 'docker rm -f "$CONTAINER" >/dev/null 2>&1 || true' EXIT

@@ -11,7 +11,7 @@ export async function credentialsView(): Promise<HTMLElement> {
     h(
       'p',
       { class: 'muted' },
-      'Credentials stehen in credentials.json (bzw. FLOWLITE_CREDENTIALS) auf dem Server und werden dort gepflegt, optional verschlüsselt mit "flowlite credentials encrypt". Die Oberfläche zeigt nur Namen und Typen.',
+      'Credentials stehen in credentials.json (bzw. FILUFLOW_CREDENTIALS) auf dem Server und werden dort gepflegt, optional verschlüsselt mit "filuflow credentials encrypt". Die Oberfläche zeigt nur Namen und Typen.',
     ),
     list.length
       ? h(

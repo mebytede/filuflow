@@ -4,14 +4,14 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { createServer, type FlowliteServer } from '../src/server/app.js';
+import { createServer, type FiluflowServer } from '../src/server/app.js';
 import { StaticCredentialProvider } from '../src/credentials/store.js';
 import type { Workflow } from '../src/types.js';
 
 const KEY = 'editor-schluessel';
 let dir: string;
 let uiDir: string;
-let server: FlowliteServer | undefined;
+let server: FiluflowServer | undefined;
 
 const linear: Workflow = {
   id: 'linear',
@@ -32,10 +32,10 @@ const linear: Workflow = {
 };
 
 async function start(files: Record<string, unknown> = { 'linear.json': linear }) {
-  dir = mkdtempSync(join(tmpdir(), 'flowlite-editor-'));
+  dir = mkdtempSync(join(tmpdir(), 'filuflow-editor-'));
   for (const [file, content] of Object.entries(files)) writeFileSync(join(dir, file), JSON.stringify(content));
-  uiDir = mkdtempSync(join(tmpdir(), 'flowlite-ui-'));
-  writeFileSync(join(uiDir, 'index.html'), '<!doctype html><title>flowlite</title>');
+  uiDir = mkdtempSync(join(tmpdir(), 'filuflow-ui-'));
+  writeFileSync(join(uiDir, 'index.html'), '<!doctype html><title>filuflow</title>');
   writeFileSync(join(uiDir, 'main.js'), 'export {};');
   mkdirSync(join(uiDir, 'editor'));
   writeFileSync(join(uiDir, 'editor', 'canvas.js'), 'export {};');

@@ -9,7 +9,9 @@ import { tmpdir } from 'node:os';
 import type { BinaryRef } from './types.js';
 
 export const INLINE_LIMIT = 1024 * 1024;
-const STORE_PREFIX = 'flowlite-fs:';
+const STORE_PREFIX = 'filuflow-fs:';
+/** Präfix vor der Umbenennung in filuflow; ältere Ausführungen verweisen noch darauf */
+const LEGACY_STORE_PREFIX = 'flowlite-fs:';
 
 const MIME_BY_EXT: Record<string, string> = {
   txt: 'text/plain', text: 'text/plain', csv: 'text/csv', html: 'text/html', htm: 'text/html',
@@ -81,7 +83,7 @@ export class FileBinaryStore implements BinaryStore {
   private readonly dir: string;
   private readonly inlineLimit: number;
 
-  constructor(dir = process.env.FLOWLITE_BINARY_DIR ?? join(tmpdir(), 'flowlite-binary'), inlineLimit = INLINE_LIMIT) {
+  constructor(dir = process.env.FILUFLOW_BINARY_DIR ?? join(tmpdir(), 'filuflow-binary'), inlineLimit = INLINE_LIMIT) {
     this.dir = dir;
     this.inlineLimit = inlineLimit;
   }
@@ -119,9 +121,15 @@ export class FileBinaryStore implements BinaryStore {
     return ref;
   }
 
+  /** ID der Datei im Speicher (auch mit altem Präfix), sonst undefined */
+  private storeId(ref: BinaryRef): string | undefined {
+    for (const prefix of [STORE_PREFIX, LEGACY_STORE_PREFIX]) if (ref.id?.startsWith(prefix)) return ref.id.slice(prefix.length);
+    return undefined;
+  }
+
   async getBuffer(ref: BinaryRef): Promise<Buffer> {
-    if (ref.id && ref.id.startsWith(STORE_PREFIX)) {
-      const id = ref.id.slice(STORE_PREFIX.length);
+    const id = this.storeId(ref);
+    if (id !== undefined) {
       if (!/^[0-9a-f-]{36}$/.test(id)) throw new Error(`Ungültige Binär-ID ${ref.id}`);
       return readFile(join(this.dir, id));
     }
@@ -129,8 +137,7 @@ export class FileBinaryStore implements BinaryStore {
   }
 
   async remove(ref: BinaryRef): Promise<void> {
-    if (ref.id?.startsWith(STORE_PREFIX)) {
-      await rm(join(this.dir, ref.id.slice(STORE_PREFIX.length)), { force: true });
-    }
+    const id = this.storeId(ref);
+    if (id !== undefined && /^[0-9a-f-]{36}$/.test(id)) await rm(join(this.dir, id), { force: true });
   }
 }

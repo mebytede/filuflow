@@ -25,7 +25,7 @@ import type { LayeredCredentialProvider } from '../credentials/managed.js';
 export interface ServerOptions {
   dir: string;
   dbFile: string;
-  /** FLOWLITE_API_KEY; ohne Schlüssel ist die REST-API gesperrt */
+  /** FILUFLOW_API_KEY; ohne Schlüssel ist die REST-API gesperrt */
   apiKey?: string;
   concurrency?: number;
   pruneDays?: number;
@@ -46,7 +46,7 @@ export interface ServerOptions {
   worker?: { version: string; credentials?: LayeredCredentialProvider };
 }
 
-export interface FlowliteServer {
+export interface FiluflowServer {
   app: FastifyInstance;
   store: ExecutionStore;
   manager: ExecutionManager;
@@ -85,7 +85,7 @@ function executionView(e: Execution | (Partial<Execution> & { id: string }), wit
   return withData ? { ...meta, runData } : meta;
 }
 
-export async function createServer(options: ServerOptions): Promise<FlowliteServer> {
+export async function createServer(options: ServerOptions): Promise<FiluflowServer> {
   const logger = options.logger ?? getLogger();
   const registry = options.registry ?? getDefaultRegistry();
   const credentials = options.credentials ?? options.worker?.credentials ?? new StaticCredentialProvider();
@@ -197,7 +197,7 @@ export async function createServer(options: ServerOptions): Promise<FlowliteServ
   await app.register(async (api) => {
     api.addHook('onRequest', async (request, reply) => {
       if (!options.apiKey) {
-        return reply.code(401).send({ message: 'REST-API ist deaktiviert: FLOWLITE_API_KEY ist nicht gesetzt' });
+        return reply.code(401).send({ message: 'REST-API ist deaktiviert: FILUFLOW_API_KEY ist nicht gesetzt' });
       }
       if (!checkApiKey(options.apiKey, request)) return reply.code(401).send({ message: 'Ungültiger oder fehlender X-API-Key' });
     });

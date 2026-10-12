@@ -29,7 +29,7 @@ export function startMaster(app: HTMLElement): void {
     return h(
       'header',
       { class: 'topbar' },
-      h('a', { href: '#/projects', class: 'brand', 'aria-label': 'flowlite Start' }, h('span', { class: 'brand-mark' }), 'flowlite'),
+      h('a', { href: '#/projects', class: 'brand', 'aria-label': 'filuflow Start' }, h('span', { class: 'brand-mark' }), 'filuflow'),
       h('nav', null, link('#/projects', 'Projekte', 'projects'), u.role === 'admin' ? link('#/admin/overview', 'Verwaltung', 'admin') : null),
       h('div', { class: 'spacer' }),
       h('a', { href: '#/profile', class: `nav-link${active === 'profile' ? ' on' : ''}`, title: u.email }, u.name || u.email),

@@ -1,6 +1,6 @@
-# flowlite Spezifikation
+# filuflow Spezifikation
 
-Ziel: n8n-Workflow-JSONs, die in n8n (aktuelle 1.x) laufen, liefern in flowlite dieselben Items an denselben Nodes.
+Ziel: n8n-Workflow-JSONs, die in n8n (aktuelle 1.x) laufen, liefern in filuflow dieselben Items an denselben Nodes.
 Umfang Phase 1: Engine, Expressions, Kern-Nodes, CLI, Server mit Webhook/Cron, Execution-Log, Credentials. Danach KI-Nodes. Ein visueller Editor ist ausdrücklich **nicht** Teil dieser Spezifikation.
 
 Alle Angaben zu n8n-Parametern unten sind der Startpunkt. Vor der Implementierung jedes Nodes gegen `packages/nodes-base/nodes/<Node>/` im n8n-Repo prüfen.
@@ -128,7 +128,7 @@ interface ExecContext {
 | `$node["Name"].json` | Altform, erstes bzw. gepaartes Item |
 | `$items("Name", output?, run?)` | Altform |
 | `$now`, `$today` | luxon `DateTime` in Workflow-Zeitzone (Default `Europe/Berlin`, per Setting/Env überschreibbar) |
-| `$env` | Umgebungsvariablen (Allowlist per Config `FLOWLITE_ENV_ALLOW`, Default: alle mit Präfix `FL_`) |
+| `$env` | Umgebungsvariablen (Allowlist per Config `FILUFLOW_ENV_ALLOW`, Default: alle mit Präfix `FL_`) |
 | `$vars` | Werte aus `vars.json` |
 | `$execution.id`, `.mode`, `.resumeUrl` | Execution-Infos |
 | `$workflow.id`, `.name`, `.active` | Workflow-Infos |
@@ -206,13 +206,13 @@ Ausgabeformate (`output`, `text` usw.) exakt wie n8n.
 ## 5. Credentials
 - Datei `credentials.json` (oder Verzeichnis), Schlüssel = Credential-**Name** wie im Workflow (`node.credentials.<typ>.name`), Fallback auf ID.
 - Werte dürfen `{{ env.NAME }}` referenzieren, damit Secrets in Env/Secret-Store bleiben.
-- Optional verschlüsselt mit `FLOWLITE_ENCRYPTION_KEY` (AES-256-GCM).
+- Optional verschlüsselt mit `FILUFLOW_ENCRYPTION_KEY` (AES-256-GCM).
 - Unterstützte Typen Phase 1: `httpHeaderAuth`, `httpBasicAuth`, `httpQueryAuth`, `httpBearerAuth`, `oAuth2Api` (nur client_credentials). Feldnamen wie in n8n (`packages/nodes-base/credentials/`).
 - Fehlende Credentials: Validierung meldet sie vor dem Lauf.
 
 ---
 
-## 6. Validierung (`flowlite validate`)
+## 6. Validierung (`filuflow validate`)
 Prüft und meldet gesammelt (nicht beim ersten Fehler abbrechen):
 - JSON-Struktur, doppelte Node-Namen, Verbindungen auf nicht existierende Nodes
 - Unbekannte Node-Typen, nicht unterstützte `typeVersion`s, nicht unterstützte Parameterwerte (z. B. `mode: combineBySql`)
@@ -225,26 +225,26 @@ Ausgabe menschenlesbar oder `--json`. Exit-Code 0/1.
 
 ## 7. CLI
 ```
-flowlite validate <wf.json> [--json]
-flowlite run <wf.json> [--input items.json] [--trigger "Node-Name"] [--json] [--only-last] [--no-pin]
-flowlite serve [--dir ./workflows] [--port 5678] [--db ./flowlite.db]
-flowlite executions list|show <id> [--json]
-flowlite nodes            # Liste unterstützter Node-Typen und Versionen
+filuflow validate <wf.json> [--json]
+filuflow run <wf.json> [--input items.json] [--trigger "Node-Name"] [--json] [--only-last] [--no-pin]
+filuflow serve [--dir ./workflows] [--port 5678] [--db ./filuflow.db]
+filuflow executions list|show <id> [--json]
+filuflow nodes            # Liste unterstützter Node-Typen und Versionen
 ```
 `run` gibt standardmäßig eine Übersicht pro Node aus (Items, Dauer, Fehler) und mit `--json` die vollständigen `runData`.
 
 ---
 
-## 8. Server (`flowlite serve`)
+## 8. Server (`filuflow serve`)
 - Lädt alle `*.json` aus `--dir`, beobachtet Änderungen (Hot Reload).
 - Workflows mit `active: true` registrieren Webhooks und Schedules.
-- REST-API (JSON, Auth über statischen API-Key `FLOWLITE_API_KEY` im Header `X-API-Key`):
+- REST-API (JSON, Auth über statischen API-Key `FILUFLOW_API_KEY` im Header `X-API-Key`):
   - `GET /api/workflows`, `GET /api/workflows/:id`
   - `POST /api/workflows/:id/run` (Body = Input-Items)
   - `GET /api/executions?workflow=&status=&limit=`, `GET /api/executions/:id`, `POST /api/executions/:id/cancel`
   - `GET /healthz`
 - Webhooks unter `/webhook/...` ohne API-Key (eigene Auth laut Node).
-- Execution-Log in SQLite: Tabelle `executions` (Metadaten) und `execution_data` (runData als JSON, komprimiert). Aufbewahrung konfigurierbar (`FLOWLITE_PRUNE_DAYS`, Default 14).
+- Execution-Log in SQLite: Tabelle `executions` (Metadaten) und `execution_data` (runData als JSON, komprimiert). Aufbewahrung konfigurierbar (`FILUFLOW_PRUNE_DAYS`, Default 14).
 - Parallelität: Konfigurierbares Limit gleichzeitiger Executions (Default 5), Warteschlange in-process.
 - Docker: `Dockerfile` (Node 22 slim, non-root) und `docker-compose.yml` mit Volume für Workflows, DB, Credentials.
 
@@ -278,7 +278,7 @@ Engine-Reihenfolge, Expressions (inkl. Rohwert vs. String), jeder Node, Filter-O
 | # | Inhalt | Fertig, wenn |
 |---|---|---|
 | M0 | Gerüst: package.json, tsconfig strict, eslint, vitest, Ordnerstruktur, `docs/STATUS.md`, `docs/DECISIONS.md` | `npm test` und `npm run lint` grün |
-| M1 | Typen, Loader, Validator, `flowlite validate`, `flowlite nodes` | Validierung meldet alle Fehlerklassen aus Abschnitt 6, Tests |
+| M1 | Typen, Loader, Validator, `filuflow validate`, `filuflow nodes` | Validierung meldet alle Fehlerklassen aus Abschnitt 6, Tests |
 | M2 | Engine (v1-Reihenfolge, pinData, disabled, alwaysOutputData, executeOnce, onError, retry) + Expression-Engine ohne Erweiterungsfunktionen | Engine-Tests mit Fake-Nodes grün |
 | M3a | Kern-Nodes + Filter-Format | Fixtures 1, 3, 6, 7 grün |
 | M3b | HTTP, Merge, Split/Aggregate, Loop, Rest aus 4.2 | Fixtures 2, 4, 5 grün |

@@ -27,7 +27,7 @@ export function palette(types: NodeTypeInfo[], onAdd: (type: string) => void): H
               title: `${t.type} (v${t.versions.join(', v')})`,
               onclick: () => onAdd(t.type),
               ondragstart: (e: DragEvent) => {
-                e.dataTransfer?.setData('application/x-flowlite-node', t.type);
+                e.dataTransfer?.setData('application/x-filuflow-node', t.type);
                 if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copy';
               },
             },

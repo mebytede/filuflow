@@ -7,7 +7,7 @@
 //   grantType, accessTokenUrl, clientId, clientSecret, scope, authentication ("header" | "body"),
 //   additionalBodyProperties
 // n8n speichert das Token im Credential und nutzt es, bis die API mit 401 antwortet; dann holt es ein
-// neues Token und wiederholt den Request einmal. flowlite hält das Token im Speicher des Prozesses.
+// neues Token und wiederholt den Request einmal. filuflow hält das Token im Speicher des Prozesses.
 import { createHash } from 'node:crypto';
 import { stringify as qsStringify, parse as qsParse } from 'node:querystring';
 import type { ExecContext } from '../nodes/types.js';

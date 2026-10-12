@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Wandelt fixtures/<name>/credentials.json (flowlite-Format { "<Name>": { id, type, data } })
+// Wandelt fixtures/<name>/credentials.json (filuflow-Format { "<Name>": { id, type, data } })
 // in das Importformat von `n8n import:credentials` (Array mit id, name, type, data unverschlüsselt).
 // Aufruf: node scripts/credentials-to-n8n.mjs <credentials.json> <ausgabe.json>
 import { readFileSync, writeFileSync } from 'node:fs';

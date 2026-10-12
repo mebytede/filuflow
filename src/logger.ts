@@ -9,7 +9,7 @@ export function getLogger(): Logger {
   if (!root) {
     root = pino(
       {
-        level: process.env.FLOWLITE_LOG_LEVEL ?? (process.env.VITEST ? 'silent' : 'info'),
+        level: process.env.FILUFLOW_LOG_LEVEL ?? (process.env.VITEST ? 'silent' : 'info'),
         base: undefined,
         redact: {
           paths: ['credentials', '*.credentials', 'password', '*.password', 'token', '*.token', 'apiKey', '*.apiKey'],

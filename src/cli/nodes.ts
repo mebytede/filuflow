@@ -1,4 +1,4 @@
-// flowlite nodes [--json]: unterstützte Node-Typen und Versionen
+// filuflow nodes [--json]: unterstützte Node-Typen und Versionen
 import { parseArgs } from 'node:util';
 import { getDefaultRegistry } from '../nodes/index.js';
 

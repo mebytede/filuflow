@@ -4,7 +4,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 N8N_IMAGE="${N8N_IMAGE:-n8nio/n8n:1.123.0}"
-WORK="$(mktemp -d "${TMPDIR:-/tmp}/flowlite-ai-oracle.XXXXXX")"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/filuflow-ai-oracle.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 node -e '
   import("'"$ROOT"'/scripts/ai-oracle-cases.mjs").then((m) => {

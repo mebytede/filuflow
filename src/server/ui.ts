@@ -40,7 +40,7 @@ export function registerUi(app: FastifyInstance, dir?: string): void {
   const root = dir ? (existsSync(join(dir, 'index.html')) ? dir : undefined) : findUiDir();
   const notBuilt = (reply: FastifyReply) =>
     headers(reply.code(503), 'text/html; charset=utf-8').send(
-      '<!doctype html><meta charset="utf-8"><title>flowlite</title><p>Die Weboberfläche ist nicht gebaut. Bitte <code>npm run build</code> ausführen.</p>',
+      '<!doctype html><meta charset="utf-8"><title>filuflow</title><p>Die Weboberfläche ist nicht gebaut. Bitte <code>npm run build</code> ausführen.</p>',
     );
 
   app.get('/', async (_request, reply) => {

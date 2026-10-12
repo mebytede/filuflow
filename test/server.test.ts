@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { createServer, type FlowliteServer } from '../src/server/app.js';
+import { createServer, type FiluflowServer } from '../src/server/app.js';
 import { StaticCredentialProvider } from '../src/credentials/store.js';
 import { ExecutionStore } from '../src/server/store.js';
 import type { Workflow, WorkflowNode } from '../src/types.js';
@@ -25,10 +25,10 @@ const code = (name: string, js: string, x = 200) => n(name, 'n8n-nodes-base.code
 const manual = n('Start', 'n8n-nodes-base.manualTrigger', 1, [0, 0]);
 
 let dir: string;
-let server: FlowliteServer | undefined;
+let server: FiluflowServer | undefined;
 
 async function start(workflows: Workflow[], options: { concurrency?: number; credentials?: StaticCredentialProvider; watch?: boolean } = {}) {
-  dir = mkdtempSync(join(tmpdir(), 'flowlite-srv-'));
+  dir = mkdtempSync(join(tmpdir(), 'filuflow-srv-'));
   for (const w of workflows) writeFileSync(join(dir, `${w.id}.json`), JSON.stringify(w));
   server = await createServer({
     dir,

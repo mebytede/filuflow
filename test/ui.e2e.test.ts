@@ -8,12 +8,12 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { AddressInfo } from 'node:net';
 import { chromium, type Browser, type Page } from 'playwright-core';
-import { createServer, type FlowliteServer } from '../src/server/app.js';
+import { createServer, type FiluflowServer } from '../src/server/app.js';
 
 const ROOT = join(__dirname, '..');
 const KEY = 'e2e-schluessel';
 let browser: Browser | undefined;
-let server: FlowliteServer | undefined;
+let server: FiluflowServer | undefined;
 let dir: string;
 let base: string;
 
@@ -22,7 +22,7 @@ async function launch(): Promise<Browser | undefined> {
     return await chromium.launch();
   } catch {
     try {
-      return await chromium.launch({ executablePath: process.env.FLOWLITE_CHROMIUM ?? '/opt/pw-browsers/chromium' });
+      return await chromium.launch({ executablePath: process.env.FILUFLOW_CHROMIUM ?? '/opt/pw-browsers/chromium' });
     } catch {
       return undefined;
     }
@@ -34,7 +34,7 @@ beforeAll(async () => {
   if (!browser) return;
   execFileSync(process.execPath, [join(ROOT, 'node_modules', 'typescript', 'bin', 'tsc'), '-p', join(ROOT, 'tsconfig.ui.json')], { cwd: ROOT });
   execFileSync(process.execPath, [join(ROOT, 'scripts', 'copy-ui-assets.mjs')], { cwd: ROOT });
-  dir = mkdtempSync(join(tmpdir(), 'flowlite-e2e-'));
+  dir = mkdtempSync(join(tmpdir(), 'filuflow-e2e-'));
   server = await createServer({ dir, dbFile: ':memory:', apiKey: KEY, webhookBaseUrl: 'http://localhost:5678/', watch: false });
   await server.app.listen({ port: 0, host: '127.0.0.1' });
   base = `http://127.0.0.1:${(server.app.server.address() as AddressInfo).port}`;

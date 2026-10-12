@@ -30,7 +30,7 @@ export class Client {
       url,
       headers: {
         ...(cookie ? { cookie } : {}),
-        ...(this.csrf ? { 'x-flowlite-csrf': '1' } : {}),
+        ...(this.csrf ? { 'x-filuflow-csrf': '1' } : {}),
         ...(this.bearer ? { authorization: `Bearer ${this.bearer}` } : {}),
         ...headers,
       },

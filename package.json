@@ -1,5 +1,5 @@
 {
-  "name": "flowlite",
+  "name": "filuflow",
   "version": "0.1.0",
   "description": "n8n-kompatible Workflow-Engine (internes Tool)",
   "private": true,
@@ -9,7 +9,7 @@
     "node": ">=22"
   },
   "bin": {
-    "flowlite": "./bin/flowlite.js"
+    "filuflow": "./bin/filuflow.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -22,7 +22,7 @@
     "test": "vitest run --exclude 'test/compat/**'",
     "test:compat": "vitest run test/compat",
     "lint": "eslint . && tsc --noEmit && tsc -p tsconfig.ui.json --noEmit",
-    "flowlite": "tsx src/cli/main.ts",
+    "filuflow": "tsx src/cli/main.ts",
     "build:ui": "tsc -p tsconfig.ui.json && node scripts/copy-ui-assets.mjs"
   },
   "dependencies": {

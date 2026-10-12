@@ -21,7 +21,7 @@ export interface EditorApiOptions {
   manager: ExecutionManager;
   store: ExecutionStore;
   workflows: () => WorkflowManager;
-  /** Basis-URL der Webhooks (FLOWLITE_WEBHOOK_URL), für die Anzeige im Editor */
+  /** Basis-URL der Webhooks (FILUFLOW_WEBHOOK_URL), für die Anzeige im Editor */
   webhookBaseUrl: string;
 }
 

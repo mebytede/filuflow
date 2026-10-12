@@ -4,10 +4,12 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { MasterDb, UserRow } from './db.js';
 import { randomToken, sha256 } from './auth.js';
 
-export const SESSION_COOKIE = 'flowlite_session';
+export const SESSION_COOKIE = 'filuflow_session';
 /** Header, den die Oberfläche bei ändernden Requests mitschickt (fremde Seiten können ihn ohne CORS nicht setzen) */
-export const CSRF_HEADER = 'x-flowlite-csrf';
-export const API_TOKEN_PREFIX = 'flt_';
+export const CSRF_HEADER = 'x-filuflow-csrf';
+export const API_TOKEN_PREFIX = 'ffl_';
+/** Präfix der API-Tokens vor der Umbenennung in filuflow (bleiben gültig) */
+const LEGACY_TOKEN_PREFIX = 'flt_';
 
 export interface AuthContext {
   user: UserRow;
@@ -75,12 +77,12 @@ export class Sessions {
   }
 
   /**
-   * Anmeldung des Requests über Sitzungs-Cookie oder API-Token (Authorization: Bearer flt_...).
+   * Anmeldung des Requests über Sitzungs-Cookie oder API-Token (Authorization: Bearer ffl_..., früher flt_...).
    * allowMfaPending: Sitzungen, die noch auf den TOTP-Code warten, gelten nur für die TOTP-Route.
    */
   authenticate(request: FastifyRequest, allowMfaPending = false): AuthContext | { mfaPending: true; user: UserRow; sessionHash: string } | undefined {
     const authz = request.headers.authorization;
-    if (typeof authz === 'string' && authz.startsWith(`Bearer ${API_TOKEN_PREFIX}`)) {
+    if (typeof authz === 'string' && (authz.startsWith(`Bearer ${API_TOKEN_PREFIX}`) || authz.startsWith(`Bearer ${LEGACY_TOKEN_PREFIX}`))) {
       const token = this.db.findApiToken(sha256(authz.slice(7).trim()));
       if (!token || (token.expires_at && token.expires_at < new Date().toISOString())) return undefined;
       const user = this.db.getUser(token.user_id);

@@ -7,7 +7,7 @@
 // "path" vergleicht Pfad + Query exakt; "pathPrefix" nur den Anfang; "bodyContains" verlangt einen Text
 // (oder bei einem Array alle Texte) im Body.
 // Requests an Mocks mit "log": true werden mitgeschrieben (server.requests; mit MOCK_LOG=<datei> auch als JSON-Zeilen),
-// damit Golden-Tests die Anfragen von n8n und flowlite vergleichen können (z. B. Prompts an KI-APIs).
+// damit Golden-Tests die Anfragen von n8n und filuflow vergleichen können (z. B. Prompts an KI-APIs).
 // Zusätzlich: /echo/* liefert die Anfrage zurück (Methode, Pfad, Query, ausgewählte Header, Body).
 // /oauth-echo/token liefert ein OAuth2-Token, das die Token-Anfrage kodiert enthält (Methode, Header, Body),
 // damit Golden-Tests die Token-Anfrage über den nachfolgenden Authorization-Header vergleichen können.

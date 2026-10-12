@@ -192,9 +192,9 @@ export class Runner {
 
 /** vars.json laden (für $vars), leer wenn nicht vorhanden */
 export async function loadVars(path?: string): Promise<Record<string, unknown>> {
-  const file = path ?? process.env.FLOWLITE_VARS ?? 'vars.json';
+  const file = path ?? process.env.FILUFLOW_VARS ?? 'vars.json';
   if (!existsSync(file)) {
-    if (path || process.env.FLOWLITE_VARS) throw new Error(`Variablen-Datei ${file} nicht gefunden`);
+    if (path || process.env.FILUFLOW_VARS) throw new Error(`Variablen-Datei ${file} nicht gefunden`);
     return {};
   }
   return JSON.parse(await readFile(file, 'utf8')) as Record<string, unknown>;

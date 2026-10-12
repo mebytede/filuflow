@@ -1,17 +1,17 @@
-// flowlite credentials encrypt <credentials.json> [--out <datei>]
-// flowlite credentials decrypt <credentials.json> [--out <datei>]
-// flowlite credentials check [<credentials.json>]
-// Schlüssel aus FLOWLITE_ENCRYPTION_KEY (AES-256-GCM, Schlüssel = SHA-256 des Werts).
+// filuflow credentials encrypt <credentials.json> [--out <datei>]
+// filuflow credentials decrypt <credentials.json> [--out <datei>]
+// filuflow credentials check [<credentials.json>]
+// Schlüssel aus FILUFLOW_ENCRYPTION_KEY (AES-256-GCM, Schlüssel = SHA-256 des Werts).
 import { parseArgs } from 'node:util';
 import { readFile, writeFile } from 'node:fs/promises';
 import { decryptCredentialsFile, encryptCredentialsFile, loadDefaultCredentials } from '../credentials/store.js';
 
 const USAGE = `Aufruf:
-  flowlite credentials encrypt <credentials.json> [--out <datei>]   Werte je Eintrag verschlüsseln
-  flowlite credentials decrypt <credentials.json> [--out <datei>]   zum Bearbeiten entschlüsseln
-  flowlite credentials check [<credentials.json>]                    laden, Env-Referenzen prüfen, Namen auflisten
+  filuflow credentials encrypt <credentials.json> [--out <datei>]   Werte je Eintrag verschlüsseln
+  filuflow credentials decrypt <credentials.json> [--out <datei>]   zum Bearbeiten entschlüsseln
+  filuflow credentials check [<credentials.json>]                    laden, Env-Referenzen prüfen, Namen auflisten
 
-Ohne --out wird nach stdout geschrieben. Schlüssel: FLOWLITE_ENCRYPTION_KEY.
+Ohne --out wird nach stdout geschrieben. Schlüssel: FILUFLOW_ENCRYPTION_KEY.
 `;
 
 export async function cmdCredentials(args: string[]): Promise<number> {
@@ -48,9 +48,9 @@ export async function cmdCredentials(args: string[]): Promise<number> {
     process.stderr.write(USAGE);
     return 1;
   }
-  const key = process.env.FLOWLITE_ENCRYPTION_KEY;
+  const key = process.env.FILUFLOW_ENCRYPTION_KEY;
   if (!key) {
-    process.stderr.write('FLOWLITE_ENCRYPTION_KEY ist nicht gesetzt\n');
+    process.stderr.write('FILUFLOW_ENCRYPTION_KEY ist nicht gesetzt\n');
     return 1;
   }
   try {
