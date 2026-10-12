@@ -1,0 +1,25 @@
+import js from '@eslint/js';
+import tseslint from 'typescript-eslint';
+
+export default tseslint.config(
+  { ignores: ['dist/**', 'node_modules/**', 'fixtures/**', 'coverage/**'] },
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
+  {
+    files: ['**/*.ts'],
+    rules: {
+      // any nur mit Begründungskommentar (eslint-disable-next-line + Grund)
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      'no-console': 'error',
+    },
+  },
+  {
+    files: ['src/cli/**/*.ts', 'scripts/**', 'test/**'],
+    rules: { 'no-console': 'off' },
+  },
+  {
+    files: ['bin/**/*.js'],
+    languageOptions: { globals: { process: 'readonly', console: 'readonly' } },
+  },
+);

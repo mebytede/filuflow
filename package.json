@@ -1,0 +1,54 @@
+{
+  "name": "flowlite",
+  "version": "0.1.0",
+  "description": "n8n-kompatible Workflow-Engine (internes Tool)",
+  "private": true,
+  "type": "module",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "flowlite": "./bin/flowlite.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "bin"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run --exclude 'test/compat/**'",
+    "test:compat": "vitest run test/compat",
+    "lint": "eslint . && tsc --noEmit",
+    "flowlite": "tsx src/cli/main.ts"
+  },
+  "dependencies": {
+    "acorn": "^8.19.0",
+    "acorn-walk": "^8.3.5",
+    "astring": "^1.9.0",
+    "better-sqlite3": "^13.0.3",
+    "cheerio": "^1.2.0",
+    "croner": "^10.0.1",
+    "fastify": "^5.12.5",
+    "jmespath": "^0.16.0",
+    "luxon": "^3.7.2",
+    "pino": "^10.4.0",
+    "undici": "^8.11.2",
+    "xml2js": "^0.6.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/jmespath": "^0.15.2",
+    "@types/luxon": "^3.7.6",
+    "@types/node": "^22.20.5",
+    "@types/xml2js": "^0.4.14",
+    "eslint": "^10.12.0",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.71.1",
+    "vitest": "^5.0.3"
+  }
+}

@@ -1,0 +1,8 @@
+node_modules/
+dist/
+coverage/
+*.db
+*.db-*
+.env
+/data/
+fixtures/**/_actual.json
