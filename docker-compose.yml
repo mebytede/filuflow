@@ -18,6 +18,6 @@ services:
       - ./workflows:/data/workflows:ro
       - ./credentials.json:/data/credentials.json:ro
       - flowlite-data:/data/state
-    command: ["node", "bin/flowlite.js", "serve", "--db", "/data/state/flowlite.db"]
+    command: ["node", "/app/bin/flowlite.js", "serve", "--db", "/data/state/flowlite.db"]
 volumes:
   flowlite-data:

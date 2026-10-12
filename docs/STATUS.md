@@ -17,7 +17,7 @@ Referenzversion: n8n **1.123.0** (Docker-Image `n8nio/n8n:1.123.0`, Quellcode-Ta
 | M7 | fertig: Basic LLM Chain (v1 bis 1.7), Structured Output Parser (v1 bis 1.3), Information Extractor, Text Classifier, Sentiment Analysis, AI Agent (Tools Agent v2 bis 3; v3 führt Tools über die Engine aus wie n8n), Modelle Gemini, OpenAI (Chat Completions), Anthropic, Tools Calculator, Code (JS), HTTP Request (v1, 1.1) und Workflow (v1 bis 2.2, mit `$fromAI`), Simple Memory. Fixtures 17 bis 22 grün gegen echtes n8n inklusive der gesendeten Requests (Grenzfälle: unbekanntes Tool, maximale Iterationen, Tool ohne execute bei Agent v3); Orakel für Schema und Parser (über 1.100 Fälle), Calculator und `$fromAI` (77 Fälle) |
 
 ## Hinweise
-- Docker-Image: `docker build` konnte in der Build-Umgebung nicht geprüft werden (Docker Hub antwortet mit 429 Too Many Requests für `node:22-slim`).
+- Docker-Image gebaut und geprüft (Healthcheck, Benutzer `node`, Webhook mit Respond-Node, REST-API, `executions list`). Die Build-Stufe nutzt `node:22` (Compiler für better-sqlite3), die Laufzeit `node:22-slim`. In dieser Umgebung lief der Build mit Proxy-CA in einer temporären Kopie, weil der Build-Container sonst kein Internet hat.
 - `fixtures/real/` fehlt noch: Es liegen keine echten Workflow-Exporte vor. Sobald welche vorhanden sind, mit `scripts/record-expected.sh` aufnehmen.
 - Orakel neu aufnehmen: `scripts/record-filter-table.sh`, `scripts/record-expression-table.sh`, `scripts/record-ai-oracle.sh`, `scripts/record-ai-tools-oracle.sh` (brauchen Docker).
 - Chat Trigger und Chat (Human in the Loop) sind laut SPEC 4.5 zurückgestellt, bis es eine Oberfläche gibt.

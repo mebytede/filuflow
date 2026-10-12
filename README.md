@@ -82,7 +82,12 @@ flowlite executions list --db /tmp/fl/flowlite.db
 FLOWLITE_API_KEY=geheim docker compose up -d --build
 ```
 `docker-compose.yml` bindet `./workflows` (nur lesend), `./credentials.json` und ein Volume für die Datenbank ein.
-Das Image basiert auf `node:22-slim` und läuft als Benutzer `node`.
+Das Image basiert auf `node:22-slim` und läuft als Benutzer `node` im Arbeitsverzeichnis `/data`
+(Workflows unter `/data/workflows`, optional `/data/credentials.json` und `/data/vars.json`). Ohne Compose:
+```
+docker build -t flowlite .
+docker run -p 5678:5678 -e FLOWLITE_API_KEY=geheim -v "$PWD/data:/data" flowlite
+```
 
 ## Credentials
 `credentials.json` (oder ein Verzeichnis mit einer Datei je Credential), Schlüssel = Credential-Name wie im Workflow,
