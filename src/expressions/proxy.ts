@@ -7,7 +7,6 @@ import { ExpressionError } from '../errors.js';
 import type { ExecutionMode, Item, PairedItem, RunData, SourceData, TaskData, WorkflowNode } from '../types.js';
 import type { WorkflowGraph } from '../engine/graph.js';
 import { extendedFunctions } from './functions.js';
-import { globalContext } from './evaluator.js';
 
 const SCRIPTING_NODE_TYPES = new Set([
   'n8n-nodes-base.function',
@@ -540,7 +539,6 @@ export function createDataProxy(state: ProxyState): Record<string, unknown> {
   const now = DateTime.now().setZone(s.timezone);
 
   const base: Record<string, unknown> = {
-    ...globalContext(),
     ...extendedFunctions,
     $: dollar,
     $input: inputProxy,

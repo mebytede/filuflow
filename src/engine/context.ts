@@ -10,6 +10,23 @@ import { createDataProxy, type ExecuteData } from '../expressions/proxy.js';
 import { cleanupParameterData, getByPath, resolveParameterValue, resolveSimpleValue } from '../expressions/resolve.js';
 import type { WorkflowExecutor } from './executor.js';
 
+/** Kopie der Eingangsdaten für Code-Nodes (n8n augmentArray: Änderungen bleiben lokal) */
+function structuredCloneItems(items: Item[]): Item[] {
+  return items.map((item) => {
+    const copy: Item = { ...item, json: cloneJson(item.json) };
+    if (item.binary) copy.binary = cloneJson(item.binary);
+    return copy;
+  });
+}
+
+function cloneJson<T>(value: T): T {
+  try {
+    return structuredClone(value);
+  } catch {
+    return JSON.parse(JSON.stringify(value)) as T;
+  }
+}
+
 export interface ContextInit {
   executor: WorkflowExecutor;
   node: WorkflowNode;
@@ -58,21 +75,22 @@ export class NodeExecutionContext implements ExecContext {
     this.triggerData = ex.triggerItems;
   }
 
-  getDataProxy(itemIndex: number, contextNodeName?: string): Record<string, unknown> {
+  getDataProxy(itemIndex: number, options: { cloneInput?: boolean; contextNodeName?: string } = {}): Record<string, unknown> {
+    const connectionInputData = options.cloneInput ? structuredCloneItems(this.connectionInputData) : this.connectionInputData;
     return createDataProxy({
       graph: this.workflow,
       runData: this.executor.runData,
       runIndex: this.runIndex,
       itemIndex,
       activeNodeName: this.node.name,
-      connectionInputData: this.connectionInputData,
+      connectionInputData,
       executeData: this.executeData,
       mode: this.mode,
       timezone: this.timezone,
       additionalKeys: this.executor.additionalKeys(),
       siblingParameters: {},
       env: this.executor.env,
-      contextNodeName,
+      contextNodeName: options.contextNodeName,
       resolveParameter: (value, idx) => this.resolve(value, idx),
       getNodeContext: (name) => this.executor.getNodeContext(name),
     });

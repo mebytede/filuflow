@@ -1,0 +1,651 @@
+{
+  "status": "success",
+  "lastNodeExecuted": "Filter",
+  "order": [
+    "Start",
+    "Daten",
+    "Regeln",
+    "Gross",
+    "B-Wort",
+    "Negativ",
+    "Rest",
+    "Fallback Index",
+    "Hat Text",
+    "Sonst",
+    "Ausdruck",
+    "A0",
+    "A1",
+    "A2",
+    "Filter"
+  ],
+  "nodes": {
+    "Start": [
+      {
+        "status": "success",
+        "source": [],
+        "main": [
+          [
+            {
+              "json": {},
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Daten": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Start"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "v": 5,
+                "s": "apple"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "v": 50,
+                "s": "Banana"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "v": -1,
+                "s": "cherry"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "v": 500,
+                "s": "blau"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "v": 0,
+                "s": ""
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Regeln": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "v": 50,
+                "s": "Banana"
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            },
+            {
+              "json": {
+                "v": 500,
+                "s": "blau"
+              },
+              "pairedItem": {
+                "item": 3
+              }
+            }
+          ],
+          [
+            {
+              "json": {
+                "v": 50,
+                "s": "Banana"
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            },
+            {
+              "json": {
+                "v": 500,
+                "s": "blau"
+              },
+              "pairedItem": {
+                "item": 3
+              }
+            }
+          ],
+          [
+            {
+              "json": {
+                "v": -1,
+                "s": "cherry"
+              },
+              "pairedItem": {
+                "item": 2
+              }
+            }
+          ],
+          [
+            {
+              "json": {
+                "v": 5,
+                "s": "apple"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "v": 0,
+                "s": ""
+              },
+              "pairedItem": {
+                "item": 4
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Gross": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Regeln"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "v": 50,
+                "s": "Banana"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "v": 500,
+                "s": "blau"
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "B-Wort": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Regeln",
+            "previousNodeOutput": 1
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "v": 50,
+                "s": "Banana"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "v": 500,
+                "s": "blau"
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Negativ": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Regeln",
+            "previousNodeOutput": 2
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "v": -1,
+                "s": "cherry"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Rest": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Regeln",
+            "previousNodeOutput": 3
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "v": 5,
+                "s": "apple"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "v": 0,
+                "s": ""
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Fallback Index": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "v": 5,
+                "s": "apple"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "v": 50,
+                "s": "Banana"
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            },
+            {
+              "json": {
+                "v": -1,
+                "s": "cherry"
+              },
+              "pairedItem": {
+                "item": 2
+              }
+            },
+            {
+              "json": {
+                "v": 500,
+                "s": "blau"
+              },
+              "pairedItem": {
+                "item": 3
+              }
+            }
+          ],
+          [
+            {
+              "json": {
+                "v": 0,
+                "s": ""
+              },
+              "pairedItem": {
+                "item": 4
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Hat Text": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Fallback Index"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "v": 5,
+                "s": "apple"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "v": 50,
+                "s": "Banana"
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            },
+            {
+              "json": {
+                "v": -1,
+                "s": "cherry"
+              },
+              "pairedItem": {
+                "item": 2
+              }
+            },
+            {
+              "json": {
+                "v": 500,
+                "s": "blau"
+              },
+              "pairedItem": {
+                "item": 3
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Sonst": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Fallback Index",
+            "previousNodeOutput": 1
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "v": 0,
+                "s": ""
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Ausdruck": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "v": 5,
+                "s": "apple"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "v": 0,
+                "s": ""
+              },
+              "pairedItem": {
+                "item": 4
+              }
+            }
+          ],
+          [
+            {
+              "json": {
+                "v": -1,
+                "s": "cherry"
+              },
+              "pairedItem": {
+                "item": 2
+              }
+            }
+          ],
+          [
+            {
+              "json": {
+                "v": 50,
+                "s": "Banana"
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            },
+            {
+              "json": {
+                "v": 500,
+                "s": "blau"
+              },
+              "pairedItem": {
+                "item": 3
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "A0": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Ausdruck"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "v": 5,
+                "s": "apple"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "v": 0,
+                "s": ""
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "A1": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Ausdruck",
+            "previousNodeOutput": 1
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "v": -1,
+                "s": "cherry"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "A2": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Ausdruck",
+            "previousNodeOutput": 2
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "v": 50,
+                "s": "Banana"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "v": 500,
+                "s": "blau"
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Filter": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "v": 5,
+                "s": "apple"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "v": -1,
+                "s": "cherry"
+              },
+              "pairedItem": {
+                "item": 2
+              }
+            }
+          ],
+          [
+            {
+              "json": {
+                "v": 50,
+                "s": "Banana"
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            },
+            {
+              "json": {
+                "v": 500,
+                "s": "blau"
+              },
+              "pairedItem": {
+                "item": 3
+              }
+            },
+            {
+              "json": {
+                "v": 0,
+                "s": ""
+              },
+              "pairedItem": {
+                "item": 4
+              }
+            }
+          ]
+        ]
+      }
+    ]
+  }
+}

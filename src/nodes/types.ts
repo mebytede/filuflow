@@ -55,7 +55,7 @@ export interface ExecContext {
   /** Expression (ohne führendes `=`) für ein Item auswerten */
   evaluateExpression(expression: string, itemIndex: number): unknown;
   /** Datenobjekt mit allen Expression-Variablen ($json, $input, $() …) für ein Item */
-  getDataProxy(itemIndex: number): Record<string, unknown>;
+  getDataProxy(itemIndex: number, options?: { cloneInput?: boolean }): Record<string, unknown>;
   getCredentials(type: string, itemIndex?: number): Promise<Record<string, unknown>>;
   /** Zustand des Nodes über mehrere Runs (n8n: getContext('node')) */
   getNodeContext(): Record<string, unknown>;

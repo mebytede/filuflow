@@ -1,0 +1,62 @@
+{
+  "name": "01 Lineare Kette",
+  "nodes": [
+    { "parameters": {}, "id": "a1", "name": "Start", "type": "n8n-nodes-base.manualTrigger", "typeVersion": 1, "position": [0, 0] },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "s1", "name": "name", "value": "Max", "type": "string" },
+            { "id": "s2", "name": "count", "value": "={{ 1 + 2 }}", "type": "number" },
+            { "id": "s3", "name": "active", "value": "true", "type": "boolean" },
+            { "id": "s4", "name": "tags", "value": "[\"a\", \"b\"]", "type": "array" },
+            { "id": "s5", "name": "info.city", "value": "Berlin", "type": "string" },
+            { "id": "s6", "name": "fallback", "value": "={{ $json.missing ?? 'default' }}", "type": "string" },
+            { "id": "s7", "name": "meta", "value": "={{ { a: 1, b: [1, 2] } }}", "type": "object" },
+            { "id": "s8", "name": "text", "value": "=Hallo {{ $json.missing }}!", "type": "string" },
+            { "id": "s9", "name": "num", "value": "42", "type": "number" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a2", "name": "Felder", "type": "n8n-nodes-base.set", "typeVersion": 3.4, "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const first = $input.first().json;\nconst out = [];\nfor (let i = 0; i < first.count + 2; i++) {\n  out.push({ json: { i, name: first.name + i, even: i % 2 === 0, score: i * 1.5, city: first.info.city } });\n}\nreturn out;"
+      },
+      "id": "a3", "name": "Erzeugen", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            { "id": "c1", "leftValue": "={{ $json.score }}", "rightValue": 2, "operator": { "type": "number", "operation": "gt" } },
+            { "id": "c2", "leftValue": "={{ $json.name }}", "rightValue": "Max0", "operator": { "type": "string", "operation": "equals", "name": "filter.operator.equals" } }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "a4", "name": "Gross?", "type": "n8n-nodes-base.if", "typeVersion": 2.2, "position": [660, 0]
+    },
+    { "parameters": {}, "id": "a5", "name": "Wahr", "type": "n8n-nodes-base.noOp", "typeVersion": 1, "position": [880, -100] },
+    {
+      "parameters": {
+        "assignments": { "assignments": [ { "id": "f1", "name": "label", "value": "={{ $json.name }} ist klein ({{ $('Felder').item.json.name }})", "type": "string" } ] },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "a6", "name": "Falsch", "type": "n8n-nodes-base.set", "typeVersion": 3.4, "position": [880, 100]
+    }
+  ],
+  "connections": {
+    "Start": { "main": [[{ "node": "Felder", "type": "main", "index": 0 }]] },
+    "Felder": { "main": [[{ "node": "Erzeugen", "type": "main", "index": 0 }]] },
+    "Erzeugen": { "main": [[{ "node": "Gross?", "type": "main", "index": 0 }]] },
+    "Gross?": { "main": [[{ "node": "Wahr", "type": "main", "index": 0 }], [{ "node": "Falsch", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}

@@ -1,0 +1,136 @@
+{
+  "name": "10 Set- und Code-Varianten",
+  "nodes": [
+    { "parameters": {}, "id": "v1", "name": "Start", "type": "n8n-nodes-base.manualTrigger", "typeVersion": 1, "position": [0, 0] },
+    {
+      "parameters": { "jsCode": "return [\n  { json: { id: 1, name: 'Anna', address: { city: 'Köln', zip: '50667' }, 'a.b': 'punkt', tags: ['x'] } },\n  { json: { id: 2, name: 'Ben', address: { city: 'Bonn', zip: '53111' }, 'a.b': 'punkt2', tags: [] } }\n];" },
+      "id": "v2", "name": "Daten", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "boolean": [ { "name": "aktiv", "value": true }, { "name": "aus" } ],
+          "number": [ { "name": "zahl", "value": 7 }, { "name": "null" }, { "name": "deep.n", "value": "={{ $json.id * 2 }}" } ],
+          "string": [ { "name": "text", "value": "={{ $json.name.toUpperCase() }}" }, { "name": "leer" } ]
+        },
+        "options": {}
+      },
+      "id": "v3", "name": "Set v1", "type": "n8n-nodes-base.set", "typeVersion": 1, "position": [400, -400]
+    },
+    {
+      "parameters": {
+        "values": { "number": [ { "name": "nr", "value": "={{ String($json.id) }}" } ] },
+        "options": { "dotNotation": false }
+      },
+      "id": "v4", "name": "Set v2", "type": "n8n-nodes-base.set", "typeVersion": 2, "position": [400, -300]
+    },
+    {
+      "parameters": {
+        "fields": {
+          "values": [
+            { "name": "s", "stringValue": "={{ $json.id }}" },
+            { "name": "n", "type": "numberValue", "numberValue": "={{ $json.id + 0.5 }}" },
+            { "name": "b", "type": "booleanValue", "booleanValue": "false" },
+            { "name": "arr", "type": "arrayValue", "arrayValue": "['a', 'b']" },
+            { "name": "obj", "type": "objectValue", "objectValue": "={ \"stadt\": \"{{ $json.address.city }}\", \"id\": {{ $json.id }} }" }
+          ]
+        },
+        "include": "selected",
+        "includeFields": "name, address.city",
+        "options": {}
+      },
+      "id": "v5", "name": "Set 3.2 selected", "type": "n8n-nodes-base.set", "typeVersion": 3.2, "position": [400, -200]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"person\": \"{{ $json.name }}\",\n  \"plz\": {{ $json.address.zip }},\n  \"tags\": {{ $json.tags }}\n}",
+        "includeOtherFields": true,
+        "include": "except",
+        "excludeFields": "address, tags",
+        "options": {}
+      },
+      "id": "v6", "name": "Set raw except", "type": "n8n-nodes-base.set", "typeVersion": 3.4, "position": [400, -100]
+    },
+    {
+      "parameters": {
+        "assignments": { "assignments": [
+          { "id": "d1", "name": "a.b", "value": "neu", "type": "string" },
+          { "id": "d2", "name": "x.y", "value": "={{ $json['a.b'] }}", "type": "string" }
+        ] },
+        "includeOtherFields": true,
+        "options": { "dotNotation": false }
+      },
+      "id": "v7", "name": "Set ohne Punkt", "type": "n8n-nodes-base.set", "typeVersion": 3.4, "position": [400, 0]
+    },
+    {
+      "parameters": {
+        "assignments": { "assignments": [
+          { "id": "i1", "name": "zahl", "value": "abc", "type": "number" },
+          { "id": "i2", "name": "bool", "value": "ja", "type": "boolean" },
+          { "id": "i3", "name": "obj", "value": "{a: 1}", "type": "object" },
+          { "id": "i4", "name": "leer", "value": "={{ $json.gibtsnicht }}", "type": "string" },
+          { "id": "i5", "name": "zahlstring", "value": "={{ 12 }}", "type": "string" },
+          { "id": "i6", "name": "objstring", "value": "={{ $json.address }}", "type": "string" }
+        ] },
+        "options": { "ignoreConversionErrors": true }
+      },
+      "id": "v8", "name": "Set ignoreErrors", "type": "n8n-nodes-base.set", "typeVersion": 3.4, "position": [400, 100]
+    },
+    {
+      "parameters": { "jsCode": "console.log('Anzahl', items.length);\nconst now = new Date('2024-05-01T12:00:00.000Z');\nreturn items.map((item, i) => ({\n  json: { i, datum: now, verschachtelt: { re: /abc/g, liste: [now] }, karte: new Map([[1, 2]]), input: $input.item ? 'ja' : 'nein' }\n}));" },
+      "id": "v9", "name": "Code Standardize", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [400, 200]
+    },
+    {
+      "parameters": { "jsCode": "return { einzeln: true, anzahl: $input.all().length };" },
+      "id": "v10", "name": "Code Einzelobjekt", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [400, 300]
+    },
+    {
+      "parameters": { "mode": "runOnceForEachItem", "jsCode": "$json.name = $json.name + '!';\nreturn { ...item.json, index: $itemIndex, vorher: $('Daten').item.json.name };" },
+      "id": "v11", "name": "Code Je Item", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [400, 400]
+    },
+    {
+      "parameters": { "jsCode": "return [{ json: { ok: 1 } }, { json: { ok: 2 }, extra: true }];" },
+      "id": "v12", "name": "Code Ungueltig", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [400, 500], "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": { "jsCode": "return $input.all();" },
+      "id": "v13", "name": "Code Durchreichen", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [400, 600]
+    },
+    {
+      "parameters": { "mode": "runOnceForEachItem", "jsCode": "return $input.all();" },
+      "id": "v14", "name": "Code Verboten", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [400, 700], "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": { "jsCode": "return items.map(i => i.json).filter(j => j.id === 2);" },
+      "id": "v15", "name": "Code Ohne Json", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [400, 800]
+    },
+    {
+      "parameters": { "jsCode": "return null;" },
+      "id": "v16", "name": "Code Null", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [400, 900]
+    },
+    { "parameters": {}, "id": "v17", "name": "Nach Null", "type": "n8n-nodes-base.noOp", "typeVersion": 1, "position": [600, 900] }
+  ],
+  "connections": {
+    "Start": { "main": [[{ "node": "Daten", "type": "main", "index": 0 }]] },
+    "Daten": { "main": [[
+      { "node": "Set v1", "type": "main", "index": 0 },
+      { "node": "Set v2", "type": "main", "index": 0 },
+      { "node": "Set 3.2 selected", "type": "main", "index": 0 },
+      { "node": "Set raw except", "type": "main", "index": 0 },
+      { "node": "Set ohne Punkt", "type": "main", "index": 0 },
+      { "node": "Set ignoreErrors", "type": "main", "index": 0 },
+      { "node": "Code Standardize", "type": "main", "index": 0 },
+      { "node": "Code Einzelobjekt", "type": "main", "index": 0 },
+      { "node": "Code Je Item", "type": "main", "index": 0 },
+      { "node": "Code Ungueltig", "type": "main", "index": 0 },
+      { "node": "Code Durchreichen", "type": "main", "index": 0 },
+      { "node": "Code Verboten", "type": "main", "index": 0 },
+      { "node": "Code Ohne Json", "type": "main", "index": 0 },
+      { "node": "Code Null", "type": "main", "index": 0 }
+    ]] },
+    "Code Null": { "main": [[{ "node": "Nach Null", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

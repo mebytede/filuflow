@@ -137,7 +137,10 @@ export function createScope(data: Record<string, unknown>): object {
     },
     get(target, key) {
       if (key === Symbol.unscopables) return undefined;
-      if (key in target) return Reflect.get(target, key);
+      // Das Datenobjekt (n8n-Proxy) meldet über `has` jeden Namen als vorhanden,
+      // daher zählt nur ein tatsächlich gesetzter Wert.
+      const value = Reflect.get(target, key);
+      if (value !== undefined) return value;
       if (typeof key === 'string' && Object.hasOwn(GLOBALS, key)) return GLOBALS[key];
       return undefined;
     },

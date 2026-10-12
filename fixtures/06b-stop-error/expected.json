@@ -1,0 +1,70 @@
+{
+  "status": "error",
+  "lastNodeExecuted": "Kaputt",
+  "error": "Cannot read properties of undefined (reading 'tief') [line 3, for item 1]",
+  "order": [
+    "Start",
+    "Daten",
+    "Kaputt"
+  ],
+  "nodes": {
+    "Start": [
+      {
+        "status": "success",
+        "source": [],
+        "main": [
+          [
+            {
+              "json": {},
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Daten": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Start"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "a": 1
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "a": 2
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Kaputt": [
+      {
+        "status": "error",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [],
+        "error": "Cannot read properties of undefined (reading 'tief') [line 3, for item 1]"
+      }
+    ]
+  }
+}

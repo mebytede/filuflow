@@ -1,0 +1,442 @@
+{
+  "status": "success",
+  "lastNodeExecuted": "If Falsch",
+  "order": [
+    "Start",
+    "Daten",
+    "Teilen Regular",
+    "Regular Ausgabe",
+    "Teilen Fehlerausgang",
+    "Erfolg",
+    "Fehler",
+    "Retry",
+    "Retry Fehlschlag",
+    "Nach Fehlschlag",
+    "Typfehler",
+    "If Fehlerausgang",
+    "If Wahr",
+    "If Falsch"
+  ],
+  "nodes": {
+    "Start": [
+      {
+        "status": "success",
+        "source": [],
+        "main": [
+          [
+            {
+              "json": {},
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Daten": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Start"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "n": 1
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "n": 0
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "n": 4
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Teilen Regular": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "r": 12
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "error": "Division durch null [line 1, for item 1]"
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            },
+            {
+              "json": {
+                "r": 3
+              },
+              "pairedItem": {
+                "item": 2
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Regular Ausgabe": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Teilen Regular"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "r": 12
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "error": "Division durch null [line 1, for item 1]"
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            },
+            {
+              "json": {
+                "r": 3
+              },
+              "pairedItem": {
+                "item": 2
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Teilen Fehlerausgang": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "r": 12
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "r": 3
+              },
+              "pairedItem": {
+                "item": 2
+              }
+            }
+          ],
+          [
+            {
+              "json": {
+                "n": 0,
+                "error": "Division durch null [line 1, for item 1]"
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Erfolg": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Teilen Fehlerausgang"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "r": 12
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "r": 3
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Fehler": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Teilen Fehlerausgang",
+            "previousNodeOutput": 1
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "n": 0,
+                "error": "Division durch null [line 1, for item 1]"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Retry": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "versuche": 3
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Retry Fehlschlag": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "error": "immer kaputt [line 1]"
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Nach Fehlschlag": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Retry Fehlschlag"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "error": "immer kaputt [line 1]"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Typfehler": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "zahl": 1
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "error": "'zahl' expects a number but we got 'keine Zahl' [item 1]",
+                "pairedItem": {
+                  "item": 1
+                }
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            },
+            {
+              "json": {
+                "zahl": 4
+              },
+              "pairedItem": {
+                "item": 2
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "If Fehlerausgang": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "n": 1
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "n": 4
+              },
+              "pairedItem": {
+                "item": 2
+              }
+            }
+          ],
+          [
+            {
+              "json": {
+                "n": 0
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ],
+          []
+        ]
+      }
+    ],
+    "If Wahr": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "If Fehlerausgang"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "n": 1
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "n": 4
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "If Falsch": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "If Fehlerausgang",
+            "previousNodeOutput": 1
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "n": 0
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ]
+  }
+}

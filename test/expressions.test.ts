@@ -101,6 +101,11 @@ describe('Expression-Variablen', () => {
     expect(ev('{{ $workflow.name + $workflow.id }}')).toBe('wfw1');
   });
 
+  it('globale Objekte sind trotz Daten-Proxy erreichbar', () => {
+    expect(ev('{{ String($json.a) + Math.max(1, 2) + JSON.stringify([1]) + Number("3") }}', { a: 7 })).toBe('72[1]3');
+    expect(ev('{{ Object.keys($json).length }}', { a: 1, b: 2 })).toBe(2);
+  });
+
   it('$now/$today sind luxon DateTime in der Workflow-Zeitzone', () => {
     const now = ev('{{ $now }}') as DateTime;
     expect(DateTime.isDateTime(now)).toBe(true);

@@ -19,7 +19,10 @@ export default tseslint.config(
     rules: { 'no-console': 'off' },
   },
   {
-    files: ['bin/**/*.js'],
-    languageOptions: { globals: { process: 'readonly', console: 'readonly' } },
+    files: ['bin/**/*.js', 'scripts/**/*.mjs'],
+    languageOptions: {
+      globals: { process: 'readonly', console: 'readonly', Buffer: 'readonly', URL: 'readonly' },
+    },
+    rules: { '@typescript-eslint/no-unused-vars': ['error', { varsIgnorePattern: '^_', ignoreRestSiblings: true }] },
   },
 );

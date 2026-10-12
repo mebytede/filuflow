@@ -1,0 +1,395 @@
+{
+  "status": "success",
+  "lastNodeExecuted": "Nach Je Item",
+  "order": [
+    "Start",
+    "Quelle",
+    "Gleich",
+    "Nach Gleich",
+    "Anders",
+    "Nach Anders",
+    "Explizit",
+    "Nach Explizit",
+    "Je Item",
+    "Nach Je Item"
+  ],
+  "nodes": {
+    "Start": [
+      {
+        "status": "success",
+        "source": [],
+        "main": [
+          [
+            {
+              "json": {},
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Quelle": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Start"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "id": 1,
+                "name": "eins"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "id": 2,
+                "name": "zwei"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "id": 3,
+                "name": "drei"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Gleich": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Quelle"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "id10": 10
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "id10": 20
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            },
+            {
+              "json": {
+                "id10": 30
+              },
+              "pairedItem": {
+                "item": 2
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Nach Gleich": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Gleich"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "id10": 10,
+                "name": "eins",
+                "match": "zwei",
+                "erster": 1,
+                "anzahl": 3,
+                "alt": "eins"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "id10": 20,
+                "name": "zwei",
+                "match": "zwei",
+                "erster": 1,
+                "anzahl": 3,
+                "alt": "zwei"
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            },
+            {
+              "json": {
+                "id10": 30,
+                "name": "drei",
+                "match": "zwei",
+                "erster": 1,
+                "anzahl": 3,
+                "alt": "drei"
+              },
+              "pairedItem": {
+                "item": 2
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Anders": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Quelle"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "x": 1
+              }
+            },
+            {
+              "json": {
+                "x": 2
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Nach Anders": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Anders"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "error": "Paired item data for item from node 'Anders' is unavailable. Ensure 'Anders' is providing the required output.",
+                "pairedItem": {
+                  "item": 0
+                }
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "error": "Paired item data for item from node 'Anders' is unavailable. Ensure 'Anders' is providing the required output.",
+                "pairedItem": {
+                  "item": 1
+                }
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Explizit": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Quelle"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "quelle": "erstes+drittes"
+              },
+              "pairedItem": [
+                {
+                  "item": 0
+                },
+                {
+                  "item": 2
+                }
+              ]
+            },
+            {
+              "json": {
+                "quelle": "zweites"
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            },
+            {
+              "json": {
+                "quelle": "drittes"
+              },
+              "pairedItem": 2
+            }
+          ]
+        ]
+      }
+    ],
+    "Nach Explizit": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Explizit"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "error": "Multiple matches found",
+                "pairedItem": {
+                  "item": 0
+                }
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "quelle": "zweites",
+                "name": "zwei"
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            },
+            {
+              "json": {
+                "quelle": "drittes",
+                "name": "drei"
+              },
+              "pairedItem": {
+                "item": 2
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Je Item": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Quelle"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "doppelt": 2,
+                "name": "eins"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "doppelt": 4,
+                "name": "zwei"
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            },
+            {
+              "json": {
+                "doppelt": 6,
+                "name": "drei"
+              },
+              "pairedItem": {
+                "item": 2
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Nach Je Item": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Je Item"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "doppelt": 2,
+                "name": "eins",
+                "name2": "eins"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "doppelt": 4,
+                "name": "zwei",
+                "name2": "zwei"
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            },
+            {
+              "json": {
+                "doppelt": 6,
+                "name": "drei",
+                "name2": "drei"
+              },
+              "pairedItem": {
+                "item": 2
+              }
+            }
+          ]
+        ]
+      }
+    ]
+  }
+}

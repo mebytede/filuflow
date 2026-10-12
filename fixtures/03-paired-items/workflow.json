@@ -1,0 +1,78 @@
+{
+  "name": "03 Paired Items",
+  "nodes": [
+    { "parameters": {}, "id": "b1", "name": "Start", "type": "n8n-nodes-base.manualTrigger", "typeVersion": 1, "position": [0, 0] },
+    {
+      "parameters": { "jsCode": "return [\n  { json: { id: 1, name: 'eins' } },\n  { json: { id: 2, name: 'zwei' } },\n  { json: { id: 3, name: 'drei' } }\n];" },
+      "id": "b2", "name": "Quelle", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [200, 0]
+    },
+    {
+      "parameters": { "jsCode": "return $input.all().map(i => ({ json: { id10: i.json.id * 10 } }));" },
+      "id": "b3", "name": "Gleich", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [400, -200]
+    },
+    {
+      "parameters": {
+        "assignments": { "assignments": [
+          { "id": "x1", "name": "name", "value": "={{ $('Quelle').item.json.name }}", "type": "string" },
+          { "id": "x2", "name": "match", "value": "={{ $('Quelle').itemMatching(1).json.name }}", "type": "string" },
+          { "id": "x3", "name": "erster", "value": "={{ $('Quelle').first().json.id }}", "type": "number" },
+          { "id": "x4", "name": "anzahl", "value": "={{ $('Quelle').all().length }}", "type": "number" },
+          { "id": "x5", "name": "alt", "value": "={{ $node['Quelle'].json.name }}", "type": "string" }
+        ] },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "b4", "name": "Nach Gleich", "type": "n8n-nodes-base.set", "typeVersion": 3.4, "position": [600, -200]
+    },
+    {
+      "parameters": { "jsCode": "return [{ json: { x: 1 } }, { json: { x: 2 } }];" },
+      "id": "b5", "name": "Anders", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [400, 0]
+    },
+    {
+      "parameters": {
+        "assignments": { "assignments": [ { "id": "y1", "name": "name", "value": "={{ $('Quelle').item.json.name }}", "type": "string" } ] },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "b6", "name": "Nach Anders", "type": "n8n-nodes-base.set", "typeVersion": 3.4, "position": [600, 0], "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": { "jsCode": "const all = $input.all();\nreturn [\n  { json: { quelle: 'erstes+drittes' }, pairedItem: [{ item: 0 }, { item: 2 }] },\n  { json: { quelle: 'zweites' }, pairedItem: { item: 1 } },\n  { json: { quelle: 'drittes' }, pairedItem: 2 }\n];" },
+      "id": "b7", "name": "Explizit", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [400, 200]
+    },
+    {
+      "parameters": {
+        "assignments": { "assignments": [ { "id": "z1", "name": "name", "value": "={{ $('Quelle').item.json.name }}", "type": "string" } ] },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "b8", "name": "Nach Explizit", "type": "n8n-nodes-base.set", "typeVersion": 3.4, "position": [600, 200], "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": { "mode": "runOnceForEachItem", "jsCode": "return { json: { doppelt: $json.id * 2, name: $('Quelle').item.json.name } };" },
+      "id": "b9", "name": "Je Item", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [400, 400]
+    },
+    {
+      "parameters": {
+        "assignments": { "assignments": [ { "id": "w1", "name": "name2", "value": "={{ $('Quelle').item.json.name }}", "type": "string" } ] },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "b10", "name": "Nach Je Item", "type": "n8n-nodes-base.set", "typeVersion": 3.4, "position": [600, 400]
+    }
+  ],
+  "connections": {
+    "Start": { "main": [[{ "node": "Quelle", "type": "main", "index": 0 }]] },
+    "Quelle": { "main": [[
+      { "node": "Gleich", "type": "main", "index": 0 },
+      { "node": "Anders", "type": "main", "index": 0 },
+      { "node": "Explizit", "type": "main", "index": 0 },
+      { "node": "Je Item", "type": "main", "index": 0 }
+    ]] },
+    "Gleich": { "main": [[{ "node": "Nach Gleich", "type": "main", "index": 0 }]] },
+    "Anders": { "main": [[{ "node": "Nach Anders", "type": "main", "index": 0 }]] },
+    "Explizit": { "main": [[{ "node": "Nach Explizit", "type": "main", "index": 0 }]] },
+    "Je Item": { "main": [[{ "node": "Nach Je Item", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

@@ -1,0 +1,118 @@
+{
+  "name": "07 Switch",
+  "nodes": [
+    { "parameters": {}, "id": "w1", "name": "Start", "type": "n8n-nodes-base.manualTrigger", "typeVersion": 1, "position": [0, 0] },
+    {
+      "parameters": { "jsCode": "return [\n  { json: { v: 5, s: 'apple' } },\n  { json: { v: 50, s: 'Banana' } },\n  { json: { v: -1, s: 'cherry' } },\n  { json: { v: 500, s: 'blau' } },\n  { json: { v: 0, s: '' } }\n];" },
+      "id": "w2", "name": "Daten", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "strict", "version": 2 },
+                "conditions": [ { "id": "r1", "leftValue": "={{ $json.v }}", "rightValue": 10, "operator": { "type": "number", "operation": "gt" } } ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "gross"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "strict", "version": 2 },
+                "conditions": [ { "id": "r2", "leftValue": "={{ $json.s }}", "rightValue": "b", "operator": { "type": "string", "operation": "startsWith" } } ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "strict", "version": 2 },
+                "conditions": [ { "id": "r3", "leftValue": "={{ $json.v }}", "rightValue": 0, "operator": { "type": "number", "operation": "lt" } } ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": { "fallbackOutput": "extra", "allMatchingOutputs": true }
+      },
+      "id": "w3", "name": "Regeln", "type": "n8n-nodes-base.switch", "typeVersion": 3.2, "position": [400, -200]
+    },
+    { "parameters": {}, "id": "w4", "name": "Gross", "type": "n8n-nodes-base.noOp", "typeVersion": 1, "position": [600, -350] },
+    { "parameters": {}, "id": "w5", "name": "B-Wort", "type": "n8n-nodes-base.noOp", "typeVersion": 1, "position": [600, -250] },
+    { "parameters": {}, "id": "w6", "name": "Negativ", "type": "n8n-nodes-base.noOp", "typeVersion": 1, "position": [600, -150] },
+    { "parameters": {}, "id": "w7", "name": "Rest", "type": "n8n-nodes-base.noOp", "typeVersion": 1, "position": [600, -50] },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 2 },
+                "conditions": [ { "id": "k1", "leftValue": "={{ $json.s }}", "rightValue": "", "operator": { "type": "string", "operation": "notEmpty", "singleValue": true } } ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 2 },
+                "conditions": [ { "id": "k2", "leftValue": "={{ $json.v }}", "rightValue": "50", "operator": { "type": "number", "operation": "equals" } } ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": { "fallbackOutput": 1 }
+      },
+      "id": "w8", "name": "Fallback Index", "type": "n8n-nodes-base.switch", "typeVersion": 3.2, "position": [400, 100]
+    },
+    { "parameters": {}, "id": "w9", "name": "Hat Text", "type": "n8n-nodes-base.noOp", "typeVersion": 1, "position": [600, 50] },
+    { "parameters": {}, "id": "w10", "name": "Sonst", "type": "n8n-nodes-base.noOp", "typeVersion": 1, "position": [600, 150] },
+    {
+      "parameters": { "mode": "expression", "numberOutputs": 3, "output": "={{ $json.v > 10 ? 2 : ($json.v < 0 ? 1 : 0) }}" },
+      "id": "w11", "name": "Ausdruck", "type": "n8n-nodes-base.switch", "typeVersion": 3.2, "position": [400, 300]
+    },
+    { "parameters": {}, "id": "w12", "name": "A0", "type": "n8n-nodes-base.noOp", "typeVersion": 1, "position": [600, 250] },
+    { "parameters": {}, "id": "w13", "name": "A1", "type": "n8n-nodes-base.noOp", "typeVersion": 1, "position": [600, 350] },
+    { "parameters": {}, "id": "w14", "name": "A2", "type": "n8n-nodes-base.noOp", "typeVersion": 1, "position": [600, 450] },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 2 },
+          "conditions": [
+            { "id": "f1", "leftValue": "={{ $json.v }}", "rightValue": "10", "operator": { "type": "number", "operation": "lte" } },
+            { "id": "f2", "leftValue": "={{ $json.s }}", "rightValue": "^[a-c]", "operator": { "type": "string", "operation": "regex" } }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "w15", "name": "Filter", "type": "n8n-nodes-base.filter", "typeVersion": 2.2, "position": [400, 600]
+    }
+  ],
+  "connections": {
+    "Start": { "main": [[{ "node": "Daten", "type": "main", "index": 0 }]] },
+    "Daten": { "main": [[
+      { "node": "Regeln", "type": "main", "index": 0 },
+      { "node": "Fallback Index", "type": "main", "index": 0 },
+      { "node": "Ausdruck", "type": "main", "index": 0 },
+      { "node": "Filter", "type": "main", "index": 0 }
+    ]] },
+    "Regeln": { "main": [
+      [{ "node": "Gross", "type": "main", "index": 0 }],
+      [{ "node": "B-Wort", "type": "main", "index": 0 }],
+      [{ "node": "Negativ", "type": "main", "index": 0 }],
+      [{ "node": "Rest", "type": "main", "index": 0 }]
+    ] },
+    "Fallback Index": { "main": [[{ "node": "Hat Text", "type": "main", "index": 0 }], [{ "node": "Sonst", "type": "main", "index": 0 }]] },
+    "Ausdruck": { "main": [
+      [{ "node": "A0", "type": "main", "index": 0 }],
+      [{ "node": "A1", "type": "main", "index": 0 }],
+      [{ "node": "A2", "type": "main", "index": 0 }]
+    ] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

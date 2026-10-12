@@ -1,0 +1,21 @@
+{
+  "name": "06b Abbruch bei Fehler",
+  "nodes": [
+    { "parameters": {}, "id": "s1", "name": "Start", "type": "n8n-nodes-base.manualTrigger", "typeVersion": 1, "position": [0, 0] },
+    {
+      "parameters": { "jsCode": "return [{ json: { a: 1 } }, { json: { a: 2 } }];" },
+      "id": "s2", "name": "Daten", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [200, 0]
+    },
+    {
+      "parameters": { "mode": "runOnceForEachItem", "jsCode": "const x = $json.a;\nif (x === 2) {\n  return { json: { y: $json.fehlt.tief } };\n}\nreturn { json: { y: x } };" },
+      "id": "s3", "name": "Kaputt", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [400, 0]
+    },
+    { "parameters": {}, "id": "s4", "name": "Nie", "type": "n8n-nodes-base.noOp", "typeVersion": 1, "position": [600, 0] }
+  ],
+  "connections": {
+    "Start": { "main": [[{ "node": "Daten", "type": "main", "index": 0 }]] },
+    "Daten": { "main": [[{ "node": "Kaputt", "type": "main", "index": 0 }]] },
+    "Kaputt": { "main": [[{ "node": "Nie", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

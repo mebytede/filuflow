@@ -1,0 +1,67 @@
+{
+  "name": "06 Fehlerbehandlung",
+  "nodes": [
+    { "parameters": {}, "id": "e1", "name": "Start", "type": "n8n-nodes-base.manualTrigger", "typeVersion": 1, "position": [0, 0] },
+    {
+      "parameters": { "jsCode": "return [{ json: { n: 1 } }, { json: { n: 0 } }, { json: { n: 4 } }];" },
+      "id": "e2", "name": "Daten", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [200, 0]
+    },
+    {
+      "parameters": { "mode": "runOnceForEachItem", "jsCode": "if ($json.n === 0) throw new Error('Division durch null');\nreturn { json: { r: 12 / $json.n } };" },
+      "id": "e3", "name": "Teilen Regular", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [400, -300], "onError": "continueRegularOutput"
+    },
+    { "parameters": {}, "id": "e4", "name": "Regular Ausgabe", "type": "n8n-nodes-base.noOp", "typeVersion": 1, "position": [600, -300] },
+    {
+      "parameters": { "mode": "runOnceForEachItem", "jsCode": "if ($json.n === 0) throw new Error('Division durch null');\nreturn { json: { r: 12 / $json.n } };" },
+      "id": "e5", "name": "Teilen Fehlerausgang", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [400, -100], "onError": "continueErrorOutput"
+    },
+    { "parameters": {}, "id": "e6", "name": "Erfolg", "type": "n8n-nodes-base.noOp", "typeVersion": 1, "position": [600, -160] },
+    { "parameters": {}, "id": "e7", "name": "Fehler", "type": "n8n-nodes-base.noOp", "typeVersion": 1, "position": [600, -40] },
+    {
+      "parameters": { "jsCode": "const s = $getWorkflowStaticData('global');\ns.calls = (s.calls || 0) + 1;\nif (s.calls < 3) throw new Error('noch nicht, Versuch ' + s.calls);\nreturn [{ json: { versuche: s.calls } }];" },
+      "id": "e8", "name": "Retry", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [400, 100], "retryOnFail": true, "maxTries": 3, "waitBetweenTries": 10
+    },
+    {
+      "parameters": { "jsCode": "throw new Error('immer kaputt');" },
+      "id": "e9", "name": "Retry Fehlschlag", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [400, 300], "retryOnFail": true, "maxTries": 2, "waitBetweenTries": 10, "onError": "continueRegularOutput"
+    },
+    { "parameters": {}, "id": "e10", "name": "Nach Fehlschlag", "type": "n8n-nodes-base.noOp", "typeVersion": 1, "position": [600, 300] },
+    {
+      "parameters": {
+        "assignments": { "assignments": [ { "id": "t1", "name": "zahl", "value": "={{ $json.n === 0 ? 'keine Zahl' : $json.n }}", "type": "number" } ] },
+        "options": {}
+      },
+      "id": "e11", "name": "Typfehler", "type": "n8n-nodes-base.set", "typeVersion": 3.4, "position": [400, 500], "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [ { "id": "q1", "leftValue": "={{ $json.n === 0 ? 'null' : $json.n }}", "rightValue": 1, "operator": { "type": "number", "operation": "gte" } } ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "e12", "name": "If Fehlerausgang", "type": "n8n-nodes-base.if", "typeVersion": 2.2, "position": [400, 700], "onError": "continueErrorOutput"
+    },
+    { "parameters": {}, "id": "e13", "name": "If Wahr", "type": "n8n-nodes-base.noOp", "typeVersion": 1, "position": [600, 640] },
+    { "parameters": {}, "id": "e14", "name": "If Falsch", "type": "n8n-nodes-base.noOp", "typeVersion": 1, "position": [600, 720] },
+    { "parameters": {}, "id": "e15", "name": "If Fehler", "type": "n8n-nodes-base.noOp", "typeVersion": 1, "position": [600, 800] }
+  ],
+  "connections": {
+    "Start": { "main": [[{ "node": "Daten", "type": "main", "index": 0 }]] },
+    "Daten": { "main": [[
+      { "node": "Teilen Regular", "type": "main", "index": 0 },
+      { "node": "Teilen Fehlerausgang", "type": "main", "index": 0 },
+      { "node": "Retry", "type": "main", "index": 0 },
+      { "node": "Retry Fehlschlag", "type": "main", "index": 0 },
+      { "node": "Typfehler", "type": "main", "index": 0 },
+      { "node": "If Fehlerausgang", "type": "main", "index": 0 }
+    ]] },
+    "Teilen Regular": { "main": [[{ "node": "Regular Ausgabe", "type": "main", "index": 0 }]] },
+    "Teilen Fehlerausgang": { "main": [[{ "node": "Erfolg", "type": "main", "index": 0 }], [{ "node": "Fehler", "type": "main", "index": 0 }]] },
+    "Retry Fehlschlag": { "main": [[{ "node": "Nach Fehlschlag", "type": "main", "index": 0 }]] },
+    "If Fehlerausgang": { "main": [[{ "node": "If Wahr", "type": "main", "index": 0 }], [{ "node": "If Falsch", "type": "main", "index": 0 }], [{ "node": "If Fehler", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

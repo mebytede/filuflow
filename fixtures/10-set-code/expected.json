@@ -1,0 +1,620 @@
+{
+  "status": "success",
+  "lastNodeExecuted": "Code Null",
+  "order": [
+    "Start",
+    "Daten",
+    "Set v1",
+    "Set v2",
+    "Set 3.2 selected",
+    "Set raw except",
+    "Set ohne Punkt",
+    "Set ignoreErrors",
+    "Code Standardize",
+    "Code Einzelobjekt",
+    "Code Je Item",
+    "Code Ungueltig",
+    "Code Durchreichen",
+    "Code Verboten",
+    "Code Ohne Json",
+    "Code Null"
+  ],
+  "nodes": {
+    "Start": [
+      {
+        "status": "success",
+        "source": [],
+        "main": [
+          [
+            {
+              "json": {},
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Daten": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Start"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "id": 1,
+                "name": "Anna",
+                "address": {
+                  "city": "Köln",
+                  "zip": "50667"
+                },
+                "a.b": "punkt",
+                "tags": [
+                  "x"
+                ]
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "id": 2,
+                "name": "Ben",
+                "address": {
+                  "city": "Bonn",
+                  "zip": "53111"
+                },
+                "a.b": "punkt2",
+                "tags": []
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Set v1": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "aktiv": true,
+                "aus": false,
+                "zahl": 7,
+                "null": 0,
+                "deep": {
+                  "n": 2
+                },
+                "text": "ANNA",
+                "leer": ""
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "aktiv": true,
+                "aus": false,
+                "zahl": 7,
+                "null": 0,
+                "deep": {
+                  "n": 4
+                },
+                "text": "BEN",
+                "leer": ""
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Set v2": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "id": 1,
+                "name": "Anna",
+                "address": {
+                  "city": "Köln",
+                  "zip": "50667"
+                },
+                "a.b": "punkt",
+                "tags": [
+                  "x"
+                ],
+                "nr": 1
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "id": 2,
+                "name": "Ben",
+                "address": {
+                  "city": "Bonn",
+                  "zip": "53111"
+                },
+                "a.b": "punkt2",
+                "tags": [],
+                "nr": 2
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Set 3.2 selected": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "name": "Anna",
+                "city": "Köln",
+                "s": "1",
+                "n": 1.5,
+                "b": false,
+                "arr": [
+                  "a",
+                  "b"
+                ],
+                "obj": {
+                  "stadt": "Köln",
+                  "id": 1
+                }
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "name": "Ben",
+                "city": "Bonn",
+                "s": "2",
+                "n": 2.5,
+                "b": false,
+                "arr": [
+                  "a",
+                  "b"
+                ],
+                "obj": {
+                  "stadt": "Bonn",
+                  "id": 2
+                }
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Set raw except": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "id": 1,
+                "name": "Anna",
+                "a.b": "punkt",
+                "person": "Anna",
+                "plz": 50667,
+                "tags": [
+                  "x"
+                ]
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "id": 2,
+                "name": "Ben",
+                "a.b": "punkt2",
+                "person": "Ben",
+                "plz": 53111,
+                "tags": []
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Set ohne Punkt": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "id": 1,
+                "name": "Anna",
+                "address": {
+                  "city": "Köln",
+                  "zip": "50667"
+                },
+                "a.b": "neu",
+                "tags": [
+                  "x"
+                ],
+                "x.y": "punkt"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "id": 2,
+                "name": "Ben",
+                "address": {
+                  "city": "Bonn",
+                  "zip": "53111"
+                },
+                "a.b": "neu",
+                "tags": [],
+                "x.y": "punkt2"
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Set ignoreErrors": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "zahl": "abc",
+                "bool": "ja",
+                "obj": {
+                  "a": 1
+                },
+                "leer": null,
+                "zahlstring": "12",
+                "objstring": "{\"city\":\"Köln\",\"zip\":\"50667\"}"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "zahl": "abc",
+                "bool": "ja",
+                "obj": {
+                  "a": 1
+                },
+                "leer": null,
+                "zahlstring": "12",
+                "objstring": "{\"city\":\"Bonn\",\"zip\":\"53111\"}"
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Code Standardize": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "i": 0,
+                "datum": "2024-05-01T12:00:00.000Z",
+                "verschachtelt": {
+                  "re": {},
+                  "liste": [
+                    "2024-05-01T12:00:00.000Z"
+                  ]
+                },
+                "karte": {},
+                "input": "ja"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "i": 1,
+                "datum": "2024-05-01T12:00:00.000Z",
+                "verschachtelt": {
+                  "re": {},
+                  "liste": [
+                    "2024-05-01T12:00:00.000Z"
+                  ]
+                },
+                "karte": {},
+                "input": "ja"
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Code Einzelobjekt": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "einzeln": true,
+                "anzahl": 2
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Code Je Item": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "id": 1,
+                "name": "Anna!",
+                "address": {
+                  "city": "Köln",
+                  "zip": "50667"
+                },
+                "a.b": "punkt",
+                "tags": [
+                  "x"
+                ],
+                "index": 0,
+                "vorher": "Anna"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "id": 2,
+                "name": "Ben!",
+                "address": {
+                  "city": "Bonn",
+                  "zip": "53111"
+                },
+                "a.b": "punkt2",
+                "tags": [],
+                "index": 1,
+                "vorher": "Ben"
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Code Ungueltig": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "error": "Invalid output format [item 1]"
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Code Durchreichen": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "id": 1,
+                "name": "Anna",
+                "address": {
+                  "city": "Köln",
+                  "zip": "50667"
+                },
+                "a.b": "punkt",
+                "tags": [
+                  "x"
+                ]
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "id": 2,
+                "name": "Ben",
+                "address": {
+                  "city": "Bonn",
+                  "zip": "53111"
+                },
+                "a.b": "punkt2",
+                "tags": []
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Code Verboten": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "error": "Can't use .all() here [line 1, for item 0]"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "error": "Can't use .all() here [line 1, for item 1]"
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Code Ohne Json": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "id": 2,
+                "name": "Ben",
+                "address": {
+                  "city": "Bonn",
+                  "zip": "53111"
+                },
+                "a.b": "punkt2",
+                "tags": []
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Code Null": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          []
+        ]
+      }
+    ]
+  }
+}

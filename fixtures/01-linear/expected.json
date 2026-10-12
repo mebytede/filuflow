@@ -1,0 +1,311 @@
+{
+  "status": "success",
+  "lastNodeExecuted": "Falsch",
+  "order": [
+    "Start",
+    "Felder",
+    "Erzeugen",
+    "Gross?",
+    "Wahr",
+    "Falsch"
+  ],
+  "nodes": {
+    "Start": [
+      {
+        "status": "success",
+        "source": [],
+        "main": [
+          [
+            {
+              "json": {},
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Felder": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Start"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "name": "Max",
+                "count": 3,
+                "active": true,
+                "tags": [
+                  "a",
+                  "b"
+                ],
+                "info": {
+                  "city": "Berlin"
+                },
+                "fallback": "default",
+                "meta": {
+                  "a": 1,
+                  "b": [
+                    1,
+                    2
+                  ]
+                },
+                "text": "Hallo !",
+                "num": 42
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Erzeugen": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Felder"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "i": 0,
+                "name": "Max0",
+                "even": true,
+                "score": 0,
+                "city": "Berlin"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "i": 1,
+                "name": "Max1",
+                "even": false,
+                "score": 1.5,
+                "city": "Berlin"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "i": 2,
+                "name": "Max2",
+                "even": true,
+                "score": 3,
+                "city": "Berlin"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "i": 3,
+                "name": "Max3",
+                "even": false,
+                "score": 4.5,
+                "city": "Berlin"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "i": 4,
+                "name": "Max4",
+                "even": true,
+                "score": 6,
+                "city": "Berlin"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Gross?": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Erzeugen"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "i": 0,
+                "name": "Max0",
+                "even": true,
+                "score": 0,
+                "city": "Berlin"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "i": 2,
+                "name": "Max2",
+                "even": true,
+                "score": 3,
+                "city": "Berlin"
+              },
+              "pairedItem": {
+                "item": 2
+              }
+            },
+            {
+              "json": {
+                "i": 3,
+                "name": "Max3",
+                "even": false,
+                "score": 4.5,
+                "city": "Berlin"
+              },
+              "pairedItem": {
+                "item": 3
+              }
+            },
+            {
+              "json": {
+                "i": 4,
+                "name": "Max4",
+                "even": true,
+                "score": 6,
+                "city": "Berlin"
+              },
+              "pairedItem": {
+                "item": 4
+              }
+            }
+          ],
+          [
+            {
+              "json": {
+                "i": 1,
+                "name": "Max1",
+                "even": false,
+                "score": 1.5,
+                "city": "Berlin"
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Wahr": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Gross?"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "i": 0,
+                "name": "Max0",
+                "even": true,
+                "score": 0,
+                "city": "Berlin"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "i": 2,
+                "name": "Max2",
+                "even": true,
+                "score": 3,
+                "city": "Berlin"
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            },
+            {
+              "json": {
+                "i": 3,
+                "name": "Max3",
+                "even": false,
+                "score": 4.5,
+                "city": "Berlin"
+              },
+              "pairedItem": {
+                "item": 2
+              }
+            },
+            {
+              "json": {
+                "i": 4,
+                "name": "Max4",
+                "even": true,
+                "score": 6,
+                "city": "Berlin"
+              },
+              "pairedItem": {
+                "item": 3
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Falsch": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Gross?",
+            "previousNodeOutput": 1
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "i": 1,
+                "name": "Max1",
+                "even": false,
+                "score": 1.5,
+                "city": "Berlin",
+                "label": "Max1 ist klein (Max)"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ]
+  }
+}
