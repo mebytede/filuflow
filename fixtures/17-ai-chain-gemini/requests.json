@@ -1,0 +1,118 @@
+[
+  {
+    "method": "POST",
+    "url": "/v1beta/models/gemini-2.5-flash:generateContent",
+    "headers": {
+      "content-type": "application/json",
+      "x-goog-api-key": "gemini-test-key"
+    },
+    "body": {
+      "generationConfig": {
+        "stopSequences": [],
+        "maxOutputTokens": 512,
+        "temperature": 0.2
+      },
+      "safetySettings": [],
+      "systemInstruction": {
+        "role": "system",
+        "parts": [
+          {
+            "text": "Du bist ein genauer Assistent. Antworte {immer} auf Deutsch."
+          }
+        ]
+      },
+      "contents": [
+        {
+          "role": "user",
+          "parts": [
+            {
+              "text": "Extrahiere die Person aus: Ada Lovelace wurde 1815 in London geboren.\nYou must format your output as a JSON value that adheres to a given \"JSON Schema\" instance.\n\n\"JSON Schema\" is a declarative language that allows you to annotate and validate JSON documents.\n\nFor example, the example \"JSON Schema\" instance {{\"properties\": {{\"foo\": {{\"description\": \"a list of test words\", \"type\": \"array\", \"items\": {{\"type\": \"string\"}}}}}}, \"required\": [\"foo\"]}}}}\nwould match an object with one required property, \"foo\". The \"type\" property specifies \"foo\" must be an \"array\", and the \"description\" property semantically describes it as \"a list of test words\". The items within \"foo\" must be strings.\nThus, the object {{\"foo\": [\"bar\", \"baz\"]}} is a well-formatted instance of this example \"JSON Schema\". The object {{\"properties\": {{\"foo\": [\"bar\", \"baz\"]}}}} is not well-formatted.\n\nYour output will be parsed and type-checked according to the provided schema instance, so make sure all fields in your output match the schema exactly and there are no trailing commas!\n\nHere is the JSON Schema instance your output must adhere to. Include the enclosing markdown codeblock:\n```json\n{\"type\":\"object\",\"properties\":{\"output\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"geburtsjahr\":{\"type\":\"number\"},\"orte\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}}},\"required\":[\"name\",\"geburtsjahr\",\"orte\"],\"additionalProperties\":false}},\"required\":[\"output\"],\"additionalProperties\":false,\"$schema\":\"http://json-schema.org/draft-07/schema#\"}\n```\n"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "method": "POST",
+    "url": "/v1beta/models/gemini-2.5-flash:generateContent",
+    "headers": {
+      "content-type": "application/json",
+      "x-goog-api-key": "gemini-test-key"
+    },
+    "body": {
+      "generationConfig": {
+        "stopSequences": [],
+        "maxOutputTokens": 512,
+        "temperature": 0.2
+      },
+      "safetySettings": [],
+      "systemInstruction": {
+        "role": "system",
+        "parts": [
+          {
+            "text": "Du bist ein genauer Assistent. Antworte {immer} auf Deutsch."
+          }
+        ]
+      },
+      "contents": [
+        {
+          "role": "user",
+          "parts": [
+            {
+              "text": "Extrahiere die Person aus: Alan Turing, geboren 1912.\nYou must format your output as a JSON value that adheres to a given \"JSON Schema\" instance.\n\n\"JSON Schema\" is a declarative language that allows you to annotate and validate JSON documents.\n\nFor example, the example \"JSON Schema\" instance {{\"properties\": {{\"foo\": {{\"description\": \"a list of test words\", \"type\": \"array\", \"items\": {{\"type\": \"string\"}}}}}}, \"required\": [\"foo\"]}}}}\nwould match an object with one required property, \"foo\". The \"type\" property specifies \"foo\" must be an \"array\", and the \"description\" property semantically describes it as \"a list of test words\". The items within \"foo\" must be strings.\nThus, the object {{\"foo\": [\"bar\", \"baz\"]}} is a well-formatted instance of this example \"JSON Schema\". The object {{\"properties\": {{\"foo\": [\"bar\", \"baz\"]}}}} is not well-formatted.\n\nYour output will be parsed and type-checked according to the provided schema instance, so make sure all fields in your output match the schema exactly and there are no trailing commas!\n\nHere is the JSON Schema instance your output must adhere to. Include the enclosing markdown codeblock:\n```json\n{\"type\":\"object\",\"properties\":{\"output\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"geburtsjahr\":{\"type\":\"number\"},\"orte\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}}},\"required\":[\"name\",\"geburtsjahr\",\"orte\"],\"additionalProperties\":false}},\"required\":[\"output\"],\"additionalProperties\":false,\"$schema\":\"http://json-schema.org/draft-07/schema#\"}\n```\n"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "method": "POST",
+    "url": "/v1beta/models/gemini-2.0-flash:generateContent",
+    "headers": {
+      "content-type": "application/json",
+      "x-goog-api-key": "gemini-test-key"
+    },
+    "body": {
+      "generationConfig": {
+        "stopSequences": []
+      },
+      "safetySettings": [],
+      "contents": [
+        {
+          "role": "user",
+          "parts": [
+            {
+              "text": "Fasse zusammen: Ada Lovelace (1815)"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "method": "POST",
+    "url": "/v1beta/models/gemini-2.0-flash:generateContent",
+    "headers": {
+      "content-type": "application/json",
+      "x-goog-api-key": "gemini-test-key"
+    },
+    "body": {
+      "generationConfig": {
+        "stopSequences": []
+      },
+      "safetySettings": [],
+      "contents": [
+        {
+          "role": "user",
+          "parts": [
+            {
+              "text": "Fasse zusammen: Alan Turing (1912)"
+            }
+          ]
+        }
+      ]
+    }
+  }
+]

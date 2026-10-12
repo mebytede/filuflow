@@ -252,34 +252,73 @@ export class WorkflowExecutor {
     this.options.hooks?.sendResponse?.(response);
   }
 
-  async supplySubNode(node: WorkflowNode, parent: NodeExecutionContext): Promise<unknown> {
+  /**
+   * Sub-Node anfordern (n8n get-input-connection-data.ts): supplyData des Sub-Nodes aufrufen.
+   * Fehler werden am Sub-Node angezeigt; der Eltern-Node bekommt "Error in sub-node <Name>".
+   */
+  async supplySubNode(node: WorkflowNode, parent: NodeExecutionContext, connectionType: string, itemIndex: number): Promise<unknown> {
     const nodeType = this.registry.getVersioned(node.type, node.typeVersion);
     if (!nodeType?.supplyData) {
       throw new NodeOperationError(parent.node.name, `Sub-Node "${node.name}" (${node.type}) wird nicht unterstützt`);
     }
     const ctx = parent.forSubNode(node);
-    const start = Date.now();
     try {
-      const result = await nodeType.supplyData(ctx, 0);
-      this.recordSubNodeRun(node, start, undefined);
-      return result;
+      return await nodeType.supplyData(ctx, itemIndex);
     } catch (error) {
-      this.recordSubNodeRun(node, start, error);
-      throw error;
+      if (error instanceof NodeOperationError && error.extra?.functionality === 'configuration-node') throw error;
+      const err = error instanceof NodeOperationError ? error : new NodeOperationError(node.name, (error as Error).message, { itemIndex });
+      const index = this.runData[node.name]?.length ?? 0;
+      this.recordSubNodeTask('input', node, { node: parent.node, runIndex: parent.runIndex }, connectionType, err, index, parent.runIndex);
+      this.recordSubNodeTask('output', node, { node: parent.node, runIndex: parent.runIndex }, connectionType, err, index, parent.runIndex);
+      throw new NodeOperationError(node.name, `Error in sub-node ${node.name}`, {
+        itemIndex,
+        description: err.message,
+        extra: { functionality: 'configuration-node' },
+      });
     }
   }
 
-  private recordSubNodeRun(node: WorkflowNode, start: number, error: unknown): void {
+  /** n8n SupplyDataContext.addExecutionDataFunctions: Lauf eines Sub-Nodes im runData */
+  recordSubNodeTask(
+    type: 'input' | 'output',
+    node: WorkflowNode,
+    parent: { node: WorkflowNode; runIndex: number } | undefined,
+    connectionType: string,
+    data: Item[][] | Error,
+    index: number,
+    sourceRunIndex?: number,
+  ): void {
+    const source: SourceData[] = parent ? [{ previousNode: parent.node.name, previousNodeRun: sourceRunIndex ?? parent.runIndex }] : [];
     const list = (this.runData[node.name] ??= []);
-    list.push({
-      startTime: start,
-      executionIndex: this.executionIndex++,
-      executionTime: Date.now() - start,
-      executionStatus: error ? 'error' : 'success',
-      data: { main: [] },
-      source: [],
-      ...(error ? { error: serializeError(error) } : {}),
-    });
+    let task: TaskData | undefined;
+    if (type === 'input') {
+      task = {
+        startTime: Date.now(),
+        executionIndex: this.executionIndex++,
+        executionTime: 0,
+        executionStatus: 'running',
+        data: {},
+        source,
+      };
+    } else {
+      task = list[index];
+      if (!task) return;
+      task.source = source;
+    }
+    if (data instanceof Error) {
+      task.executionStatus = 'error';
+      task.error = serializeError(data);
+    } else {
+      if (type === 'output') task.executionStatus = 'success';
+      task.data = { [connectionType]: data };
+    }
+    if (type === 'input') {
+      list[index] = task;
+      this.options.hooks?.nodeExecuteBefore?.(node.name);
+    } else {
+      task.executionTime = Date.now() - task.startTime;
+      this.options.hooks?.nodeExecuteAfter?.(node.name, task);
+    }
   }
 
   private nodeType(node: WorkflowNode): NodeType {

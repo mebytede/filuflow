@@ -77,8 +77,18 @@ export interface ExecContext {
   readonly triggerData?: Item[];
   /** Ausgabe von Sub-Nodes (KI) */
   getSubNodes(type: string): WorkflowNode[];
-  /** Sub-Node instanziieren (KI) */
-  getSubNodeInstance<T = unknown>(type: string, index?: number): Promise<T | undefined>;
+  /** Sub-Node instanziieren (KI, n8n getInputConnectionData) */
+  getSubNodeInstance<T = unknown>(type: string, index?: number, itemIndex?: number): Promise<T | undefined>;
+  /** Alle angeschlossenen Sub-Nodes eines Typs (z. B. Tools) */
+  getSubNodeInstances<T = unknown>(type: string, itemIndex?: number): Promise<T[]>;
+  /** Sub-Node: Lauf im runData beginnen (n8n addInputData), liefert den Run-Index */
+  addInputData(connectionType: string, data: Item[][] | Error, sourceRunIndex?: number): { index: number };
+  /** Sub-Node: Lauf abschließen (n8n addOutputData) */
+  addOutputData(connectionType: string, index: number, data: Item[][] | Error, sourceRunIndex?: number): void;
+  /** Nächster Run-Index dieses Nodes */
+  getNextRunIndex(): number;
+  /** Eltern-Node bei Sub-Nodes */
+  readonly parent?: { node: WorkflowNode; runIndex: number };
   /** Code-Node: console.log ins Execution-Log */
   logOutput(level: 'log' | 'info' | 'warn' | 'error' | 'debug', args: unknown[]): void;
 

@@ -1,0 +1,114 @@
+[
+  {
+    "method": "POST",
+    "pathPrefix": "/v1beta/models/gemini-2.5-flash:generateContent",
+    "bodyContains": "Ada Lovelace",
+    "log": true,
+    "body": {
+      "candidates": [
+        {
+          "content": {
+            "parts": [
+              {
+                "text": "```json\n{\"output\": {\"name\": \"Ada Lovelace\", \"geburtsjahr\": 1815, \"orte\": [\"London\"], \"extra\": 1}}\n```"
+              }
+            ],
+            "role": "model"
+          },
+          "finishReason": "STOP",
+          "index": 0
+        }
+      ],
+      "usageMetadata": {
+        "promptTokenCount": 120,
+        "candidatesTokenCount": 25,
+        "totalTokenCount": 145
+      },
+      "modelVersion": "gemini-2.5-flash"
+    }
+  },
+  {
+    "method": "POST",
+    "pathPrefix": "/v1beta/models/gemini-2.5-flash:generateContent",
+    "bodyContains": "Alan Turing",
+    "log": true,
+    "body": {
+      "candidates": [
+        {
+          "content": {
+            "parts": [
+              {
+                "text": "{\"output\":{\"name\":\"Alan Turing\",\"geburtsjahr\":1912,\"orte\":[]}}"
+              }
+            ],
+            "role": "model"
+          },
+          "finishReason": "STOP",
+          "index": 0
+        }
+      ],
+      "usageMetadata": {
+        "promptTokenCount": 120,
+        "candidatesTokenCount": 25,
+        "totalTokenCount": 145
+      },
+      "modelVersion": "gemini-2.5-flash"
+    }
+  },
+  {
+    "method": "POST",
+    "pathPrefix": "/v1beta/models/gemini-2.0-flash:generateContent",
+    "bodyContains": "Ada",
+    "log": true,
+    "body": {
+      "candidates": [
+        {
+          "content": {
+            "parts": [
+              {
+                "text": "  Ada Lovelace (1815) war Mathematikerin.  \n"
+              }
+            ],
+            "role": "model"
+          },
+          "finishReason": "STOP",
+          "index": 0
+        }
+      ],
+      "usageMetadata": {
+        "promptTokenCount": 120,
+        "candidatesTokenCount": 25,
+        "totalTokenCount": 145
+      },
+      "modelVersion": "gemini-2.0-flash"
+    }
+  },
+  {
+    "method": "POST",
+    "pathPrefix": "/v1beta/models/gemini-2.0-flash:generateContent",
+    "bodyContains": "Alan",
+    "log": true,
+    "body": {
+      "candidates": [
+        {
+          "content": {
+            "parts": [
+              {
+                "text": "Alan Turing (1912) war Informatiker."
+              }
+            ],
+            "role": "model"
+          },
+          "finishReason": "STOP",
+          "index": 0
+        }
+      ],
+      "usageMetadata": {
+        "promptTokenCount": 120,
+        "candidatesTokenCount": 25,
+        "totalTokenCount": 145
+      },
+      "modelVersion": "gemini-2.0-flash"
+    }
+  }
+]

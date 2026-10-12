@@ -1,0 +1,200 @@
+{
+  "status": "success",
+  "lastNodeExecuted": "Zusammenfassen",
+  "order": [
+    "Start",
+    "Texte",
+    "Extrahieren",
+    "Gemini",
+    "Gemini",
+    "Schema",
+    "Schema",
+    "Zusammenfassen",
+    "Gemini 2",
+    "Gemini 2"
+  ],
+  "nodes": {
+    "Start": [
+      {
+        "status": "success",
+        "source": [],
+        "main": [
+          [
+            {
+              "json": {},
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Texte": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Start"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "text": "Ada Lovelace wurde 1815 in London geboren."
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "text": "Alan Turing, geboren 1912."
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Gemini": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Extrahieren",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      },
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Extrahieren",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      }
+    ],
+    "Schema": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Extrahieren",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      },
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Extrahieren",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      }
+    ],
+    "Extrahieren": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Texte"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "output": {
+                  "name": "Ada Lovelace",
+                  "geburtsjahr": 1815,
+                  "orte": [
+                    "London"
+                  ]
+                }
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "output": {
+                  "name": "Alan Turing",
+                  "geburtsjahr": 1912,
+                  "orte": []
+                }
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Gemini 2": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Zusammenfassen",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      },
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Zusammenfassen",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      }
+    ],
+    "Zusammenfassen": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Extrahieren"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "text": "Ada Lovelace (1815) war Mathematikerin."
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            },
+            {
+              "json": {
+                "text": "Alan Turing (1912) war Informatiker."
+              },
+              "pairedItem": {
+                "item": 1
+              }
+            }
+          ]
+        ]
+      }
+    ]
+  }
+}

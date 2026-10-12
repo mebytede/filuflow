@@ -4,7 +4,9 @@
 // Antworten stehen in fixtures/<name>/mocks.json:
 //   [{ "method": "GET", "path": "/geo/search?name=Berlin", "status": 200,
 //      "headers": { "content-type": "application/json" }, "body": { ... } }]
-// "path" vergleicht Pfad + Query exakt; "pathPrefix" nur den Anfang.
+// "path" vergleicht Pfad + Query exakt; "pathPrefix" nur den Anfang; "bodyContains" verlangt einen Text im Body.
+// Requests an Mocks mit "log": true werden mitgeschrieben (server.requests; mit MOCK_LOG=<datei> auch als JSON-Zeilen),
+// damit Golden-Tests die Anfragen von n8n und flowlite vergleichen können (z. B. Prompts an KI-APIs).
 // Zusätzlich: /echo/* liefert die Anfrage zurück (Methode, Pfad, Query, ausgewählte Header, Body).
 // /oauth-echo/token liefert ein OAuth2-Token, das die Token-Anfrage kodiert enthält (Methode, Header, Body),
 // damit Golden-Tests die Token-Anfrage über den nachfolgenden Authorization-Header vergleichen können.
@@ -12,7 +14,7 @@
 //
 // Aufruf: node scripts/mock-server.mjs <fixtures-verzeichnis> <port>
 import { createServer } from 'node:http';
-import { readdirSync, readFileSync, existsSync } from 'node:fs';
+import { readdirSync, readFileSync, existsSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath, URLSearchParams } from 'node:url';
 
@@ -20,12 +22,14 @@ export function loadMocks(fixturesDir) {
   const mocks = [];
   for (const name of readdirSync(fixturesDir)) {
     const file = join(fixturesDir, name, 'mocks.json');
-    if (existsSync(file)) mocks.push(...JSON.parse(readFileSync(file, 'utf8')));
+    if (existsSync(file)) mocks.push(...JSON.parse(readFileSync(file, 'utf8')).map((m) => ({ ...m, fixture: name })));
   }
   return mocks;
 }
 
 const ECHO_HEADERS = /^(x-|content-type$|authorization$|accept$)/;
+// Header, die bei KI-APIs inhaltlich zählen (keine SDK-Versionen o. ä.)
+const LOG_HEADERS = /^(content-type|authorization|x-api-key|x-goog-api-key|anthropic-version|anthropic-beta)$/;
 
 export function startMockServer(fixturesDir, port = 18089) {
   const mocks = loadMocks(fixturesDir);
@@ -70,9 +74,26 @@ export function startMockServer(fixturesDir, port = 18089) {
         res.end(JSON.stringify({ method: req.method, path: u.pathname, rawQuery: u.search, query: Object.fromEntries(u.searchParams), headers, body: parsed }));
         return;
       }
+      const text = body.toString('utf8');
       const mock = mocks.find(
-        (m) => (m.method ?? 'GET').toUpperCase() === req.method && (m.path ? m.path === url : url.startsWith(m.pathPrefix ?? '\u0000')),
+        (m) =>
+          (m.method ?? 'GET').toUpperCase() === req.method &&
+          (m.path ? m.path === url : url.startsWith(m.pathPrefix ?? '\u0000')) &&
+          (m.bodyContains === undefined || text.includes(m.bodyContains)),
       );
+      if (mock?.log) {
+        let parsedBody = text;
+        try {
+          parsedBody = JSON.parse(text);
+        } catch {
+          // kein JSON
+        }
+        const headers = {};
+        for (const [k, v] of Object.entries(req.headers)) if (LOG_HEADERS.test(k)) headers[k] = v;
+        const entry = { fixture: mock.fixture, method: req.method, url, headers, body: parsedBody };
+        server.requests.push(entry);
+        if (process.env.MOCK_LOG) appendFileSync(process.env.MOCK_LOG, `${JSON.stringify(entry)}\n`);
+      }
       if (!mock) {
         res.writeHead(404, { 'content-type': 'application/json' });
         res.end(JSON.stringify({ error: 'no mock', method: req.method, url }));
@@ -86,6 +107,7 @@ export function startMockServer(fixturesDir, port = 18089) {
       else res.end(JSON.stringify(mock.body ?? {}));
     });
   });
+  server.requests = [];
   return new Promise((resolve) => server.listen(port, '127.0.0.1', () => resolve(server)));
 }
 

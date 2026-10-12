@@ -34,6 +34,8 @@ export interface ContextInit {
   inputs: Item[][];
   connectionInputData: Item[];
   runIndex: number;
+  /** Sub-Node-Kontext: Eltern-Node (n8n SupplyDataContext.parentNode) */
+  parent?: { node: WorkflowNode; runIndex: number };
 }
 
 export class NodeExecutionContext implements ExecContext {
@@ -54,6 +56,7 @@ export class NodeExecutionContext implements ExecContext {
   private readonly executor: WorkflowExecutor;
   private readonly executeData: ExecuteData;
   readonly connectionInputData: Item[];
+  readonly parent?: { node: WorkflowNode; runIndex: number };
 
   constructor(init: ContextInit) {
     const ex = init.executor;
@@ -73,6 +76,7 @@ export class NodeExecutionContext implements ExecContext {
     this.signal = ex.signal;
     this.logger = ex.logger.child({ node: init.node.name });
     this.triggerData = ex.triggerItems;
+    this.parent = init.parent;
   }
 
   getDataProxy(itemIndex: number, options: { cloneInput?: boolean; contextNodeName?: string } = {}): Record<string, unknown> {
@@ -163,17 +167,37 @@ export class NodeExecutionContext implements ExecContext {
     return this.workflow.getSubNodes(this.node.name, type);
   }
 
-  async getSubNodeInstance<T = unknown>(type: string, index = 0): Promise<T | undefined> {
+  async getSubNodeInstance<T = unknown>(type: string, index = 0, itemIndex = 0): Promise<T | undefined> {
     const sub = this.getSubNodes(type)[index];
     if (!sub) return undefined;
-    return (await this.executor.supplySubNode(sub, this)) as T;
+    return (await this.executor.supplySubNode(sub, this, type, itemIndex)) as T;
+  }
+
+  async getSubNodeInstances<T = unknown>(type: string, itemIndex = 0): Promise<T[]> {
+    const out: T[] = [];
+    for (const sub of this.getSubNodes(type)) out.push((await this.executor.supplySubNode(sub, this, type, itemIndex)) as T);
+    return out;
+  }
+
+  getNextRunIndex(): number {
+    return this.executor.runData[this.node.name]?.length ?? 0;
+  }
+
+  addInputData(connectionType: string, data: Item[][] | Error, sourceRunIndex?: number): { index: number } {
+    const index = this.getNextRunIndex();
+    this.executor.recordSubNodeTask('input', this.node, this.parent, connectionType, data, index, sourceRunIndex);
+    return { index };
+  }
+
+  addOutputData(connectionType: string, index: number, data: Item[][] | Error, sourceRunIndex?: number): void {
+    this.executor.recordSubNodeTask('output', this.node, this.parent, connectionType, data, index, sourceRunIndex);
   }
 
   logOutput(level: 'log' | 'info' | 'warn' | 'error' | 'debug', args: unknown[]): void {
     this.executor.addLog(this.node.name, level, args);
   }
 
-  /** Für Sub-Nodes: Kontext eines anderen Nodes mit denselben Eingangsdaten */
+  /** Für Sub-Nodes: Kontext eines anderen Nodes mit denselben Eingangsdaten (n8n SupplyDataContext) */
   forSubNode(node: WorkflowNode): NodeExecutionContext {
     return new NodeExecutionContext({
       executor: this.executor,
@@ -182,6 +206,7 @@ export class NodeExecutionContext implements ExecContext {
       inputs: this.inputs,
       connectionInputData: this.connectionInputData,
       runIndex: this.runIndex,
+      parent: { node: this.node, runIndex: this.runIndex },
     });
   }
 }

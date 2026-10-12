@@ -30,6 +30,9 @@ import { webhookNode } from './webhook.js';
 import { respondToWebhookNode } from './respondToWebhook.js';
 import { scheduleTriggerNode } from './scheduleTrigger.js';
 import { errorTriggerNode } from './errorTrigger.js';
+import { chainLlmNode } from './chainLlm.js';
+import { lmChatGoogleGeminiNode } from './lmChatGoogleGemini.js';
+import { outputParserStructuredNode } from './outputParserStructured.js';
 
 export const builtinNodeTypes: NodeType[] = [
   manualTriggerNode,
@@ -61,6 +64,9 @@ export const builtinNodeTypes: NodeType[] = [
   respondToWebhookNode,
   scheduleTriggerNode,
   errorTriggerNode,
+  chainLlmNode,
+  lmChatGoogleGeminiNode,
+  outputParserStructuredNode,
 ];
 
 let defaultRegistry: NodeRegistry | undefined;

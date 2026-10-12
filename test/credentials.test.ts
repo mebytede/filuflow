@@ -200,7 +200,7 @@ describe('OAuth2 client_credentials', () => {
     const { client, calls } = fakeHttp((t) => (t === 'tok-1' ? 401 : 200));
     const exec = await new Runner({ credentials, http: client }).run({ workflow: oauthWorkflow() });
     expect(exec.status).toBe('success');
-    expect(exec.runData.API[0].data.main[0]![0].json).toEqual({ ok: true, token: 'tok-2' });
+    expect(exec.runData.API[0].data.main![0]![0].json).toEqual({ ok: true, token: 'tok-2' });
     expect(calls.map((c) => c.url)).toEqual(['https://auth.example/token', 'https://api.example/daten', 'https://auth.example/token', 'https://api.example/daten']);
   });
 });

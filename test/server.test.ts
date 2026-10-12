@@ -85,7 +85,7 @@ describe('REST-API', () => {
     expect(run.status).toBe(200);
     expect(run.json!.status).toBe('success');
     const runData = run.json!.runData as Record<string, Array<{ data: { main: Array<Array<{ json: unknown }>> } }>>;
-    expect(runData.Doppelt[0].data.main[0].map((i) => i.json)).toEqual([{ v: 4 }, { v: 10 }]);
+    expect(runData.Doppelt[0].data.main![0].map((i) => i.json)).toEqual([{ v: 4 }, { v: 10 }]);
 
     const execs = await api('GET', '/api/executions?workflow=a&status=success&limit=5');
     expect((execs.json!.data as unknown[]).length).toBe(1);
@@ -117,7 +117,7 @@ describe('Ausführung im Server', () => {
     await until(() => server!.store.list({ workflow: 'fehler' }).some((e) => e.status === 'success'));
     const errExec = server!.store.get(server!.store.list({ workflow: 'fehler' })[0].id)!;
     expect(errExec.mode).toBe('error');
-    const json = errExec.runData!.Merken[0].data.main[0]![0].json as { execution: Record<string, unknown>; workflow: unknown };
+    const json = errExec.runData!.Merken[0].data.main![0]![0].json as { execution: Record<string, unknown>; workflow: unknown };
     expect(json.workflow).toEqual({ id: 'kaputt', name: 'WF kaputt' });
     expect(json.execution.id).toBe(run.json!.id);
     expect(json.execution.lastNodeExecuted).toBe('Wirft');
@@ -151,7 +151,7 @@ describe('Ausführung im Server', () => {
     await until(() => server!.store.list({ workflow: 'zeit', status: 'success' }).length > 0, 4000);
     const exec = server!.store.get(server!.store.list({ workflow: 'zeit', status: 'success' })[0].id)!;
     expect(exec.mode).toBe('trigger');
-    const json = exec.runData!.Ziel[0].data.main[0]![0].json;
+    const json = exec.runData!.Ziel[0].data.main![0]![0].json;
     expect(Object.keys(json)).toEqual(['timestamp', 'Readable date', 'Readable time', 'Day of week', 'Year', 'Month', 'Day of month', 'Hour', 'Minute', 'Second', 'Timezone']);
   });
 
@@ -201,7 +201,7 @@ describe('Execution-Log', () => {
     );
     const e = store.get('e1')!;
     expect(e.error!.message).toBe('Token *** abgelehnt');
-    expect(e.runData!.Start[0].data.main[0]![0].json).toEqual({ t: 'Bearer ***' });
+    expect(e.runData!.Start[0].data.main![0]![0].json).toEqual({ t: 'Bearer ***' });
     expect(store.prune(14)).toBe(1);
     expect(store.get('e1')).toBeUndefined();
     store.close();

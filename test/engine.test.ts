@@ -18,7 +18,7 @@ async function run(workflow: ReturnType<typeof wf>, opts: Partial<Parameters<typ
 }
 
 const out = (exec: Execution, node: string, output = 0, run = 0) =>
-  exec.runData[node]?.[run]?.data.main[output]?.map((i) => i.json);
+  exec.runData[node]?.[run]?.data.main![output]?.map((i) => i.json);
 
 describe('Engine v1-Reihenfolge', () => {
   it('führt eine lineare Kette aus', async () => {
@@ -116,7 +116,7 @@ describe('Engine v1-Reihenfolge', () => {
       ),
     );
     expect(order).toEqual(['Start', 'E', 'E2', 'Nach2']);
-    expect(exec.runData.E2[0].data.main[0]).toEqual([{ json: {}, pairedItem: [{ item: 0, input: 0 }] }]);
+    expect(exec.runData.E2[0].data.main![0]).toEqual([{ json: {}, pairedItem: [{ item: 0, input: 0 }] }]);
   });
 
   it('nutzt pinData statt Ausführung (abschaltbar)', async () => {

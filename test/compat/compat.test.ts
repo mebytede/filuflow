@@ -13,11 +13,21 @@ import type { Execution, Item, Workflow } from '../../src/types.js';
 import { startMockServer } from '../../scripts/mock-server.mjs';
 
 const FIXTURES = join(__dirname, '..', '..', 'fixtures');
-let server: Server;
+let server: Server & { requests: Array<Record<string, unknown>> };
+
+/** Mitgeschriebene Requests (Mocks mit "log": true) mit den von n8n aufgezeichneten vergleichen (requests.json) */
+function expectRequests(dir: string, name: string): void {
+  const file = join(dir, 'requests.json');
+  if (!existsSync(file)) return;
+  const sortKey = (r: unknown) => JSON.stringify(r);
+  const actual = server.requests.filter((r) => r.fixture === name).map(({ fixture: _f, ...rest }) => rest);
+  const expected = JSON.parse(readFileSync(file, 'utf8')) as unknown[];
+  expect([...actual].sort((a, b) => sortKey(a).localeCompare(sortKey(b)))).toEqual([...expected].sort((a, b) => sortKey(a).localeCompare(sortKey(b))));
+}
 
 beforeAll(async () => {
   process.env.FL_COMPAT = 'ja';
-  server = (await startMockServer(FIXTURES, 18089)) as Server;
+  server = (await startMockServer(FIXTURES, 18089)) as typeof server;
 });
 afterAll(() => {
   server?.close();
@@ -48,9 +58,11 @@ describe('Kompatibilität mit n8n', () => {
             .map((f) => JSON.parse(readFileSync(join(subDir, f), 'utf8')) as Workflow)
         : [];
       const runner = new Runner({ credentials, workflows: new StaticWorkflowSource(subs) });
+      server.requests.length = 0;
       const exec = await runner.run({ workflow, mode: 'cli', triggerItems: input, usePinData: false });
       const actual = applyIgnore(executionToSnapshot(exec), ignore);
       expect(actual).toEqual(applyIgnore(expected, ignore));
+      expectRequests(dir, name);
     });
   }
 });
@@ -70,6 +82,7 @@ describe('Kompatibilität über flowlite run', () => {
       const args = [BIN, 'run', join(dir, 'workflow.json'), '--json', '--no-pin'];
       if (existsSync(join(dir, 'input.json'))) args.push('--input', join(dir, 'input.json'));
       if (existsSync(join(dir, 'credentials.json'))) args.push('--credentials', join(dir, 'credentials.json'));
+      server.requests.length = 0;
       // Exit-Code 1 bei fehlgeschlagener Execution ist erwartet (z. B. Stop and Error)
       const { stdout } = await run(process.execPath, args, { cwd: dir, env: { ...process.env, FL_COMPAT: 'ja', FLOWLITE_CREDENTIALS: undefined } }).catch(
         (error: { stdout?: string; stderr?: string }) => {
@@ -82,6 +95,7 @@ describe('Kompatibilität über flowlite run', () => {
       // --json maskiert Credential-Werte; die erwarteten Werte werden genauso maskiert
       const secrets = existsSync(join(dir, 'credentials.json')) ? (await loadCredentials(join(dir, 'credentials.json'))).secretValues() : [];
       expect(actual).toEqual(maskDeep(applyIgnore(expected, ignore), secrets));
+      expectRequests(dir, name);
     }, 30_000);
   }
 });

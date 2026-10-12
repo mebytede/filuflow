@@ -111,8 +111,9 @@ export interface TaskData {
   startTime: number;
   executionIndex: number;
   executionTime: number;
-  executionStatus: 'success' | 'error' | 'canceled';
-  data: { main: Array<Item[] | null> };
+  executionStatus: 'success' | 'error' | 'canceled' | 'running';
+  /** main für normale Nodes; ai_* (z. B. ai_languageModel) für Läufe von Sub-Nodes */
+  data: { main?: Array<Item[] | null>; [connectionType: string]: Array<Item[] | null> | undefined };
   source: Array<SourceData | null>;
   error?: SerializedError;
   hints?: unknown[];

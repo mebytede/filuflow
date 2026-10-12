@@ -40,7 +40,7 @@ fi
 [[ ${#NAMES[@]} -eq 0 ]] && { echo "Nichts zu tun."; exit 0; }
 
 # Mock-Server für HTTP-Fixtures
-node "$ROOT/scripts/mock-server.mjs" "$FIXTURES" 18089 > "$WORK/mock.log" 2>&1 &
+MOCK_LOG="$WORK/requests.jsonl" node "$ROOT/scripts/mock-server.mjs" "$FIXTURES" 18089 > "$WORK/mock.log" 2>&1 &
 MOCK_PID=$!
 sleep 1
 
@@ -98,6 +98,15 @@ if [[ ${#BATCH[@]} -gt 0 ]]; then
   for name in "${BATCH[@]}"; do
     node "$ROOT/scripts/extract-expected.mjs" "$WORK/$name.out" "$FIXTURES/$name/expected.json" || {
       echo "Fehler beim Auswerten von $name:"; tail -40 "$WORK/$name.out"; exit 1; }
+    # Mitgeschriebene Requests (Mocks mit "log": true) je Fixture
+    if [[ -f "$WORK/requests.jsonl" ]] && grep -q "\"fixture\":\"$name\"" "$WORK/requests.jsonl"; then
+      node -e '
+        const fs = require("fs"); const [file, name, out] = process.argv.slice(1);
+        const list = fs.readFileSync(file, "utf8").trim().split("\n").map((l) => JSON.parse(l)).filter((e) => e.fixture === name)
+          .map(({ fixture, ...rest }) => rest);
+        fs.writeFileSync(out, JSON.stringify(list, null, 2) + "\n");
+      ' "$WORK/requests.jsonl" "$name" "$FIXTURES/$name/requests.json"
+    fi
   done
 fi
 
