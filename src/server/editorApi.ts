@@ -81,7 +81,34 @@ function group(type: string, isTrigger: boolean, isSubNode: boolean): string {
   return 'Kern';
 }
 
-function asWorkflow(body: unknown): Workflow | string {
+/** Node-Typen für Palette und Editor */
+export function nodeTypeList(registry: NodeRegistry) {
+  return registry
+    .list()
+    .filter((t) => !t.ignored || t.type === STICKY_NOTE_TYPE)
+    .map((t) => {
+      const latest = Math.max(...t.versions);
+      const probe: WorkflowNode = { id: 'probe', name: 'probe', type: t.type, typeVersion: latest, position: [0, 0], parameters: {} };
+      let outputs = 1;
+      try {
+        outputs = t.outputs(probe);
+      } catch {
+        // Ausgänge hängen von Parametern ab
+      }
+      return {
+        type: t.type,
+        displayName: t.displayName,
+        versions: t.versions,
+        isTrigger: !!t.isTrigger,
+        isSubNode: !!t.isSubNode,
+        ...(t.aiOutput ? { aiOutput: t.aiOutput } : {}),
+        outputs,
+        group: t.type === STICKY_NOTE_TYPE ? 'Sonstiges' : group(t.type, !!t.isTrigger, !!t.isSubNode),
+      };
+    });
+}
+
+export function asWorkflow(body: unknown): Workflow | string {
   const raw = (body as { workflow?: unknown } | null)?.workflow ?? body;
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return 'Workflow fehlt oder ist kein Objekt';
   const wf = raw as Workflow;
@@ -95,31 +122,7 @@ export async function registerEditorApi(api: FastifyInstance, o: EditorApiOption
 
   api.get('/api/editor/info', async () => ({ webhookBaseUrl: o.webhookBaseUrl }));
 
-  api.get('/api/editor/node-types', async () => ({
-    data: o.registry
-      .list()
-      .filter((t) => !t.ignored || t.type === STICKY_NOTE_TYPE)
-      .map((t) => {
-        const latest = Math.max(...t.versions);
-        const probe: WorkflowNode = { id: 'probe', name: 'probe', type: t.type, typeVersion: latest, position: [0, 0], parameters: {} };
-        let outputs = 1;
-        try {
-          outputs = t.outputs(probe);
-        } catch {
-          // Ausgänge hängen von Parametern ab
-        }
-        return {
-          type: t.type,
-          displayName: t.displayName,
-          versions: t.versions,
-          isTrigger: !!t.isTrigger,
-          isSubNode: !!t.isSubNode,
-          ...(t.aiOutput ? { aiOutput: t.aiOutput } : {}),
-          outputs,
-          group: t.type === STICKY_NOTE_TYPE ? 'Sonstiges' : group(t.type, !!t.isTrigger, !!t.isSubNode),
-        };
-      }),
-  }));
+  api.get('/api/editor/node-types', async () => ({ data: nodeTypeList(o.registry) }));
 
   // Nur Name, ID und Typ; Werte verlassen den Server nie
   api.get('/api/editor/credentials', async () => ({

@@ -221,6 +221,26 @@ export class WorkflowManager implements WorkflowSource {
     return saved;
   }
 
+  /** Anlegen oder ersetzen unter fester ID (Worker: vom Master verteilt); Datei <id>.json */
+  async upsert(id: string, workflow: Workflow): Promise<ManagedWorkflow> {
+    const existing = this.get(id);
+    const file = existing && existing.workflow.id === id ? existing.file : join(this.options.dir, `${id}.json`);
+    workflow.id = id;
+    await mkdir(this.options.dir, { recursive: true });
+    await writeFile(file, `${JSON.stringify(workflow, null, 2)}\n`, 'utf8');
+    await this.reload();
+    const saved = this.items.get(id);
+    if (!saved) throw new Error(`Workflow "${id}" wurde gespeichert, aber nicht geladen`);
+    return saved;
+  }
+
+  /** Alle Workflows neu prüfen und aktivieren (z. B. nachdem Credentials geändert wurden) */
+  async revalidate(): Promise<void> {
+    for (const m of this.items.values()) this.deactivate(m);
+    this.items.clear();
+    await this.reload();
+  }
+
   /** Löscht die Datei eines Workflows (Editor) */
   async remove(id: string): Promise<void> {
     const m = this.get(id);

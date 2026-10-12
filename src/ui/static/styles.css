@@ -364,3 +364,41 @@ textarea.param-input { resize: vertical; font-family: var(--mono); font-size: 12
   .panel { position: absolute; right: 0; top: 0; bottom: 0; width: 100%; z-index: 5; }
   .editor-main { position: relative; }
 }
+
+/* Master: Projekte, Verwaltung, Profil */
+.page-narrow { max-width: 760px; }
+.page .card-pad, .card-pad { padding: 16px 18px; margin-bottom: 16px; }
+.card-pad > h2:first-child, .card-pad .page-head h2 { margin-top: 0; }
+.notice { padding: 10px 14px; border-radius: var(--radius); margin-bottom: 16px; border: 1px solid transparent; }
+.notice-warning { background: var(--warning-soft); color: var(--warning); }
+.notice-error { background: var(--error-soft); color: var(--error); }
+.inline-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.inline-form .param-input { width: auto; flex: 1 1 180px; }
+.secret { display: block; padding: 8px 10px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; font-size: 14px; word-break: break-all; user-select: all; }
+.login-sep { text-align: center; }
+.project-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.project-card { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; color: var(--text); }
+.project-card:hover { text-decoration: none; border-color: var(--accent); }
+.project-card p { margin: 0; }
+.project-card-head, .project-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.project-card-foot { margin-top: auto; }
+.project-head h1 { margin: 2px 0 0; }
+.page-tabs { padding: 0; margin: -4px 0 18px; }
+.page-tabs .tab { display: inline-block; }
+.page-tabs .tab:hover { text-decoration: none; color: var(--text); }
+.danger-zone { border-color: var(--error-soft); }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.stat { padding: 12px 14px; }
+.stat-value { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stat-bad .stat-value { color: var(--error); }
+.section-title { margin: 24px 0 10px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.tenant-card table { margin-top: 4px; }
+.kv-rows { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
+.kv-row { display: grid; grid-template-columns: 1fr 1.4fr auto; gap: 6px; align-items: center; }
+.info-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+.info-grid code { word-break: break-all; }
+.span-all { grid-column: 1 / -1; }
+.row-disabled td { opacity: 0.6; }
+.nowrap { white-space: nowrap; }
+.audit-details code { word-break: break-all; }

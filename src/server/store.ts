@@ -28,6 +28,8 @@ export interface StoredExecution extends ExecutionSummary {
 
 export interface ListFilter {
   workflow?: string;
+  /** Nur diese Workflow-IDs (Master: Ausführungen eines Projekts) */
+  workflowIds?: string[];
   status?: string;
   limit?: number;
 }
@@ -173,6 +175,11 @@ export class ExecutionStore {
     if (filter.workflow) {
       where.push('(workflow_id = ? OR workflow_name = ?)');
       args.push(filter.workflow, filter.workflow);
+    }
+    if (filter.workflowIds) {
+      if (!filter.workflowIds.length) return [];
+      where.push(`workflow_id IN (${filter.workflowIds.map(() => '?').join(', ')})`);
+      args.push(...filter.workflowIds);
     }
     if (filter.status) {
       where.push('status = ?');

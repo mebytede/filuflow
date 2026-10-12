@@ -9,6 +9,9 @@ Befehle:
   flowlite validate <wf.json> [--json] [--credentials <pfad>]
   flowlite run <wf.json> [--input items.json] [--trigger "Node-Name"] [--json] [--only-last] [--no-pin]
   flowlite serve [--dir ./workflows] [--port 5678] [--db ./flowlite.db]
+  flowlite master [--port 5679] [--db ./master.db]       Master mit Benutzern, Projekten und Mandanten
+  flowlite master user add|list|set-password|reset-totp   Benutzer verwalten (z. B. Notfall-Zugang)
+  flowlite worker [Optionen wie serve]                    Worker in der Umgebung eines Mandanten
   flowlite executions list|show <id> [--json] [--db ./flowlite.db]
   flowlite nodes [--json]
   flowlite credentials encrypt|decrypt <credentials.json> [--out datei]
@@ -27,6 +30,10 @@ async function lazy(name: string): Promise<CommandHandler | undefined> {
       return (await import('./run.js')).cmdRun;
     case 'serve':
       return (await import('./serve.js')).cmdServe;
+    case 'worker':
+      return (await import('./serve.js')).cmdWorker;
+    case 'master':
+      return (await import('./master.js')).cmdMaster;
     case 'executions':
       return (await import('./executions.js')).cmdExecutions;
     case 'credentials':

@@ -19,6 +19,8 @@ import { WorkflowManager } from './workflows.js';
 import { toItems } from '../cli/run.js';
 import { registerEditorApi } from './editorApi.js';
 import { registerUi } from './ui.js';
+import { registerWorkerApi } from './workerApi.js';
+import type { LayeredCredentialProvider } from '../credentials/managed.js';
 
 export interface ServerOptions {
   dir: string;
@@ -40,6 +42,8 @@ export interface ServerOptions {
   watch?: boolean;
   /** Verzeichnis der gebauten Weboberfläche; false schaltet sie ab (Default: dist/ui) */
   uiDir?: string | false;
+  /** Worker-Modus (M9): API für den Master; Credentials optional vom Master beschreibbar */
+  worker?: { version: string; credentials?: LayeredCredentialProvider };
 }
 
 export interface FlowliteServer {
@@ -251,14 +255,25 @@ export async function createServer(options: ServerOptions): Promise<FlowliteServ
     });
 
     await registerEditorApi(api, { registry, credentials, runner, manager, store, workflows: () => workflows!, webhookBaseUrl: options.webhookBaseUrl });
+    if (options.worker) {
+      await registerWorkerApi(api, {
+        version: options.worker.version,
+        webhookBaseUrl: options.webhookBaseUrl,
+        workflows: () => workflows!,
+        credentials: options.worker.credentials,
+        startedAt: new Date(),
+      });
+    }
 
     api.get('/api/executions', async (request) => {
-      const q = request.query as { workflow?: string; status?: string; limit?: string };
-      return { data: store.list({ workflow: q.workflow, status: q.status, limit: q.limit ? Number(q.limit) : undefined }) };
+      const q = request.query as { workflow?: string; workflowIds?: string; status?: string; limit?: string };
+      const workflowIds = q.workflowIds !== undefined ? q.workflowIds.split(',').filter(Boolean).slice(0, 1000) : undefined;
+      return { data: store.list({ workflow: q.workflow, workflowIds, status: q.status, limit: q.limit ? Number(q.limit) : undefined }) };
     });
 
     api.get('/api/executions/:id', async (request, reply) => {
-      const e = store.get((request.params as { id: string }).id);
+      const withData = (request.query as { data?: string }).data !== 'false';
+      const e = store.get((request.params as { id: string }).id, withData);
       if (!e) return reply.code(404).send({ message: 'Execution nicht gefunden' });
       return e;
     });

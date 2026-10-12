@@ -1,4 +1,5 @@
-// Einstieg der Weboberfläche: Anmeldung mit API-Key, Navigation (Hash-Routing), Seiten.
+// Einstieg der Weboberfläche. Einzelbetrieb: Anmeldung mit API-Key, Navigation (Hash-Routing), Seiten.
+// Im Master-Modus übernimmt master/app.ts (Sitzungen, Projekte, Verwaltung).
 import { api, ApiError, getApiKey, setApiKey, setUnauthorizedHandler } from './api.js';
 import { h, toast } from './dom.js';
 import type { CredentialInfo, NodeTypeInfo } from './types.js';
@@ -142,33 +143,52 @@ async function route(): Promise<void> {
   }
 }
 
-setUnauthorizedHandler(() => {
-  setApiKey(null);
-  catalog = undefined;
-  showLogin('Sitzung abgelaufen oder API-Key ungültig.');
-});
+function startStandalone(): void {
+  setUnauthorizedHandler(() => {
+    setApiKey(null);
+    catalog = undefined;
+    showLogin('Sitzung abgelaufen oder API-Key ungültig.');
+  });
 
-window.addEventListener('hashchange', () => {
-  if (skipNextRoute) {
-    skipNextRoute = false;
+  window.addEventListener('hashchange', () => {
+    if (skipNextRoute) {
+      skipNextRoute = false;
+      lastHash = location.hash;
+      return;
+    }
+    if (current.editor?.isDirty && !window.confirm('Ungespeicherte Änderungen verwerfen?')) {
+      skipNextRoute = true;
+      location.hash = lastHash;
+      return;
+    }
     lastHash = location.hash;
-    return;
-  }
-  if (current.editor?.isDirty && !window.confirm('Ungespeicherte Änderungen verwerfen?')) {
-    skipNextRoute = true;
-    location.hash = lastHash;
-    return;
-  }
-  lastHash = location.hash;
+    void route();
+  });
+
+  window.addEventListener('beforeunload', (e) => {
+    if (current.editor?.isDirty) e.preventDefault();
+  });
   void route();
-});
+}
 
-window.addEventListener('beforeunload', (e) => {
-  if (current.editor?.isDirty) e.preventDefault();
-});
+/** Betriebsart des Servers: Master (Benutzer, Projekte, Worker) oder Einzelbetrieb (API-Key) */
+async function boot(): Promise<void> {
+  window.addEventListener('unhandledrejection', (e) => {
+    toast(`Fehler: ${(e.reason as Error)?.message ?? String(e.reason)}`, 'error');
+  });
+  let mode: string | undefined;
+  try {
+    const res = await fetch('/healthz');
+    mode = ((await res.json()) as { mode?: string }).mode;
+  } catch {
+    // Server nicht erreichbar: Einzelbetrieb versuchen, Fehler zeigt die Anmeldung
+  }
+  if (mode === 'master') {
+    const { startMaster } = await import('./master/app.js');
+    startMaster(app);
+  } else {
+    startStandalone();
+  }
+}
 
-window.addEventListener('unhandledrejection', (e) => {
-  toast(`Fehler: ${(e.reason as Error)?.message ?? String(e.reason)}`, 'error');
-});
-
-void route();
+void boot();

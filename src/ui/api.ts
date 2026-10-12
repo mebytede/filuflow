@@ -17,6 +17,7 @@ export class ApiError extends Error {
     message: string,
     readonly status: number,
     readonly issues?: ValidationIssue[],
+    readonly body?: unknown,
   ) {
     super(message);
   }
@@ -48,11 +49,13 @@ export function setUnauthorizedHandler(fn: () => void): void {
   onUnauthorized = fn;
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+/** Request an die API; im Master-Modus gilt das Sitzungs-Cookie, der CSRF-Header ist dort Pflicht */
+export async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const key = getApiKey() ?? memoryKey;
   const res = await fetch(path, {
     method,
     headers: {
+      'x-flowlite-csrf': '1',
       ...(key ? { 'x-api-key': key } : {}),
       ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
     },
@@ -67,9 +70,9 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     data = text;
   }
   if (!res.ok) {
-    const d = data as { message?: string; issues?: ValidationIssue[] } | undefined;
+    const d = data as { message?: string; issues?: ValidationIssue[]; code?: string } | undefined;
     if (res.status === 401) onUnauthorized();
-    throw new ApiError(d?.message ?? `HTTP ${res.status}`, res.status, d?.issues);
+    throw new ApiError(d?.message ?? `HTTP ${res.status}`, res.status, d?.issues, data);
   }
   return data as T;
 }

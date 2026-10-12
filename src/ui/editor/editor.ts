@@ -2,7 +2,7 @@
 // den Verlauf (Rückgängig/Wiederholen), prüft Änderungen am Server und führt den Workflow aus.
 import { api, ApiError } from '../api.js';
 import { appendAll, dialog, h, toast, formatDate } from '../dom.js';
-import type { CredentialInfo, Execution, NodePorts, NodeTypeInfo, ValidationIssue, Workflow, WorkflowNode, WorkflowStatus } from '../types.js';
+import type { CredentialInfo, Execution, InspectResult, NodePorts, NodeTypeInfo, ValidationIssue, Workflow, WorkflowNode, WorkflowStatus } from '../types.js';
 import { Canvas, GRID, NODE_H, NODE_W, type CanvasModel } from './canvas.js';
 import { Panel } from './panel.js';
 import { palette } from './palette.js';
@@ -23,7 +23,30 @@ import {
   type Edge,
 } from './model.js';
 
+/** Server-Anbindung des Editors: Einzelbetrieb (REST-API des Servers) oder Master (Projekte, Worker) */
+export interface EditorBackend {
+  inspect(workflow: Workflow): Promise<InspectResult>;
+  /** Ohne id: neu anlegen. Liefert null, wenn das Speichern abgebrochen wurde (z. B. Konfliktdialog). */
+  save(id: string | undefined, workflow: Workflow): Promise<(Partial<WorkflowStatus> & { id: string; saveWarning?: string }) | null>;
+  run(workflow: Workflow, trigger?: string, input?: unknown): Promise<Execution>;
+}
+
+export const standaloneBackend: EditorBackend = {
+  inspect: (workflow) => api.inspect(workflow),
+  save: (id, workflow) => (id ? api.save(id, workflow) : api.create(workflow)),
+  run: (workflow, trigger, input) => api.run(workflow, trigger, input),
+};
+
 export interface EditorOptions {
+  backend?: EditorBackend;
+  /** Link zu den Ausführungen dieses Workflows (Default: Einzelbetrieb) */
+  executionsHref?(id: string): string;
+  /** Zusätzliche Knöpfe in der Werkzeugleiste */
+  toolbarExtras?(): Array<HTMLElement | null>;
+  /** Hinweis in der Werkzeugleiste bei readonly ohne Ausführung (z. B. "nur lesen") */
+  readonlyNote?: string;
+  /** Link "Workflow öffnen" in der Ausführungsansicht */
+  workflowHref?(id: string): string;
   /** gespeicherte Workflow-ID; ohne ID ist der Workflow neu */
   id?: string;
   workflow: Workflow;
@@ -67,8 +90,10 @@ export class Editor {
   private readonly toolbar: HTMLElement;
   private readonly issuesBar: HTMLElement;
   private readonly keyHandler = (e: KeyboardEvent) => this.onKey(e);
+  private readonly backend: EditorBackend;
 
   constructor(private readonly opts: EditorOptions) {
+    this.backend = opts.backend ?? standaloneBackend;
     this.wf = cloneWorkflow(opts.workflow);
     this.wf.connections ??= {};
     this.wf.nodes ??= [];
@@ -143,6 +168,18 @@ export class Editor {
 
   get isDirty(): boolean {
     return this.dirty;
+  }
+
+  /** Ganzen Workflow ersetzen (z. B. ältere Version wiederherstellen); als ungespeicherte Änderung mit Rückgängig */
+  replaceWith(workflow: Workflow): void {
+    this.update((wf) => {
+      const keep = { id: wf.id ?? this.id, active: wf.active };
+      const next = cloneWorkflow(workflow);
+      for (const key of Object.keys(wf)) delete (wf as unknown as Record<string, unknown>)[key];
+      Object.assign(wf, next, keep);
+    });
+    this.model.selection.clear();
+    this.panel.show(undefined);
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -371,7 +408,7 @@ export class Editor {
   private async inspect(): Promise<void> {
     const seq = ++this.inspectSeq;
     try {
-      const result = await api.inspect(this.wf);
+      const result = await this.backend.inspect(this.wf);
       if (seq !== this.inspectSeq) return;
       this.model.ports = result.nodes;
       this.prefillPorts();
@@ -386,7 +423,8 @@ export class Editor {
   async save(): Promise<boolean> {
     if (this.opts.readonly) return false;
     try {
-      const result = this.id ? await api.save(this.id, this.wf) : await api.create(this.wf);
+      const result = await this.backend.save(this.id, this.wf);
+      if (!result) return false;
       const created = !this.id;
       this.id = result.id;
       this.wf.id = result.id;
@@ -397,6 +435,7 @@ export class Editor {
       this.refresh();
       const errors = (result.issues ?? []).filter((i) => i.severity === 'error').length;
       if (result.activationError) toast(`Gespeichert, aber nicht aktiviert: ${result.activationError}`, 'error');
+      else if (result.saveWarning) toast(`Gespeichert, aber: ${result.saveWarning}`, 'error');
       else toast(errors ? `Gespeichert (${errors} Fehler)` : 'Gespeichert', errors ? 'info' : 'success');
       if (created) this.opts.onCreated?.(result.id);
       return true;
@@ -454,7 +493,7 @@ export class Editor {
     this.running = true;
     this.renderToolbar();
     try {
-      const execution = await api.run(this.wf, trigger, payload);
+      const execution = await this.backend.run(this.wf, trigger, payload);
       this.showExecution(execution);
       if (execution.status === 'success') toast('Ausführung erfolgreich', 'success');
       else toast(`Ausführung: ${execution.status}${execution.error ? ` (${execution.error.message})` : ''}`, 'error');
@@ -594,6 +633,8 @@ export class Editor {
         h('span', { class: `pill ${active ? 'pill-success' : this.wf.active && this.id ? 'pill-error' : ''}`, title: this.status?.activationError ?? '' }, activeLabel),
         this.dirty ? h('span', { class: 'dirty', title: 'Ungespeicherte Änderungen' }, '● ungespeichert') : null,
       );
+    } else if (!this.execution && this.opts.readonlyNote) {
+      tb.append(h('span', { class: 'pill' }, this.opts.readonlyNote));
     } else if (this.execution) {
       const e = this.execution;
       tb.append(h('span', { class: `pill pill-${e.status === 'success' ? 'success' : e.status === 'error' ? 'error' : ''}` }, e.status), h('span', { class: 'muted' }, ` ${formatDate(e.startedAt)} · ${e.mode}`));
@@ -611,7 +652,8 @@ export class Editor {
         this.id
           ? h('button', { type: 'button', class: 'btn', title: 'Webhooks und Zeitpläne an- oder abschalten (speichert)', onclick: () => void this.toggleActive() }, this.wf.active ? 'Deaktivieren' : 'Aktivieren')
           : null,
-        this.id ? h('a', { class: 'btn', href: `#/executions?workflow=${encodeURIComponent(this.id)}` }, 'Ausführungen') : null,
+        this.id ? h('a', { class: 'btn', href: this.opts.executionsHref?.(this.id) ?? `#/executions?workflow=${encodeURIComponent(this.id)}` }, 'Ausführungen') : null,
+        ...(this.opts.toolbarExtras?.() ?? []),
         this.model.runData ? h('button', { type: 'button', class: 'btn', title: 'Ergebnis ausblenden', onclick: () => this.showExecution(undefined) }, 'Ergebnis löschen') : null,
         h('button', { type: 'button', class: 'btn', title: 'Speichern (Strg+S)', disabled: !this.dirty && !!this.id, onclick: () => void this.save() }, 'Speichern'),
         h(
@@ -621,7 +663,10 @@ export class Editor {
         ),
       );
     } else if (this.execution?.workflowId && this.execution.workflowId !== 'editor') {
-      tb.append(h('a', { class: 'btn', href: `#/workflow/${encodeURIComponent(this.execution.workflowId)}` }, 'Workflow öffnen'));
+      tb.append(h('a', { class: 'btn', href: this.opts.workflowHref?.(this.execution.workflowId) ?? `#/workflow/${encodeURIComponent(this.execution.workflowId)}` }, 'Workflow öffnen'));
+    }
+    if (ro && !this.execution) {
+      tb.append(...(this.opts.toolbarExtras?.() ?? []).filter((e): e is HTMLElement => !!e));
     }
   }
 
