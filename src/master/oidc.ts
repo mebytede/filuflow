@@ -107,6 +107,10 @@ export class OidcClient {
     const url = `${this.config.issuer.replace(/\/+$/, '')}/.well-known/openid-configuration`;
     const value = await this.getJson<Discovery>(url);
     if (!value.authorization_endpoint || !value.token_endpoint || !value.jwks_uri) throw new OidcError('Discovery-Dokument ist unvollständig');
+    // OpenID Connect Discovery 1.0, Abschnitt 4.3: issuer muss der konfigurierten Adresse entsprechen
+    if (String(value.issuer ?? '').replace(/\/+$/, '') !== this.config.issuer.replace(/\/+$/, '')) {
+      throw new OidcError(`Aussteller im Discovery-Dokument (${value.issuer}) passt nicht zu FLOWLITE_OIDC_ISSUER`);
+    }
     this.discovery = { value, at: Date.now() };
     return value;
   }

@@ -14,6 +14,7 @@ import { StaticCredentialProvider } from '../src/credentials/store.js';
 import { LayeredCredentialProvider } from '../src/credentials/managed.js';
 import type { MasterServer } from '../src/master/app.js';
 import { startMaster } from './helpers/master.js';
+import { CLIENT_ID, CLIENT_SECRET, MockIdp } from './helpers/idp.js';
 
 const ROOT = join(__dirname, '..');
 const WORKER_KEY = 'worker-schluessel-0123456789';
@@ -232,4 +233,50 @@ describe('Master-Oberfläche', () => {
     expect(errors).toEqual([]);
     await page.close();
   }, 180_000);
+
+  it('meldet über SSO (OIDC) an, inklusive Fehlermeldung bei abgelehntem Konto', async (ctx) => {
+    if (!browser) ctx.skip();
+    const idp = new MockIdp();
+    await idp.start();
+    // Master mit OIDC; redirectUrl braucht den Port, daher zuerst einen freien Port ermitteln
+    const probe = await import('node:net').then((net) => new Promise<number>((r) => {
+      const srv = net.createServer().listen(0, '127.0.0.1', () => {
+        const port = (srv.address() as AddressInfo).port;
+        srv.close(() => r(port));
+      });
+    }));
+    const ssoBase = `http://127.0.0.1:${probe}`;
+    const m = await startMaster({
+      uiDir: join(ROOT, 'dist', 'ui'),
+      publicUrl: ssoBase,
+      oidc: { issuer: idp.base, clientId: CLIENT_ID, clientSecret: CLIENT_SECRET, redirectUrl: `${ssoBase}/api/auth/oidc/callback`, autoCreate: true, allowedDomains: ['example.org'], label: 'Mit Firmen-Konto anmelden' },
+    });
+    await m.app.listen({ port: probe, host: '127.0.0.1' });
+    const page = await browser!.newPage({ viewport: { width: 1200, height: 800 } });
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+    try {
+      // Erst einen Admin anlegen, damit die Anmeldeseite (nicht die Einrichtung) erscheint
+      m.db.createUser({ email: 'ada@example.org', name: 'Ada', passwordHash: null, role: 'admin' });
+      idp.autoLogin = { sub: 'mallory', email: 'mallory@evil.example', email_verified: true };
+      await page.goto(ssoBase);
+      await page.click('a:has-text("Mit Firmen-Konto anmelden")');
+      await page.waitForSelector('.login-card .error-text:has-text("nicht zugelassen")');
+      await shot(page, '09-sso-error');
+
+      idp.autoLogin = { sub: 'sam', email: 'sam@example.org', email_verified: true, name: 'Sam SSO' };
+      await page.click('a:has-text("Mit Firmen-Konto anmelden")');
+      await page.waitForSelector('.topbar a:has-text("Sam SSO")');
+      await page.waitForSelector('h1:has-text("Projekte")');
+      // Profil ohne Passwort und ohne TOTP-Bereich
+      await page.click('.topbar a[href="#/profile"]');
+      await page.waitForSelector('h2:has-text("API-Tokens")');
+      expect(await page.locator('h2:has-text("Zwei-Faktor")').count()).toBe(0);
+      expect(errors).toEqual([]);
+    } finally {
+      await page.close();
+      await m.close();
+      await idp.app.close();
+    }
+  }, 120_000);
 });

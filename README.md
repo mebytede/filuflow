@@ -170,6 +170,25 @@ flowlite master user set-password --email ada@example.org --db ./master.db     #
 flowlite master user reset-totp --email ada@example.org --db ./master.db
 ```
 
+### Anmeldung über SSO (OpenID Connect)
+Zusätzlich zu Passwort und TOTP kann der Master Benutzer über einen Identity Provider anmelden (Keycloak, Entra ID, Google,
+Authentik, Zitadel o. ä.; Authorization Code Flow mit PKCE). Beim Identity Provider einen Client mit der Redirect-URI
+`<FLOWLITE_PUBLIC_URL>/api/auth/oidc/callback` anlegen, dann:
+
+| Variable | Bedeutung |
+|---|---|
+| `FLOWLITE_OIDC_ISSUER` | Aussteller-URL (Discovery unter `/.well-known/openid-configuration`) |
+| `FLOWLITE_OIDC_CLIENT_ID`, `FLOWLITE_OIDC_CLIENT_SECRET` | Client; das Secret wird per HTTP Basic gesendet (ohne Secret: öffentlicher Client mit PKCE) |
+| `FLOWLITE_OIDC_LABEL` | Text des Anmeldeknopfs (Default "Mit SSO anmelden") |
+| `FLOWLITE_OIDC_SCOPES` | Default `openid email profile` (für Gruppen ggf. `groups` ergänzen) |
+| `FLOWLITE_OIDC_AUTO_CREATE=true` | unbekannte Benutzer beim ersten Login als Mitglied anlegen (sonst muss ein Admin sie vorher anlegen) |
+| `FLOWLITE_OIDC_ALLOWED_DOMAINS` | nur diese E-Mail-Domains, kommagetrennt |
+| `FLOWLITE_OIDC_ADMIN_GROUP`, `FLOWLITE_OIDC_GROUPS_CLAIM` | Mitglieder dieser Gruppe (Claim, Default `groups`) werden Admin, alle anderen Mitglied; der letzte Admin bleibt Admin |
+
+Zuordnung: zuerst über die Identität beim Identity Provider (Aussteller und `sub`), sonst über die E-Mail-Adresse eines vorhandenen
+Benutzers (nicht bei `email_verified: false`; die Identität wird dann verknüpft). Vorab angelegte Benutzer ohne Passwort können sich
+nur über SSO anmelden. Bei SSO fragt flowlite kein TOTP ab; die zweite Stufe liegt beim Identity Provider.
+
 ### Arbeiten im Master
 - **Projekte:** Workflows anlegen (sofort gespeichert und an den Worker verteilt), aus n8n importieren, verschieben, löschen.
   Status je Workflow: aktiv, Verteilung (Version beim Worker), Fehler beim Aktivieren.

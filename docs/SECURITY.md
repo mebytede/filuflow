@@ -53,6 +53,17 @@ Anmeldung und Sitzungen:
 - Der erste Admin entsteht über ein Einrichtungs-Token, das der Master beim Start ins Log schreibt (nur solange es keine Benutzer
   gibt), über `FLOWLITE_ADMIN_EMAIL`/`FLOWLITE_ADMIN_PASSWORD` oder `flowlite master user add --admin`.
 
+SSO (OpenID Connect):
+- Authorization Code Flow mit PKCE (S256); `state`, `nonce` und Verifier liegen verschlüsselt in einem Cookie (10 Minuten, nur
+  `/api/auth/oidc`). Das ID-Token wird vollständig geprüft: Signatur über die JWKS des Ausstellers (RS256/384/512, PS256/384/512,
+  ES256/384/512; unbekannte Verfahren und `none` werden abgelehnt), Aussteller, Empfänger (`aud`), Ablauf und Ausstellungszeit
+  (60 s Toleranz), `nonce`. Der Aussteller im Discovery-Dokument muss zur Konfiguration passen.
+- Zuordnung über `iss` + `sub`, beim ersten Mal über die E-Mail. Eine E-Mail gilt als bestätigt, solange der Identity Provider nicht
+  ausdrücklich `email_verified: false` meldet (Entra ID sendet den Claim nicht). Das setzt voraus, dass Benutzer ihre E-Mail beim
+  Identity Provider nicht frei wählen können; sonst `FLOWLITE_OIDC_ALLOWED_DOMAINS` setzen und Benutzer vorab anlegen statt
+  `FLOWLITE_OIDC_AUTO_CREATE`.
+- Gesperrte Benutzer können sich auch über SSO nicht anmelden. Fehlgeschlagene SSO-Anmeldungen stehen im Audit-Log.
+
 Rechte:
 - Projekte, in denen jemand kein Mitglied ist, sind für ihn unsichtbar (404 statt 403). Ausführungen und Credential-Namen eines
   Workers sieht nur, wer im zugehörigen Projekt lesen darf; Ausführungen werden auf die Workflows des Projekts gefiltert.
