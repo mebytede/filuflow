@@ -7,7 +7,7 @@ Referenzversion: n8n **1.123.0** (Docker-Image `n8nio/n8n:1.123.0`, Quellcode-Ta
 |---|---|
 | M0 | fertig: Gerüst, Lint, Tests |
 | M1 | fertig: Loader, Validator (alle Fehlerklassen aus SPEC 6), `flowlite validate`, `flowlite nodes` |
-| M2 | offen |
+| M2 | fertig: Engine (v1-Stack, Positionssortierung, Merge-Warten, pinData, disabled, alwaysOutputData, executeOnce, onError, retry, Abbruch), Expression-Engine (vm, Timeout, Daten-Proxy, Paired Items) |
 | M3a | offen |
 | M3b | offen |
 | M3c | offen |
