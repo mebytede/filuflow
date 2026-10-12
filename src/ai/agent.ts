@@ -181,7 +181,8 @@ async function invokeWithFallback(setup: AgentSetup, messages: ChatMessage[], to
 /** parseAIMessageToToolAction */
 function parseModelResult(result: ChatResult): AgentAction[] | AgentFinish {
   const message = result.message;
-  const content: unknown = Array.isArray(message.raw) && message.raw.every((b) => typeof (b as { type?: unknown }).type === 'string') ? message.raw : message.content;
+  // Inhalt wie die LangChain-AIMessage (Gemini und Anthropic: Blöcke, wenn es nicht genau ein Text ist)
+  const content: unknown = message.lc ? message.lc.content : message.content;
   const stringified = typeof content === 'string' ? content : JSON.stringify(content);
   if (!result.toolCalls.length) return { returnValues: { output: content } };
   return result.toolCalls.map((tc, i) => ({
@@ -272,6 +273,7 @@ function finalizeResult(result: Record<string, unknown>, itemIndex: number, memo
 
 /** AIMessage im LangChain-Serialisierungsformat (für intermediateSteps in der Ausgabe) */
 function serializeMessage(m: ChatMessage, synthetic: boolean): Record<string, unknown> {
+  if (m.lc) return { lc: 1, type: 'constructor', id: ['langchain_core', 'messages', 'AIMessage'], kwargs: m.lc.kwargs };
   const type = m.role === 'human' ? 'HumanMessage' : m.role === 'system' ? 'SystemMessage' : m.role === 'tool' ? 'ToolMessage' : 'AIMessage';
   const kwargs: Record<string, unknown> = { content: m.content };
   if (m.role === 'ai') {

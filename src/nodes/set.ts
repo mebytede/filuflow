@@ -17,7 +17,7 @@ import {
 
 type Include = 'all' | 'none' | 'selected' | 'except';
 
-interface SetOptions {
+export interface SetOptions {
   dotNotation?: boolean;
   ignoreConversionErrors?: boolean;
   include?: Include;
@@ -218,7 +218,7 @@ async function executeV1(ctx: ExecContext): Promise<Item[][]> {
   return [out];
 }
 
-async function executeManual(
+export async function executeManual(
   ctx: ExecContext,
   item: Item,
   i: number,

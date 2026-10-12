@@ -1,0 +1,78 @@
+[
+  {
+    "method": "POST",
+    "path": "/v1/chat/completions",
+    "bodyContains": [
+      "21-v3",
+      "call_w"
+    ],
+    "log": true,
+    "body": {
+      "id": "c-a2",
+      "object": "chat.completion",
+      "created": 1700000000,
+      "model": "gpt-4o-mini-2024-07-18",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "refusal": null,
+            "annotations": [],
+            "content": "In Berlin ist es mild, 2 plus 3 ist 5."
+          },
+          "logprobs": null,
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 50,
+        "completion_tokens": 10,
+        "total_tokens": 60
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/v1/chat/completions",
+    "bodyContains": [
+      "Wetter in Berlin",
+      "21-v3"
+    ],
+    "log": true,
+    "body": {
+      "id": "c-a1",
+      "object": "chat.completion",
+      "created": 1700000000,
+      "model": "gpt-4o-mini-2024-07-18",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "refusal": null,
+            "annotations": [],
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "call_w",
+                "type": "function",
+                "function": {
+                  "name": "Wetter",
+                  "arguments": "{\"stadt\": \"Berlin\", \"tag\": \"heute\"}"
+                }
+              }
+            ]
+          },
+          "logprobs": null,
+          "finish_reason": "tool_calls"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 50,
+        "completion_tokens": 10,
+        "total_tokens": 60
+      }
+    }
+  }
+]

@@ -25,6 +25,11 @@ export interface ChatMessage {
   name?: string;
   /** ai: Rohdaten des Anbieters (z. B. Content-Blöcke von Anthropic) */
   raw?: unknown;
+  /**
+   * ai: Darstellung als LangChain-AIMessage (content und kwargs der Serialisierung), wie n8n sie in
+   * intermediateSteps ausgibt und für das Log des Agents nutzt
+   */
+  lc?: { content: unknown; kwargs: Record<string, unknown> };
 }
 
 export function textOf(content: ChatMessage['content']): string {

@@ -100,7 +100,18 @@ export class NodeExecutionContext implements ExecContext {
       contextNodeName: options.contextNodeName,
       resolveParameter: (value, idx) => this.resolve(value, idx),
       getNodeContext: (name) => this.executor.getNodeContext(name),
+      fromAIData: this.fromAIData,
     });
+  }
+
+  /** Argumente eines Tool-Aufrufs für $fromAI */
+  fromAIData?: Record<string, unknown>;
+
+  /** Kopie des Kontexts, deren Expressions $fromAI aus diesen Argumenten lesen */
+  withFromAI(data: Record<string, unknown>): NodeExecutionContext {
+    const copy = Object.create(this) as NodeExecutionContext;
+    copy.fromAIData = data;
+    return copy;
   }
 
   private resolve(value: unknown, itemIndex: number, path = ''): unknown {
@@ -203,6 +214,22 @@ export class NodeExecutionContext implements ExecContext {
 
   logOutput(level: 'log' | 'info' | 'warn' | 'error' | 'debug', args: unknown[]): void {
     this.executor.addLog(this.node.name, level, args);
+  }
+
+  /**
+   * n8n SupplyDataContext.cloneWith: gleicher Node mit anderem Run-Index und eigenen Eingangsdaten
+   * (getInputData), Expressions sehen weiter die Daten des Eltern-Nodes
+   */
+  cloneWith(replacements: { runIndex: number; items: Item[] }): NodeExecutionContext {
+    return new NodeExecutionContext({
+      executor: this.executor,
+      node: this.node,
+      executeData: this.executeData,
+      inputs: [replacements.items],
+      connectionInputData: this.connectionInputData,
+      runIndex: replacements.runIndex,
+      parent: this.parent,
+    });
   }
 
   /** Für Sub-Nodes: Kontext eines anderen Nodes mit denselben Eingangsdaten (n8n SupplyDataContext) */

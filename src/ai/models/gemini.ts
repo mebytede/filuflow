@@ -150,7 +150,7 @@ export class GeminiChatModel extends ChatModel {
   /** mapGenerateContentResultToChatResult */
   private mapResult(res: Record<string, unknown>): ChatResult {
     const candidates = res.candidates as Array<Record<string, unknown>> | undefined;
-    const usage = res.usageMetadata as { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number } | undefined;
+    const usage = res.usageMetadata as { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number; cachedContentTokenCount?: number } | undefined;
     const tokenUsage = usage
       ? { promptTokens: usage.promptTokenCount ?? 0, completionTokens: usage.candidatesTokenCount ?? 0, totalTokens: usage.totalTokenCount ?? 0 }
       : undefined;
@@ -169,8 +169,45 @@ export class GeminiChatModel extends ChatModel {
       parts.length === 1 && typeof parts[0].text === 'string' && parts[0].text
         ? parts[0].text
         : ((parts.find((p) => typeof p.text === 'string')?.text as string | undefined) ?? '');
+    // LangChain-Inhalt: ein Text als String, sonst Blöcke mit type
+    const lcContent: unknown =
+      parts.length === 1 && parts[0].text
+        ? parts[0].text
+        : parts.map((p) => {
+            for (const key of ['text', 'inlineData', 'functionCall', 'functionResponse', 'fileData', 'executableCode', 'codeExecutionResult']) {
+              if (key in p) return { type: key, [key]: p[key] };
+            }
+            return p;
+          });
+    const signatures: Record<string, unknown> = {};
+    parts
+      .filter((p) => p.functionCall)
+      .forEach((p, i) => {
+        if (typeof p.thoughtSignature === 'string') signatures[toolCalls[i].id] = p.thoughtSignature;
+      });
+    const usageMetadata = tokenUsage
+      ? {
+          input_tokens: tokenUsage.promptTokens,
+          output_tokens: tokenUsage.completionTokens,
+          total_tokens: tokenUsage.totalTokens,
+          ...(usage?.cachedContentTokenCount ? { input_token_details: { cache_read: usage.cachedContentTokenCount } } : {}),
+        }
+      : undefined;
+    const lcKwargs: Record<string, unknown> = {
+      content: lcContent,
+      tool_calls: toolCalls.map((tc) => ({ type: 'tool_call', id: tc.id, name: tc.name, args: tc.args })),
+      additional_kwargs: { ...generationInfo, __gemini_function_call_thought_signatures__: signatures },
+      usage_metadata: usageMetadata,
+      invalid_tool_calls: [],
+      response_metadata: {
+        tokenUsage: { promptTokens: usageMetadata?.input_tokens, completionTokens: usageMetadata?.output_tokens, totalTokens: usageMetadata?.total_tokens },
+        ...generationInfo,
+      },
+      // LangChain vergibt die ID über den Callback-Manager (zufällig)
+      id: `run-${randomUUID()}`,
+    };
     return {
-      message: { role: 'ai', content: text, toolCalls, raw: parts },
+      message: { role: 'ai', content: text, toolCalls, raw: parts, lc: { content: lcContent, kwargs: lcKwargs } },
       text,
       toolCalls,
       generationInfo,

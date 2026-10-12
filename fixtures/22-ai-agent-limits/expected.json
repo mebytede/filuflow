@@ -1,0 +1,570 @@
+{
+  "status": "error",
+  "lastNodeExecuted": "Agent V3",
+  "error": "Max iterations (1) reached. The agent could not complete the task within the allowed number of iterations.",
+  "order": [
+    "Start",
+    "Agent V2",
+    "Speicher",
+    "GPT 1",
+    "Rechner",
+    "GPT 1",
+    "Rechner",
+    "Speicher",
+    "Agent G",
+    "Gemini",
+    "Rechner G",
+    "Gemini",
+    "Agent C",
+    "Claude",
+    "Claude",
+    "GPT 2",
+    "Agent V3"
+  ],
+  "nodes": {
+    "Start": [
+      {
+        "status": "success",
+        "source": [],
+        "main": [
+          [
+            {
+              "json": {},
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Speicher": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent V2",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      },
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent V2",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      }
+    ],
+    "GPT 1": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent V2",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      },
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent V2",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      }
+    ],
+    "Rechner": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent V2",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      },
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent V2",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      }
+    ],
+    "Agent V2": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Start"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "output": "Agent stopped due to max iterations.",
+                "intermediateSteps": [
+                  {
+                    "action": {
+                      "tool": "Unbekannt",
+                      "toolInput": {
+                        "input": "x"
+                      },
+                      "toolCallId": "call_x1",
+                      "log": "Invoking \"Unbekannt\" with {\"input\":\"x\"}\n",
+                      "messageLog": [
+                        {
+                          "lc": 1,
+                          "type": "constructor",
+                          "id": [
+                            "langchain_core",
+                            "messages",
+                            "AIMessage"
+                          ],
+                          "kwargs": {
+                            "id": "c1",
+                            "content": "",
+                            "additional_kwargs": {
+                              "tool_calls": [
+                                {
+                                  "id": "call_x1",
+                                  "type": "function",
+                                  "function": {
+                                    "name": "Unbekannt",
+                                    "arguments": "{\"input\": \"x\"}"
+                                  }
+                                },
+                                {
+                                  "id": "call_y1",
+                                  "type": "function",
+                                  "function": {
+                                    "name": "Rechner",
+                                    "arguments": "{\"input\": \"1+1\"}"
+                                  }
+                                }
+                              ]
+                            },
+                            "response_metadata": {
+                              "tokenUsage": {
+                                "promptTokens": 50,
+                                "completionTokens": 10,
+                                "totalTokens": 60
+                              },
+                              "finish_reason": "tool_calls",
+                              "model_provider": "openai",
+                              "model_name": "gpt-4o-mini-2024-07-18"
+                            },
+                            "type": "ai",
+                            "tool_calls": [
+                              {
+                                "name": "Unbekannt",
+                                "args": {
+                                  "input": "x"
+                                },
+                                "type": "tool_call",
+                                "id": "call_x1"
+                              },
+                              {
+                                "name": "Rechner",
+                                "args": {
+                                  "input": "1+1"
+                                },
+                                "type": "tool_call",
+                                "id": "call_y1"
+                              }
+                            ],
+                            "invalid_tool_calls": [],
+                            "usage_metadata": {
+                              "output_tokens": 10,
+                              "input_tokens": 50,
+                              "total_tokens": 60,
+                              "input_token_details": {},
+                              "output_token_details": {}
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    "observation": "Unbekannt is not a valid tool, try another one."
+                  },
+                  {
+                    "action": {
+                      "tool": "Rechner",
+                      "toolInput": {
+                        "input": "1+1"
+                      },
+                      "toolCallId": "call_y1",
+                      "log": "Invoking \"Rechner\" with {\"input\":\"1+1\"}\n",
+                      "messageLog": []
+                    },
+                    "observation": "2"
+                  },
+                  {
+                    "action": {
+                      "tool": "Rechner",
+                      "toolInput": {
+                        "input": "3*3"
+                      },
+                      "toolCallId": "call_x2",
+                      "log": "Invoking \"Rechner\" with {\"input\":\"3*3\"}\n",
+                      "messageLog": [
+                        {
+                          "lc": 1,
+                          "type": "constructor",
+                          "id": [
+                            "langchain_core",
+                            "messages",
+                            "AIMessage"
+                          ],
+                          "kwargs": {
+                            "id": "c2",
+                            "content": "",
+                            "additional_kwargs": {
+                              "tool_calls": [
+                                {
+                                  "id": "call_x2",
+                                  "type": "function",
+                                  "function": {
+                                    "name": "Rechner",
+                                    "arguments": "{\"input\": \"3*3\"}"
+                                  }
+                                }
+                              ]
+                            },
+                            "response_metadata": {
+                              "tokenUsage": {
+                                "promptTokens": 50,
+                                "completionTokens": 10,
+                                "totalTokens": 60
+                              },
+                              "finish_reason": "tool_calls",
+                              "model_provider": "openai",
+                              "model_name": "gpt-4o-mini-2024-07-18"
+                            },
+                            "type": "ai",
+                            "tool_calls": [
+                              {
+                                "name": "Rechner",
+                                "args": {
+                                  "input": "3*3"
+                                },
+                                "type": "tool_call",
+                                "id": "call_x2"
+                              }
+                            ],
+                            "invalid_tool_calls": [],
+                            "usage_metadata": {
+                              "output_tokens": 10,
+                              "input_tokens": 50,
+                              "total_tokens": 60,
+                              "input_token_details": {},
+                              "output_token_details": {}
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    "observation": "9"
+                  }
+                ]
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Gemini": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent G",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      },
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent G",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      }
+    ],
+    "Rechner G": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent G",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      }
+    ],
+    "Agent G": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent V2"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "output": "Das sind 16.",
+                "intermediateSteps": [
+                  {
+                    "action": {
+                      "tool": "Rechner G",
+                      "toolInput": {
+                        "input": "4*4"
+                      },
+                      "toolCallId": "fc_g1",
+                      "log": "Invoking \"Rechner G\" with {\"input\":\"4*4\"}\n[{\"type\":\"functionCall\",\"functionCall\":{\"id\":\"fc_g1\",\"name\":\"Rechner G\",\"args\":{\"input\":\"4*4\"}}}]",
+                      "messageLog": [
+                        {
+                          "lc": 1,
+                          "type": "constructor",
+                          "id": [
+                            "langchain_core",
+                            "messages",
+                            "AIMessage"
+                          ],
+                          "kwargs": {
+                            "content": [
+                              {
+                                "type": "functionCall",
+                                "functionCall": {
+                                  "id": "fc_g1",
+                                  "name": "Rechner G",
+                                  "args": {
+                                    "input": "4*4"
+                                  }
+                                }
+                              }
+                            ],
+                            "tool_calls": [
+                              {
+                                "type": "tool_call",
+                                "id": "fc_g1",
+                                "name": "Rechner G",
+                                "args": {
+                                  "input": "4*4"
+                                }
+                              }
+                            ],
+                            "additional_kwargs": {
+                              "finishReason": "STOP",
+                              "index": 0,
+                              "__gemini_function_call_thought_signatures__": {}
+                            },
+                            "usage_metadata": {
+                              "input_tokens": 30,
+                              "output_tokens": 5,
+                              "total_tokens": 35
+                            },
+                            "invalid_tool_calls": [],
+                            "response_metadata": {
+                              "tokenUsage": {
+                                "promptTokens": 30,
+                                "completionTokens": 5,
+                                "totalTokens": 35
+                              },
+                              "finishReason": "STOP",
+                              "index": 0
+                            },
+                            "id": "run-3f6627c5-a001-400b-9903-a61bfc925a56"
+                          }
+                        }
+                      ]
+                    },
+                    "observation": "16"
+                  }
+                ]
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Claude": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent C",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      },
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent C",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      }
+    ],
+    "Agent C": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent G"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "output": "Das sind 25.",
+                "intermediateSteps": [
+                  {
+                    "action": {
+                      "tool": "Rechner_C",
+                      "toolInput": {
+                        "input": "5*5"
+                      },
+                      "toolCallId": "toolu_c1",
+                      "log": "Invoking \"Rechner_C\" with {\"input\":\"5*5\"}\n[{\"type\":\"text\",\"text\":\"Ich rechne.\"},{\"type\":\"tool_use\",\"id\":\"toolu_c1\",\"name\":\"Rechner_C\",\"input\":{\"input\":\"5*5\"}}]",
+                      "messageLog": [
+                        {
+                          "lc": 1,
+                          "type": "constructor",
+                          "id": [
+                            "langchain_core",
+                            "messages",
+                            "AIMessage"
+                          ],
+                          "kwargs": {
+                            "content": [
+                              {
+                                "type": "text",
+                                "text": "Ich rechne."
+                              },
+                              {
+                                "type": "tool_use",
+                                "id": "toolu_c1",
+                                "name": "Rechner_C",
+                                "input": {
+                                  "input": "5*5"
+                                }
+                              }
+                            ],
+                            "additional_kwargs": {
+                              "id": "msg_c1",
+                              "type": "message",
+                              "role": "assistant",
+                              "model": "claude-sonnet-4-5-20250929",
+                              "stop_reason": "tool_use",
+                              "stop_sequence": null,
+                              "usage": {
+                                "input_tokens": 50,
+                                "output_tokens": 12
+                              }
+                            },
+                            "tool_calls": [
+                              {
+                                "name": "Rechner_C",
+                                "args": {
+                                  "input": "5*5"
+                                },
+                                "id": "toolu_c1",
+                                "type": "tool_call"
+                              }
+                            ],
+                            "usage_metadata": {
+                              "input_tokens": 50,
+                              "output_tokens": 12,
+                              "total_tokens": 62,
+                              "input_token_details": {}
+                            },
+                            "response_metadata": {
+                              "id": "msg_c1",
+                              "model": "claude-sonnet-4-5-20250929",
+                              "stop_reason": "tool_use",
+                              "stop_sequence": null,
+                              "usage": {
+                                "input_tokens": 50,
+                                "output_tokens": 12
+                              },
+                              "type": "message",
+                              "role": "assistant",
+                              "model_provider": "anthropic"
+                            },
+                            "id": "msg_c1",
+                            "invalid_tool_calls": []
+                          }
+                        }
+                      ]
+                    },
+                    "observation": "Rechner_C is not a valid tool, try another one."
+                  }
+                ]
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "GPT 2": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent V3",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      }
+    ],
+    "Agent V3": [
+      {
+        "status": "error",
+        "source": [
+          {
+            "previousNode": "Agent C"
+          }
+        ],
+        "main": [],
+        "error": "Max iterations (1) reached. The agent could not complete the task within the allowed number of iterations."
+      }
+    ]
+  }
+}

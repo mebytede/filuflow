@@ -95,14 +95,21 @@ Fallback auf die ID:
 }
 ```
 - Feldnamen wie in n8n (`httpHeaderAuth`, `httpBasicAuth`, `httpQueryAuth`, `httpBearerAuth`, `httpCustomAuth`, `oAuth2Api`, `jwtAuth`).
+- KI-Modelle: `openAiApi` (`apiKey`, optional `url`), `anthropicApi` (`apiKey`, optional `url`), `googlePalmApi` (`apiKey`, optional `host`).
 - `{{ env.NAME }}` holt Werte aus der Umgebung; `flowlite validate` meldet fehlende Credentials und Variablen.
 - Exporte von `n8n export:credentials --decrypted` funktionieren direkt.
 - Verschlüsseln: `FLOWLITE_ENCRYPTION_KEY=... flowlite credentials encrypt credentials.json --out credentials.enc.json`
   (Namen und Typen bleiben lesbar, `decrypt` zum Bearbeiten, `check` zum Prüfen).
 
+## KI-Nodes
+Basic LLM Chain, Information Extractor, Text Classifier, Sentiment Analysis und AI Agent (Tools Agent v2 bis 3) mit den Modellen
+OpenAI (Chat Completions), Anthropic und Gemini, den Tools Calculator, Code, HTTP Request und Workflow sowie Simple Memory.
+Die Modelle werden direkt per HTTP angesprochen (kein LangChain). Sub-Nodes hängen wie in n8n über `ai_*`-Verbindungen am
+Eltern-Node und erscheinen im Execution-Log mit eigenen Läufen. Abweichungen: `docs/DEVIATIONS.md`.
+
 ## Tests
 ```
-npm test             # Unit-Tests und Orakel (Filter, Expressions)
+npm test             # Unit-Tests und Orakel (Filter, Expressions, KI)
 npm run test:compat  # Golden-Tests gegen Ergebnisse aus echtem n8n (CLI, Engine, Webhooks)
 npm run lint
 ```

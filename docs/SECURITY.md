@@ -15,3 +15,8 @@ Trotzdem gilt:
   (Basic, Header, Bearer, JWT) mit Credentials aus `credentials.json`.
 - Der Docker-Container läuft als Benutzer `node` (nicht root).
 - Request-Bodys sind auf `FLOWLITE_PAYLOAD_SIZE_MAX` MB begrenzt (Default 16, wie n8n).
+- KI-Agents lassen das Modell Tools aufrufen: Das HTTP Request Tool sendet Requests mit Werten vom Modell (bei
+  Authentifizierung ist ein Platzhalter in der Domain verboten, wie in n8n), das Workflow-Tool startet Unter-Workflows, das
+  Code-Tool führt seinen Code in derselben Sandbox wie der Code-Node aus (gleicher Timeout). Antworten von LLMs sind
+  nicht vertrauenswürdig; Tools sollten nur mit den Rechten angeschlossen werden, die der Agent wirklich braucht.
+- API-Keys der Modelle kommen aus Credentials und werden wie alle geheimen Felder maskiert.

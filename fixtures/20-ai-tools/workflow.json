@@ -1,0 +1,402 @@
+{
+  "name": "20 KI-Tools",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "b8000000-0000-4000-8000-000000000001",
+      "name": "Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{stadt:'Berlin', frage:'Wie ist das Wetter in Berlin und was ist 2 plus 3?'}}];"
+      },
+      "id": "b8000000-0000-4000-8000-000000000002",
+      "name": "Daten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.frage }}",
+        "options": {
+          "systemMessage": "Nutze die Tools."
+        }
+      },
+      "id": "b8000000-0000-4000-8000-000000000003",
+      "name": "Agent A",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        420,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list"
+        },
+        "options": {}
+      },
+      "id": "b8000000-0000-4000-8000-000000000004",
+      "name": "GPT A",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        300,
+        220
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "credOpenAi001",
+          "name": "OpenAI Mock"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Liefert das Wetter einer Stadt",
+        "url": "http://127.0.0.1:18089/echo/wetter/{stadt}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "parametersQuery": {
+          "values": [
+            {
+              "name": "units",
+              "valueProvider": "fieldValue",
+              "value": "metric"
+            },
+            {
+              "name": "tag",
+              "valueProvider": "modelOptional"
+            }
+          ]
+        },
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "stadt",
+              "description": "Name der Stadt",
+              "type": "string"
+            }
+          ]
+        },
+        "optimizeResponse": true,
+        "responseType": "json",
+        "fieldsToInclude": "selected",
+        "fields": "path, query, headers.x-wetter-key"
+      },
+      "id": "b8000000-0000-4000-8000-000000000005",
+      "name": "Wetter",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        440,
+        220
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "credWetter01",
+          "name": "Wetter Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "description": "Addiert zwei Zahlen",
+        "source": "database",
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "a": "={{ $fromAI('a', 'Erste Zahl', 'number') }}",
+            "b": "={{ $fromAI('b', 'Zweite Zahl', 'number') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "a",
+              "displayName": "a",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "b",
+              "displayName": "b",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "workflowId": {
+          "__rl": true,
+          "value": "fxSubAddierer",
+          "mode": "id"
+        }
+      },
+      "id": "b8000000-0000-4000-8000-000000000006",
+      "name": "Addierer",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        580,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "Addiere 5 und 7",
+        "options": {
+          "returnIntermediateSteps": true
+        }
+      },
+      "id": "b8000000-0000-4000-8000-000000000007",
+      "name": "Agent B",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        800,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list"
+        },
+        "options": {}
+      },
+      "id": "b8000000-0000-4000-8000-000000000008",
+      "name": "GPT B",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        700,
+        220
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "credOpenAi001",
+          "name": "OpenAI Mock"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "description": "Addiert zwei Zahlen",
+        "source": "database",
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "a": "={{ $fromAI('a', 'Erste Zahl', 'number') }}",
+            "b": "={{ $fromAI('b', 'Zweite Zahl', 'number') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "a",
+              "displayName": "a",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "b",
+              "displayName": "b",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "workflowId": {
+          "__rl": true,
+          "value": "fxSubAddierer",
+          "mode": "id"
+        }
+      },
+      "id": "b8000000-0000-4000-8000-000000000009",
+      "name": "Addierer 2",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "description": "Misst die Länge eines Textes",
+        "source": "parameter",
+        "workflowJson": "{\n  \"name\": \"Text intern\",\n  \"nodes\": [\n    {\n      \"parameters\": {\n        \"inputSource\": \"passthrough\"\n      },\n      \"id\": \"t1\",\n      \"name\": \"Eingang\",\n      \"type\": \"n8n-nodes-base.executeWorkflowTrigger\",\n      \"typeVersion\": 1.1,\n      \"position\": [\n        0,\n        0\n      ]\n    },\n    {\n      \"parameters\": {\n        \"assignments\": {\n          \"assignments\": [\n            {\n              \"id\": \"y1\",\n              \"name\": \"laenge\",\n              \"value\": \"={{ String($json.query).length }}\",\n              \"type\": \"number\"\n            },\n            {\n              \"id\": \"y2\",\n              \"name\": \"eingang\",\n              \"value\": \"={{ JSON.stringify($json) }}\",\n              \"type\": \"string\"\n            }\n          ]\n        },\n        \"options\": {}\n      },\n      \"id\": \"t2\",\n      \"name\": \"Laenge\",\n      \"type\": \"n8n-nodes-base.set\",\n      \"typeVersion\": 3.4,\n      \"position\": [\n        220,\n        0\n      ]\n    }\n  ],\n  \"connections\": {\n    \"Eingang\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Laenge\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    }\n  },\n  \"settings\": {\n    \"executionOrder\": \"v1\"\n  }\n}",
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "x": "={{ $fromAI('x') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "x",
+              "displayName": "x",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "b8000000-0000-4000-8000-000000000010",
+      "name": "Text Workflow",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        1020,
+        220
+      ]
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Daten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daten": {
+      "main": [
+        [
+          {
+            "node": "Agent A",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent A": {
+      "main": [
+        [
+          {
+            "node": "Agent B",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GPT A": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agent A",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wetter": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent A",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Addierer": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent A",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GPT B": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agent B",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Addierer 2": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent B",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text Workflow": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent B",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

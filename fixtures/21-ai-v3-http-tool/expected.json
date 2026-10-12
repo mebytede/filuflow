@@ -1,0 +1,81 @@
+{
+  "status": "error",
+  "lastNodeExecuted": "Wetter",
+  "error": "Invalid URL",
+  "order": [
+    "Start",
+    "Wetter",
+    "Daten",
+    "GPT",
+    "Wetter"
+  ],
+  "nodes": {
+    "Start": [
+      {
+        "status": "success",
+        "source": [],
+        "main": [
+          [
+            {
+              "json": {},
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Daten": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Start"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "stadt": "Berlin",
+                "frage": "Wie ist das Wetter in Berlin und was ist 2 plus 3?"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "GPT": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      }
+    ],
+    "Wetter": [
+      {
+        "source": [],
+        "main": []
+      },
+      {
+        "status": "error",
+        "source": [
+          {
+            "previousNode": "Agent"
+          }
+        ],
+        "main": [],
+        "error": "Invalid URL"
+      }
+    ]
+  }
+}

@@ -358,8 +358,17 @@ const ZOD_STRING_FORMAT: Record<string, string> = {
   ipv6: 'ipv6',
 };
 
+/** zod isOptional(): safeParse(undefined) gelingt (bei default nur, wenn der Default-Wert gültig ist) */
 function isOptional(z: ZType): boolean {
-  return z.kind === 'optional' || z.kind === 'default' || z.kind === 'any';
+  if (z.kind === 'default') {
+    try {
+      zodParse(z.inner, z.value);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  return z.kind === 'optional' || z.kind === 'any';
 }
 
 function primitiveType(z: ZType): string | undefined {

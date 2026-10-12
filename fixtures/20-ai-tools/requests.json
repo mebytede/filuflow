@@ -1,0 +1,346 @@
+[
+  {
+    "method": "POST",
+    "url": "/v1/chat/completions",
+    "headers": {
+      "authorization": "Bearer openai-test-key",
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "gpt-4o-mini",
+      "stream": false,
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "Addierer",
+            "description": "Addiert zwei Zahlen",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "a": {
+                  "type": "number",
+                  "description": "Erste Zahl"
+                },
+                "b": {
+                  "type": "number",
+                  "description": "Zweite Zahl"
+                }
+              },
+              "required": [
+                "a",
+                "b"
+              ],
+              "additionalProperties": false,
+              "$schema": "http://json-schema.org/draft-07/schema#"
+            }
+          }
+        },
+        {
+          "type": "function",
+          "function": {
+            "name": "Wetter",
+            "description": "Liefert das Wetter einer Stadt",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "stadt": {
+                  "type": "string",
+                  "description": "Name der Stadt"
+                },
+                "tag": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "stadt"
+              ],
+              "additionalProperties": false,
+              "$schema": "http://json-schema.org/draft-07/schema#"
+            }
+          }
+        }
+      ],
+      "messages": [
+        {
+          "role": "system",
+          "content": "Nutze die Tools."
+        },
+        {
+          "role": "user",
+          "content": "Wie ist das Wetter in Berlin und was ist 2 plus 3?"
+        }
+      ]
+    }
+  },
+  {
+    "method": "POST",
+    "url": "/v1/chat/completions",
+    "headers": {
+      "authorization": "Bearer openai-test-key",
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "gpt-4o-mini",
+      "stream": false,
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "Addierer",
+            "description": "Addiert zwei Zahlen",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "a": {
+                  "type": "number",
+                  "description": "Erste Zahl"
+                },
+                "b": {
+                  "type": "number",
+                  "description": "Zweite Zahl"
+                }
+              },
+              "required": [
+                "a",
+                "b"
+              ],
+              "additionalProperties": false,
+              "$schema": "http://json-schema.org/draft-07/schema#"
+            }
+          }
+        },
+        {
+          "type": "function",
+          "function": {
+            "name": "Wetter",
+            "description": "Liefert das Wetter einer Stadt",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "stadt": {
+                  "type": "string",
+                  "description": "Name der Stadt"
+                },
+                "tag": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "stadt"
+              ],
+              "additionalProperties": false,
+              "$schema": "http://json-schema.org/draft-07/schema#"
+            }
+          }
+        }
+      ],
+      "messages": [
+        {
+          "role": "system",
+          "content": "Nutze die Tools."
+        },
+        {
+          "role": "user",
+          "content": "Wie ist das Wetter in Berlin und was ist 2 plus 3?"
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "tool_calls": [
+            {
+              "id": "call_w",
+              "type": "function",
+              "function": {
+                "name": "Wetter",
+                "arguments": "{\"stadt\":\"Berlin\",\"tag\":\"heute\"}"
+              }
+            },
+            {
+              "id": "call_a",
+              "type": "function",
+              "function": {
+                "name": "Addierer",
+                "arguments": "{\"a\":2,\"b\":3}"
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "content": "[\n  {\n    \"path\": \"/echo/wetter/Berlin\",\n    \"query\": {\n      \"units\": \"metric\",\n      \"tag\": \"heute\"\n    },\n    \"headers\": {\n      \"x-wetter-key\": \"wetter-geheim-42\"\n    }\n  }\n]",
+          "tool_call_id": "call_w"
+        },
+        {
+          "role": "tool",
+          "content": "[\n  {\n    \"summe\": 5\n  }\n]",
+          "tool_call_id": "call_a"
+        }
+      ]
+    }
+  },
+  {
+    "method": "POST",
+    "url": "/v1/chat/completions",
+    "headers": {
+      "authorization": "Bearer openai-test-key",
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "gpt-4o-mini",
+      "stream": false,
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "Text_Workflow",
+            "description": "Misst die Länge eines Textes",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "input": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "$schema": "http://json-schema.org/draft-07/schema#"
+            }
+          }
+        },
+        {
+          "type": "function",
+          "function": {
+            "name": "Addierer_2",
+            "description": "Addiert zwei Zahlen",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "a": {
+                  "type": "number",
+                  "description": "Erste Zahl"
+                },
+                "b": {
+                  "type": "number",
+                  "description": "Zweite Zahl"
+                }
+              },
+              "required": [
+                "a",
+                "b"
+              ],
+              "additionalProperties": false,
+              "$schema": "http://json-schema.org/draft-07/schema#"
+            }
+          }
+        }
+      ],
+      "messages": [
+        {
+          "role": "user",
+          "content": "Addiere 5 und 7"
+        }
+      ]
+    }
+  },
+  {
+    "method": "POST",
+    "url": "/v1/chat/completions",
+    "headers": {
+      "authorization": "Bearer openai-test-key",
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "gpt-4o-mini",
+      "stream": false,
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "Text_Workflow",
+            "description": "Misst die Länge eines Textes",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "input": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "$schema": "http://json-schema.org/draft-07/schema#"
+            }
+          }
+        },
+        {
+          "type": "function",
+          "function": {
+            "name": "Addierer_2",
+            "description": "Addiert zwei Zahlen",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "a": {
+                  "type": "number",
+                  "description": "Erste Zahl"
+                },
+                "b": {
+                  "type": "number",
+                  "description": "Zweite Zahl"
+                }
+              },
+              "required": [
+                "a",
+                "b"
+              ],
+              "additionalProperties": false,
+              "$schema": "http://json-schema.org/draft-07/schema#"
+            }
+          }
+        }
+      ],
+      "messages": [
+        {
+          "role": "user",
+          "content": "Addiere 5 und 7"
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "tool_calls": [
+            {
+              "id": "call_b",
+              "type": "function",
+              "function": {
+                "name": "Addierer_2",
+                "arguments": "{\"a\":5,\"b\":7,\"id\":\"call_b\"}"
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "content": "[{\"summe\":12}]",
+          "tool_call_id": "call_b"
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "tool_calls": [
+            {
+              "id": "call_t",
+              "type": "function",
+              "function": {
+                "name": "Text_Workflow",
+                "arguments": "{\"input\":\"hallo welt\",\"id\":\"call_t\"}"
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "content": "[{\"laenge\":10,\"eingang\":\"{\\\"query\\\":\\\"hallo welt\\\"}\"}]",
+          "tool_call_id": "call_t"
+        }
+      ]
+    }
+  }
+]

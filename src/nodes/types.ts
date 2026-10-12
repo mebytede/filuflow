@@ -119,6 +119,10 @@ export interface ExecContext {
   readonly engineResponse?: EngineResponse;
   /** Eltern-Node bei Sub-Nodes */
   readonly parent?: { node: WorkflowNode; runIndex: number };
+  /** Kopie mit anderem Run-Index und eigenen Eingangsdaten (n8n SupplyDataContext.cloneWith) */
+  cloneWith(replacements: { runIndex: number; items: Item[] }): ExecContext;
+  /** Kopie, deren Expressions $fromAI aus diesen Tool-Argumenten lesen */
+  withFromAI(data: Record<string, unknown>): ExecContext;
   /** Code-Node: console.log ins Execution-Log */
   logOutput(level: 'log' | 'info' | 'warn' | 'error' | 'debug', args: unknown[]): void;
 

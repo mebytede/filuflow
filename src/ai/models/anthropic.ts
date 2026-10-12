@@ -141,9 +141,36 @@ export class AnthropicChatModel extends ChatModel {
       .map((b) => String(b.text ?? ''))
       .join('');
     const singleText = content.length === 1 && content[0].type === 'text';
-    const usage = res.usage as { input_tokens?: number; output_tokens?: number } | undefined;
+    const usage = res.usage as
+      | { input_tokens?: number; output_tokens?: number; cache_creation_input_tokens?: number; cache_read_input_tokens?: number }
+      | undefined;
+    // @langchain/anthropic 1.1 utils/message_outputs.js (anthropicResponseToChatMessages) und chat_models.js (usage_metadata)
+    const { content: _content, ...rest } = res;
+    const lcContent = singleText ? String(content[0].text) : content;
+    const lcKwargs: Record<string, unknown> = {
+      content: lcContent,
+      additional_kwargs: rest,
+      tool_calls: toolCalls.map((tc) => ({ name: tc.name, args: tc.args, id: tc.id, type: 'tool_call' })),
+      usage_metadata: usage
+        ? {
+            input_tokens: usage.input_tokens,
+            output_tokens: usage.output_tokens,
+            total_tokens: (usage.input_tokens ?? 0) + (usage.output_tokens ?? 0),
+            input_token_details: { cache_creation: usage.cache_creation_input_tokens, cache_read: usage.cache_read_input_tokens },
+          }
+        : undefined,
+      response_metadata: { ...rest, model_provider: 'anthropic' },
+      id: res.id,
+      invalid_tool_calls: [],
+    };
     return {
-      message: { role: 'ai', content: singleText ? String(content[0].text) : text, toolCalls, raw: singleText ? undefined : content },
+      message: {
+        role: 'ai',
+        content: singleText ? String(content[0].text) : text,
+        toolCalls,
+        raw: singleText ? undefined : content,
+        lc: { content: lcContent, kwargs: lcKwargs },
+      },
       text,
       toolCalls,
       generationInfo: { id: res.id, model: res.model, stop_reason: res.stop_reason, stop_sequence: res.stop_sequence, usage: res.usage, type: res.type, role: res.role },

@@ -1,0 +1,267 @@
+[
+  {
+    "method": "POST",
+    "path": "/v1/chat/completions",
+    "bodyContains": [
+      "22-v2",
+      "call_x1"
+    ],
+    "log": true,
+    "body": {
+      "id": "c2",
+      "object": "chat.completion",
+      "created": 1700000000,
+      "model": "gpt-4o-mini-2024-07-18",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": null,
+            "refusal": null,
+            "annotations": [],
+            "tool_calls": [
+              {
+                "id": "call_x2",
+                "type": "function",
+                "function": {
+                  "name": "Rechner",
+                  "arguments": "{\"input\": \"3*3\"}"
+                }
+              }
+            ]
+          },
+          "logprobs": null,
+          "finish_reason": "tool_calls"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 50,
+        "completion_tokens": 10,
+        "total_tokens": 60
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/v1/chat/completions",
+    "bodyContains": [
+      "22-v2"
+    ],
+    "log": true,
+    "body": {
+      "id": "c1",
+      "object": "chat.completion",
+      "created": 1700000000,
+      "model": "gpt-4o-mini-2024-07-18",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": null,
+            "refusal": null,
+            "annotations": [],
+            "tool_calls": [
+              {
+                "id": "call_x1",
+                "type": "function",
+                "function": {
+                  "name": "Unbekannt",
+                  "arguments": "{\"input\": \"x\"}"
+                }
+              },
+              {
+                "id": "call_y1",
+                "type": "function",
+                "function": {
+                  "name": "Rechner",
+                  "arguments": "{\"input\": \"1+1\"}"
+                }
+              }
+            ]
+          },
+          "logprobs": null,
+          "finish_reason": "tool_calls"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 50,
+        "completion_tokens": 10,
+        "total_tokens": 60
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/v1/chat/completions",
+    "bodyContains": [
+      "22-v3"
+    ],
+    "log": true,
+    "body": {
+      "id": "c3",
+      "object": "chat.completion",
+      "created": 1700000000,
+      "model": "gpt-4o-mini-2024-07-18",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": null,
+            "refusal": null,
+            "annotations": [],
+            "tool_calls": [
+              {
+                "id": "call_z1",
+                "type": "function",
+                "function": {
+                  "name": "Rechner_3",
+                  "arguments": "{\"input\": \"2*2\"}"
+                }
+              }
+            ]
+          },
+          "logprobs": null,
+          "finish_reason": "tool_calls"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 50,
+        "completion_tokens": 10,
+        "total_tokens": 60
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "pathPrefix": "/v1beta/models/gemini-2.5-flash:generateContent",
+    "bodyContains": [
+      "22-g",
+      "functionResponse"
+    ],
+    "log": true,
+    "body": {
+      "candidates": [
+        {
+          "content": {
+            "parts": [
+              {
+                "text": "Das sind 16."
+              }
+            ],
+            "role": "model"
+          },
+          "finishReason": "STOP",
+          "index": 0
+        }
+      ],
+      "usageMetadata": {
+        "promptTokenCount": 40,
+        "candidatesTokenCount": 4,
+        "totalTokenCount": 44
+      },
+      "modelVersion": "gemini-2.5-flash",
+      "responseId": "resp-g2"
+    }
+  },
+  {
+    "method": "POST",
+    "pathPrefix": "/v1beta/models/gemini-2.5-flash:generateContent",
+    "bodyContains": [
+      "22-g"
+    ],
+    "log": true,
+    "body": {
+      "candidates": [
+        {
+          "content": {
+            "parts": [
+              {
+                "functionCall": {
+                  "id": "fc_g1",
+                  "name": "Rechner G",
+                  "args": {
+                    "input": "4*4"
+                  }
+                }
+              }
+            ],
+            "role": "model"
+          },
+          "finishReason": "STOP",
+          "index": 0
+        }
+      ],
+      "usageMetadata": {
+        "promptTokenCount": 30,
+        "candidatesTokenCount": 5,
+        "totalTokenCount": 35
+      },
+      "modelVersion": "gemini-2.5-flash",
+      "responseId": "resp-g1"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/v1/messages",
+    "bodyContains": [
+      "22-c",
+      "toolu_c1"
+    ],
+    "log": true,
+    "body": {
+      "id": "msg_c2",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-sonnet-4-5-20250929",
+      "content": [
+        {
+          "type": "text",
+          "text": "Das sind 25."
+        }
+      ],
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "usage": {
+        "input_tokens": 60,
+        "output_tokens": 6
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/v1/messages",
+    "bodyContains": [
+      "22-c"
+    ],
+    "log": true,
+    "body": {
+      "id": "msg_c1",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-sonnet-4-5-20250929",
+      "content": [
+        {
+          "type": "text",
+          "text": "Ich rechne."
+        },
+        {
+          "type": "tool_use",
+          "id": "toolu_c1",
+          "name": "Rechner_C",
+          "input": {
+            "input": "5*5"
+          }
+        }
+      ],
+      "stop_reason": "tool_use",
+      "stop_sequence": null,
+      "usage": {
+        "input_tokens": 50,
+        "output_tokens": 12
+      }
+    }
+  }
+]

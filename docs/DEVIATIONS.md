@@ -79,11 +79,18 @@ der Wiederholungsprüfung sind gegen moment-timezone aus dem n8n-Image getestet 
 - **OpenAI Responses API** (lmChatOpenAi v1.3 mit `responsesApiEnabled`, Default in v1.3) wird nicht unterstützt; `validate` meldet es.
 - **Simple Memory** liegt wie in n8n im Speicher des Prozesses (je Workflow-ID und Session-ID, nach 1 h Leerlauf gelöscht).
   Unter der CLI beginnt also jeder Lauf mit leerem Speicher.
-- **Calculator-Tool:** eigener Ausdrucksauswerter (Grundrechenarten, `^`, `%`, Vergleich, Funktionen wie `sqrt`, `sin`, `log`,
-  Konstanten `PI`, `E`) statt mathjs. Seltene mathjs-Syntax (Einheiten, Matrizen, Brüche) liefert "I don't know how to do that.".
 - **Agent:** Streaming (`enableStreaming` mit Chat-Trigger) fehlt, die Antwort kommt immer vollständig. `maxTokensFromMemory`
-  wird von `validate` gemeldet. Bei Agent V2 enthält `intermediateSteps[].action.messageLog` die Modellantwort in vereinfachter
-  LangChain-Serialisierung (ohne `id`, `usage_metadata` und anbieterspezifische Felder).
+  wird von `validate` gemeldet. `intermediateSteps[].action.messageLog` (Agent V2) enthält die Modellantwort in der
+  LangChain-Serialisierung wie n8n (gegen OpenAI, Gemini und Anthropic aufgenommen, Fixture 22); Felder, die nur bei
+  bestimmten Antworten vorkommen (z. B. `system_fingerprint`, Cache-Token), können fehlen. Die `id` einer Gemini-Antwort ist
+  wie in n8n zufällig (`run-<uuid>`).
+- **HTTP Request Tool** (toolHttpRequest): nicht unterstützt sind vordefinierte Credential-Typen, Digest- und OAuth1-Auth,
+  Antworttyp "text" (Readability) und HTML mit "onlyContent" (html-to-text); `validate` meldet sie. Wie in n8n kann Agent v3
+  das Tool nicht ausführen (Fehler "Invalid URL", Fixture 21); dasselbe gilt für das Workflow-Tool v1.x.
+- **Workflow-Tool** (toolWorkflow): Unter-Workflows kommen aus dem Workflow-Verzeichnis (ID oder Name) oder aus dem Parameter.
+  `workflowInputs` gilt wie in n8n nur bei `source: database` (n8n entfernt den Parameter sonst beim Laden). Ein Fehler in n8n bei
+  Agent v2 mit mehreren Items und `$fromAI` (Item-Index über 0 findet keine Tool-Daten) ist nicht nachgebaut.
+- **`$fromAI()`** liest die Argumente des Tool-Aufrufs (auch unter `query`), sonst die Eingangsdaten des Items, sonst den Default.
 - **Output Fixing Parser** (Information Extractor, Text Classifier): Der Text der Fehlermeldung an das Modell ist nachgebaut, aber
   nicht byte-gleich mit der zod-Fehlermeldung von LangChain.
 - Agent typeVersion 1.x (ReAct, SQL, Plan-and-Execute, OpenAI Functions) wird nicht unterstützt.

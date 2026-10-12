@@ -1,0 +1,274 @@
+{
+  "status": "success",
+  "lastNodeExecuted": "Agent B",
+  "order": [
+    "Start",
+    "Daten",
+    "Agent A",
+    "GPT A",
+    "Wetter",
+    "Addierer",
+    "GPT A",
+    "GPT B",
+    "Text Workflow",
+    "Addierer 2",
+    "Agent B",
+    "GPT B"
+  ],
+  "nodes": {
+    "Start": [
+      {
+        "status": "success",
+        "source": [],
+        "main": [
+          [
+            {
+              "json": {},
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "Daten": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Start"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "stadt": "Berlin",
+                "frage": "Wie ist das Wetter in Berlin und was ist 2 plus 3?"
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "GPT A": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent A",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      },
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent A",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      }
+    ],
+    "Wetter": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent A",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      }
+    ],
+    "Addierer": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent A",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      }
+    ],
+    "Agent A": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Daten"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "output": "In Berlin ist es mild, 2 plus 3 ist 5."
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "GPT B": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent B",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      },
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent B",
+            "previousNodeRun": 0
+          }
+        ],
+        "main": []
+      }
+    ],
+    "Addierer 2": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent B"
+          }
+        ],
+        "main": []
+      }
+    ],
+    "Text Workflow": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent B"
+          }
+        ],
+        "main": []
+      }
+    ],
+    "Agent B": [
+      {
+        "status": "success",
+        "source": [
+          {
+            "previousNode": "Agent A"
+          }
+        ],
+        "main": [
+          [
+            {
+              "json": {
+                "output": "5 plus 7 ist 12.",
+                "intermediateSteps": [
+                  {
+                    "action": {
+                      "tool": "Addierer_2",
+                      "toolInput": {},
+                      "log": "Calling Addierer 2 with input: {\"a\":5,\"b\":7,\"id\":\"call_b\"}",
+                      "messageLog": [
+                        {
+                          "lc": 1,
+                          "type": "constructor",
+                          "id": [
+                            "langchain_core",
+                            "messages",
+                            "AIMessage"
+                          ],
+                          "kwargs": {
+                            "content": "Calling Addierer 2 with input: {\"a\":5,\"b\":7,\"id\":\"call_b\"}",
+                            "tool_calls": [
+                              {
+                                "id": "call_b",
+                                "name": "Addierer_2",
+                                "args": {
+                                  "a": 5,
+                                  "b": 7,
+                                  "id": "call_b"
+                                },
+                                "type": "tool_call",
+                                "additional_kwargs": {}
+                              }
+                            ],
+                            "invalid_tool_calls": [],
+                            "additional_kwargs": {},
+                            "response_metadata": {}
+                          }
+                        }
+                      ],
+                      "toolCallId": "call_b",
+                      "type": "tool_call"
+                    },
+                    "observation": "[{\"summe\":12}]"
+                  },
+                  {
+                    "action": {
+                      "tool": "Text_Workflow",
+                      "toolInput": "hallo welt",
+                      "log": "Calling Text Workflow with input: {\"input\":\"hallo welt\",\"id\":\"call_t\"}",
+                      "messageLog": [
+                        {
+                          "lc": 1,
+                          "type": "constructor",
+                          "id": [
+                            "langchain_core",
+                            "messages",
+                            "AIMessage"
+                          ],
+                          "kwargs": {
+                            "content": "Calling Text Workflow with input: {\"input\":\"hallo welt\",\"id\":\"call_t\"}",
+                            "tool_calls": [
+                              {
+                                "id": "call_t",
+                                "name": "Text_Workflow",
+                                "args": {
+                                  "input": "hallo welt",
+                                  "id": "call_t"
+                                },
+                                "type": "tool_call",
+                                "additional_kwargs": {}
+                              }
+                            ],
+                            "invalid_tool_calls": [],
+                            "additional_kwargs": {},
+                            "response_metadata": {}
+                          }
+                        }
+                      ],
+                      "toolCallId": "call_t",
+                      "type": "tool_call"
+                    },
+                    "observation": "[{\"laenge\":10,\"eingang\":\"{\\\"query\\\":\\\"hallo welt\\\"}\"}]"
+                  }
+                ]
+              },
+              "pairedItem": {
+                "item": 0
+              }
+            }
+          ]
+        ]
+      }
+    ]
+  }
+}

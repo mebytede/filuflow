@@ -1,0 +1,372 @@
+[
+  {
+    "method": "POST",
+    "url": "/v1/chat/completions",
+    "headers": {
+      "authorization": "Bearer openai-test-key",
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "gpt-4o-mini",
+      "stream": false,
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "Rechner",
+            "description": "Useful for getting the result of a math expression. The input to this tool should be a valid mathematical expression that could be executed by a simple calculator.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "input": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "$schema": "http://json-schema.org/draft-07/schema#"
+            }
+          }
+        }
+      ],
+      "messages": [
+        {
+          "role": "system",
+          "content": "22-v2"
+        },
+        {
+          "role": "user",
+          "content": "Rechne bitte"
+        }
+      ]
+    }
+  },
+  {
+    "method": "POST",
+    "url": "/v1/chat/completions",
+    "headers": {
+      "authorization": "Bearer openai-test-key",
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "gpt-4o-mini",
+      "stream": false,
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "Rechner",
+            "description": "Useful for getting the result of a math expression. The input to this tool should be a valid mathematical expression that could be executed by a simple calculator.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "input": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "$schema": "http://json-schema.org/draft-07/schema#"
+            }
+          }
+        }
+      ],
+      "messages": [
+        {
+          "role": "system",
+          "content": "22-v2"
+        },
+        {
+          "role": "user",
+          "content": "Rechne bitte"
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "tool_calls": [
+            {
+              "id": "call_x1",
+              "type": "function",
+              "function": {
+                "name": "Unbekannt",
+                "arguments": "{\"input\":\"x\"}"
+              }
+            },
+            {
+              "id": "call_y1",
+              "type": "function",
+              "function": {
+                "name": "Rechner",
+                "arguments": "{\"input\":\"1+1\"}"
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "content": "Unbekannt is not a valid tool, try another one.",
+          "tool_call_id": "call_x1"
+        },
+        {
+          "role": "tool",
+          "content": "2",
+          "tool_call_id": "call_y1"
+        }
+      ]
+    }
+  },
+  {
+    "method": "POST",
+    "url": "/v1beta/models/gemini-2.5-flash:generateContent",
+    "headers": {
+      "content-type": "application/json",
+      "x-goog-api-key": "gemini-test-key"
+    },
+    "body": {
+      "generationConfig": {
+        "stopSequences": []
+      },
+      "safetySettings": [],
+      "tools": [
+        {
+          "functionDeclarations": [
+            {
+              "name": "Rechner G",
+              "description": "Useful for getting the result of a math expression. The input to this tool should be a valid mathematical expression that could be executed by a simple calculator.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "input": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "contents": [
+        {
+          "role": "user",
+          "parts": [
+            {
+              "text": "Rechne 22-g"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "method": "POST",
+    "url": "/v1beta/models/gemini-2.5-flash:generateContent",
+    "headers": {
+      "content-type": "application/json",
+      "x-goog-api-key": "gemini-test-key"
+    },
+    "body": {
+      "generationConfig": {
+        "stopSequences": []
+      },
+      "safetySettings": [],
+      "tools": [
+        {
+          "functionDeclarations": [
+            {
+              "name": "Rechner G",
+              "description": "Useful for getting the result of a math expression. The input to this tool should be a valid mathematical expression that could be executed by a simple calculator.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "input": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "contents": [
+        {
+          "role": "user",
+          "parts": [
+            {
+              "text": "Rechne 22-g"
+            }
+          ]
+        },
+        {
+          "role": "model",
+          "parts": [
+            {
+              "functionCall": {
+                "name": "Rechner G",
+                "args": {
+                  "input": "4*4"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "role": "user",
+          "parts": [
+            {
+              "functionResponse": {
+                "name": "Rechner G",
+                "response": {
+                  "result": "16"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "method": "POST",
+    "url": "/v1/messages",
+    "headers": {
+      "anthropic-version": "2023-06-01",
+      "x-api-key": "anthropic-test-key",
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "claude-sonnet-4-5-20250929",
+      "stream": false,
+      "max_tokens": 8192,
+      "tools": [
+        {
+          "name": "Rechner C",
+          "description": "Useful for getting the result of a math expression. The input to this tool should be a valid mathematical expression that could be executed by a simple calculator.",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "input": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "$schema": "http://json-schema.org/draft-07/schema#"
+          }
+        }
+      ],
+      "thinking": {
+        "type": "disabled"
+      },
+      "messages": [
+        {
+          "role": "user",
+          "content": "Rechne 22-c"
+        }
+      ]
+    }
+  },
+  {
+    "method": "POST",
+    "url": "/v1/messages",
+    "headers": {
+      "anthropic-version": "2023-06-01",
+      "x-api-key": "anthropic-test-key",
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "claude-sonnet-4-5-20250929",
+      "stream": false,
+      "max_tokens": 8192,
+      "tools": [
+        {
+          "name": "Rechner C",
+          "description": "Useful for getting the result of a math expression. The input to this tool should be a valid mathematical expression that could be executed by a simple calculator.",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "input": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "$schema": "http://json-schema.org/draft-07/schema#"
+          }
+        }
+      ],
+      "thinking": {
+        "type": "disabled"
+      },
+      "messages": [
+        {
+          "role": "user",
+          "content": "Rechne 22-c"
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Ich rechne."
+            },
+            {
+              "type": "tool_use",
+              "id": "toolu_c1",
+              "name": "Rechner_C",
+              "input": {
+                "input": "5*5"
+              }
+            }
+          ]
+        },
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "content": "Rechner_C is not a valid tool, try another one.",
+              "tool_use_id": "toolu_c1"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "method": "POST",
+    "url": "/v1/chat/completions",
+    "headers": {
+      "authorization": "Bearer openai-test-key",
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "gpt-4o-mini",
+      "stream": false,
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "Rechner 3",
+            "description": "Useful for getting the result of a math expression. The input to this tool should be a valid mathematical expression that could be executed by a simple calculator.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "input": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "$schema": "http://json-schema.org/draft-07/schema#"
+            }
+          }
+        }
+      ],
+      "messages": [
+        {
+          "role": "system",
+          "content": "22-v3"
+        },
+        {
+          "role": "user",
+          "content": "Rechne nochmal"
+        }
+      ]
+    }
+  }
+]

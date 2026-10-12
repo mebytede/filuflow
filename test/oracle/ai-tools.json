@@ -1,0 +1,652 @@
+{
+ "calculator": [
+  {
+   "input": "21*2",
+   "output": "42"
+  },
+  {
+   "input": "7^2",
+   "output": "49"
+  },
+  {
+   "input": "2+3*4",
+   "output": "14"
+  },
+  {
+   "input": "(2+3)*4",
+   "output": "20"
+  },
+  {
+   "input": "1/3",
+   "output": "0.333333333333333"
+  },
+  {
+   "input": "2/0",
+   "output": "Infinity"
+  },
+  {
+   "input": "-5+2",
+   "output": "-3"
+  },
+  {
+   "input": "5!",
+   "output": "120"
+  },
+  {
+   "input": "10 Mod 3",
+   "output": "1"
+  },
+  {
+   "input": "10%3",
+   "output": "I don't know how to do that."
+  },
+  {
+   "input": "sqrt(16)",
+   "output": "I don't know how to do that."
+  },
+  {
+   "input": "root 16",
+   "output": "4"
+  },
+  {
+   "input": "root(16)",
+   "output": "4"
+  },
+  {
+   "input": "sin(90)",
+   "output": "1"
+  },
+  {
+   "input": "cos(0)",
+   "output": "1"
+  },
+  {
+   "input": "tan(45)",
+   "output": "1"
+  },
+  {
+   "input": "log 100",
+   "output": "2"
+  },
+  {
+   "input": "ln 1",
+   "output": "0"
+  },
+  {
+   "input": "pi",
+   "output": "3.141592653589793"
+  },
+  {
+   "input": "pi*2",
+   "output": "6.283185307179586"
+  },
+  {
+   "input": "e",
+   "output": "2.718281828459045"
+  },
+  {
+   "input": "2e3",
+   "output": "16.30969097075427"
+  },
+  {
+   "input": "1.5*2",
+   "output": "3"
+  },
+  {
+   "input": "0.1+0.2",
+   "output": "0.3"
+  },
+  {
+   "input": "3^-1",
+   "output": "I don't know how to do that."
+  },
+  {
+   "input": "2^3^2",
+   "output": "64"
+  },
+  {
+   "input": "abc",
+   "output": "I don't know how to do that."
+  },
+  {
+   "input": "",
+   "output": "I don't know how to do that."
+  },
+  {
+   "input": "   ",
+   "output": "I don't know how to do that."
+  },
+  {
+   "input": "1+",
+   "output": "I don't know how to do that."
+  },
+  {
+   "input": "(1+2",
+   "output": "3"
+  },
+  {
+   "input": "1 + 2 * (3 - 1) / 4",
+   "output": "2"
+  },
+  {
+   "input": "12.5%",
+   "output": "I don't know how to do that."
+  },
+  {
+   "input": "50% of 200",
+   "output": "I don't know how to do that."
+  },
+  {
+   "input": "100*5%",
+   "output": "I don't know how to do that."
+  },
+  {
+   "input": "C(5,2)",
+   "output": "I don't know how to do that."
+  },
+  {
+   "input": "P(5,2)",
+   "output": "I don't know how to do that."
+  },
+  {
+   "input": "5C2",
+   "output": "10"
+  },
+  {
+   "input": "Sigma(1,3,n)",
+   "output": "6"
+  },
+  {
+   "input": "Pi(1,4,n)",
+   "output": "24"
+  },
+  {
+   "input": "asin(1)",
+   "output": "90"
+  },
+  {
+   "input": "acos(1)",
+   "output": "0"
+  },
+  {
+   "input": "atan(1)",
+   "output": "45"
+  },
+  {
+   "input": "sinh(0)",
+   "output": "0"
+  },
+  {
+   "input": "int 3.7",
+   "output": "3"
+  },
+  {
+   "input": "3.7 int",
+   "output": "I don't know how to do that."
+  },
+  {
+   "input": "|-3|",
+   "output": "I don't know how to do that."
+  },
+  {
+   "input": "abs(-3)",
+   "output": "I don't know how to do that."
+  },
+  {
+   "input": "1,000 + 1",
+   "output": "I don't know how to do that."
+  },
+  {
+   "input": "1000000*1000000",
+   "output": "1000000000000"
+  },
+  {
+   "input": "0.000001*0.000001",
+   "output": "1e-12"
+  },
+  {
+   "input": "2**3",
+   "output": "I don't know how to do that."
+  },
+  {
+   "input": "x+1",
+   "output": "I don't know how to do that."
+  },
+  {
+   "input": "7 hoch 2",
+   "output": "I don't know how to do that."
+  },
+  {
+   "input": "21 * 2 = ?",
+   "output": "I don't know how to do that."
+  },
+  {
+   "input": "((3))",
+   "output": "3"
+  },
+  {
+   "input": "4/2/2",
+   "output": "1"
+  },
+  {
+   "input": "-(-3)",
+   "output": "3"
+  }
+ ],
+ "fromAI": [
+  {
+   "text": "={{ $fromAI('a') }}",
+   "args": [
+    {
+     "key": "a",
+     "type": "string"
+    }
+   ],
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "a"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   }
+  },
+  {
+   "text": "={{ $fromAI('a', 'Erste Zahl', 'number') }}",
+   "args": [
+    {
+     "key": "a",
+     "description": "Erste Zahl",
+     "type": "number"
+    }
+   ],
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "type": "number",
+      "description": "Erste Zahl"
+     }
+    },
+    "required": [
+     "a"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   }
+  },
+  {
+   "text": "={{ $fromAI('flag', 'Schalter', 'boolean', true) }}",
+   "args": [
+    {
+     "key": "flag",
+     "description": "Schalter",
+     "type": "boolean",
+     "defaultValue": true
+    }
+   ],
+   "schema": {
+    "type": "object",
+    "properties": {
+     "flag": {
+      "type": "boolean",
+      "description": "Schalter",
+      "default": true
+     }
+    },
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   }
+  },
+  {
+   "text": "={{ $fromAI('n', 'Anzahl', 'number', 5) }}",
+   "args": [
+    {
+     "key": "n",
+     "description": "Anzahl",
+     "type": "number",
+     "defaultValue": 5
+    }
+   ],
+   "schema": {
+    "type": "object",
+    "properties": {
+     "n": {
+      "type": "number",
+      "description": "Anzahl",
+      "default": 5
+     }
+    },
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   }
+  },
+  {
+   "text": "={{ $fromAI('s', 'Text', 'string', 'hallo') }}",
+   "args": [
+    {
+     "key": "s",
+     "description": "Text",
+     "type": "string",
+     "defaultValue": "hallo"
+    }
+   ],
+   "schema": {
+    "type": "object",
+    "properties": {
+     "s": {
+      "type": "string",
+      "description": "Text",
+      "default": "hallo"
+     }
+    },
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   }
+  },
+  {
+   "text": "={{ $fromAI('obj', 'Daten', 'json') }}",
+   "args": [
+    {
+     "key": "obj",
+     "description": "Daten",
+     "type": "json"
+    }
+   ],
+   "schema": {
+    "type": "object",
+    "properties": {
+     "obj": {
+      "description": "Daten"
+     }
+    },
+    "required": [
+     "obj"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   }
+  },
+  {
+   "text": "={{ $fromAI('obj', 'Daten', 'json', '{\"x\":1}') }}",
+   "args": [
+    {
+     "key": "obj",
+     "description": "Daten",
+     "type": "json",
+     "defaultValue": {
+      "x": 1
+     }
+    }
+   ],
+   "schema": {
+    "type": "object",
+    "properties": {
+     "obj": {
+      "description": "Daten",
+      "default": {
+       "x": 1
+      }
+     }
+    },
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   }
+  },
+  {
+   "text": "={{ $fromAI(\"dq\", \"mit \\\"Zitat\\\"\", \"string\") }}",
+   "args": [
+    {
+     "key": "dq",
+     "description": "mit \"Zitat\"",
+     "type": "string"
+    }
+   ],
+   "schema": {
+    "type": "object",
+    "properties": {
+     "dq": {
+      "type": "string",
+      "description": "mit \"Zitat\""
+     }
+    },
+    "required": [
+     "dq"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   }
+  },
+  {
+   "text": "={{ $fromAI(`bt`, `Backtick, mit Komma`) }}",
+   "args": [
+    {
+     "key": "bt",
+     "description": "Backtick, mit Komma",
+     "type": "string"
+    }
+   ],
+   "schema": {
+    "type": "object",
+    "properties": {
+     "bt": {
+      "type": "string",
+      "description": "Backtick, mit Komma"
+     }
+    },
+    "required": [
+     "bt"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   }
+  },
+  {
+   "text": "={{ $fromAI('a', 'x') }} und {{ $fromAI('b', 'y', 'number') }}",
+   "args": [
+    {
+     "key": "a",
+     "description": "x",
+     "type": "string"
+    },
+    {
+     "key": "b",
+     "description": "y",
+     "type": "number"
+    }
+   ],
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "type": "string",
+      "description": "x"
+     },
+     "b": {
+      "type": "number",
+      "description": "y"
+     }
+    },
+    "required": [
+     "a",
+     "b"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   }
+  },
+  {
+   "text": "={{ $fromAI('a', 'erst') }} {{ $fromAI('a', 'zweit', 'number') }}",
+   "args": [
+    {
+     "key": "a",
+     "description": "erst",
+     "type": "string"
+    },
+    {
+     "key": "a",
+     "description": "zweit",
+     "type": "number"
+    }
+   ],
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "type": "number",
+      "description": "zweit"
+     }
+    },
+    "required": [
+     "a"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   }
+  },
+  {
+   "text": "={{ $fromai('klein') }}",
+   "args": [
+    {
+     "key": "klein",
+     "type": "string"
+    }
+   ],
+   "schema": {
+    "type": "object",
+    "properties": {
+     "klein": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "klein"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   }
+  },
+  {
+   "text": "={{ $fromAI('t', 'Typ', 'date') }}",
+   "error": "Failed to parse $fromAI arguments: 't', 'Typ', 'date': Error: Invalid type: date"
+  },
+  {
+   "text": "={{ $fromAI('k', 'Klammer (innen)', 'string') }}",
+   "args": [
+    {
+     "key": "k",
+     "description": "Klammer (innen)",
+     "type": "string"
+    }
+   ],
+   "schema": {
+    "type": "object",
+    "properties": {
+     "k": {
+      "type": "string",
+      "description": "Klammer (innen)"
+     }
+    },
+    "required": [
+     "k"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   }
+  },
+  {
+   "text": "={{ $fromAI('k', 'ohne Ende' }}",
+   "error": "Unbalanced parentheses while parsing $fromAI call: 'k', 'ohne Ende' }}"
+  },
+  {
+   "text": "={{ $fromAI( 'leer' , '' ) }}",
+   "args": [
+    {
+     "key": "leer",
+     "description": "",
+     "type": "string"
+    }
+   ],
+   "schema": {
+    "type": "object",
+    "properties": {
+     "leer": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "leer"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   }
+  },
+  {
+   "text": "={{ $fromAI('b', 'bool', 'boolean', 'ja') }}",
+   "args": [
+    {
+     "key": "b",
+     "description": "bool",
+     "type": "boolean",
+     "defaultValue": "ja"
+    }
+   ],
+   "schema": {
+    "type": "object",
+    "properties": {
+     "b": {
+      "type": "boolean",
+      "description": "bool",
+      "default": "ja"
+     }
+    },
+    "required": [
+     "b"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   }
+  },
+  {
+   "text": "={{ $fromAI('n', 'num', 'number', 'abc') }}",
+   "args": [
+    {
+     "key": "n",
+     "description": "num",
+     "type": "number",
+     "defaultValue": "abc"
+    }
+   ],
+   "schema": {
+    "type": "object",
+    "properties": {
+     "n": {
+      "type": "number",
+      "description": "num",
+      "default": "abc"
+     }
+    },
+    "required": [
+     "n"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   }
+  },
+  {
+   "text": "kein Platzhalter",
+   "args": [],
+   "schema": {
+    "type": "object",
+    "properties": {},
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   }
+  }
+ ]
+}

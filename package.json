@@ -36,6 +36,7 @@
     "jsonrepair": "3.13.1",
     "lodash": "4.17.21",
     "luxon": "3.4.4",
+    "math-expression-evaluator": "2.0.7",
     "pino": "^10.4.0",
     "qs": "6.11.0",
     "title-case": "3.0.3",

@@ -48,6 +48,8 @@ export interface ProxyState {
   /** Kontext eines Nodes (n8n getContext('node')) */
   getNodeContext?: (nodeName: string) => Record<string, unknown>;
   selfData?: Record<string, unknown>;
+  /** Argumente eines Tool-Aufrufs für $fromAI (sonst die Eingangsdaten des Items) */
+  fromAIData?: Record<string, unknown>;
 }
 
 export function isScriptingNode(nodeName: string, graph: WorkflowGraph): boolean {
@@ -64,6 +66,22 @@ function normalizePairedItems(paired: Item['pairedItem'] | null | undefined): Pa
 type PairedItemMethod = 'pairedItem' | 'itemMatching' | 'item' | '$getPairedItem';
 
 export function createDataProxy(state: ProxyState): Record<string, unknown> {
+  // n8n workflow-data-proxy.ts handleFromAi: Wert aus den Tool-Argumenten (auch unter "query"), sonst Default
+  const handleFromAi = (name: string, _description?: string, _type = 'string', defaultValue?: unknown): unknown => {
+    if (!name || name === '') {
+      throw new ExpressionError("Add a key, e.g. $fromAI('placeholder_name')", { nodeName: state.activeNodeName });
+    }
+    if (!/^[a-zA-Z0-9_-]{0,64}$/.test(name)) {
+      throw new ExpressionError(
+        'Invalid parameter key, must be between 1 and 64 characters long and only contain lowercase letters, uppercase letters, numbers, underscores, and hyphens',
+        { nodeName: state.activeNodeName },
+      );
+    }
+    const data = state.fromAIData ?? state.connectionInputData[state.itemIndex]?.json;
+    if (!data) throw new ExpressionError('No execution data available', { nodeName: state.activeNodeName, type: 'no_execution_data' });
+    return (data.query as Record<string, unknown> | undefined)?.[name] ?? data[name] ?? defaultValue;
+  };
+
   const s = state;
   const graph = s.graph;
   const contextNodeName = s.contextNodeName ?? s.activeNodeName;
@@ -582,6 +600,8 @@ export function createDataProxy(state: ProxyState): Record<string, unknown> {
     $thisItem: s.connectionInputData[s.itemIndex],
     $thisItemIndex: s.itemIndex,
     $thisRunIndex: s.runIndex,
+    $fromAI: handleFromAi,
+    $fromai: handleFromAi,
     $nodeVersion: activeNode?.typeVersion,
     $nodeId: activeNode?.id,
     $webhookId: activeNode?.webhookId,

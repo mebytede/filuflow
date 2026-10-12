@@ -92,8 +92,35 @@ export class OpenAiChatModel extends ChatModel {
     const text = message.content ?? '';
     const usage = res.usage as { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | undefined;
     const { message: _m, ...generationInfo } = choice;
+    // @langchain/openai 1.1 converters/completions.js (convertCompletionsMessageToBaseMessage, Nutzungsdaten)
+    const promptDetails = (usage as { prompt_tokens_details?: { audio_tokens?: number; cached_tokens?: number } } | undefined)?.prompt_tokens_details;
+    const completionDetails = (usage as { completion_tokens_details?: { audio_tokens?: number; reasoning_tokens?: number } } | undefined)
+      ?.completion_tokens_details;
+    const lcKwargs: Record<string, unknown> = {
+      id: res.id,
+      content: text,
+      additional_kwargs: message.tool_calls ? { tool_calls: message.tool_calls } : {},
+      response_metadata: {
+        tokenUsage: usage ? { promptTokens: usage.prompt_tokens, completionTokens: usage.completion_tokens, totalTokens: usage.total_tokens } : undefined,
+        finish_reason: generationInfo.finish_reason,
+        model_provider: 'openai',
+        model_name: res.model,
+      },
+      type: 'ai',
+      tool_calls: toolCalls.map((tc) => ({ name: tc.name, args: tc.args, type: 'tool_call', id: tc.id })),
+      invalid_tool_calls: [],
+      usage_metadata: usage
+        ? {
+            output_tokens: usage.completion_tokens,
+            input_tokens: usage.prompt_tokens,
+            total_tokens: usage.total_tokens,
+            input_token_details: { audio: promptDetails?.audio_tokens, cache_read: promptDetails?.cached_tokens },
+            output_token_details: { audio: completionDetails?.audio_tokens, reasoning: completionDetails?.reasoning_tokens },
+          }
+        : undefined,
+    };
     return {
-      message: { role: 'ai', content: text, toolCalls },
+      message: { role: 'ai', content: text, toolCalls, lc: { content: text, kwargs: lcKwargs } },
       text,
       toolCalls,
       generationInfo: { prompt: 0, completion: 0, finish_reason: generationInfo.finish_reason, ...(generationInfo.logprobs !== undefined ? { logprobs: generationInfo.logprobs } : {}) },
