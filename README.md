@@ -42,9 +42,51 @@ Status: success, Dauer 33 ms
 
 Exit-Code 0 bei Erfolg, 1 bei Fehlern (Validierung oder fehlgeschlagene Execution).
 
+## Server
+```
+FLOWLITE_API_KEY=geheim flowlite serve --dir ./workflows --port 5678 --db ./flowlite.db
+```
+- Lädt alle `*.json` aus `--dir` und lädt bei Änderungen neu. Workflows mit `"active": true` registrieren
+  Webhooks (`/webhook/<pfad>`) und Schedules; Test-URLs (`/webhook-test/<pfad>`) gibt es für alle gültigen Workflows.
+- Ungültige Workflows (z. B. unbekannte Node-Typen) werden nicht aktiviert; der Grund steht im Log und in `GET /api/workflows`.
+- REST-API mit Header `X-API-Key`: `GET /api/workflows`, `GET /api/workflows/:id`, `POST /api/workflows/:id/run`
+  (Body = Items, `?wait=false` für asynchron), `GET /api/executions?workflow=&status=&limit=`, `GET /api/executions/:id`,
+  `POST /api/executions/:id/cancel`, `GET /healthz`.
+- Execution-Log in SQLite, Aufbewahrung `FLOWLITE_PRUNE_DAYS` (Default 14), höchstens `FLOWLITE_CONCURRENCY` (Default 5) gleichzeitige Executions.
+- Öffentliche Basis-URL für `webhookUrl`: `FLOWLITE_WEBHOOK_URL` (oder `WEBHOOK_URL` wie bei n8n).
+
+Executions ansehen:
+```
+flowlite executions list [--workflow <id>] [--status error] [--db ./flowlite.db]
+flowlite executions show <id> [--json]
+```
+
+### Smoke-Test per curl
+Mit dem Webhook-Fixture (Respond-Node):
+```
+mkdir -p /tmp/fl/workflows && cp fixtures/08-webhook-respond/workflow.json /tmp/fl/workflows/
+cd /tmp/fl && FLOWLITE_API_KEY=geheim flowlite serve --port 5690 --dir workflows &
+
+curl -i -X POST 'http://localhost:5690/webhook/fl-fixture-08?n=3' -H 'content-type: application/json' -d '{"name":"Ada"}'
+# HTTP/1.1 201 Created, x-flowlite: ja
+# {"gruss":"Hallo Ada","anzahl":6,"tags":null}
+
+curl -s -H 'X-API-Key: geheim' http://localhost:5690/api/workflows
+curl -s -H 'X-API-Key: geheim' 'http://localhost:5690/api/executions?limit=5'
+curl -s http://localhost:5690/healthz          # {"status":"ok"}
+flowlite executions list --db /tmp/fl/flowlite.db
+```
+
+### Docker
+```
+FLOWLITE_API_KEY=geheim docker compose up -d --build
+```
+`docker-compose.yml` bindet `./workflows` (nur lesend), `./credentials.json` und ein Volume für die Datenbank ein.
+Das Image basiert auf `node:22-slim` und läuft als Benutzer `node`.
+
 ## Tests
 ```
 npm test             # Unit-Tests und Orakel (Filter, Expressions)
-npm run test:compat  # Golden-Tests gegen Ergebnisse aus echtem n8n, auch über die CLI
+npm run test:compat  # Golden-Tests gegen Ergebnisse aus echtem n8n (CLI, Engine, Webhooks)
 npm run lint
 ```

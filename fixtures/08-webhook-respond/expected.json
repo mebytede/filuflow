@@ -1,0 +1,358 @@
+{
+  "responses": [
+    {
+      "status": 201,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "x-flowlite": "ja",
+        "content-security-policy": "sandbox allow-downloads allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-presentation allow-scripts allow-top-navigation allow-top-navigation-by-user-activation allow-top-navigation-to-custom-protocols"
+      },
+      "body": {
+        "gruss": "Hallo Ada",
+        "anzahl": 42,
+        "tags": [
+          "a",
+          "b"
+        ]
+      }
+    },
+    {
+      "status": 422,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "content-security-policy": "sandbox allow-downloads allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-presentation allow-scripts allow-top-navigation allow-top-navigation-by-user-activation allow-top-navigation-to-custom-protocols"
+      },
+      "body": "Name fehlt (zwei)"
+    },
+    {
+      "status": 404,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "body": {
+        "code": 404,
+        "message": "This webhook is not registered for GET requests. Did you mean to make a POST request?"
+      }
+    },
+    {
+      "status": 404,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "body": {
+        "code": 404,
+        "message": "The requested webhook \"POST gibt-es-nicht\" is not registered.",
+        "hint": "The workflow must be active for a production URL to run successfully. You can activate the workflow using the toggle in the top-right of the editor. Note that unlike test URL calls, production URL calls aren't shown on the canvas (only in the executions list)"
+      }
+    }
+  ],
+  "executions": [
+    {
+      "mode": "webhook",
+      "status": "success",
+      "lastNodeExecuted": "Danach",
+      "order": [
+        "Webhook",
+        "Aufbereiten",
+        "Gültig?",
+        "Antwort OK",
+        "Danach"
+      ],
+      "nodes": {
+        "Webhook": [
+          {
+            "status": "success",
+            "source": [],
+            "main": [
+              [
+                {
+                  "json": {
+                    "headers": {
+                      "host": "localhost:5678",
+                      "user-agent": "flowlite-fixture",
+                      "accept": "*/*",
+                      "content-type": "application/json",
+                      "x-test": "eins",
+                      "content-length": "28",
+                      "connection": "close"
+                    },
+                    "params": {},
+                    "query": {
+                      "n": "21",
+                      "tag": [
+                        "a",
+                        "b"
+                      ]
+                    },
+                    "body": {
+                      "name": "Ada",
+                      "liste": [
+                        1,
+                        2
+                      ]
+                    },
+                    "webhookUrl": "http://localhost:5678/webhook/fl-fixture-08",
+                    "executionMode": "production"
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ],
+        "Aufbereiten": [
+          {
+            "status": "success",
+            "source": [
+              {
+                "previousNode": "Webhook"
+              }
+            ],
+            "main": [
+              [
+                {
+                  "json": {
+                    "name": "Ada",
+                    "anzahl": 42,
+                    "kennung": "eins",
+                    "modus": "production",
+                    "url": "http://localhost:5678/webhook/fl-fixture-08",
+                    "tags": [
+                      "a",
+                      "b"
+                    ]
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ],
+        "Gültig?": [
+          {
+            "status": "success",
+            "source": [
+              {
+                "previousNode": "Aufbereiten"
+              }
+            ],
+            "main": [
+              [
+                {
+                  "json": {
+                    "name": "Ada",
+                    "anzahl": 42,
+                    "kennung": "eins",
+                    "modus": "production",
+                    "url": "http://localhost:5678/webhook/fl-fixture-08",
+                    "tags": [
+                      "a",
+                      "b"
+                    ]
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ],
+              []
+            ]
+          }
+        ],
+        "Antwort OK": [
+          {
+            "status": "success",
+            "source": [
+              {
+                "previousNode": "Gültig?"
+              }
+            ],
+            "main": [
+              [
+                {
+                  "json": {
+                    "name": "Ada",
+                    "anzahl": 42,
+                    "kennung": "eins",
+                    "modus": "production",
+                    "url": "http://localhost:5678/webhook/fl-fixture-08",
+                    "tags": [
+                      "a",
+                      "b"
+                    ]
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ],
+        "Danach": [
+          {
+            "status": "success",
+            "source": [
+              {
+                "previousNode": "Antwort OK"
+              }
+            ],
+            "main": [
+              [
+                {
+                  "json": {
+                    "name": "Ada",
+                    "anzahl": 42,
+                    "kennung": "eins",
+                    "modus": "production",
+                    "url": "http://localhost:5678/webhook/fl-fixture-08",
+                    "tags": [
+                      "a",
+                      "b"
+                    ]
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "mode": "webhook",
+      "status": "success",
+      "lastNodeExecuted": "Antwort Fehler",
+      "order": [
+        "Webhook",
+        "Aufbereiten",
+        "Gültig?",
+        "Antwort Fehler"
+      ],
+      "nodes": {
+        "Webhook": [
+          {
+            "status": "success",
+            "source": [],
+            "main": [
+              [
+                {
+                  "json": {
+                    "headers": {
+                      "host": "localhost:5678",
+                      "user-agent": "flowlite-fixture",
+                      "accept": "*/*",
+                      "content-type": "application/json; charset=utf-8",
+                      "x-test": "zwei",
+                      "content-length": "2",
+                      "connection": "close"
+                    },
+                    "params": {},
+                    "query": {
+                      "n": "1"
+                    },
+                    "body": {},
+                    "webhookUrl": "http://localhost:5678/webhook/fl-fixture-08",
+                    "executionMode": "production"
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ],
+        "Aufbereiten": [
+          {
+            "status": "success",
+            "source": [
+              {
+                "previousNode": "Webhook"
+              }
+            ],
+            "main": [
+              [
+                {
+                  "json": {
+                    "name": null,
+                    "anzahl": 2,
+                    "kennung": "zwei",
+                    "modus": "production",
+                    "url": "http://localhost:5678/webhook/fl-fixture-08",
+                    "tags": null
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ],
+        "Gültig?": [
+          {
+            "status": "success",
+            "source": [
+              {
+                "previousNode": "Aufbereiten"
+              }
+            ],
+            "main": [
+              [],
+              [
+                {
+                  "json": {
+                    "name": null,
+                    "anzahl": 2,
+                    "kennung": "zwei",
+                    "modus": "production",
+                    "url": "http://localhost:5678/webhook/fl-fixture-08",
+                    "tags": null
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ],
+        "Antwort Fehler": [
+          {
+            "status": "success",
+            "source": [
+              {
+                "previousNode": "Gültig?",
+                "previousNodeOutput": 1
+              }
+            ],
+            "main": [
+              [
+                {
+                  "json": {
+                    "name": null,
+                    "anzahl": 2,
+                    "kennung": "zwei",
+                    "modus": "production",
+                    "url": "http://localhost:5678/webhook/fl-fixture-08",
+                    "tags": null
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

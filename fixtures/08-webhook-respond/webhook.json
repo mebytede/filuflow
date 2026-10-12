@@ -1,0 +1,28 @@
+{
+  "responseHeaders": ["content-type", "x-flowlite", "content-security-policy"],
+  "requests": [
+    {
+      "method": "POST",
+      "path": "/webhook/fl-fixture-08?n=21&tag[]=a&tag[]=b",
+      "headers": { "content-type": "application/json", "x-test": "eins" },
+      "body": { "name": "Ada", "liste": [1, 2] }
+    },
+    {
+      "method": "POST",
+      "path": "/webhook/fl-fixture-08?n=1",
+      "headers": { "content-type": "application/json; charset=utf-8", "x-test": "zwei" },
+      "body": {}
+    },
+    {
+      "method": "GET",
+      "path": "/webhook/fl-fixture-08",
+      "headers": {}
+    },
+    {
+      "method": "POST",
+      "path": "/webhook/gibt-es-nicht",
+      "headers": { "content-type": "text/plain" },
+      "body": "hallo"
+    }
+  ]
+}

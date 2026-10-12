@@ -1,0 +1,9 @@
+node_modules
+dist
+coverage
+fixtures
+test
+docs
+*.db
+*.db-*
+.git

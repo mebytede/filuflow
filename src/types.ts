@@ -122,7 +122,7 @@ export type RunData = Record<string, TaskData[]>;
 
 export type ExecutionMode = 'manual' | 'cli' | 'webhook' | 'trigger' | 'integrated' | 'error';
 
-export type ExecutionStatus = 'running' | 'success' | 'error' | 'canceled' | 'waiting';
+export type ExecutionStatus = 'new' | 'running' | 'success' | 'error' | 'canceled' | 'waiting' | 'crashed';
 
 export interface Execution {
   id: string;

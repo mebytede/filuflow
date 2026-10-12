@@ -1,0 +1,1257 @@
+{
+  "responses": [
+    {
+      "status": 202,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-security-policy": "sandbox allow-downloads allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-presentation allow-scripts allow-top-navigation allow-top-navigation-by-user-activation allow-top-navigation-to-custom-protocols"
+      },
+      "body": {
+        "message": "Workflow was started"
+      }
+    },
+    {
+      "status": 202,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-security-policy": "sandbox allow-downloads allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-presentation allow-scripts allow-top-navigation allow-top-navigation-by-user-activation allow-top-navigation-to-custom-protocols"
+      },
+      "body": {
+        "message": "Workflow was started"
+      }
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-security-policy": "sandbox allow-downloads allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-presentation allow-scripts allow-top-navigation allow-top-navigation-by-user-activation allow-top-navigation-to-custom-protocols"
+      },
+      "body": [
+        {
+          "nr": 1,
+          "b": {
+            "x": "1",
+            "y": [
+              "zwei",
+              "drei"
+            ],
+            "leer": ""
+          }
+        },
+        {
+          "nr": 2
+        }
+      ]
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "content-security-policy": "sandbox allow-downloads allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-presentation allow-scripts allow-top-navigation allow-top-navigation-by-user-activation allow-top-navigation-to-custom-protocols"
+      },
+      "body": "GET frage"
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-security-policy": "sandbox allow-downloads allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-presentation allow-scripts allow-top-navigation allow-top-navigation-by-user-activation allow-top-navigation-to-custom-protocols"
+      },
+      "body": {
+        "methode": "POST",
+        "body": {
+          "k": [
+            1,
+            {
+              "z": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "x-art": "dynamisch",
+        "content-security-policy": "sandbox allow-downloads allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-presentation allow-scripts allow-top-navigation allow-top-navigation-by-user-activation allow-top-navigation-to-custom-protocols"
+      },
+      "body": "fertig"
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-security-policy": "sandbox allow-downloads allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-presentation allow-scripts allow-top-navigation allow-top-navigation-by-user-activation allow-top-navigation-to-custom-protocols"
+      },
+      "body": {
+        "body": {
+          "root": {
+            "eintrag": [
+              {
+                "_": "A",
+                "$": {
+                  "Nr": "1"
+                }
+              },
+              "B"
+            ],
+            "leer": ""
+          }
+        },
+        "binaer": [],
+        "mime": [],
+        "namen": []
+      }
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-security-policy": "sandbox allow-downloads allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-presentation allow-scripts allow-top-navigation allow-top-navigation-by-user-activation allow-top-navigation-to-custom-protocols"
+      },
+      "body": {
+        "body": {},
+        "binaer": [
+          "data"
+        ],
+        "mime": [
+          "application/octet-stream"
+        ],
+        "namen": [
+          "f6f72af8-be57-4285-bd29-0082930e12c4"
+        ]
+      }
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-security-policy": "sandbox allow-downloads allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-presentation allow-scripts allow-top-navigation allow-top-navigation-by-user-activation allow-top-navigation-to-custom-protocols"
+      },
+      "body": {
+        "body": {},
+        "binaer": [
+          "data"
+        ],
+        "mime": [
+          "image/png"
+        ],
+        "namen": [
+          "bild.png"
+        ]
+      }
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-security-policy": "sandbox allow-downloads allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-presentation allow-scripts allow-top-navigation allow-top-navigation-by-user-activation allow-top-navigation-to-custom-protocols"
+      },
+      "body": {
+        "body": {
+          "titel": "Bericht",
+          "tags": [
+            "x",
+            "y"
+          ]
+        },
+        "binaer": [
+          "datei"
+        ],
+        "mime": [
+          "text/plain"
+        ],
+        "namen": [
+          "notiz.txt"
+        ]
+      }
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-security-policy": "sandbox allow-downloads allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-presentation allow-scripts allow-top-navigation allow-top-navigation-by-user-activation allow-top-navigation-to-custom-protocols"
+      },
+      "body": {
+        "body": {},
+        "binaer": [],
+        "mime": [],
+        "namen": []
+      }
+    },
+    {
+      "status": 500,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "body": {
+        "message": "Error in workflow"
+      }
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-security-policy": "sandbox allow-downloads allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-presentation allow-scripts allow-top-navigation allow-top-navigation-by-user-activation allow-top-navigation-to-custom-protocols"
+      },
+      "body": {
+        "message": "Workflow was started"
+      }
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-security-policy": "sandbox allow-downloads allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-presentation allow-scripts allow-top-navigation allow-top-navigation-by-user-activation allow-top-navigation-to-custom-protocols"
+      },
+      "body": ""
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-security-policy": "sandbox allow-downloads allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-presentation allow-scripts allow-top-navigation allow-top-navigation-by-user-activation allow-top-navigation-to-custom-protocols"
+      },
+      "body": ""
+    },
+    {
+      "status": 422,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "body": {
+        "code": 422,
+        "message": "Failed to parse request body",
+        "hint": "Expected property name or '}' in JSON at position 1 (line 1 column 2)"
+      }
+    }
+  ],
+  "executions": [
+    {
+      "mode": "webhook",
+      "status": "success",
+      "lastNodeExecuted": "Sofort Daten",
+      "order": [
+        "Sofort",
+        "Sofort Daten"
+      ],
+      "nodes": {
+        "Sofort": [
+          {
+            "status": "success",
+            "source": [],
+            "main": [
+              [
+                {
+                  "json": {
+                    "headers": {
+                      "host": "localhost:5678",
+                      "user-agent": "flowlite-fixture",
+                      "accept": "*/*",
+                      "content-type": "application/json",
+                      "content-length": "7",
+                      "connection": "close"
+                    },
+                    "params": {},
+                    "query": {},
+                    "body": {
+                      "a": 1
+                    },
+                    "webhookUrl": "http://localhost:5678/webhook/fl-08b-received",
+                    "executionMode": "production"
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ],
+        "Sofort Daten": [
+          {
+            "status": "success",
+            "source": [
+              {
+                "previousNode": "Sofort"
+              }
+            ],
+            "main": [
+              [
+                {
+                  "json": {
+                    "typ": "object",
+                    "body": "{\"a\":1}"
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "mode": "webhook",
+      "status": "success",
+      "lastNodeExecuted": "Sofort Daten",
+      "order": [
+        "Sofort",
+        "Sofort Daten"
+      ],
+      "nodes": {
+        "Sofort": [
+          {
+            "status": "success",
+            "source": [],
+            "main": [
+              [
+                {
+                  "json": {
+                    "headers": {
+                      "host": "localhost:5678",
+                      "user-agent": "flowlite-fixture",
+                      "accept": "*/*",
+                      "content-type": "text/plain",
+                      "content-length": "8",
+                      "connection": "close"
+                    },
+                    "params": {},
+                    "query": {},
+                    "body": "nur text",
+                    "webhookUrl": "http://localhost:5678/webhook/fl-08b-received",
+                    "executionMode": "production"
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ],
+        "Sofort Daten": [
+          {
+            "status": "success",
+            "source": [
+              {
+                "previousNode": "Sofort"
+              }
+            ],
+            "main": [
+              [
+                {
+                  "json": {
+                    "typ": "string",
+                    "body": "nur text"
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "mode": "webhook",
+      "status": "success",
+      "lastNodeExecuted": "Zwei Items",
+      "order": [
+        "Letzter",
+        "Zwei Items"
+      ],
+      "nodes": {
+        "Letzter": [
+          {
+            "status": "success",
+            "source": [],
+            "main": [
+              [
+                {
+                  "json": {
+                    "headers": {
+                      "host": "localhost:5678",
+                      "user-agent": "flowlite-fixture",
+                      "accept": "*/*",
+                      "content-type": "application/x-www-form-urlencoded",
+                      "content-length": "23",
+                      "connection": "close"
+                    },
+                    "params": {},
+                    "query": {},
+                    "body": {
+                      "x": "1",
+                      "y": [
+                        "zwei",
+                        "drei"
+                      ],
+                      "leer": ""
+                    },
+                    "webhookUrl": "http://localhost:5678/webhook/fl-08b-last",
+                    "executionMode": "production"
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ],
+        "Zwei Items": [
+          {
+            "status": "success",
+            "source": [
+              {
+                "previousNode": "Letzter"
+              }
+            ],
+            "main": [
+              [
+                {
+                  "json": {
+                    "nr": 1,
+                    "b": {
+                      "x": "1",
+                      "y": [
+                        "zwei",
+                        "drei"
+                      ],
+                      "leer": ""
+                    }
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                },
+                {
+                  "json": {
+                    "nr": 2
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "mode": "webhook",
+      "status": "success",
+      "lastNodeExecuted": "Per GET",
+      "order": [
+        "Mehrere",
+        "Per GET"
+      ],
+      "nodes": {
+        "Mehrere": [
+          {
+            "status": "success",
+            "source": [],
+            "main": [
+              [
+                {
+                  "json": {
+                    "headers": {
+                      "host": "localhost:5678",
+                      "user-agent": "flowlite-fixture",
+                      "accept": "*/*",
+                      "connection": "close"
+                    },
+                    "params": {},
+                    "query": {
+                      "q": "frage"
+                    },
+                    "body": {},
+                    "webhookUrl": "http://localhost:5678/webhook/fl-08b-multi",
+                    "executionMode": "production"
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ],
+              []
+            ]
+          }
+        ],
+        "Per GET": [
+          {
+            "status": "success",
+            "source": [
+              {
+                "previousNode": "Mehrere"
+              }
+            ],
+            "main": [
+              [
+                {
+                  "json": {
+                    "antwort": "GET frage"
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "mode": "webhook",
+      "status": "success",
+      "lastNodeExecuted": "Per POST",
+      "order": [
+        "Mehrere",
+        "Per POST"
+      ],
+      "nodes": {
+        "Mehrere": [
+          {
+            "status": "success",
+            "source": [],
+            "main": [
+              [],
+              [
+                {
+                  "json": {
+                    "headers": {
+                      "host": "localhost:5678",
+                      "user-agent": "flowlite-fixture",
+                      "accept": "*/*",
+                      "content-type": "application/json",
+                      "content-length": "20",
+                      "connection": "close"
+                    },
+                    "params": {},
+                    "query": {},
+                    "body": {
+                      "k": [
+                        1,
+                        {
+                          "z": true
+                        }
+                      ]
+                    },
+                    "webhookUrl": "http://localhost:5678/webhook/fl-08b-multi",
+                    "executionMode": "production"
+                  },
+                  "pairedItem": {
+                    "item": 0,
+                    "input": 1
+                  }
+                }
+              ]
+            ]
+          }
+        ],
+        "Per POST": [
+          {
+            "status": "success",
+            "source": [
+              {
+                "previousNode": "Mehrere",
+                "previousNodeOutput": 1
+              }
+            ],
+            "main": [
+              [
+                {
+                  "json": {
+                    "antwort": {
+                      "methode": "POST",
+                      "body": {
+                        "k": [
+                          1,
+                          {
+                            "z": true
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "mode": "webhook",
+      "status": "success",
+      "lastNodeExecuted": "Parameter",
+      "order": [
+        "Dynamisch",
+        "Parameter"
+      ],
+      "nodes": {
+        "Dynamisch": [
+          {
+            "status": "success",
+            "source": [],
+            "main": [
+              [
+                {
+                  "json": {
+                    "headers": {
+                      "host": "localhost:5678",
+                      "user-agent": "flowlite-fixture",
+                      "accept": "*/*",
+                      "content-type": "application/json",
+                      "content-length": "2",
+                      "connection": "close"
+                    },
+                    "params": {
+                      "id": "42",
+                      "aktion": "loeschen"
+                    },
+                    "query": {},
+                    "body": {},
+                    "webhookUrl": "http://localhost:5678/webhook/44444444-4444-4444-8444-444444444444/user/:id/:aktion",
+                    "executionMode": "production"
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ],
+        "Parameter": [
+          {
+            "status": "success",
+            "source": [
+              {
+                "previousNode": "Dynamisch"
+              }
+            ],
+            "main": [
+              [
+                {
+                  "json": {
+                    "id": "42",
+                    "aktion": "loeschen"
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "mode": "webhook",
+      "status": "success",
+      "lastNodeExecuted": "Format Info",
+      "order": [
+        "Formate",
+        "Format Info"
+      ],
+      "nodes": {
+        "Formate": [
+          {
+            "status": "success",
+            "source": [],
+            "main": [
+              [
+                {
+                  "json": {
+                    "headers": {
+                      "host": "localhost:5678",
+                      "user-agent": "flowlite-fixture",
+                      "accept": "*/*",
+                      "content-type": "application/xml",
+                      "content-length": "67",
+                      "connection": "close"
+                    },
+                    "params": {},
+                    "query": {},
+                    "body": {
+                      "root": {
+                        "eintrag": [
+                          {
+                            "_": "A",
+                            "$": {
+                              "Nr": "1"
+                            }
+                          },
+                          "B"
+                        ],
+                        "leer": ""
+                      }
+                    },
+                    "webhookUrl": "http://localhost:5678/webhook/fl-08b-formate",
+                    "executionMode": "production"
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ],
+        "Format Info": [
+          {
+            "status": "success",
+            "source": [
+              {
+                "previousNode": "Formate"
+              }
+            ],
+            "main": [
+              [
+                {
+                  "json": {
+                    "body": {
+                      "root": {
+                        "eintrag": [
+                          {
+                            "_": "A",
+                            "$": {
+                              "Nr": "1"
+                            }
+                          },
+                          "B"
+                        ],
+                        "leer": ""
+                      }
+                    },
+                    "binaer": [],
+                    "mime": [],
+                    "namen": []
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "mode": "webhook",
+      "status": "success",
+      "lastNodeExecuted": "Format Info",
+      "order": [
+        "Formate",
+        "Format Info"
+      ],
+      "nodes": {
+        "Formate": [
+          {
+            "status": "success",
+            "source": [],
+            "main": [
+              [
+                {
+                  "json": {
+                    "headers": {
+                      "host": "localhost:5678",
+                      "user-agent": "flowlite-fixture",
+                      "accept": "*/*",
+                      "content-type": "application/octet-stream",
+                      "content-length": "11",
+                      "connection": "close"
+                    },
+                    "params": {},
+                    "query": {},
+                    "body": {},
+                    "webhookUrl": "http://localhost:5678/webhook/fl-08b-formate",
+                    "executionMode": "production"
+                  },
+                  "binary": {
+                    "data": {
+                      "mimeType": "application/octet-stream",
+                      "fileExtension": "bin",
+                      "fileName": "f6f72af8-be57-4285-bd29-0082930e12c4",
+                      "fileSize": "11 B",
+                      "data": "QklOQUVSREFURU4="
+                    }
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ],
+        "Format Info": [
+          {
+            "status": "success",
+            "source": [
+              {
+                "previousNode": "Formate"
+              }
+            ],
+            "main": [
+              [
+                {
+                  "json": {
+                    "body": {},
+                    "binaer": [
+                      "data"
+                    ],
+                    "mime": [
+                      "application/octet-stream"
+                    ],
+                    "namen": [
+                      "f6f72af8-be57-4285-bd29-0082930e12c4"
+                    ]
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "mode": "webhook",
+      "status": "success",
+      "lastNodeExecuted": "Format Info",
+      "order": [
+        "Formate",
+        "Format Info"
+      ],
+      "nodes": {
+        "Formate": [
+          {
+            "status": "success",
+            "source": [],
+            "main": [
+              [
+                {
+                  "json": {
+                    "headers": {
+                      "host": "localhost:5678",
+                      "user-agent": "flowlite-fixture",
+                      "accept": "*/*",
+                      "content-type": "image/png",
+                      "content-disposition": "attachment; filename=\"bild.png\"",
+                      "content-length": "8",
+                      "connection": "close"
+                    },
+                    "params": {},
+                    "query": {},
+                    "body": {},
+                    "webhookUrl": "http://localhost:5678/webhook/fl-08b-formate",
+                    "executionMode": "production"
+                  },
+                  "binary": {
+                    "data": {
+                      "mimeType": "image/png",
+                      "fileType": "image",
+                      "fileExtension": "png",
+                      "fileName": "bild.png",
+                      "fileSize": "8 B",
+                      "data": "UE5HREFURU4="
+                    }
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ],
+        "Format Info": [
+          {
+            "status": "success",
+            "source": [
+              {
+                "previousNode": "Formate"
+              }
+            ],
+            "main": [
+              [
+                {
+                  "json": {
+                    "body": {},
+                    "binaer": [
+                      "data"
+                    ],
+                    "mime": [
+                      "image/png"
+                    ],
+                    "namen": [
+                      "bild.png"
+                    ]
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "mode": "webhook",
+      "status": "success",
+      "lastNodeExecuted": "Format Info",
+      "order": [
+        "Formate",
+        "Format Info"
+      ],
+      "nodes": {
+        "Formate": [
+          {
+            "status": "success",
+            "source": [],
+            "main": [
+              [
+                {
+                  "json": {
+                    "headers": {
+                      "host": "localhost:5678",
+                      "user-agent": "flowlite-fixture",
+                      "accept": "*/*",
+                      "content-type": "multipart/form-data; boundary=----flowliteGrenze",
+                      "content-length": "378",
+                      "connection": "close"
+                    },
+                    "params": {},
+                    "query": {},
+                    "body": {
+                      "titel": "Bericht",
+                      "tags": [
+                        "x",
+                        "y"
+                      ]
+                    },
+                    "webhookUrl": "http://localhost:5678/webhook/fl-08b-formate",
+                    "executionMode": "production"
+                  },
+                  "binary": {
+                    "datei": {
+                      "mimeType": "text/plain",
+                      "fileType": "text",
+                      "fileExtension": "txt",
+                      "fileName": "notiz.txt",
+                      "fileSize": "11 B",
+                      "data": "SGFsbG8gRGF0ZWk="
+                    }
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ],
+        "Format Info": [
+          {
+            "status": "success",
+            "source": [
+              {
+                "previousNode": "Formate"
+              }
+            ],
+            "main": [
+              [
+                {
+                  "json": {
+                    "body": {
+                      "titel": "Bericht",
+                      "tags": [
+                        "x",
+                        "y"
+                      ]
+                    },
+                    "binaer": [
+                      "datei"
+                    ],
+                    "mime": [
+                      "text/plain"
+                    ],
+                    "namen": [
+                      "notiz.txt"
+                    ]
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "mode": "webhook",
+      "status": "success",
+      "lastNodeExecuted": "Format Info",
+      "order": [
+        "Formate",
+        "Format Info"
+      ],
+      "nodes": {
+        "Formate": [
+          {
+            "status": "success",
+            "source": [],
+            "main": [
+              [
+                {
+                  "json": {
+                    "headers": {
+                      "host": "localhost:5678",
+                      "user-agent": "flowlite-fixture",
+                      "accept": "*/*",
+                      "connection": "close",
+                      "content-length": "0"
+                    },
+                    "params": {},
+                    "query": {},
+                    "body": {},
+                    "webhookUrl": "http://localhost:5678/webhook/fl-08b-formate",
+                    "executionMode": "production"
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ],
+        "Format Info": [
+          {
+            "status": "success",
+            "source": [
+              {
+                "previousNode": "Formate"
+              }
+            ],
+            "main": [
+              [
+                {
+                  "json": {
+                    "body": {},
+                    "binaer": [],
+                    "mime": [],
+                    "namen": []
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "mode": "webhook",
+      "status": "error",
+      "lastNodeExecuted": "Wirft",
+      "error": "absichtlich [line 1]",
+      "order": [
+        "Kaputt",
+        "Wirft"
+      ],
+      "nodes": {
+        "Kaputt": [
+          {
+            "status": "success",
+            "source": [],
+            "main": [
+              [
+                {
+                  "json": {
+                    "headers": {
+                      "host": "localhost:5678",
+                      "user-agent": "flowlite-fixture",
+                      "accept": "*/*",
+                      "content-type": "application/json",
+                      "content-length": "2",
+                      "connection": "close"
+                    },
+                    "params": {},
+                    "query": {},
+                    "body": {},
+                    "webhookUrl": "http://localhost:5678/webhook/fl-08b-fehler",
+                    "executionMode": "production"
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ],
+        "Wirft": [
+          {
+            "status": "error",
+            "source": [
+              {
+                "previousNode": "Kaputt"
+              }
+            ],
+            "main": [],
+            "error": "absichtlich [line 1]"
+          }
+        ]
+      }
+    },
+    {
+      "mode": "webhook",
+      "status": "success",
+      "lastNodeExecuted": "Alt",
+      "order": [
+        "Alt"
+      ],
+      "nodes": {
+        "Alt": [
+          {
+            "status": "success",
+            "source": [],
+            "main": [
+              [
+                {
+                  "json": {
+                    "headers": {
+                      "host": "localhost:5678",
+                      "user-agent": "flowlite-fixture",
+                      "accept": "*/*",
+                      "connection": "close"
+                    },
+                    "params": {},
+                    "query": {
+                      "a": "1",
+                      "b": {
+                        "c": "2"
+                      }
+                    },
+                    "webhookUrl": "http://localhost:5678/webhook/fl-08b-v1",
+                    "executionMode": "production"
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "mode": "webhook",
+      "status": "success",
+      "lastNodeExecuted": "Leer",
+      "order": [
+        "Leer"
+      ],
+      "nodes": {
+        "Leer": [
+          {
+            "status": "success",
+            "source": [],
+            "main": [
+              [
+                {
+                  "json": {
+                    "headers": {
+                      "host": "localhost:5678",
+                      "user-agent": "flowlite-fixture",
+                      "accept": "*/*",
+                      "content-type": "application/json",
+                      "content-length": "7",
+                      "connection": "close"
+                    },
+                    "params": {},
+                    "query": {},
+                    "body": {
+                      "x": 1
+                    },
+                    "webhookUrl": "http://localhost:5678/webhook/fl-08b-leer",
+                    "executionMode": "production"
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "mode": "webhook",
+      "status": "success",
+      "lastNodeExecuted": "Roh",
+      "order": [
+        "Roh"
+      ],
+      "nodes": {
+        "Roh": [
+          {
+            "status": "success",
+            "source": [],
+            "main": [
+              [
+                {
+                  "json": {
+                    "headers": {
+                      "host": "localhost:5678",
+                      "user-agent": "flowlite-fixture",
+                      "accept": "*/*",
+                      "content-type": "application/json",
+                      "content-length": "12",
+                      "connection": "close"
+                    },
+                    "params": {},
+                    "query": {},
+                    "body": {
+                      "roh": true
+                    },
+                    "webhookUrl": "http://localhost:5678/webhook/fl-08b-roh",
+                    "executionMode": "production"
+                  },
+                  "pairedItem": {
+                    "item": 0
+                  }
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

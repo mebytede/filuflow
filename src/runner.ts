@@ -76,6 +76,7 @@ export interface RunOptions {
   executionId?: string;
   startNodeName?: string;
   triggerItems?: Item[];
+  triggerOutputs?: Array<Item[] | null>;
   usePinData?: boolean;
   signal?: AbortSignal;
   hooks?: RunHooks;
@@ -116,6 +117,7 @@ export class Runner {
       executionId: run.executionId ?? randomUUID(),
       startNodeName: run.startNodeName,
       triggerItems: run.triggerItems,
+      triggerOutputs: run.triggerOutputs,
       usePinData: run.usePinData,
       credentials: this.credentials,
       vars: this.options.vars,

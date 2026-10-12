@@ -1,0 +1,23 @@
+# flowlite mit Volumes für Workflows, Datenbank und Credentials.
+#   FLOWLITE_API_KEY=... FLOWLITE_ENCRYPTION_KEY=... docker compose up -d
+services:
+  flowlite:
+    build: .
+    image: flowlite:latest
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      FLOWLITE_API_KEY: ${FLOWLITE_API_KEY:?FLOWLITE_API_KEY setzen}
+      FLOWLITE_ENCRYPTION_KEY: ${FLOWLITE_ENCRYPTION_KEY:-}
+      FLOWLITE_WEBHOOK_URL: ${FLOWLITE_WEBHOOK_URL:-http://localhost:5678/}
+      FLOWLITE_TIMEZONE: ${FLOWLITE_TIMEZONE:-Europe/Berlin}
+      FLOWLITE_PRUNE_DAYS: ${FLOWLITE_PRUNE_DAYS:-14}
+      FLOWLITE_CONCURRENCY: ${FLOWLITE_CONCURRENCY:-5}
+    volumes:
+      - ./workflows:/data/workflows:ro
+      - ./credentials.json:/data/credentials.json:ro
+      - flowlite-data:/data/state
+    command: ["node", "bin/flowlite.js", "serve", "--db", "/data/state/flowlite.db"]
+volumes:
+  flowlite-data:

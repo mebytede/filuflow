@@ -66,6 +66,8 @@ export interface ExecutorOptions {
   startNodeName?: string;
   /** Daten für den Start-Node (CLI-Input, Webhook-Request …) */
   triggerItems?: Item[];
+  /** Daten je Ausgang des Start-Nodes (Webhook mit mehreren HTTP-Methoden); hat Vorrang vor triggerItems */
+  triggerOutputs?: Array<Item[] | null>;
   /** pinData des Workflows nutzen (Default: true) */
   usePinData?: boolean;
   credentials?: CredentialProvider;
@@ -325,7 +327,7 @@ export class WorkflowExecutor {
     this.stack = [
       {
         node: start,
-        data: { main: [this.options.triggerItems ?? [{ json: {} }]] },
+        data: { main: this.options.triggerOutputs ?? [this.options.triggerItems ?? [{ json: {} }]] },
         source: null,
       },
     ];

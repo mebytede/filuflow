@@ -1,0 +1,141 @@
+{
+  "responseHeaders": [
+    "content-type",
+    "x-art",
+    "content-security-policy"
+  ],
+  "delayMs": 300,
+  "requests": [
+    {
+      "method": "POST",
+      "path": "/webhook/fl-08b-received",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": {
+        "a": 1
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/webhook/fl-08b-received",
+      "headers": {
+        "content-type": "text/plain"
+      },
+      "body": "nur text"
+    },
+    {
+      "method": "POST",
+      "path": "/webhook/fl-08b-last",
+      "headers": {
+        "content-type": "application/x-www-form-urlencoded"
+      },
+      "body": "x=1&y=zwei&y=drei&leer="
+    },
+    {
+      "method": "GET",
+      "path": "/webhook/fl-08b-multi?q=frage"
+    },
+    {
+      "method": "POST",
+      "path": "/webhook/fl-08b-multi",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": {
+        "k": [
+          1,
+          {
+            "z": true
+          }
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/webhook/44444444-4444-4444-8444-444444444444/user/42/loeschen",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": {}
+    },
+    {
+      "method": "POST",
+      "path": "/webhook/fl-08b-formate",
+      "headers": {
+        "content-type": "application/xml"
+      },
+      "body": "<Root><Eintrag Nr=\"1\">A</Eintrag><Eintrag>B</Eintrag><Leer/></Root>"
+    },
+    {
+      "method": "POST",
+      "path": "/webhook/fl-08b-formate",
+      "headers": {
+        "content-type": "application/octet-stream"
+      },
+      "body": "BINAERDATEN"
+    },
+    {
+      "method": "POST",
+      "path": "/webhook/fl-08b-formate",
+      "headers": {
+        "content-type": "image/png",
+        "content-disposition": "attachment; filename=\"bild.png\""
+      },
+      "body": "PNGDATEN"
+    },
+    {
+      "method": "POST",
+      "path": "/webhook/fl-08b-formate",
+      "headers": {
+        "content-type": "multipart/form-data; boundary=----flowliteGrenze"
+      },
+      "body": "------flowliteGrenze\r\nContent-Disposition: form-data; name=\"titel\"\r\n\r\nBericht\r\n------flowliteGrenze\r\nContent-Disposition: form-data; name=\"tags\"\r\n\r\nx\r\n------flowliteGrenze\r\nContent-Disposition: form-data; name=\"tags\"\r\n\r\ny\r\n------flowliteGrenze\r\nContent-Disposition: form-data; name=\"datei\"; filename=\"notiz.txt\"\r\nContent-Type: text/plain\r\n\r\nHallo Datei\r\n------flowliteGrenze--\r\n"
+    },
+    {
+      "method": "POST",
+      "path": "/webhook/fl-08b-formate",
+      "headers": {}
+    },
+    {
+      "method": "POST",
+      "path": "/webhook/fl-08b-fehler",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": {}
+    },
+    {
+      "method": "GET",
+      "path": "/webhook/fl-08b-v1?a=1&b[c]=2"
+    },
+    {
+      "method": "POST",
+      "path": "/webhook/fl-08b-leer",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": {
+        "x": 1
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/webhook/fl-08b-roh",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": {
+        "roh": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/webhook/fl-08b-formate",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{kaputt"
+    }
+  ]
+}

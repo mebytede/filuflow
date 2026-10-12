@@ -19,6 +19,19 @@ Neben dem Stack aus CLAUDE.md (luxon, better-sqlite3, fastify, croner, pino):
 | `jsonrepair` | n8n repariert JSON im Set-Node (`repairJSON`) mit dieser Bibliothek |
 | `qs` | HTTP Request: n8n serialisiert Formular- und Query-Daten mit `qs`; gleiche Bibliothek = gleiche Kodierung |
 
+## Server
+- fastify mit eigenem Content-Type-Parser für Webhooks: Der Body wird roh gelesen (gzip/deflate wie n8n) und im Webhook-Node
+  nach den Regeln von n8n (`parseRequestBody`, `body-parser.ts`) ausgewertet. Antworten bauen die Semantik von Express nach
+  (`res.json` und `res.send`: Content-Type, charset, CSP-Sandbox-Header).
+- Query-Strings werden wie in n8n (Express `query parser: extended`) mit `qs` geparst.
+- multipart/form-data wird mit der Fetch-API von Node (undici `Request.formData()`) gelesen statt mit formidable; keine neue Abhängigkeit.
+- Execution-Log: SQLite über better-sqlite3, Tabellen `executions` und `execution_data` (gzip-komprimiertes JSON).
+  Beim Start werden unvollständige Executions als `crashed` markiert.
+- Webhook-Golden-Tests: `scripts/record-webhook.sh` importiert den Workflow in n8n, aktiviert ihn direkt in der Datenbank
+  (`update:workflow --active=true` scheitert in 1.123 nach einem Import, siehe `scripts/activate-n8n-workflow.mjs`), startet
+  `n8n start`, sendet die Requests aus `webhook.json` mit `scripts/webhook-client.mjs` und liest die Executions aus der SQLite-Datei.
+  Derselbe Client sendet im Test an flowlite, damit Header und Reihenfolge identisch sind.
+
 ## Expression-Auswertung
 - Eigener Evaluator statt `@n8n/tournament`: Templates werden wie tournament zerlegt und in einen
   JS-Ausdruck übersetzt, der in einem gemeinsamen `node:vm`-Kontext mit Timeout läuft.

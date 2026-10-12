@@ -62,8 +62,16 @@ export function prettyBytes(size: number): string {
   return `${value.toLocaleString('en-US')} ${units[exponent]}`;
 }
 
+export interface PrepareOptions {
+  /**
+   * Wie n8n copyBinaryFile (Webhook-Uploads): Dateiname unverändert übernehmen,
+   * Endung nur aus dem MIME-Typ, kein directory
+   */
+  copy?: boolean;
+}
+
 export interface BinaryStore {
-  prepare(data: Buffer, fileName?: string, mimeType?: string): Promise<BinaryRef>;
+  prepare(data: Buffer, fileName?: string, mimeType?: string, options?: PrepareOptions): Promise<BinaryRef>;
   getBuffer(ref: BinaryRef): Promise<Buffer>;
   /** Für Logs und Execution-Store: große Daten werden nur referenziert */
   cleanup?(): Promise<void>;
@@ -78,7 +86,7 @@ export class FileBinaryStore implements BinaryStore {
     this.inlineLimit = inlineLimit;
   }
 
-  async prepare(data: Buffer, fileName?: string, mimeType?: string): Promise<BinaryRef> {
+  async prepare(data: Buffer, fileName?: string, mimeType?: string, options: PrepareOptions = {}): Promise<BinaryRef> {
     let fileExtension: string | undefined;
     if (!mimeType && fileName) mimeType = lookupMimeType(fileName);
     if (!fileExtension && mimeType) fileExtension = extensionForMime(mimeType);
@@ -88,7 +96,9 @@ export class FileBinaryStore implements BinaryStore {
     if (fileType) ref.fileType = fileType;
     if (fileExtension) ref.fileExtension = fileExtension;
     ref.data = '';
-    if (fileName) {
+    if (fileName && options.copy) {
+      ref.fileName = fileName;
+    } else if (fileName) {
       const parts = parsePath(fileName);
       if (parts.dir !== '') ref.directory = parts.dir;
       ref.fileName = parts.base;

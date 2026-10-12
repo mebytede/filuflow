@@ -32,3 +32,30 @@ Unter-Workflows kommen aus dem Workflow-Verzeichnis (ID oder Name) oder aus dem 
 
 ## XML
 Wie in n8n gehen Fehler-Items bei `continueOnFail` verloren (n8n überschreibt das Eingangs-Item statt eines auszugeben).
+
+## Server und Webhooks
+- **Test-URLs** (`/webhook-test/...`): In n8n nur nach "Listen" im Editor und für genau einen Aufruf. flowlite registriert
+  Test-URLs für alle geladenen gültigen Workflows (auch inaktive) und führt sie im Modus `manual` aus (pinData aktiv, `executionMode: test`).
+- **responseMode `responseNode` ohne erreichten Respond-Node:** n8n lässt den Request unbegrenzt offen. flowlite antwortet nach Ende der
+  Execution mit 200 und `{"message":"Workflow executed successfully but no Respond to Webhook node was executed"}`.
+- **responseData `firstEntryBinary`:** n8n 1.123 sendet Binärdaten ohne Dateispeicher-ID über `res.json`, also als serialisierten
+  Buffer (`{"type":"Buffer","data":[...]}`). flowlite sendet die Bytes mit dem MIME-Typ der Datei.
+- **Streaming** (`responseMode: streaming`, Respond to Webhook v1.5 mit Streaming) wird nicht unterstützt; `validate` meldet es.
+- **Expressions in Webhook-Parametern** (`path`, `httpMethod`, `responseMode`, `responseData`) werden nicht ausgewertet; `validate` meldet sie.
+- **`ignoreBots`** nutzt ein eigenes Muster statt der Liste des npm-Pakets `isbot`.
+- **JWT** (Webhook-Authentifizierung, Respond-Node `jwt`): eigene Umsetzung mit `node:crypto` statt `jsonwebtoken`
+  (HS/RS/PS/ES, Prüfung von `exp` und `nbf`). Fehlermeldungen entsprechen jsonwebtoken für die häufigen Fälle.
+- **Parameter-Bereinigung:** n8n entfernt beim Laden Parameter, deren `displayOptions` sie ausblenden (`getNodeParameters`).
+  flowlite bildet das nicht allgemein nach. Exporte aus dem n8n-Editor sind bereits bereinigt; nachgebaut sind die Fälle, in denen
+  sich Optionen gegenseitig ausblenden (Webhook: `rawBody` und `noResponseBody`, Antwortoptionen je `responseMode`).
+- **REST-API** gibt es in n8n in dieser Form nicht. `POST /api/workflows/:id/run` startet im Modus `trigger` ohne pinData.
+- **Fehler beim Start durch den Webhook-Node** (z. B. fehlender Respond-Node): n8n speichert eine fehlgeschlagene Execution mit dem Fehler;
+  flowlite antwortet gleich (500 bzw. Meldung), speichert aber keine Execution.
+- **Wartende Executions** (`/webhook-waiting/`, Formulare, Chat-Trigger) fehlen in Phase 1.
+- **Statische Daten** (`$getWorkflowStaticData`, Schedule-Wiederholungen) liegen nur im Speicher und gehen beim Neustart verloren.
+- **Gleichzeitigkeit:** Das Limit (Default 5) gilt für Webhook-, Schedule-, Fehler- und API-Executions. Unter-Workflows laufen
+  innerhalb der aufrufenden Execution und zählen nicht extra.
+
+## Schedule Trigger
+n8n rechnet mit moment-timezone und dem Paket `cron`, flowlite mit luxon und croner. Die Ausgabefelder und die Kalenderwerte
+der Wiederholungsprüfung sind gegen moment-timezone aus dem n8n-Image getestet (`test/oracle/schedule-moment.json`).

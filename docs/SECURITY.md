@@ -11,3 +11,7 @@ Trotzdem gilt:
 - `$env` liefert nur freigegebene Umgebungsvariablen (`FLOWLITE_ENV_ALLOW`, Default: Präfix `FL_`).
 - Credential-Werte werden nie geloggt und im Execution-Log nicht gespeichert.
 - Die REST-API ist mit `FLOWLITE_API_KEY` geschützt. Ohne gesetzten Schlüssel ist die API gesperrt (außer `/healthz` und Webhooks).
+- Der Vergleich des API-Keys ist zeitkonstant. Webhooks sind ohne API-Key erreichbar; ihre Authentifizierung kommt aus dem Webhook-Node
+  (Basic, Header, Bearer, JWT) mit Credentials aus `credentials.json`.
+- Der Docker-Container läuft als Benutzer `node` (nicht root).
+- Request-Bodys sind auf `FLOWLITE_PAYLOAD_SIZE_MAX` MB begrenzt (Default 16, wie n8n).

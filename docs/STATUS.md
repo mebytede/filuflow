@@ -12,10 +12,11 @@ Referenzversion: n8n **1.123.0** (Docker-Image `n8nio/n8n:1.123.0`, Quellcode-Ta
 | M3b | fertig: httpRequest (v3, v4 bis 4.3; ohne Pagination), merge (v3 bis 3.2, ohne combineBySql), splitOut, aggregate, splitInBatches v3, removeDuplicates (v1, 1.1, 2), sort, limit, summarize, dateTime v2, crypto, html (v1 bis 1.2), xml, wait (timeInterval/specificTime), executeWorkflow (v1 bis 1.3), executeWorkflowTrigger (v1, 1.1), stopAndError. Fixtures 2, 4, 5, 11 bis 15 grün gegen n8n |
 | M3c | fertig: Expression-Erweiterungsfunktionen (String, Number, Boolean, Object, Array, Date), Extended Functions (`$min`, `$max`, `$ifEmpty`, `$if`, ...), optionale Ketten mit Erweiterungen. 1.012 Expression-Fälle gegen das n8n-Orakel (`Workflow.expression.getParameterValue`) identisch |
 | M4 | fertig: `flowlite run` mit `--input`, `--trigger`, `--json`, `--only-last`, `--no-pin`, `--credentials`, `--vars`, `--workflows`; Übersicht pro Node, Maskierung von Credential-Werten, Validierung vor dem Start. Alle 14 Fixtures laufen auch über die CLI (eigener Prozess) identisch zu n8n |
-| M5 | offen |
+| M5 | fertig: `flowlite serve` (fastify, Hot Reload), Webhook v1 bis 2.1 (alle Antwortmodi außer Streaming, Body-Formate JSON/Text/Formular/XML/multipart/binär, dynamische Pfade, mehrere Methoden, Basic/Header/Bearer/JWT-Auth, CORS), Respond to Webhook v1 bis 1.5, Schedule Trigger v1 bis 1.3, Error Trigger und `settings.errorWorkflow`, REST-API mit API-Key, SQLite-Log mit Aufbewahrung, Warteschlange mit Limit, Abbruch, `flowlite executions list/show`, Dockerfile und docker-compose. Fixtures 8 und 8b (16 Requests, Antworten und Executions) grün gegen echtes n8n |
 | M6 | offen |
 | M7 | offen |
 
 ## Hinweise
+- Docker-Image: `docker build` konnte in der Build-Umgebung nicht geprüft werden (Docker Hub antwortet mit 429 Too Many Requests für `node:22-slim`).
 - `fixtures/real/` fehlt noch: Es liegen keine echten Workflow-Exporte vor. Sobald welche vorhanden sind, mit `scripts/record-expected.sh` aufnehmen.
 - Orakel neu aufnehmen: `scripts/record-filter-table.sh`, `scripts/record-expression-table.sh` (brauchen Docker).

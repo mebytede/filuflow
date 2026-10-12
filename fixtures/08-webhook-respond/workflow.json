@@ -1,0 +1,87 @@
+{
+  "name": "08 Webhook mit Respond-Node",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "fl-fixture-08", "responseMode": "responseNode", "options": {} },
+      "id": "a1000000-0000-4000-8000-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "5b0a9a54-3c1e-4c55-9d0e-08aa08aa08aa"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "s1", "name": "name", "value": "={{ $json.body.name }}", "type": "string" },
+            { "id": "s2", "name": "anzahl", "value": "={{ Number($json.query.n) * 2 }}", "type": "number" },
+            { "id": "s3", "name": "kennung", "value": "={{ $json.headers['x-test'] }}", "type": "string" },
+            { "id": "s4", "name": "modus", "value": "={{ $json.executionMode }}", "type": "string" },
+            { "id": "s5", "name": "url", "value": "={{ $json.webhookUrl }}", "type": "string" },
+            { "id": "s6", "name": "tags", "value": "={{ $json.query.tag }}", "type": "array" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000002",
+      "name": "Aufbereiten",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            { "id": "c1", "leftValue": "={{ $json.name }}", "rightValue": "", "operator": { "type": "string", "operation": "notEmpty", "singleValue": true } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000003",
+      "name": "Gültig?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"gruss\": \"Hallo \" + $json.name, \"anzahl\": $json.anzahl, \"tags\": $json.tags } }}",
+        "options": { "responseCode": 201, "responseHeaders": { "entries": [ { "name": "X-Flowlite", "value": "ja" } ] } }
+      },
+      "id": "a1000000-0000-4000-8000-000000000004",
+      "name": "Antwort OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [660, -100]
+    },
+    {
+      "parameters": { "respondWith": "text", "responseBody": "=Name fehlt ({{ $json.kennung }})", "options": { "responseCode": 422 } },
+      "id": "a1000000-0000-4000-8000-000000000005",
+      "name": "Antwort Fehler",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [660, 100]
+    },
+    {
+      "parameters": {},
+      "id": "a1000000-0000-4000-8000-000000000006",
+      "name": "Danach",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [880, -100]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Aufbereiten", "type": "main", "index": 0 }]] },
+    "Aufbereiten": { "main": [[{ "node": "Gültig?", "type": "main", "index": 0 }]] },
+    "Gültig?": { "main": [[{ "node": "Antwort OK", "type": "main", "index": 0 }], [{ "node": "Antwort Fehler", "type": "main", "index": 0 }]] },
+    "Antwort OK": { "main": [[{ "node": "Danach", "type": "main", "index": 0 }]] }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" }
+}

@@ -26,6 +26,10 @@ import { executeWorkflowNode } from './executeWorkflow.js';
 import { executeWorkflowTriggerNode } from './executeWorkflowTrigger.js';
 import { stopAndErrorNode } from './stopAndError.js';
 import { httpRequestNode } from './httpRequest.js';
+import { webhookNode } from './webhook.js';
+import { respondToWebhookNode } from './respondToWebhook.js';
+import { scheduleTriggerNode } from './scheduleTrigger.js';
+import { errorTriggerNode } from './errorTrigger.js';
 
 export const builtinNodeTypes: NodeType[] = [
   manualTriggerNode,
@@ -53,6 +57,10 @@ export const builtinNodeTypes: NodeType[] = [
   executeWorkflowNode,
   executeWorkflowTriggerNode,
   stopAndErrorNode,
+  webhookNode,
+  respondToWebhookNode,
+  scheduleTriggerNode,
+  errorTriggerNode,
 ];
 
 let defaultRegistry: NodeRegistry | undefined;
