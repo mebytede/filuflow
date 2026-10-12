@@ -25,6 +25,7 @@ Umgebung:
   FLOWLITE_ADMIN_EMAIL, FLOWLITE_ADMIN_PASSWORD   erster Admin beim ersten Start (sonst Einrichtungs-Token im Log)
   FLOWLITE_SESSION_HOURS    Sitzung läuft nach so vielen Stunden ohne Aktivität ab (Default 12)
   FLOWLITE_SYNC_SECONDS     Abgleich mit den Workern (Default 60, 0 = aus)
+  FLOWLITE_TRUST_PROXY=true X-Forwarded-For auswerten (nur hinter einem Reverse Proxy)
   FLOWLITE_OIDC_ISSUER, FLOWLITE_OIDC_CLIENT_ID, FLOWLITE_OIDC_CLIENT_SECRET   OIDC-Anmeldung
   FLOWLITE_OIDC_LABEL, FLOWLITE_OIDC_SCOPES, FLOWLITE_OIDC_AUTO_CREATE=true, FLOWLITE_OIDC_ADMIN_GROUP,
   FLOWLITE_OIDC_GROUPS_CLAIM, FLOWLITE_OIDC_ALLOWED_DOMAINS (kommagetrennt)
@@ -180,6 +181,7 @@ export async function cmdMaster(args: string[]): Promise<number> {
       sessionIdleHours: Number(env.FLOWLITE_SESSION_HOURS ?? 12),
       syncIntervalMs: Number(env.FLOWLITE_SYNC_SECONDS ?? 60) * 1000,
       oidc: oidcFromEnv(publicUrl),
+      trustProxy: env.FLOWLITE_TRUST_PROXY === 'true',
       ...(env.FLOWLITE_UI === 'false' ? { uiDir: false as const } : {}),
     });
   } catch (error) {

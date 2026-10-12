@@ -109,7 +109,9 @@ export class WorkerHub {
         webhook_base_url: info.webhookBaseUrl ?? null,
       });
     } catch (error) {
-      this.o.db.updateWorker(worker.id, { status: 'offline', last_error: (error as Error).message });
+      // 404: flowlite serve ohne Worker-Modus (oder ein anderer Dienst unter der Adresse)
+      const message = error instanceof WorkerError && error.status === 404 ? 'Gegenstelle ist kein flowlite-Worker (flowlite worker starten)' : (error as Error).message;
+      this.o.db.updateWorker(worker.id, { status: 'offline', last_error: message });
     }
     return this.o.db.getWorker(worker.id)!;
   }

@@ -33,6 +33,26 @@ Neben dem Stack aus CLAUDE.md (luxon, better-sqlite3, fastify, croner, pino):
 - `playwright-core` (Dev-Abhängigkeit, Version passend zum vorinstallierten Chromium) für den Browser-Test `test/ui.e2e.test.ts`;
   ohne Chromium wird der Test übersprungen.
 
+## Master und Worker (M9)
+- **Master verbindet sich zum Worker** (nicht umgekehrt): Der Worker ist ein normales `flowlite serve` mit zusätzlicher Worker-API,
+  geschützt mit seinem `FLOWLITE_API_KEY`. Der Master braucht Netzzugang zum Worker (direkt, VPN oder Reverse Proxy mit TLS);
+  der Worker braucht keinen Zugang zum Master und läuft weiter, wenn der Master ausfällt.
+- **Daten beim Worker:** Credentials und Ausführungsdaten verlassen die Umgebung des Mandanten nicht dauerhaft. Der Master hält
+  Benutzer, Rechte, Projekte und Workflows (mit Versionen) und fragt Ausführungen live ab. Credentials kann der Master beim Worker
+  setzen und löschen, aber nicht lesen (Datei `credentials.managed.json` neben der von Hand gepflegten Credential-Datei).
+- **Verteilen:** Speichern im Master schreibt den Workflow sofort als `<id>.json` ins Workflow-Verzeichnis des Workers, gekennzeichnet
+  mit `meta.flowliteMaster` (Version, Projekt). Ein Abgleich (`FLOWLITE_SYNC_SECONDS`, Default 60) holt verpasste Änderungen nach und
+  entfernt gekennzeichnete Workflows, die der Master nicht mehr kennt. Dateien ohne Kennzeichnung bleiben unberührt, so können Worker
+  zusätzlich lokale Workflows haben.
+- **Ein Projekt, ein Worker:** Ein Projekt ist genau einem Worker (und damit einem Mandanten) zugeordnet. Mehrere Worker je Mandant
+  sind möglich (z. B. Test und Produktion), dann als getrennte Projekte.
+- **Keine neuen Abhängigkeiten:** Passwörter mit scrypt aus `node:crypto`, TOTP (RFC 6238) und OIDC (Code Flow mit PKCE, JWKS,
+  Signaturprüfung RS/PS/ES) sind selbst implementiert. Die Bausteine sind klein und gut spezifiziert; eine OIDC- oder JWT-Bibliothek
+  hätte mehr Code und Abhängigkeiten gebracht als sie spart. HTTP zum Worker und zum Identity Provider über `undici` (schon vorhanden).
+- **Sitzungen** liegen in der SQLite-Datenbank des Masters (gehasht), nicht als JWT: Abmelden, Sperren und Passwortwechsel wirken sofort.
+- **Oberfläche:** dieselbe SPA wie im Einzelbetrieb; sie erkennt den Master über `GET /healthz` (`mode: "master"`) und lädt dann
+  `master/app.js`. Editor und Ausführungsansicht sind über eine kleine Backend-Schnittstelle an Master oder Einzelserver angebunden.
+
 ## Server
 - fastify mit eigenem Content-Type-Parser für Webhooks: Der Body wird roh gelesen (gzip/deflate wie n8n) und im Webhook-Node
   nach den Regeln von n8n (`parseRequestBody`, `body-parser.ts`) ausgewertet. Antworten bauen die Semantik von Express nach

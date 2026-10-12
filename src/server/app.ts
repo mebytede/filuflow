@@ -88,7 +88,7 @@ function executionView(e: Execution | (Partial<Execution> & { id: string }), wit
 export async function createServer(options: ServerOptions): Promise<FlowliteServer> {
   const logger = options.logger ?? getLogger();
   const registry = options.registry ?? getDefaultRegistry();
-  const credentials = options.credentials ?? new StaticCredentialProvider();
+  const credentials = options.credentials ?? options.worker?.credentials ?? new StaticCredentialProvider();
   const binary = options.binary ?? new FileBinaryStore();
   const secrets = () => credentials.secretValues?.() ?? [];
   const store = new ExecutionStore(options.dbFile, secrets);

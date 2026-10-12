@@ -77,7 +77,22 @@ Die Oberfläche ist ein eigener, schlanker Editor, kein Nachbau des n8n-Editors:
   über die JSON-Ansicht des Workflows (Export/Import) pflegen, nicht per Klick.
 - Test-Webhooks (`/webhook-test/...`) sind für alle gültigen Workflows registriert; ein "Auf Test-Event warten" wie in n8n gibt es nicht.
 - Credentials werden nicht in der Oberfläche angelegt oder bearbeitet, sondern in `credentials.json`.
-- Mehrere Personen, die gleichzeitig denselben Workflow speichern: der letzte Stand gewinnt (keine Sperre, keine Versionen).
+- Einzelbetrieb (`flowlite serve`): Mehrere Personen, die gleichzeitig denselben Workflow speichern: der letzte Stand gewinnt (keine
+  Sperre, keine Versionen). Im Master-Betrieb gibt es Versionen und eine Konfliktprüfung.
+
+## Master und Worker (M9)
+n8n hat Projekte, Rollen und SSO in der Enterprise-Edition und kennt keine getrennten Umgebungen je Mandant. flowlite baut das
+nicht nach, sondern hat ein eigenes, einfacheres Modell:
+- Rollen: global Admin oder Mitglied, je Projekt Lesen, Bearbeiten oder Projekt-Admin. Keine eigenen Rollen, keine Rechte je Workflow.
+- Credentials gehören zum Worker (Mandant), nicht zum Projekt oder zur Person. Teilen von Credentials wie in n8n gibt es nicht;
+  alle Workflows auf einem Worker können alle Credentials dieses Workers nutzen.
+- Beim Import eines n8n-Workflows in ein Projekt wird die ID aus n8n verworfen (der Master vergibt eine eigene) und der Workflow
+  startet inaktiv. Verweise auf Unter-Workflows per ID (Execute Workflow, Workflow-Tool) müssen danach auf die neue ID oder den
+  Namen zeigen.
+- Webhook-Pfade sind je Worker eindeutig. Zwei Workflows mit gleichem Pfad auf demselben Worker: der zweite wird nicht aktiviert
+  (Fehler am Workflow), wie in n8n.
+- Ausführungen bleiben beim Worker; der Master speichert keine Kopie. Ist der Worker nicht erreichbar, sind seine Ausführungen nicht
+  sichtbar.
 
 ## KI-Nodes
 - **Kein LangChain:** Modelle, Prompts, Parser, Memory und der Agent-Ablauf sind eigene Umsetzungen nach dem Verhalten von

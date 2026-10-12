@@ -1,0 +1,27 @@
+# flowlite-Worker in der Umgebung eines Mandanten. Der Master verbindet sich mit FLOWLITE_API_KEY hierher.
+#   FLOWLITE_API_KEY=... FLOWLITE_ENCRYPTION_KEY=... FLOWLITE_WEBHOOK_URL=https://flows.kunde.example/ \
+#     docker compose -f docker-compose.worker.yml up -d
+services:
+  worker:
+    build: .
+    image: flowlite:latest
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      FLOWLITE_API_KEY: ${FLOWLITE_API_KEY:?FLOWLITE_API_KEY setzen (mindestens 16 Zeichen, im Master beim Worker eintragen)}
+      # verschlüsselt die vom Master gesetzten Credentials (credentials.managed.json)
+      FLOWLITE_ENCRYPTION_KEY: ${FLOWLITE_ENCRYPTION_KEY:-}
+      FLOWLITE_WEBHOOK_URL: ${FLOWLITE_WEBHOOK_URL:-http://localhost:5678/}
+      FLOWLITE_TIMEZONE: ${FLOWLITE_TIMEZONE:-Europe/Berlin}
+      FLOWLITE_MANAGED_CREDENTIALS: /data/state/credentials.managed.json
+    volumes:
+      # Workflows schreibt der Master; zusätzlich von Hand abgelegte Dateien bleiben unberührt
+      - flowlite-workflows:/data/workflows
+      - flowlite-state:/data/state
+      # optional, von Hand gepflegt (vom Master nicht überschreibbar):
+      # - ./credentials.json:/data/credentials.json:ro
+    command: ["node", "/app/bin/flowlite.js", "worker", "--db", "/data/state/flowlite.db"]
+volumes:
+  flowlite-workflows:
+  flowlite-state:

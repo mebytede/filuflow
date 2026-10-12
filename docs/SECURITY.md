@@ -28,3 +28,46 @@ Trotzdem gilt:
   sind wie im Execution-Log maskiert.
 - Die Seiten senden eine Content-Security-Policy (`script-src 'self'`, kein `eval`, keine fremden Quellen), `X-Content-Type-Options`
   und `frame-ancestors 'none'`. Statische Pfade außerhalb von `dist/ui` werden abgewiesen.
+
+## Master und Worker (M9)
+Benutzer des Masters sind das interne Team. Wer in einem Projekt bearbeiten darf, kann Code-Nodes schreiben und damit beliebigen
+Code auf dem Worker des Projekts ausführen, also in der Umgebung des Mandanten. Das Recht "Bearbeiten" ist entsprechend zu vergeben.
+
+Anmeldung und Sitzungen:
+- Passwörter mit scrypt (N=32768, r=8, p=1, 16 Byte Salz), mindestens 12 Zeichen. Bei unbekannter E-Mail wird trotzdem ein Hash
+  berechnet (gleiche Antwortzeit, gleiche Meldung).
+- Nach 10 Fehlversuchen ist ein Konto 15 Minuten gesperrt; höchstens 20 Anmeldeversuche je IP und je E-Mail in 15 Minuten,
+  5 TOTP-Versuche je Anmeldung in 5 Minuten. Hinter einem Reverse Proxy `FLOWLITE_TRUST_PROXY=true` setzen, damit die IP aus
+  `X-Forwarded-For` zählt (sonst teilen sich alle die IP des Proxys). Ohne Proxy bleibt es aus, weil sonst jeder seine IP vorgeben
+  könnte.
+- TOTP nach RFC 6238 (SHA-1, 30 s, 6 Stellen, ±1 Zeitschritt), ein Code gilt nur einmal. Der Schlüssel liegt mit
+  `FLOWLITE_ENCRYPTION_KEY` verschlüsselt (AES-256-GCM) in der Datenbank. Admins können TOTP für alle Benutzer mit Passwort
+  vorschreiben; Notfall-Zugang über `flowlite master user reset-totp` auf dem Server.
+- Sitzung als zufälliges Token im Cookie `flowlite_session` (HttpOnly, SameSite=Lax, Secure bei `https://` in
+  `FLOWLITE_PUBLIC_URL`); in der Datenbank steht nur der SHA-256-Hash. Ablauf nach 12 Stunden ohne Aktivität
+  (`FLOWLITE_SESSION_HOURS`), spätestens nach 7 Tagen. Abmelden, Sperren, Passwort- oder Rollenwechsel beenden Sitzungen sofort.
+- CSRF: Jeder ändernde Request mit Sitzung (auch die Anmeldung) braucht den Header `X-Flowlite-Csrf: 1`. Fremde Seiten können
+  ihn ohne CORS-Freigabe nicht setzen; der Master sendet keine CORS-Header.
+- API-Tokens (`flt_…`, 32 Byte Zufall) werden nur beim Anlegen angezeigt und gehasht gespeichert, optional mit Ablaufdatum. Sie
+  haben die Rechte ihres Benutzers; neue Tokens nur aus einer angemeldeten Sitzung.
+- Der erste Admin entsteht über ein Einrichtungs-Token, das der Master beim Start ins Log schreibt (nur solange es keine Benutzer
+  gibt), über `FLOWLITE_ADMIN_EMAIL`/`FLOWLITE_ADMIN_PASSWORD` oder `flowlite master user add --admin`.
+
+Rechte:
+- Projekte, in denen jemand kein Mitglied ist, sind für ihn unsichtbar (404 statt 403). Ausführungen und Credential-Namen eines
+  Workers sieht nur, wer im zugehörigen Projekt lesen darf; Ausführungen werden auf die Workflows des Projekts gefiltert.
+- Verwaltung (Benutzer, Mandanten, Worker, Credentials setzen, Audit-Log) nur für globale Admins. Der letzte aktive Admin kann
+  nicht herabgestuft, gesperrt oder gelöscht werden.
+- Audit-Log für Anmeldungen (auch fehlgeschlagene), Benutzer-, Projekt-, Workflow- und Worker-Änderungen, Ausführen über den Master
+  und Credential-Änderungen, ohne Passwörter, Tokens oder Credential-Werte.
+
+Verbindung zum Worker:
+- Der Master meldet sich beim Worker mit dessen `FLOWLITE_API_KEY` (Header `X-API-Key`, mindestens 16 Zeichen) an. Die Tokens
+  liegen mit `FLOWLITE_ENCRYPTION_KEY` verschlüsselt in der Datenbank des Masters und werden nie ausgegeben.
+- Für Verbindungen über fremde Netze HTTPS verwenden; das TLS-Zertifikat wird geprüft (abschaltbar nur ausdrücklich je Worker,
+  eigenes CA-Zertifikat möglich). Der Worker braucht keinen Zugang zum Master.
+- Wer den Token eines Workers hat, kann dort Workflows verteilen und damit Code ausführen; er ist wie ein Root-Zugang zu behandeln.
+- Credentials: Der Master überträgt neue Werte einmalig zum Worker, speichert sie nicht und kann sie nicht zurücklesen. Der Worker
+  speichert sie in `credentials.managed.json` (Dateirechte 0600, mit `FLOWLITE_ENCRYPTION_KEY` des Workers verschlüsselt, wenn
+  gesetzt). Einträge aus der von Hand gepflegten Credential-Datei des Workers kann der Master weder überschreiben noch löschen.
+- Ausführungsdaten bleiben beim Worker und werden nur bei Bedarf über den Master angezeigt (maskiert wie im Execution-Log).

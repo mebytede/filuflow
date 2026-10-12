@@ -107,6 +107,85 @@ Tastatur im Editor: Strg+S speichern, Strg+Enter ausführen, Strg+Z / Strg+Umsch
 kopieren, ausschneiden, einfügen (kompatibel mit kopierten n8n-Nodes), Strg+A alles auswählen, Entf löschen, D deaktivieren,
 1 einpassen, Esc Auswahl aufheben. Umschalt+Ziehen auf freier Fläche wählt mit einem Rahmen aus, Strg+Mausrad zoomt.
 
+## Mehrbenutzer-Betrieb: Master und Worker
+Für Teams und mehrere Mandanten gibt es zwei weitere Betriebsarten. Der Einzelbetrieb mit `flowlite serve` bleibt unverändert.
+
+```
+          Team (Browser)
+               │  Anmeldung: Passwort + TOTP oder SSO (OIDC)
+        ┌──────▼───────┐
+        │   Master     │  Benutzer, Rechte, Projekte, Workflows (versioniert), Audit-Log
+        └──┬────────┬──┘
+   HTTPS + │        │ HTTPS + Token des Workers
+   Token   │        │
+   ┌───────▼──┐  ┌──▼───────┐
+   │ Worker   │  │ Worker   │  in der Umgebung des Mandanten: führt aus, Webhooks, Zeitpläne,
+   │ Kunde A  │  │ Kunde B  │  Credentials und Ausführungsdaten bleiben hier
+   └──────────┘  └──────────┘
+```
+
+- **Master** (`flowlite master`): Weboberfläche mit Anmeldung, Projekten, Editor und Verwaltung. Führt selbst nichts aus.
+- **Worker** (`flowlite worker`): ein `flowlite serve` mit API für den Master. Der Master verbindet sich zum Worker (der Worker
+  braucht keinen Zugang zum Master) und verteilt Workflows beim Speichern. Fällt der Master aus, laufen die Worker weiter.
+- **Mandant:** Gruppe von Workern (z. B. Test und Produktion eines Kunden). **Projekt:** Ordner für Workflows mit Mitgliedern,
+  genau einem Worker zugeordnet.
+- **Rollen:** global Administrator (alles) oder Mitglied (nur eigene Projekte). Im Projekt: Lesen (Workflows, Ausführungen,
+  Credential-Namen), Bearbeiten (zusätzlich ändern, ausführen, aktivieren, löschen), Projekt-Admin (zusätzlich Mitglieder).
+
+### Worker starten (beim Mandanten)
+```
+FLOWLITE_API_KEY=<langer-zufallswert> FLOWLITE_ENCRYPTION_KEY=<schluessel> FLOWLITE_WEBHOOK_URL=https://flows.kunde.example/ \
+  flowlite worker --dir ./workflows --port 5678
+```
+- `FLOWLITE_API_KEY` (mindestens 16 Zeichen) ist der Token, den der Master beim Worker einträgt.
+- Workflows vom Master landen als `<id>.json` in `--dir`; von Hand abgelegte Workflows ohne Kennzeichnung bleiben unberührt.
+- Credentials: die von Hand gepflegte `credentials.json` (nur lesen, Vorrang) plus `credentials.managed.json`
+  (`FLOWLITE_MANAGED_CREDENTIALS`), in die der Master schreibt. Mit `FLOWLITE_ENCRYPTION_KEY` verschlüsselt.
+- Die eigene Oberfläche ist im Worker-Modus aus (`FLOWLITE_UI=true` schaltet sie ein).
+
+### Master starten
+```
+FLOWLITE_ENCRYPTION_KEY=<schluessel> FLOWLITE_PUBLIC_URL=https://flowlite.example flowlite master --port 5679 --db ./master.db
+```
+Beim ersten Start ohne Benutzer schreibt der Master ein Einrichtungs-Token ins Log; damit legt man unter `/#/setup` den ersten
+Administrator an. Danach unter **Verwaltung**: Mandant anlegen, Worker mit Adresse und Token eintragen (der Master prüft die
+Verbindung), Projekt anlegen und dem Worker zuordnen, Mitglieder hinzufügen.
+
+| Variable | Bedeutung |
+|---|---|
+| `FLOWLITE_ENCRYPTION_KEY` | Pflicht, mindestens 16 Zeichen. Verschlüsselt Worker-Tokens und TOTP-Schlüssel in der Datenbank. Gut aufbewahren: ohne ihn sind Worker und TOTP neu einzurichten |
+| `FLOWLITE_PUBLIC_URL` | Adresse des Masters für Browser (bei `https://` Cookies mit Secure) und OIDC-Redirect |
+| `FLOWLITE_MASTER_DB` / `--db` | SQLite-Datei (Default `./master.db`) |
+| `FLOWLITE_PORT` / `--port` | Port (Default 5679) |
+| `FLOWLITE_ADMIN_EMAIL`, `FLOWLITE_ADMIN_PASSWORD` | erster Admin beim ersten Start statt Einrichtungs-Token |
+| `FLOWLITE_SESSION_HOURS` | Sitzung endet nach so vielen Stunden ohne Aktivität (Default 12, spätestens nach 7 Tagen) |
+| `FLOWLITE_SYNC_SECONDS` | Abgleich mit den Workern (Default 60, 0 = aus) |
+| `FLOWLITE_TRUST_PROXY` | `true` hinter einem Reverse Proxy (IP aus `X-Forwarded-For` für die Begrenzung der Anmeldeversuche) |
+
+Benutzer auf der Kommandozeile (z. B. Notfall-Zugang, wenn TOTP verloren ist):
+```
+FLOWLITE_NEW_PASSWORD=... flowlite master user add --email ada@example.org --name "Ada" --admin --db ./master.db
+flowlite master user list --db ./master.db
+flowlite master user set-password --email ada@example.org --db ./master.db     # fragt nach dem Passwort
+flowlite master user reset-totp --email ada@example.org --db ./master.db
+```
+
+### Arbeiten im Master
+- **Projekte:** Workflows anlegen (sofort gespeichert und an den Worker verteilt), aus n8n importieren, verschieben, löschen.
+  Status je Workflow: aktiv, Verteilung (Version beim Worker), Fehler beim Aktivieren.
+- **Editor:** wie im Einzelbetrieb. Prüfen, Ausführen und Credential-Auswahl laufen über den Worker des Projekts (Webhook-Adressen
+  des Workers). Speichern legt eine neue Version an; hat jemand anderes inzwischen gespeichert, fragt der Editor nach
+  (überschreiben oder abbrechen). **Versionen** zeigt alle Stände, ältere lassen sich wiederherstellen.
+- **Ausführungen** je Projekt kommen live vom Worker.
+- **Profil:** Name, Passwort, Zwei-Faktor-Anmeldung (TOTP, Schlüssel für Authenticator-Apps), API-Tokens für Skripte
+  (`Authorization: Bearer flt_…`, gleiche Endpunkte wie die Oberfläche, z. B. `GET /api/projects`).
+- **Verwaltung** (Admins): Übersicht über Mandanten, Worker (erreichbar, Version, nicht verteilte Workflows, Fehler), Worker prüfen
+  und abgleichen, Credentials beim Worker setzen und löschen (Werte nur schreibbar), Benutzer, Pflicht-TOTP, Audit-Log.
+
+### Docker
+`docker-compose.master.yml` und `docker-compose.worker.yml` enthalten je ein Beispiel. Der Master gehört hinter einen Reverse Proxy
+mit HTTPS; Worker sollten ebenfalls per HTTPS (oder über VPN) erreichbar sein.
+
 ## Credentials
 `credentials.json` (oder ein Verzeichnis mit einer Datei je Credential), Schlüssel = Credential-Name wie im Workflow,
 Fallback auf die ID:

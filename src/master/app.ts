@@ -30,6 +30,8 @@ export interface MasterOptions {
   oidc?: OidcConfig;
   /** Abgleich mit den Workern (ms, 0 = aus) */
   syncIntervalMs?: number;
+  /** X-Forwarded-For auswerten (nur hinter einem Reverse Proxy, sonst könnte jeder seine IP vorgeben) */
+  trustProxy?: boolean;
 }
 
 export interface MasterServer {
@@ -80,7 +82,7 @@ export async function createMasterServer(options: MasterOptions): Promise<Master
   const hub = new WorkerHub({ db, secrets, logger });
   const oidc = options.oidc ? new OidcClient(options.oidc) : undefined;
 
-  const app = Fastify({ logger: false, bodyLimit: 16 * 1024 * 1024, exposeHeadRoutes: false, trustProxy: true });
+  const app = Fastify({ logger: false, bodyLimit: 16 * 1024 * 1024, exposeHeadRoutes: false, trustProxy: options.trustProxy ?? false });
 
   const ctx: MasterContext = {
     db,
