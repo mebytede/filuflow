@@ -9,7 +9,7 @@ export const GRID = 20;
 export const NODE_W = 100;
 export const NODE_H = 100;
 const SUB_SIZE = 80;
-const AI_PORT_SPACING = 60;
+const AI_PORT_SPACING = 80;
 const STICKY = 'n8n-nodes-base.stickyNote';
 
 export interface CanvasModel {
