@@ -257,6 +257,12 @@ OpenAI (Chat Completions), Anthropic und Google Gemini, den Tools Calculator, Co
 einfachen Gesprächsgedächtnis. Modelle und Tools hängen als eigene Knoten am Agenten und erscheinen im Protokoll mit eigenen
 Läufen. Die Modelle werden direkt per HTTP angesprochen, ohne zusätzliche Bibliotheken.
 
+**Chat:** Der Chat Trigger startet einen Workflow mit einer Chat-Nachricht. Im Editor öffnet der Chat-Knopf in der
+Kopfzeile ein Chat-Fenster, jede Nachricht ist ein Testlauf mit dem aktuellen Stand. Ist der Chat öffentlich, gibt es unter
+`/webhook/<webhookId>/chat` eine eigene Chat-Seite (Titel, Begrüßung, Platzhalter einstellbar, optional Basic Auth) oder nur
+den Endpunkt zum Einbetten. Die Antwort ist das erste Item des letzten Knotens (`output` bzw. `text`) oder kommt von einem
+Respond-to-Webhook-Knoten.
+
 ## Mehrere Benutzer und Mandanten
 
 Für Teams und für den Betrieb bei mehreren Kunden gibt es zwei weitere Betriebsarten. Der Einzelbetrieb mit `filuflow serve`

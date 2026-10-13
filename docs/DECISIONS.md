@@ -91,6 +91,13 @@ Neben dem Stack aus CLAUDE.md (luxon, better-sqlite3, fastify, croner, pino):
   dann nach ID. Umbenennen behält die ID, damit Workflows mit gespeicherter ID das Credential weiter finden.
 - Keine neue Abhängigkeit.
 
+## Chat Trigger (M16)
+- **Eigene Chat-Seite statt @n8n/chat:** n8n lädt das Chat-Widget aus einem CDN. filuflow liefert eine kleine eigene Seite
+  (`src/ui/chat/`, gebaut nach `dist/ui/chat/`), ohne fremde Quellen und mit strenger CSP. Das Protokoll ist dasselbe
+  (`action`, `sessionId`, `chatInput`; Antwort `output` oder `text`), eingebettete n8n-Widgets funktionieren also weiter.
+- **Chat im Editor** ist ein Testlauf ab dem Chat Trigger mit der Nachricht als Eingabe, wie der Chat im n8n-Editor.
+- Streaming und "n8n User Auth" fehlen noch (Prüfung meldet sie).
+
 ## HTTP Request erweitert (M15)
 - **Pagination:** gleiche Optionen und Abbruchregeln wie n8n; die Werte je Seite werden vor dem Serialisieren in Query,
   Header und Body gemischt (lodash merge wie `applyPaginationRequestData`). Jede Seite durchläuft dieselbe Auswertung der

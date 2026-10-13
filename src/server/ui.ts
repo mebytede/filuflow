@@ -38,6 +38,21 @@ function headers(reply: FastifyReply, type: string): FastifyReply {
     .header('cache-control', 'no-cache');
 }
 
+/** Nur die Dateien der gehosteten Chat-Seite (wenn die Oberfläche abgeschaltet ist, z. B. im Worker) */
+export function registerChatAssets(app: FastifyInstance, dir?: string): void {
+  const root = dir && existsSync(join(dir, 'index.html')) ? dir : findUiDir();
+  app.get('/ui/chat/*', async (request, reply) => {
+    if (!root) return reply.code(404).send({ message: 'Nicht gefunden' });
+    const chatRoot = join(root, 'chat');
+    const rel = normalize((request.params as { '*': string })['*'] ?? '');
+    const file = join(chatRoot, rel);
+    if (rel.startsWith('..') || !file.startsWith(chatRoot + sep)) return reply.code(404).send({ message: 'Nicht gefunden' });
+    const type = CONTENT_TYPES[extname(file)];
+    if (!type || !existsSync(file)) return reply.code(404).send({ message: 'Nicht gefunden' });
+    return headers(reply, type).send(await readFile(file));
+  });
+}
+
 export function registerUi(app: FastifyInstance, dir?: string): void {
   const root = dir ? (existsSync(join(dir, 'index.html')) ? dir : undefined) : findUiDir();
   const notBuilt = (reply: FastifyReply) =>

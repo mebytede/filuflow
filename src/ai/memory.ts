@@ -27,6 +27,11 @@ function messageJson(m: ChatMessage): Record<string, unknown> {
   return { lc: 1, type: 'constructor', id: ['langchain_core', 'messages', type], kwargs: { content: m.content, additional_kwargs: {}, response_metadata: {} } };
 }
 
+/** Alle Nachrichten einer Sitzung als LangChain-JSON (Chat Trigger: loadPreviousSession "memory") */
+export function memoryMessages(key: string): Record<string, unknown>[] {
+  return (store.get(key)?.messages ?? []).map(messageJson);
+}
+
 export class BufferWindowMemory {
   readonly kind = 'memory';
 

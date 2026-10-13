@@ -18,7 +18,7 @@ import { Scheduler } from './schedules.js';
 import { WorkflowManager } from './workflows.js';
 import { toItems } from '../cli/run.js';
 import { registerEditorApi } from './editorApi.js';
-import { registerUi } from './ui.js';
+import { registerChatAssets, registerUi } from './ui.js';
 import { registerWorkerApi } from './workerApi.js';
 import { registerOverview, triggersOf } from './overview.js';
 import type { LayeredCredentialProvider } from '../credentials/managed.js';
@@ -213,6 +213,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
     }
   });
   if (options.uiDir !== false) registerUi(app, options.uiDir);
+  else registerChatAssets(app);
 
   // Webhooks: Body roh lesen (gzip/deflate wie n8n rawBodyReader), Auswertung im Webhook-Node
   await app.register(async (scope) => {

@@ -298,6 +298,7 @@ Engine-Reihenfolge, Expressions (inkl. Rohwert vs. String), jeder Node, Filter-O
 | M13 | Wartende Ausführungen | Wait mit Fortsetzen per Webhook und zum Zeitpunkt, Zustand in SQLite, statische Daten und OAuth2-Tokens dauerhaft |
 | M14 | OAuth2 mit Anmeldung | Authorization Code und PKCE mit Rückleitung, Refresh, Einzelbetrieb und Master |
 | M15 | HTTP Request erweitert | Pagination in allen Modi wie n8n, Digest-Auth, Client-Zertifikate |
+| M16 | Chat Trigger | Webhooks wie n8n, gehostete Chat-Seite, Chat-Fenster im Editor, Basic Auth, frühere Nachrichten aus dem Memory |
 
 Nach jedem Meilenstein: `docs/STATUS.md` aktualisieren (was geht, was fehlt) und einen Commit mit aussagekräftiger Nachricht.
 
@@ -318,7 +319,7 @@ Offene Funktionen, ungefähr nach Nutzen geordnet. Jede wird wie ein Meilenstein
 - Module im Code-Node über eine Freigabeliste (`require`), vollständige `helpers` (Python im Code-Node: M12)
 - HTTP Request: vordefinierte Credential-Typen, OAuth1 (Pagination, Digest-Auth, Client-Zertifikate: M15)
 - Merge `combineBySql`; Execute Workflow aus Datei und URL
-- Chat Trigger und Chat (Human in the Loop) mit Chat-Ansicht
+- Chat-Knoten (Human in the Loop), Streaming im Chat (Chat Trigger mit Chat-Ansicht: M16)
 - KI: OpenAI Responses API, Agent-Varianten aus typeVersion 1.x, weitere Modelle, Tools und Vektorspeicher
 - Dienst-Knoten mit eigenen OAuth-Flows (Gmail, Slack, Microsoft 365 usw.) und weitere Integrationen
 - Eigene Knoten als Erweiterungen (Plugin-Schnittstelle, Community-Nodes)

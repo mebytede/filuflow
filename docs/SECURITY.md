@@ -48,6 +48,9 @@ Trotzdem gilt:
   `/rest/oauth2-credential/callback` ist ohne Anmeldung erreichbar (der Browser kommt vom Anbieter zurück) und nimmt nur
   einen einmaligen, zufälligen `state` an, der 10 Minuten gilt; bei PKCE bleibt der `code_verifier` auf dem Server. Tokens
   liegen verschlüsselt in der Datenbank (beim Worker), nicht in der Oberfläche und nicht im Master.
+- Chat Trigger: Ein öffentlicher Chat ist ohne Anmeldung erreichbar, außer der Knoten verlangt Basic Auth. Jede Nachricht
+  startet eine Ausführung; für das Internet gehört eine Begrenzung (Reverse Proxy) davor. Die Chat-Seite lädt nur eigene
+  Skripte (CSP `script-src 'self'`), Einstellungen stehen als JSON-Daten in der Seite; eigenes CSS (`customCss`) ist erlaubt.
 - Ergebnisse von Ausführungen sind wie im Execution-Log maskiert.
 - Wartende Ausführungen: Zum Fortsetzen speichert filuflow den Zustand unmaskiert (die Daten fließen in spätere Knoten), in
   einer eigenen Tabelle, mit `FILUFLOW_ENCRYPTION_KEY` verschlüsselt, und löscht ihn beim Fortsetzen oder Abbrechen. OAuth2-Tokens

@@ -4,6 +4,7 @@ import { api, ApiError } from '../api.js';
 import { appendAll, dialog, h, toast } from '../dom.js';
 import { button, editorHeader, iconButton, statusWord, shortTime } from '../shell.js';
 import { RunPanel } from './runPanel.js';
+import { ChatView, replyText } from '../chat/view.js';
 import type { CredentialInfo, Execution, InspectResult, NodePorts, NodeTypeInfo, ValidationIssue, Workflow, WorkflowNode, WorkflowStatus } from '../types.js';
 import { Canvas, GRID, NODE_H, NODE_W, type CanvasModel } from './canvas.js';
 import { Panel } from './panel.js';
@@ -101,6 +102,9 @@ export class Editor {
   private inspectSeq = 0;
   private execution?: Execution;
   private running = false;
+  private main!: HTMLElement;
+  /** Chat-Fenster (Workflows mit Chat Trigger) */
+  private chat?: { el: HTMLElement; view: ChatView; sessionId: string };
   /** Kopfzeile (56 px); die App setzt sie über die Icon-Leiste */
   readonly header: HTMLElement;
   private readonly issuesBar: HTMLElement;
@@ -218,6 +222,7 @@ export class Editor {
     }
     this.header = h('header', { class: 'editor-header' });
     const main = h('div', { class: 'editor-main' }, host);
+    this.main = main;
     this.el = h('div', { class: `editor${opts.readonly ? ' readonly' : ''}` }, main, this.panel.el, this.runPanel.el);
     this.runPanel.set(opts.execution);
     if (!opts.execution && opts.id && this.backend.lastExecution) {
@@ -400,7 +405,7 @@ export class Editor {
     position = [Math.round(position[0] / GRID) * GRID, Math.round(position[1] / GRID) * GRID];
     const name = uniqueName(this.wf, info.displayName);
     const node: WorkflowNode = { parameters: templateFor(type, version), id: newId(), name, type, typeVersion: version, position };
-    if (type === 'n8n-nodes-base.webhook') node.webhookId = newId();
+    if (type === 'n8n-nodes-base.webhook' || type === 'n8n-nodes-base.wait' || type === '@n8n/n8n-nodes-langchain.chatTrigger') node.webhookId = newId();
     this.update((wf) => {
       wf.nodes.push(node);
       if (edge) addEdge(wf, { ...edge, to: name });
@@ -594,6 +599,59 @@ export class Editor {
     }
   }
 
+  private chatTrigger(): WorkflowNode | undefined {
+    return this.wf.nodes.find((n) => n.type === '@n8n/n8n-nodes-langchain.chatTrigger' && !n.disabled);
+  }
+
+  /**
+   * Chat-Fenster: jede Nachricht startet einen Testlauf ab dem Chat Trigger mit { sessionId, action, chatInput }
+   * (wie der Chat im n8n-Editor); die Antwort ist das erste Item des zuletzt ausgeführten Knotens.
+   */
+  private toggleChat(): void {
+    if (this.chat) {
+      this.chat.el.remove();
+      this.chat = undefined;
+      return;
+    }
+    const sessionId = crypto.randomUUID();
+    const close = iconButton('x', 'Chat schließen', () => this.toggleChat());
+    const reset = iconButton('refresh-cw', 'Neue Sitzung', () => {
+      if (!this.chat) return;
+      this.chat.sessionId = crypto.randomUUID();
+      this.chat.view.clear();
+    });
+    const view = new ChatView({
+      title: 'Chat',
+      subtitle: 'Testlauf mit dem aktuellen Stand',
+      actions: [reset, close],
+      send: async (chatInput) => {
+        const trigger = this.chatTrigger();
+        if (!trigger) throw new Error('Kein Chat Trigger im Workflow');
+        if (this.running) throw new Error('Es läuft bereits eine Ausführung');
+        this.running = true;
+        this.model.running = true;
+        this.runPanel.setRunning(true);
+        this.renderToolbar();
+        try {
+          const execution = await this.backend.run(this.wf, trigger.name, [{ sessionId: this.chat?.sessionId ?? sessionId, action: 'sendMessage', chatInput }]);
+          this.showExecution(execution, false);
+          if (execution.status !== 'success') throw new Error(execution.error?.message ?? `Ausführung: ${execution.status}`);
+          const last = execution.lastNodeExecuted ? execution.runData?.[execution.lastNodeExecuted] : undefined;
+          return replyText(last?.[last.length - 1]?.data?.main?.[0]?.[0]?.json);
+        } finally {
+          this.running = false;
+          this.model.running = false;
+          this.runPanel.setRunning(false);
+          this.renderToolbar();
+        }
+      },
+    });
+    const el = h('aside', { class: 'chat-drawer', 'aria-label': 'Chat' }, view.el);
+    this.main.append(el);
+    this.chat = { el, view, sessionId };
+    view.focus();
+  }
+
   private showExecution(execution: Execution | undefined, focusError = true): void {
     this.execution = execution;
     this.model.runData = execution?.runData;
@@ -756,6 +814,7 @@ export class Editor {
           this.moreMenu(),
         ),
         ...extras,
+        this.chatTrigger() ? iconButton('message-square', 'Chat mit dem Workflow testen', () => this.toggleChat()) : null,
         button(this.running ? 'Läuft' : 'Testlauf', { icon: 'play', title: 'Workflow ausführen (Strg+Enter)', disabled: this.running, onclick: () => void this.run() }),
         button('Speichern', { variant: 'primary', title: 'Speichern (Strg+S)', disabled: !this.dirty && !!this.id, onclick: () => void this.save() }),
       );

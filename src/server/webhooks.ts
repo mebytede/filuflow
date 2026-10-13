@@ -28,6 +28,7 @@ import { ResumeError, type ActiveExecution, type ExecutionManager } from './exec
 import type { ExecutionStore } from './store.js';
 import type { RunHooks } from '../engine/executor.js';
 import { WAIT_NODE_TYPE } from '../nodes/wait.js';
+import { CHAT_TRIGGER_TYPE, chatWebhookPath, handleChatRequest, type ChatOptions } from '../nodes/chatTrigger.js';
 import type { Logger } from '../logger.js';
 
 export interface RegisteredWebhook extends WebhookDescription {
@@ -89,6 +90,12 @@ export class WebhookRegistry {
   add(workflow: Workflow): RegisteredWebhook[] {
     const hooks: RegisteredWebhook[] = [];
     for (const node of workflow.nodes) {
+      if (node.type === CHAT_TRIGGER_TYPE && !node.disabled && node.webhookId) {
+        // Chat Trigger: GET (Seite) und POST (Nachrichten) unter <webhookId>/chat
+        const path = chatWebhookPath(node);
+        for (const method of ['GET', 'POST']) hooks.push({ node: node.name, method, path, isDynamic: false, workflow, webhookPath: path, staticSegments: path.split('/'), pathLength: 2 });
+        continue;
+      }
       if (node.type !== WEBHOOK_NODE_TYPE) continue;
       for (const d of describeWebhooks(node)) {
         const webhookPath = d.isDynamic ? d.path.split('/').slice(1).join('/') : d.path;
@@ -272,6 +279,7 @@ export class WebhookService {
     const { hook, params } = found;
     const workflow = hook.workflow;
     const node = workflow.nodes.find((n) => n.name === hook.node)!;
+    if (node.type === CHAT_TRIGGER_TYPE) return this.handleChat(test, workflow, node, { ...request, params });
     const graph = new WorkflowGraph(workflow);
     const opts = responseOptions(node);
     if (!['onReceived', 'lastNode', 'responseNode'].includes(opts.responseMode)) {
@@ -313,6 +321,36 @@ export class WebhookService {
         usePinData: test,
         hooks,
       }),
+    );
+  }
+
+  /** Chat Trigger: Seite, frühere Nachrichten oder Ausführung mit der Nachricht (Antwort lastNode/responseNode) */
+  private async handleChat(test: boolean, workflow: Workflow, node: WorkflowNode, request: IncomingWebhookRequest): Promise<HttpResponse> {
+    const options = ((node.parameters.options ?? {}) as ChatOptions);
+    let result;
+    try {
+      result = await handleChatRequest({
+        workflow,
+        node,
+        request,
+        test,
+        webhookUrl: `${this.options.webhookBaseUrl}${test ? 'webhook-test' : 'webhook'}/${chatWebhookPath(node)}`,
+        binary: this.options.binary,
+        getCredentials: async (type) => {
+          const ref = node.credentials?.[type];
+          const entry = ref ? this.options.credentials.find(ref, type) : undefined;
+          return entry ? this.options.credentials.resolve(entry) : undefined;
+        },
+      });
+    } catch (error) {
+      this.options.logger.error({ err: (error as Error).message, workflow: workflow.name }, 'Chat-Fehler');
+      return errorResponse(new Error('Workflow Webhook Error: Workflow could not be started!'));
+    }
+    if (result.directResponse) return { ...result.directResponse, raw: true };
+    const responseMode = options.responseMode === 'responseNode' ? 'responseNode' : 'lastNode';
+    const opts: WebhookResponseOptions = { responseMode, responseCode: 200, responseData: 'firstEntryJson', responseBinaryPropertyName: 'data', responseHeaders: new Map() };
+    return this.respondWith(opts, {}, (hooks) =>
+      this.options.manager.start({ workflow, mode: test ? 'manual' : 'webhook', startNodeName: node.name, triggerOutputs: result.workflowData, usePinData: test, hooks }),
     );
   }
 

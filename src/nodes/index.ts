@@ -42,6 +42,7 @@ import { agentNode } from './agent.js';
 import { toolCalculatorNode } from './toolCalculator.js';
 import { toolCodeNode } from './toolCode.js';
 import { memoryBufferWindowNode } from './memoryBufferWindow.js';
+import { chatTriggerNode } from './chatTrigger.js';
 import { toolWorkflowNode } from './toolWorkflow.js';
 import { toolHttpRequestNode } from './toolHttpRequest.js';
 
@@ -87,6 +88,7 @@ export const builtinNodeTypes: NodeType[] = [
   toolCalculatorNode,
   toolCodeNode,
   memoryBufferWindowNode,
+  chatTriggerNode,
   toolWorkflowNode,
   toolHttpRequestNode,
 ];

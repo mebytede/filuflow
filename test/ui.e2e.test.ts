@@ -201,4 +201,46 @@ describe('Weboberfläche', () => {
     expect(errors).toEqual([]);
     await page.close();
   }, 120_000);
+
+  it('Chat Trigger: gehostete Seite und Chat-Fenster im Editor', async (ctx) => {
+    if (!browser) ctx.skip();
+    const page = await browser!.newPage({ viewport: { width: 1400, height: 860 } });
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+    page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+    await server!.workflows.upsert('chatwf', {
+      id: 'chatwf',
+      name: 'Chat im Browser',
+      active: true,
+      settings: { executionOrder: 'v1' },
+      nodes: [
+        { id: 't', name: 'Chat', type: '@n8n/n8n-nodes-langchain.chatTrigger', typeVersion: 1.3, position: [0, 0], webhookId: 'chat-e2e', parameters: { public: true, initialMessages: 'Guten Tag!', options: { title: 'Hilfe' } } },
+        { id: 'c', name: 'Antwort', type: 'n8n-nodes-base.code', typeVersion: 2, position: [220, 0], parameters: { jsCode: "return [{ json: { output: 'Echo: ' + $json.chatInput } }];" } },
+      ],
+      connections: { Chat: { main: [[{ node: 'Antwort', type: 'main', index: 0 }]] } },
+    });
+
+    // Gehostete Seite (ohne Anmeldung)
+    await page.goto(`${base}/webhook/chat-e2e/chat`);
+    await page.waitForSelector('.chat-view .chat-bot:has-text("Guten Tag!")');
+    expect(await page.title()).toBe('Hilfe');
+    await page.fill('.chat-input', 'Hallo');
+    await page.press('.chat-input', 'Enter');
+    await page.waitForSelector('.chat-bot .chat-bubble:has-text("Echo: Hallo")');
+
+    // Chat-Fenster im Editor
+    await page.goto(`${base}/#/workflow/chatwf`);
+    await page.fill('input[type=password]', KEY);
+    await page.click('button[type=submit]');
+    await page.waitForSelector('.node[data-node="Chat"]');
+    await page.click('.editor-header button[aria-label="Chat mit dem Workflow testen"]');
+    await page.waitForSelector('.chat-drawer .chat-view');
+    await page.fill('.chat-drawer .chat-input', 'Test im Editor');
+    await page.click('.chat-drawer .chat-send');
+    await page.waitForSelector('.chat-drawer .chat-bot .chat-bubble:has-text("Echo: Test im Editor")');
+    await page.waitForSelector('.node[data-node="Antwort"].status-success');
+
+    expect(errors).toEqual([]);
+    await page.close();
+  }, 120_000);
 });

@@ -9,7 +9,7 @@ import type { ExecutionStore } from './store.js';
 import type { ExecutionManager } from './executions.js';
 
 export interface TriggerInfo {
-  kind: 'webhook' | 'schedule' | 'error' | 'manual' | 'workflow' | 'other';
+  kind: 'webhook' | 'schedule' | 'error' | 'manual' | 'workflow' | 'chat' | 'other';
   label: string;
 }
 
@@ -62,6 +62,8 @@ export function triggersOf(workflow: Workflow, schedules: RegisteredSchedule[] =
       out.push({ kind: 'error', label: 'Fehler-Trigger' });
     } else if (type === 'n8n-nodes-base.manualTrigger') {
       out.push({ kind: 'manual', label: 'Manuell' });
+    } else if (type === '@n8n/n8n-nodes-langchain.chatTrigger') {
+      out.push({ kind: 'chat', label: node.parameters?.public === true ? 'Chat (öffentlich)' : 'Chat' });
     } else if (type === 'n8n-nodes-base.executeWorkflowTrigger') {
       out.push({ kind: 'workflow', label: 'Aufruf durch Workflow' });
     } else if (/trigger$/i.test(type)) {

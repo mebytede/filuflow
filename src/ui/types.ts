@@ -198,7 +198,7 @@ export interface WorkflowSummary {
   activationError?: string;
   webhooks: Array<{ method: string; path: string }>;
   schedules: unknown[];
-  triggers?: Array<{ kind: 'webhook' | 'schedule' | 'error' | 'manual' | 'workflow' | 'other'; label: string }>;
+  triggers?: Array<{ kind: 'webhook' | 'schedule' | 'error' | 'manual' | 'workflow' | 'chat' | 'other'; label: string }>;
   valid?: boolean;
   /** Erster Validierungsfehler (ungültige Workflows) */
   problem?: string;

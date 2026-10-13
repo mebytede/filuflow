@@ -28,6 +28,7 @@ const TEMPLATES: Record<string, Template> = {
   'n8n-nodes-base.wait': () => ({ amount: 1 }),
   'n8n-nodes-base.stickyNote': () => ({ content: '## Notiz\nText in Markdown', height: 160, width: 260 }),
   'n8n-nodes-base.executeWorkflow': () => ({ source: 'database', workflowId: { __rl: true, value: '', mode: 'id' }, options: {} }),
+  '@n8n/n8n-nodes-langchain.chatTrigger': () => ({ options: {} }),
   '@n8n/n8n-nodes-langchain.chainLlm': () => ({ promptType: 'define', text: '={{ $json.text }}', batching: {} }),
   '@n8n/n8n-nodes-langchain.agent': () => ({ promptType: 'define', text: '={{ $json.text }}', options: {} }),
   '@n8n/n8n-nodes-langchain.lmChatOpenAi': () => ({ model: { __rl: true, value: 'gpt-4o-mini', mode: 'list' }, options: {} }),
