@@ -158,10 +158,10 @@ describe('Editor-API', () => {
 
   it('lehnt ungültige Workflows beim Ausführen mit Meldungen ab', async () => {
     await start();
-    const bad = { ...linear, settings: {} };
+    const bad = { ...linear, settings: { executionOrder: 'v2' } };
     const { status, json } = await api('POST', '/api/editor/run', { workflow: bad });
     expect(status).toBe(400);
-    expect((json.issues as Array<{ code: string }>).some((i) => i.code === 'settings.executionOrder.missing')).toBe(true);
+    expect((json.issues as Array<{ code: string }>).some((i) => i.code === 'settings.executionOrder.unsupported')).toBe(true);
     const twoTriggers = {
       ...linear,
       nodes: [...linear.nodes, { id: 'c', name: 'Start 2', type: 'n8n-nodes-base.manualTrigger', typeVersion: 1, position: [0, 200], parameters: {} }],

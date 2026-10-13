@@ -195,6 +195,12 @@ export class WorkflowExecutor {
   private waitTill?: Date;
   /** destinationNode: der Zielknoten und seine Vorgänger */
   private readonly allowedNodes?: Set<string>;
+  /**
+   * Execution-Order v0 (n8n isLegacyExecutionOrder: alles außer "v1"): Breitensuche statt Tiefensuche, fehlende
+   * Vorgänger von Knoten mit mehreren Eingängen werden mit ausgeführt, Eingangsdaten nur aus Eingang 1.
+   */
+  private readonly legacyOrder: boolean;
+  private lastExecutionTry = '';
   private readonly staticData: Record<string, Record<string, unknown>>;
   private readonly pinData: Workflow['pinData'];
   private readonly sleep: (ms: number) => Promise<void>;
@@ -228,6 +234,7 @@ export class WorkflowExecutor {
     this.pinData = options.usePinData === false ? undefined : options.workflow.pinData;
     this.sleep = options.sleep ?? defaultSleep;
     this.canWait = options.canWait === true;
+    this.legacyOrder = options.workflow.settings?.executionOrder !== 'v1';
     if (options.destinationNode) {
       if (!this.graph.getNode(options.destinationNode)) {
         throw new WorkflowValidationError(`Zielknoten "${options.destinationNode}" existiert nicht`, [
@@ -473,11 +480,10 @@ export class WorkflowExecutor {
       );
     }
     const order = this.graph.workflow.settings?.executionOrder;
-    if (order !== 'v1') {
-      throw new WorkflowValidationError(
-        `executionOrder "${order ?? '(fehlt)'}" wird nicht unterstützt; filuflow führt nur "v1" aus`,
-        [{ severity: 'error', code: 'settings.executionOrder', message: 'nur v1' }],
-      );
+    if (order !== undefined && order !== 'v1' && order !== 'v0') {
+      throw new WorkflowValidationError(`executionOrder "${String(order)}" ist unbekannt (erlaubt: "v1", "v0")`, [
+        { severity: 'error', code: 'settings.executionOrder', message: 'nur v1 oder v0' },
+      ]);
     }
   }
 
@@ -571,6 +577,16 @@ export class WorkflowExecutor {
       let runIndex = 0;
       if (executionData.runIndex !== undefined) runIndex = executionData.runIndex;
       else if (Object.hasOwn(this.runData, node.name)) runIndex = this.runData[node.name].length;
+
+      // Endlosschleife: derselbe Knoten kommt ohne Fortschritt erneut dran (n8n currentExecutionTry)
+      const currentExecutionTry = `${node.name}:${runIndex}`;
+      if (currentExecutionTry === this.lastExecutionTry) {
+        throw new FiluflowError('Stopped execution because it seems to be in an endless loop');
+      }
+      if (!this.ensureInputData(executionData)) {
+        this.lastExecutionTry = currentExecutionTry;
+        continue executionLoop;
+      }
 
       // Fortgesetzte Agents lösen den Hook nicht erneut aus (n8n AI-1414)
       if (!executionData.metadata?.nodeWasResumed) this.options.hooks?.nodeExecuteBefore?.(node.name);
@@ -710,14 +726,15 @@ export class WorkflowExecutor {
               throw new FiluflowError(`Destination node not found: ${connection.node}`);
             }
             const data = nodeSuccessData?.[outputIndex];
-            if (data && data.length !== 0) {
+            // Nur wenn der Ausgang Items hat; v0 auch bei leerem Ausgang an einen zweiten ("optionalen") Eingang
+            if (data && (data.length !== 0 || (connection.index > 0 && this.legacyOrder))) {
               const target = this.graph.getNode(connection.node)!;
               nodesToAdd.push({ position: target.position ?? [0, 0], connection, outputIndex });
             }
           }
         }
-        // n8n: oben-links zuerst (Vergleichsfunktion bewusst unverändert übernommen)
-        nodesToAdd.sort((a, b) => {
+        // n8n v1: oben-links zuerst (Vergleichsfunktion bewusst unverändert übernommen); v0 in Verbindungsreihenfolge
+        if (!this.legacyOrder) nodesToAdd.sort((a, b) => {
           if (a.position[1] < b.position[1]) return 1;
           if (a.position[1] > b.position[1]) return -1;
           if (a.position[0] > b.position[0]) return -1;
@@ -738,7 +755,8 @@ export class WorkflowExecutor {
           if (!checkNode) continue;
           const checkType = this.registry.getVersioned(checkNode.type, checkNode.typeVersion);
           const inputCount = checkType?.inputs ? checkType.inputs(checkNode) : 1;
-          const requiredInputs = checkType?.requiredInputs?.(checkNode);
+          // requiredInputs gibt es nur in v1
+          const requiredInputs = this.legacyOrder ? undefined : checkType?.requiredInputs?.(checkNode);
           if (requiredInputs !== undefined) {
             if ((Array.isArray(requiredInputs) && requiredInputs.length === inputCount) || requiredInputs === inputCount) {
               continue;
@@ -884,9 +902,11 @@ export class WorkflowExecutor {
     if (runIndex) source.previousNodeRun = runIndex;
 
     if (numberOfInputs > 1) {
+      let nodeWasWaiting = true;
       if (this.waiting[target] === undefined) {
         this.waiting[target] = {};
         this.waitingSource[target] = {};
+        nodeWasWaiting = false;
       }
       let createNew = true;
       let waitingIndex: number | undefined;
@@ -908,7 +928,7 @@ export class WorkflowExecutor {
 
       const allDataFound = this.waiting[target][waitingIndex].main.every((d) => d !== null);
       if (allDataFound) {
-        this.stack.unshift({
+        this.enqueue({
           node: this.graph.getNode(target)!,
           data: this.waiting[target][waitingIndex],
           source: this.waitingSource[target][waitingIndex],
@@ -919,20 +939,108 @@ export class WorkflowExecutor {
           delete this.waiting[target];
           delete this.waitingSource[target];
         }
+        return;
       }
+      if (!nodeWasWaiting && this.legacyOrder) this.forceInputNodes(target, parentNodeName, outputIndex, nodeSuccessData, runIndex);
       return;
     }
 
     const connectionDataArray: Array<Item[] | null> = [];
     for (let i = connection.index; i >= 0; i--) connectionDataArray[i] = null;
     connectionDataArray[connection.index] = nodeSuccessData[outputIndex];
-    this.stack.unshift({
+    this.enqueue({
       node: this.graph.getNode(target)!,
       data: { main: connectionDataArray },
       source: { main: [source] },
       ...(newRunIndex !== undefined ? { runIndex: newRunIndex } : {}),
       ...(metadata ? { metadata } : {}),
     });
+  }
+
+  /** n8n runPartialWorkflow2 enqueueFn: v1 unshift (Tiefensuche), v0 push (Breitensuche) */
+  private enqueue(item: StackItem): void {
+    if (this.legacyOrder) this.stack.push(item);
+    else this.stack.unshift(item);
+  }
+
+  /** n8n incomingConnectionIsEmpty */
+  private incomingConnectionIsEmpty(connections: Array<{ node: string; index: number }>, runIndex: number): boolean {
+    for (const c of connections) {
+      const data = this.runData[c.node]?.[runIndex]?.data?.main?.[c.index];
+      if (data !== undefined && data !== null && data.length !== 0) return false;
+    }
+    return true;
+  }
+
+  /**
+   * v0: Knoten mit mehreren Eingängen wartet zum ersten Mal; Vorgänger der anderen Eingänge, die noch nicht liefen und
+   * nicht schon eingeplant sind, werden auf den Stack gelegt (n8n addNodeToBeExecuted, Zweig !nodeWasWaiting)
+   */
+  private forceInputNodes(target: string, parentNodeName: string, outputIndex: number, nodeSuccessData: NodeOutput, runIndex: number): void {
+    const checkOutputNodes: string[] = [];
+    for (const list of this.graph.bySource[parentNodeName]?.main ?? []) for (const c of list ?? []) checkOutputNodes.push(c.node);
+    const inputs = this.graph.byDestination[target]?.main ?? [];
+    for (let inputIndex = 0; inputIndex < inputs.length; inputIndex++) {
+      for (const inputData of inputs[inputIndex] ?? []) {
+        if (inputData.node === parentNodeName) continue;
+        const stackNodes = this.stack.map((x) => x.node.name);
+        if (checkOutputNodes.includes(inputData.node)) {
+          if (!this.incomingConnectionIsEmpty(this.graph.byDestination[inputData.node]?.main?.[0] ?? [], runIndex)) continue;
+        }
+        if (stackNodes.includes(inputData.node)) continue;
+        if (this.runData[inputData.node] !== undefined) continue;
+
+        // Obersten Vorgänger suchen, der noch nicht lief
+        const parents = this.graph.getParentNodes(inputData.node, 'main', -1);
+        parents.push(inputData.node);
+        parents.reverse();
+        let nodeToAdd: string | undefined = inputData.node;
+        for (const parent of parents) {
+          if (inputData.node !== parent && checkOutputNodes.includes(parent)) {
+            nodeToAdd = undefined;
+            break;
+          }
+          if (stackNodes.includes(parent)) {
+            nodeToAdd = undefined;
+            break;
+          }
+          if (this.runData[parent] !== undefined) break;
+          nodeToAdd = parent;
+        }
+        if (nodeToAdd !== undefined && this.graph.getParentNodes(nodeToAdd).includes(parentNodeName) && (nodeSuccessData[outputIndex]?.length ?? 0) === 0) {
+          // Kein Lauf ohne Daten für Knoten hinter dem Elternknoten
+          nodeToAdd = undefined;
+        }
+        if (nodeToAdd === undefined) continue;
+
+        let addEmptyItem = false;
+        if (this.graph.byDestination[nodeToAdd] === undefined) addEmptyItem = true;
+        else if (this.incomingConnectionIsEmpty(this.graph.byDestination[nodeToAdd]?.main?.[0] ?? [], runIndex)) addEmptyItem = true;
+        if (addEmptyItem) {
+          const source: SourceData = { previousNode: parentNodeName };
+          if (outputIndex) source.previousNodeOutput = outputIndex;
+          if (runIndex) source.previousNodeRun = runIndex;
+          this.enqueue({ node: this.graph.getNode(nodeToAdd)!, data: { main: [[{ json: {} }]] }, source: { main: [source] } });
+        }
+      }
+    }
+  }
+
+  /**
+   * n8n ensureInputData: Eingänge ohne aktiven Vorgänger zählen nicht; in v0 kommt ein Knoten zurück auf den Stack,
+   * solange Daten eines Eingangs fehlen
+   */
+  private ensureInputData(executionData: StackItem): boolean {
+    const node = executionData.node;
+    const inputs = this.graph.byDestination[node.name]?.main ?? [];
+    for (let index = 0; index < inputs.length; index++) {
+      if (this.graph.getHighestNode(node.name, index).length === 0) return true;
+      if (this.legacyOrder && (executionData.data.main.length < index || executionData.data.main[index] === null)) {
+        this.stack.push(executionData);
+        return false;
+      }
+    }
+    return true;
   }
 
   /** n8n runNode: liefert null, wenn der Node keine Daten hat */
@@ -954,10 +1062,13 @@ export class WorkflowExecutor {
     } else {
       if (!inputData.main?.length) return null;
       connectionInputData = inputData.main[0];
-      for (const mainData of inputData.main) {
-        if (mainData?.length) {
-          connectionInputData = mainData;
-          break;
+      // v1: Daten des ersten Eingangs mit Items; v0 (forceInputNodeExecution) immer Eingang 1
+      if (!this.legacyOrder) {
+        for (const mainData of inputData.main) {
+          if (mainData?.length) {
+            connectionInputData = mainData;
+            break;
+          }
         }
       }
       if (!connectionInputData || connectionInputData.length === 0) return null;

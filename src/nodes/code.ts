@@ -3,7 +3,7 @@
 //   Code.node.ts, JavaScriptSandbox.ts, PythonSandbox.ts, PythonTaskRunnerSandbox.ts (PYTHON_TEXT_KEYS),
 //   Sandbox.ts, result-validation.ts, utils.ts (standardizeOutput), JsCodeValidator.ts, ExecutionError.ts,
 //   ValidationError.ts, packages/core/.../utils/normalize-items.ts
-// Sandbox ohne `require` und mit Timeout (Default 60 s, FILUFLOW_CODE_TIMEOUT_MS). Python: src/python/.
+// Sandbox mit `require` nur für freigegebene Module (shared/requireResolver.ts) und Timeout (Default 60 s, FILUFLOW_CODE_TIMEOUT_MS). Python: src/python/.
 import vm from 'node:vm';
 import type { ExecContext, NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
@@ -11,6 +11,7 @@ import type { Item } from '../types.js';
 import { NodeOperationError } from '../errors.js';
 import { runPython } from '../python/pyodide.js';
 import { runNativePython } from '../python/native.js';
+import { createRequireResolver } from './shared/requireResolver.js';
 
 export const CODE_TIMEOUT_MS = Number(process.env.FILUFLOW_CODE_TIMEOUT_MS ?? 60_000);
 
@@ -301,6 +302,8 @@ export function buildContext(ctx: ExecContext, index: number, mode: string, logs
     TextDecoder,
     structuredClone,
     module: { exports: {} },
+    // Nur freigegebene Module (NODE_FUNCTION_ALLOW_BUILTIN / _EXTERNAL), sonst "Module 'x' is disallowed"
+    require: createRequireResolver(),
   });
   return context;
 }

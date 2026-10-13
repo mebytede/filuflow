@@ -17,7 +17,15 @@ Trotzdem gilt:
   Attribute wie `__class__` oder `__globals__`; Builtins wie `eval`, `exec`, `open`, `getattr` fehlen. Der Prozess bekommt eine
   leere Umgebung (keine Schlüssel des Servers), außer `FILUFLOW_PYTHON_ENV_ACCESS=true`. Mit freigegebenen Modulen wie `os`
   oder `subprocess` hat der Code vollen Zugriff auf das System; das ist eine bewusste Entscheidung des Betreibers.
-- Im Sandbox-Kontext gibt es kein `require`, kein `process`, kein `import()`.
+- Im Sandbox-Kontext gibt es kein `process` und kein `import()`. `require` lädt wie in n8n nur freigegebene Module
+  (`NODE_FUNCTION_ALLOW_BUILTIN`, `NODE_FUNCTION_ALLOW_EXTERNAL` bzw. `FILUFLOW_FUNCTION_ALLOW_*`, Default: keine); jede
+  andere Anfrage endet mit "Module 'x' is disallowed". Mit freigegebenen Modulen wie `fs` oder `child_process` hat der Code
+  die Rechte des Servers; das ist eine bewusste Entscheidung des Betreibers.
+- Execute Workflow liest mit der Quelle "Lokale Datei" beliebige Dateien des Servers, wie in n8n. Mit
+  `FILUFLOW_RESTRICT_FILE_ACCESS_TO` (Verzeichnisse mit ";" getrennt) lässt sich das begrenzen; Symlinks werden dabei
+  aufgelöst. Die Quelle "URL" lädt über den HTTP-Client des Servers.
+- Merge per SQL (alasql) kann keine Dateien lesen oder schreiben: die Datei-Funktionen und -Quellen von alasql sind gesperrt
+  (wie n8n).
 - `$env` liefert nur freigegebene Umgebungsvariablen (`FILUFLOW_ENV_ALLOW`, Default: Präfix `FL_`).
 - Variablen (`$vars`) sind keine Geheimnisse: Die Oberfläche zeigt ihre Werte im Klartext, sie liegen unverschlüsselt in
   SQLite. Logs nennen nur die Schlüssel. Geheimnisse gehören in Credentials.

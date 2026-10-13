@@ -399,6 +399,8 @@ setzen Credentials beim Worker, verwalten Benutzer und lesen das Audit-Log.
 | `FILUFLOW_CODE_TIMEOUT_MS` | Zeitlimit für Code-Knoten | `60000` |
 | `FILUFLOW_PYTHON`, `FILUFLOW_PYTHON_STDLIB_ALLOW`, `FILUFLOW_PYTHON_EXTERNAL_ALLOW` | Python (Native): Interpreter und erlaubte Imports | `python3`, keine, keine |
 | `FILUFLOW_PYTHON_PACKAGES_DIR` | Ablage für nachgeladene Python-Pakete (Pyodide) | `~/.cache/filuflow/pyodide` |
+| `NODE_FUNCTION_ALLOW_BUILTIN`, `NODE_FUNCTION_ALLOW_EXTERNAL` | Module für `require` im Code-Knoten (Namen mit Komma oder `*`); auch als `FILUFLOW_FUNCTION_ALLOW_*` | keine |
+| `FILUFLOW_RESTRICT_FILE_ACCESS_TO` | Verzeichnisse, aus denen Execute Workflow Dateien lesen darf (mit `;` getrennt) | alle |
 | `FILUFLOW_ENV_ALLOW` | welche Umgebungsvariablen `$env` liefert | Präfix `FL_` |
 | `FILUFLOW_PAYLOAD_SIZE_MAX` | maximale Request-Größe in MB | `16` |
 | `FILUFLOW_UI` | `false` schaltet die Oberfläche ab | an |

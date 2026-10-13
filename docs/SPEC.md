@@ -302,6 +302,7 @@ Engine-Reihenfolge, Expressions (inkl. Rohwert vs. String), jeder Node, Filter-O
 | M17 | Formulare | Form Trigger, Form-Knoten mit Folgeseiten und Abschluss, Wait per Formular |
 | M18 | Testdaten, Variablen, Teilausführung | pinData per Klick, Variablen-Seite, "Bis hier ausführen", "Auf Test-Aufruf warten", Expressions in Webhook-Parametern |
 | M19 | Parameterformulare je Knotentyp | Formular aus der Beschreibung je Knotentyp neben Baum und JSON, Sichtbarkeit und Defaults wie n8n |
+| M20 | Knoten-Ausbau | Merge per SQL, Execute Workflow aus Datei und URL, require mit Freigabeliste, Execution-Order v0 |
 
 Nach jedem Meilenstein: `docs/STATUS.md` aktualisieren (was geht, was fehlt) und einen Commit mit aussagekräftiger Nachricht.
 
@@ -311,15 +312,13 @@ Nach jedem Meilenstein: `docs/STATUS.md` aktualisieren (was geht, was fehlt) und
 Offene Funktionen, ungefähr nach Nutzen geordnet. Jede wird wie ein Meilenstein umgesetzt (Tests, `docs/STATUS.md`, Commit).
 
 ### 11.1 Ausführung und Server
-(Expressions in Webhook-Parametern, Teilausführung bis zu einem Knoten, "Auf Test-Aufruf warten": M18)
+(Expressions in Webhook-Parametern, Teilausführung bis zu einem Knoten, "Auf Test-Aufruf warten": M18; Execution-Order v0: M20)
 - Streaming-Antworten (Webhook `responseMode: streaming`, Respond to Webhook mit Streaming, Agent-Streaming)
 - Skalierung über mehrere Prozesse (Warteschlange, z. B. Redis) für hohe Last
-- Execution-Order v0 für ältere Workflows
 
 ### 11.2 Knoten
-- Module im Code-Node über eine Freigabeliste (`require`), vollständige `helpers` (Python im Code-Node: M12)
+- Vollständige `helpers` im Code-Node (Python im Code-Node: M12, `require` mit Freigabeliste: M20)
 - HTTP Request: vordefinierte Credential-Typen, OAuth1 (Pagination, Digest-Auth, Client-Zertifikate: M15)
-- Merge `combineBySql`; Execute Workflow aus Datei und URL
 - Chat-Knoten (Human in the Loop), Streaming im Chat (Chat Trigger mit Chat-Ansicht: M16)
 - KI: OpenAI Responses API, Agent-Varianten aus typeVersion 1.x, weitere Modelle, Tools und Vektorspeicher
 - Dienst-Knoten mit eigenen OAuth-Flows (Gmail, Slack, Microsoft 365 usw.) und weitere Integrationen

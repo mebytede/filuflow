@@ -220,3 +220,23 @@ wie n8n). Ausnahmen:
 - Optionen, die filuflow nicht ausführt (Webhook `streaming`, Chat Trigger `responseNodes` und `n8nUserAuth`), fehlen in
   den Auswahllisten; `validate` meldet sie weiterhin, wenn ein importierter Workflow sie nutzt.
 - Expressions in einem steuernden Parameter lassen sich im Editor nicht auswerten; abhängige Felder bleiben dann sichtbar.
+
+## Merge per SQL mit alasql (M20)
+`combineBySql` führt SQL über die Eingänge aus. Das Verhalten (Dialekt, Joins, Typen, Ergebnisform) ist das von alasql;
+ein eigener SQL-Interpreter würde nie dieselben Ergebnisse liefern. Deshalb ist alasql als Laufzeit-Abhängigkeit dazugekommen,
+exakt in der Version von n8n 1.123.0 (4.4.0), wie die übrigen Bibliotheken unter "Versionen wie n8n". Die Datei-Funktionen
+von alasql sind gesperrt.
+
+## Execution-Order v0 (M20)
+Wie n8n gilt jeder Wert außer "v1" als alte Reihenfolge, auch eine fehlende Angabe (der Validator warnt dann). Umgesetzt
+nach `packages/core/src/execution-engine/workflow-execute.ts`: Breitensuche (`push` statt `unshift`), Kinder in
+Verbindungsreihenfolge statt nach Position, bei Knoten mit mehreren Eingängen werden fehlende Vorgänger ohne Daten mit einem
+leeren Item gestartet, ein leerer Ausgang an einem zweiten Eingang zählt als Daten, Eingangsdaten kommen immer aus Eingang 1,
+`requiredInputs` gilt nicht, und ein Knoten ohne Daten auf allen Eingängen kommt zurück auf den Stack (mit Abbruch bei
+Endlosschleifen). Golden-Tests gegen ein laufendes n8n fehlen noch, weil in dieser Umgebung kein n8n-Container lief.
+
+## Execute Workflow aus Datei und URL (M20)
+Relative Pfade gelten wie in n8n ab dem Arbeitsverzeichnis des Prozesses. n8n liest ohne Einschränkung; filuflow bietet
+zusätzlich `FILUFLOW_RESTRICT_FILE_ACCESS_TO` (Name wie `N8N_RESTRICT_FILE_ACCESS_TO`). Externe Module für `require` kommen
+aus der Installation von filuflow, wie bei n8n aus der des Task-Runners.
+

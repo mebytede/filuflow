@@ -2,8 +2,10 @@
 // Nachgebaut nach n8n 1.123.0 packages/nodes-base/nodes/Merge/v3:
 //   actions/versionDescription.ts (requiredInputs), actions/router.ts, actions/mode/*.ts,
 //   helpers/utils.ts (findMatches, mergeMatched, selectMergeMethod), helpers/descriptions.ts
-// combineBySql wird nicht unterstützt (validate meldet es).
+//   actions/mode/combineBySql.ts mit alasql 4.4.0 (Version wie n8n), Dateizugriffe von alasql gesperrt
+import { randomUUID } from 'node:crypto';
 import lodash from 'lodash';
+import alasql from 'alasql';
 import type { ExecContext, NodeType } from './types.js';
 import type { Item, PairedItem, WorkflowNode } from '../types.js';
 import { NodeOperationError } from '../errors.js';
@@ -312,12 +314,147 @@ function chooseBranch(ctx: ExecContext, inputs: Item[][]): Item[][] {
   return [out];
 }
 
+// ---------------------------------------------------------------------------------------------
+// combineBySql (actions/mode/combineBySql.ts, helpers/utils.ts modifySelectQuery und rowToExecutionData)
+
+// alasql ohne vollständige Typen für die internen Tabellen und Datei-Engines
+type AlaSql = Omit<typeof alasql, 'Database'> & {
+  engines?: Record<string, unknown>;
+  from?: Record<string, unknown>;
+  fn?: Record<string, unknown>;
+  databases: Record<string, unknown>;
+  Database: new (id: string) => AlaDb;
+};
+const sql = alasql as unknown as AlaSql;
+type AlaDb = { exec(query: string): unknown; tables: Record<string, { data: unknown[] }> };
+
+/** Dateizugriffe aus SQL heraus sperren (n8n disableAlasqlFileAccess) */
+function disableAlasqlFileAccess(): void {
+  const disabled = () => {
+    throw new Error('File access operations are disabled for security reasons');
+  };
+  for (const name of ['FILE', 'JSON', 'TXT', 'CSV', 'XLSX', 'XLS', 'LOAD', 'SAVE']) if (sql.fn) sql.fn[name] = disabled;
+  for (const name of ['FILE', 'JSON', 'TXT', 'CSV', 'XLSX', 'XLS']) {
+    if (sql.from) sql.from[name] = disabled;
+    if (sql.engines) sql.engines[name] = disabled;
+  }
+}
+
+/** n8n getResolvables: alle {{ … }} im Text */
+function getResolvables(expression: string): string[] {
+  return expression ? [...expression.matchAll(/({{[\s\S]*?}})/g)].map((m) => m[1]) : [];
+}
+
+/** n8n modifySelectQuery: bei eigener Spaltenliste die pairedItem-Spalten der genutzten Tabellen ergänzen */
+function modifySelectQuery(userQuery: string, inputLength: number): string {
+  const selectMatch = userQuery.match(/SELECT\s+(.+?)\s+FROM/i);
+  if (!selectMatch) return userQuery;
+  let columns = selectMatch[1].trim();
+  if (columns === '*') return userQuery;
+  const paired: string[] = [];
+  for (let i = 1; i <= inputLength; i++) if (userQuery.includes(`input${i}`)) paired.push(`input${i}.pairedItem AS pairedItem${i}`);
+  columns += paired.length ? `, ${paired.join(', ')}` : '';
+  return userQuery.replace(selectMatch[0], `SELECT ${columns} FROM`);
+}
+
+/** n8n rowToExecutionData: Spalten "pairedItem…" werden zu pairedItem */
+function rowToExecutionData(data: Json): Item {
+  const pairedItem: PairedItem[] = [];
+  const json: Json = {};
+  for (const key of Object.keys(data)) {
+    if (key.startsWith('pairedItem')) {
+      if (data[key] !== undefined) pairedItem.push(data[key] as PairedItem);
+    } else json[key] = data[key];
+  }
+  return { json, pairedItem };
+}
+
+function sqlError(ctx: ExecContext, message: string, error: unknown): NodeOperationError {
+  return new NodeOperationError(ctx.node.name, message, { description: typeof error === 'string' ? error : (error as Error).message, itemIndex: 0 });
+}
+
+function combineBySql(ctx: ExecContext, inputs: Item[][]): Item[][] {
+  disableAlasqlFileAccess();
+  const node = ctx.node;
+  const options = ctx.getParam<{ emptyQueryResult?: string }>('options', 0, {});
+  let query = String(ctx.getParam('query', 0, 'SELECT * FROM input1 LEFT JOIN input2 ON input1.name = input2.id'));
+  for (const resolvable of getResolvables(query)) query = query.replace(resolvable, String(ctx.evaluateExpression(resolvable, 0)));
+  const isSelect = node.typeVersion >= 3.1 ? query.toLowerCase().startsWith('select') : false;
+  const successIfEmpty = node.typeVersion <= 3.1 ? true : options.emptyQueryResult === 'success';
+  // Eigene Datenbank je Lauf; n8n nimmt die Node-ID, ein Zusatz verhindert Kollisionen paralleler Läufe
+  const dbId = `${node.id ?? node.name}-${randomUUID()}`;
+
+  const createTables = (db: AlaDb, rows: (input: Item[], index: number) => unknown[]) => {
+    try {
+      inputs.forEach((input, i) => {
+        db.exec(`CREATE TABLE input${i + 1}`);
+        db.tables[`input${i + 1}`].data = rows(input, i);
+      });
+    } catch (error) {
+      throw sqlError(ctx, 'Issue while creating table from', error);
+    }
+  };
+
+  if (isSelect) {
+    // Mit pairedItem je Zeile (executeSelectWithMappedPairedItems); Fehler fallen wie in n8n auf den Weg unten zurück
+    try {
+      const db = new sql.Database(dbId);
+      try {
+        createTables(db, (input) => input.map((entry) => ({ ...entry.json, pairedItem: entry.pairedItem })));
+        const out: Item[] = [];
+        try {
+          for (const row of db.exec(modifySelectQuery(query, inputs.length)) as unknown[]) {
+            if (Array.isArray(row)) out.push(...(row as Json[]).map(rowToExecutionData));
+            else if (row && typeof row === 'object') out.push(rowToExecutionData(row as Json));
+          }
+        } catch (error) {
+          throw sqlError(ctx, 'Issue while executing query', error);
+        }
+        if (!out.length && successIfEmpty) out.push({ json: { success: true } });
+        return [out];
+      } finally {
+        delete sql.databases[dbId];
+      }
+    } catch (error) {
+      ctx.logger.debug?.({ err: (error as Error).message, node: node.name }, 'combineBySql: SELECT mit pairedItem fehlgeschlagen, zweiter Versuch');
+    }
+  }
+
+  // Ein gemeinsames pairedItem aus allen Eingängen
+  const pairedItem: PairedItem[] = [];
+  inputs.forEach((input, i) => {
+    input.forEach((item, index) => {
+      const p = item.pairedItem === undefined ? index : item.pairedItem;
+      if (typeof p === 'number') pairedItem.push({ item: p, input: i });
+      else if (Array.isArray(p)) for (const x of p.filter((v) => v !== undefined)) pairedItem.push({ item: typeof x === 'number' ? x : x.item, input: i });
+      else pairedItem.push({ item: p.item, input: i });
+    });
+  });
+  const db = new sql.Database(dbId);
+  try {
+    createTables(db, (input) => input.map((entry) => entry.json));
+    const out: Item[] = [];
+    try {
+      for (const row of db.exec(query) as unknown[]) {
+        if (Array.isArray(row)) out.push(...(row as Json[]).map((json) => ({ json, pairedItem })));
+        else if (row && typeof row === 'object') out.push({ json: row as Json, pairedItem });
+      }
+    } catch (error) {
+      throw sqlError(ctx, 'Issue while executing query', error);
+    }
+    if (!out.length && successIfEmpty) out.push({ json: { success: true }, pairedItem });
+    return [out];
+  } finally {
+    delete sql.databases[dbId];
+  }
+}
+
 function inputCount(node: WorkflowNode): number {
   return Number(node.parameters.numberInputs) || 2;
 }
 
 // Parameter wie packages/nodes-base/nodes/Merge/v3/actions/mode/*.ts und helpers/descriptions.ts (updateDisplayOptions
-// hängt die Bedingung des Modus an jede Eigenschaft). combineBySql fehlt, weil validate es ablehnt.
+// hängt die Bedingung des Modus an jede Eigenschaft).
 // resolveClash und useDataOfInput lädt n8n dynamisch (methods/loadOptions.ts: getResolveClashOptions, getInputs);
 // hier als feste Listen, resolveClash je nach numberInputs in zwei Fassungen. Der Default von resolveClash ist in n8n ''
 // (keine Option); er fehlt hier, der Wert kommt aus dem Default von clashHandling.
@@ -425,6 +562,7 @@ const parameters: ParamSchema[] = [
     options: [
       { value: 'append', label: 'Anhängen', description: 'Items jedes Eingangs nacheinander ausgeben' },
       { value: 'combine', label: 'Kombinieren', description: 'Passende Items zusammenführen' },
+      { value: 'combineBySql', label: 'SQL-Abfrage', description: 'Zusammenführen per SQL-Abfrage' },
       { value: 'chooseBranch', label: 'Zweig wählen', description: 'Daten eines bestimmten Zweigs unverändert ausgeben' },
     ],
     description: 'Wie die Eingangsdaten zusammengeführt werden',
@@ -574,6 +712,41 @@ const parameters: ParamSchema[] = [
       },
     ],
   },
+  // combineBySql
+  numberInputsParam({ mode: ['combineBySql'] }),
+  {
+    name: 'query',
+    label: 'Abfrage',
+    type: 'code',
+    language: 'sql',
+    rows: 5,
+    noExpression: true,
+    required: true,
+    default: 'SELECT * FROM input1 LEFT JOIN input2 ON input1.name = input2.id',
+    description: 'Die Eingänge stehen als Tabellen input1, input2 usw. bereit; SQL-99 im Umfang von alasql. {{ … }} wird ausgewertet.',
+    show: { mode: ['combineBySql'] },
+  },
+  {
+    name: 'options',
+    label: 'Optionen',
+    type: 'collection',
+    default: {},
+    addLabel: 'Option hinzufügen',
+    show: { mode: ['combineBySql'], '@version': [3.2] },
+    children: [
+      {
+        name: 'emptyQueryResult',
+        label: 'Leeres Ergebnis',
+        type: 'options',
+        default: 'empty',
+        options: [
+          { value: 'success', label: 'Erfolg' },
+          { value: 'empty', label: 'Leeres Ergebnis' },
+        ],
+        description: 'Was ausgegeben wird, wenn die Abfrage keine Zeilen liefert',
+      },
+    ],
+  },
   // chooseBranch
   numberInputsParam({ mode: ['chooseBranch'] }),
   {
@@ -614,12 +787,6 @@ export const mergeNode: NodeType = {
   outputs: () => 1,
   inputs: inputCount,
   requiredInputs: (node) => ((node.parameters.mode ?? 'append') === 'chooseBranch' ? [0, 1] : 1),
-  validate(node) {
-    if (node.parameters.mode === 'combineBySql') {
-      return [{ code: 'node.unsupportedParameter', message: 'Merge: mode "combineBySql" wird nicht unterstützt', path: 'parameters.mode' }];
-    }
-    return [];
-  },
   async execute(ctx) {
     // n8n getNodeInputsData: so viele Eingänge wie konfiguriert, fehlende sind leer
     const count = inputCount(ctx.node);
@@ -637,6 +804,8 @@ export const mergeNode: NodeType = {
         return combineByFields(ctx, inputs);
       case 'chooseBranch':
         return chooseBranch(ctx, inputs);
+      case 'combineBySql':
+        return combineBySql(ctx, inputs);
       default:
         throw new NodeOperationError(ctx.node.name, `Merge-Modus "${mode}" wird nicht unterstützt`);
     }
