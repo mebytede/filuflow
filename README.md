@@ -32,7 +32,7 @@ und antworten. Jeder Lauf wird protokolliert und lässt sich Knoten für Knoten 
 | **Nachvollziehbare Läufe** | Status und Dauer an jedem Knoten, der durchlaufene Pfad hervorgehoben, "Letzter Lauf" mit Zeitleiste, Ausführungsprotokoll in SQLite |
 | **Auslöser** | Webhooks mit Antwort-Knoten und Authentifizierung, Zeitpläne, Fehler-Workflows, Aufruf durch andere Workflows, REST-API |
 | **Knoten** | Daten setzen, filtern, sortieren, zusammenfassen, verzweigen (If, Switch), zusammenführen, Schleifen, Code (JavaScript und Python), HTTP (mit Pagination, Digest-Auth, Client-Zertifikaten), HTML, XML, Datum, Krypto |
-| **KI** | AI Agent mit Tools, LLM Chain, Extraktion, Klassifikation, Stimmungsanalyse; Modelle von OpenAI, Anthropic und Google Gemini |
+| **KI** | AI Agent mit Tools, LLM Chain, Extraktion, Klassifikation, Stimmungsanalyse; Modelle von OpenAI, Anthropic, Google Gemini, Azure, Mistral, Groq, DeepSeek, OpenRouter und Ollama |
 | **Credentials** | in der Oberfläche anlegen und bearbeiten (Formulare je Typ) oder als Datei pflegen, verschlüsselt mit AES-256-GCM, Werte aus Umgebungsvariablen; geheime Werte erscheinen nie in Logs oder der Oberfläche |
 | **Team und Mandanten** | Master mit Benutzern, Rechten und Projekten; Worker in der Umgebung jedes Mandanten; Anmeldung mit Passwort und TOTP oder SSO (OIDC) |
 | **Kommandozeile** | Workflows prüfen und ausführen, Ausführungen ansehen, Credentials verschlüsseln, Benutzer verwalten |
@@ -286,8 +286,9 @@ für KI-Agenten kann ebenfalls Python. `FILUFLOW_PYTHON_ENABLED=false` schaltet 
 ## KI-Knoten
 
 AI Agent (Tools Agent), Basic LLM Chain, Information Extractor, Text Classifier und Sentiment Analysis, mit den Modellen von
-OpenAI (Chat Completions), Anthropic und Google Gemini, den Tools Calculator, Code, HTTP Request und Workflow sowie einem
-einfachen Gesprächsgedächtnis. Modelle und Tools hängen als eigene Knoten am Agenten und erscheinen im Protokoll mit eigenen
+OpenAI (Chat Completions und Responses API mit Websuche, Dateisuche und Code Interpreter), Anthropic, Google Gemini, Azure
+OpenAI, Mistral, Groq, DeepSeek, OpenRouter und Ollama (lokal), den Tools Calculator, Code, HTTP Request, Workflow und Think
+sowie einem einfachen Gesprächsgedächtnis. Modelle und Tools hängen als eigene Knoten am Agenten und erscheinen im Protokoll mit eigenen
 Läufen. Die Modelle werden direkt per HTTP angesprochen, ohne zusätzliche Bibliotheken.
 
 **Chat:** Der Chat Trigger startet einen Workflow mit einer Chat-Nachricht. Im Editor öffnet der Chat-Knopf in der

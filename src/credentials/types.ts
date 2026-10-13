@@ -283,6 +283,52 @@ export const CREDENTIAL_TYPES: CredentialTypeSchema[] = [
       ...customHeader(),
     ],
   },
+  // KI-Anbieter (M26), Felder wie n8n 1.123.0 packages/@n8n/nodes-langchain/credentials/GroqApi, MistralCloudApi,
+  // OllamaApi, DeepSeekApi, OpenRouterApi und AzureOpenAiApi
+  {
+    name: 'groqApi',
+    label: 'Groq',
+    description: 'API-Schlüssel für Groq.',
+    fields: [{ name: 'apiKey', label: 'API-Key', kind: 'password', default: '', required: true }],
+  },
+  {
+    name: 'mistralCloudApi',
+    label: 'Mistral Cloud',
+    description: 'API-Schlüssel für Mistral.',
+    fields: [{ name: 'apiKey', label: 'API-Key', kind: 'password', default: '', required: true }],
+  },
+  {
+    name: 'ollamaApi',
+    label: 'Ollama',
+    description: 'Adresse eines Ollama-Servers.',
+    fields: [
+      { name: 'baseUrl', label: 'Basis-URL', kind: 'string', default: 'http://localhost:11434', required: true },
+      { name: 'apiKey', label: 'API-Key', kind: 'password', default: '', hint: 'Nur hinter einem Proxy mit Anmeldung nötig (z. B. Open WebUI)' },
+    ],
+  },
+  {
+    name: 'deepSeekApi',
+    label: 'DeepSeek',
+    description: 'API-Schlüssel für DeepSeek.',
+    fields: [{ name: 'apiKey', label: 'API-Key', kind: 'password', default: '', required: true }],
+  },
+  {
+    name: 'openRouterApi',
+    label: 'OpenRouter',
+    description: 'API-Schlüssel für OpenRouter.',
+    fields: [{ name: 'apiKey', label: 'API-Key', kind: 'password', default: '', required: true }],
+  },
+  {
+    name: 'azureOpenAiApi',
+    label: 'Azure OpenAI',
+    description: 'Zugang zu einer Azure-OpenAI-Ressource.',
+    fields: [
+      { name: 'apiKey', label: 'API-Key', kind: 'password', default: '', required: true },
+      { name: 'resourceName', label: 'Resource Name', kind: 'string', default: '', required: true },
+      { name: 'apiVersion', label: 'API-Version', kind: 'string', default: '2025-03-01-preview', required: true },
+      { name: 'endpoint', label: 'Endpoint', kind: 'string', default: '', placeholder: 'https://beispiel.openai.azure.com', hint: 'Statt Resource Name, z. B. für eigene Domains' },
+    ],
+  },
   {
     name: 'googlePalmApi',
     label: 'Google Gemini (PaLM)',

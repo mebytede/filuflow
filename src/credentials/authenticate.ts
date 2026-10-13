@@ -68,6 +68,12 @@ const BUILTIN: Record<string, AuthDefinition> = {
   },
   // @n8n/nodes-langchain/credentials/GooglePalmApi.credentials.ts
   googlePalmApi: { defaults: { host: 'https://generativelanguage.googleapis.com' }, authenticate: generic({ qs: { key: '={{$credentials.apiKey}}' } }) },
+  // @n8n/nodes-langchain/credentials/GroqApi, MistralCloudApi, DeepSeekApi, OpenRouterApi, OllamaApi: Bearer mit apiKey
+  groqApi: { authenticate: generic({ headers: { Authorization: '=Bearer {{$credentials.apiKey}}' } }) },
+  mistralCloudApi: { authenticate: generic({ headers: { Authorization: '=Bearer {{$credentials.apiKey}}' } }) },
+  deepSeekApi: { defaults: { url: 'https://api.deepseek.com' }, authenticate: generic({ headers: { Authorization: '=Bearer {{$credentials.apiKey}}' } }) },
+  openRouterApi: { defaults: { url: 'https://openrouter.ai/api/v1' }, authenticate: generic({ headers: { Authorization: '=Bearer {{$credentials.apiKey}}' } }) },
+  ollamaApi: { defaults: { baseUrl: 'http://localhost:11434' }, authenticate: generic({ headers: { Authorization: '=Bearer {{$credentials.apiKey}}' } }) },
   // nodes-base/credentials/GithubApi.credentials.ts
   githubApi: { defaults: { server: 'https://api.github.com' }, authenticate: generic({ headers: { Authorization: '=token {{$credentials?.accessToken}}' } }) },
   // nodes-base/credentials/NotionApi.credentials.ts (Funktion: Bearer mit Leerzeichen am Ende, Notion-Version falls fehlt)

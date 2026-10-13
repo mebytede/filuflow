@@ -48,6 +48,13 @@ import { formTriggerNode } from './formTrigger.js';
 import { formNode } from './form.js';
 import { toolWorkflowNode } from './toolWorkflow.js';
 import { toolHttpRequestNode } from './toolHttpRequest.js';
+import { lmChatDeepSeekNode } from './lmChatDeepSeek.js';
+import { lmChatOpenRouterNode } from './lmChatOpenRouter.js';
+import { lmChatGroqNode } from './lmChatGroq.js';
+import { lmChatMistralCloudNode } from './lmChatMistralCloud.js';
+import { lmChatOllamaNode } from './lmChatOllama.js';
+import { lmChatAzureOpenAiNode } from './lmChatAzureOpenAi.js';
+import { toolThinkNode } from './toolThink.js';
 
 export const builtinNodeTypes: NodeType[] = [
   manualTriggerNode,
@@ -97,6 +104,13 @@ export const builtinNodeTypes: NodeType[] = [
   formNode,
   toolWorkflowNode,
   toolHttpRequestNode,
+  lmChatDeepSeekNode,
+  lmChatOpenRouterNode,
+  lmChatGroqNode,
+  lmChatMistralCloudNode,
+  lmChatOllamaNode,
+  lmChatAzureOpenAiNode,
+  toolThinkNode,
 ];
 
 let defaultRegistry: NodeRegistry | undefined;

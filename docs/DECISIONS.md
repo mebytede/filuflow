@@ -304,3 +304,12 @@ Token-URL im Credential.
 
 Die helpers des Code-Knotens und der Plugin-Knoten sind dieselbe Umsetzung (`src/nodes/shared/executeHelpers.ts`), damit
 sich Code, der in n8n mit `this.helpers` bzw. `helpers` arbeitet, an beiden Stellen gleich verhält.
+
+## Weitere KI-Modelle (M26)
+Die Modelle sprechen die Anbieter direkt per HTTP an, wie schon OpenAI, Anthropic und Gemini, ohne die SDKs von Groq,
+Mistral oder Ollama. Maßstab ist, was die LangChain-Pakete in den Versionen von n8n 1.123.0 senden (per `npm pack`
+gelesen): Feldnamen, Defaults (Temperatur 0.7 bei Groq und Mistral), Umwandlung der Nachrichten und Eigenheiten, die n8n
+dadurch mitbringt. Bewusst übernommen sind auch Eigenheiten wie: Mistral streamt immer (n8n übergibt stets ein
+AbortSignal), Ollama schickt Tool-Aufrufe früherer Antworten nicht mit, die Ollama-Optionen "useMLock"/"useMMap" wirken
+nicht, die Responses API liefert keine Token-Zahlen ans Tracing (n8n schätzt dann). Der Agent V3 baut seine Schritte wie
+n8n aus den Engine-Antworten neu; die IDs der Responses API gehen dabei wie dort verloren.
