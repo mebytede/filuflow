@@ -87,6 +87,12 @@ Trotzdem gilt:
 - Die Seiten senden eine Content-Security-Policy (`script-src 'self'`, kein `eval`, keine fremden Quellen), `X-Content-Type-Options`
   und `frame-ancestors 'none'`. Statische Pfade außerhalb von `dist/ui` werden abgewiesen.
 
+## Simple Vector Store (M27)
+Der Simple Vector Store speichert Dokumente und Embeddings im Speicher des Prozesses, geteilt über alle Workflows dieses
+Prozesses mit demselben Schlüssel (ab v1.2 ohne Workflow-ID, wie n8n). Workflows eines Workers können also die Daten anderer
+Workflows desselben Workers lesen und überschreiben. Vertrauliche Inhalte gehören deshalb in eigene Schlüssel oder auf
+eigene Worker; dauerhaft gespeichert wird nichts.
+
 ## Plugins (M24)
 Plugins (eigene Module und Knoten im n8n-Format) laufen ohne Sandbox im Prozess von filuflow, mit allen Rechten des Prozesses
 (Dateien, Netz, Umgebung, Credentials anderer Workflows). Sie gelten wie Workflows als vertrauenswürdig: nur Pakete aus

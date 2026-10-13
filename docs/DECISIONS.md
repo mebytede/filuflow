@@ -313,3 +313,23 @@ dadurch mitbringt. Bewusst übernommen sind auch Eigenheiten wie: Mistral stream
 AbortSignal), Ollama schickt Tool-Aufrufe früherer Antworten nicht mit, die Ollama-Optionen "useMLock"/"useMMap" wirken
 nicht, die Responses API liefert keine Token-Zahlen ans Tracing (n8n schätzt dann). Der Agent V3 baut seine Schritte wie
 n8n aus den Engine-Antworten neu; die IDs der Responses API gehen dabei wie dort verloren.
+
+## Embeddings und Vektorspeicher (M27)
+Auch die RAG-Knoten kommen ohne LangChain aus. Maßstab ist das Verhalten von n8n 1.123.0 mit @langchain/core 1.1.0,
+@langchain/classic 1.0.5 und @langchain/textsplitters 1.0.1 (per `npm pack` gelesen); `scripts/rag-oracle.mjs` nimmt die
+Ergebnisse der echten Pakete für Splitter, Loader und Ähnlichkeitssuche auf, `test/rag.test.ts` vergleicht dagegen. Die
+Trennzeichen je Programmiersprache sind Daten aus @langchain/textsplitters (MIT-Lizenz) und deshalb wörtlich übernommen; der
+Splitter selbst ist eigener Code.
+
+Bewusst übernommene Eigenheiten:
+- Der Simple Vector Store hält die Daten im Speicher des Prozesses, geteilt über alle Workflows, die denselben Schlüssel
+  nutzen (bis v1.1 mit der Workflow-ID davor, ab v1.2 der Wert aus dem Resource Locator), und verliert sie beim Neustart.
+- Die Ähnlichkeitssuche sortiert mit dem Vergleich von MemoryVectorStore (`a > b ? -1 : 0`), der bei gleichen Werten die
+  Einfügereihenfolge behält.
+- OpenAI Embeddings fordern wie das SDK `encoding_format: "base64"` an und lesen Float32 (Little Endian).
+- Der Recursive Character Text Splitter des n8n-Knotens behält die Trennzeichen nicht (`keepSeparator: false`), obwohl die
+  Klasse sonst `true` nutzt.
+- Das Protokoll der Sub-Nodes folgt logWrapper: Embeddings, Splitter, Loader, Vektorspeicher und Tool erscheinen mit
+  eigenen Läufen, der Retriever nicht (in n8n 1.123.0 greift die Umhüllung dort nicht).
+- PDF, DOCX und EPUB bräuchten zusätzliche Bibliotheken; der Data Loader lehnt sie mit einer klaren Meldung ab, statt sie
+  falsch zu lesen. Ein Reranker am Vektorspeicher bricht die Ausführung ebenso mit einer Meldung ab.

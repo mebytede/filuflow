@@ -32,7 +32,7 @@ und antworten. Jeder Lauf wird protokolliert und lässt sich Knoten für Knoten 
 | **Nachvollziehbare Läufe** | Status und Dauer an jedem Knoten, der durchlaufene Pfad hervorgehoben, "Letzter Lauf" mit Zeitleiste, Ausführungsprotokoll in SQLite |
 | **Auslöser** | Webhooks mit Antwort-Knoten und Authentifizierung, Zeitpläne, Fehler-Workflows, Aufruf durch andere Workflows, REST-API |
 | **Knoten** | Daten setzen, filtern, sortieren, zusammenfassen, verzweigen (If, Switch), zusammenführen, Schleifen, Code (JavaScript und Python), HTTP (mit Pagination, Digest-Auth, Client-Zertifikaten), HTML, XML, Datum, Krypto |
-| **KI** | AI Agent mit Tools, LLM Chain, Extraktion, Klassifikation, Stimmungsanalyse; Modelle von OpenAI, Anthropic, Google Gemini, Azure, Mistral, Groq, DeepSeek, OpenRouter und Ollama |
+| **KI** | AI Agent mit Tools, LLM Chain, Extraktion, Klassifikation, Stimmungsanalyse; Modelle von OpenAI, Anthropic, Google Gemini, Azure, Mistral, Groq, DeepSeek, OpenRouter und Ollama; Embeddings, Vektorspeicher und Q&A Chain (RAG) |
 | **Credentials** | in der Oberfläche anlegen und bearbeiten (Formulare je Typ) oder als Datei pflegen, verschlüsselt mit AES-256-GCM, Werte aus Umgebungsvariablen; geheime Werte erscheinen nie in Logs oder der Oberfläche |
 | **Team und Mandanten** | Master mit Benutzern, Rechten und Projekten; Worker in der Umgebung jedes Mandanten; Anmeldung mit Passwort und TOTP oder SSO (OIDC) |
 | **Kommandozeile** | Workflows prüfen und ausführen, Ausführungen ansehen, Credentials verschlüsseln, Benutzer verwalten |
@@ -290,6 +290,11 @@ OpenAI (Chat Completions und Responses API mit Websuche, Dateisuche und Code Int
 OpenAI, Mistral, Groq, DeepSeek, OpenRouter und Ollama (lokal), den Tools Calculator, Code, HTTP Request, Workflow und Think
 sowie einem einfachen Gesprächsgedächtnis. Modelle und Tools hängen als eigene Knoten am Agenten und erscheinen im Protokoll mit eigenen
 Läufen. Die Modelle werden direkt per HTTP angesprochen, ohne zusätzliche Bibliotheken.
+
+**Wissen abfragen (RAG):** Der Simple Vector Store nimmt Dokumente auf (Default Data Loader für JSON, Text, Markdown und CSV,
+Text Splitter, OpenAI Embeddings) und liefert die ähnlichsten Abschnitte zurück: direkt als Knoten, über den Vector Store
+Retriever an die Question and Answer Chain oder als Tool für den AI Agent (auch über das Vector Store Question Answer Tool).
+Die Daten liegen wie bei n8n im Speicher des Prozesses und sind nach einem Neustart leer.
 
 **Chat:** Der Chat Trigger startet einen Workflow mit einer Chat-Nachricht. Im Editor öffnet der Chat-Knopf in der
 Kopfzeile ein Chat-Fenster, jede Nachricht ist ein Testlauf mit dem aktuellen Stand. Ist der Chat öffentlich, gibt es unter

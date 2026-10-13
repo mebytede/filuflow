@@ -21,7 +21,7 @@ export default tseslint.config(
   {
     files: ['bin/**/*.js', 'scripts/**/*.mjs'],
     languageOptions: {
-      globals: { process: 'readonly', console: 'readonly', Buffer: 'readonly', URL: 'readonly' },
+      globals: { process: 'readonly', console: 'readonly', Buffer: 'readonly', URL: 'readonly', Blob: 'readonly' },
     },
     rules: { '@typescript-eslint/no-unused-vars': ['error', { varsIgnorePattern: '^_', ignoreRestSiblings: true }] },
   },

@@ -167,6 +167,8 @@ export interface NodeType {
   isSubNode?: boolean;
   /** Sub-Node: Verbindungstyp seines Ausgangs (z. B. ai_languageModel), für Editor und Validierung */
   aiOutput?: string;
+  /** Je nach Parametern Sub-Node (z. B. Vector Store im Modus "retrieve"): Verbindungstyp des Ausgangs, sonst undefined */
+  subNodeOutput?(node: WorkflowNode): string | undefined;
   /** Eltern-Node: Eingänge für Sub-Nodes (Typ, Index, Beschriftung), für den Editor */
   aiInputs?(node: WorkflowNode): AiInput[];
   /** Namen der Main-Ausgänge (z. B. IF: true, false), für den Editor */

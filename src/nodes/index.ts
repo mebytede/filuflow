@@ -55,6 +55,14 @@ import { lmChatMistralCloudNode } from './lmChatMistralCloud.js';
 import { lmChatOllamaNode } from './lmChatOllama.js';
 import { lmChatAzureOpenAiNode } from './lmChatAzureOpenAi.js';
 import { toolThinkNode } from './toolThink.js';
+import { embeddingsOpenAiNode } from './embeddingsOpenAi.js';
+import { documentDefaultDataLoaderNode } from './documentDefaultDataLoader.js';
+import { textSplitterRecursiveCharacterTextSplitterNode } from './textSplitterRecursiveCharacterTextSplitter.js';
+import { textSplitterCharacterTextSplitterNode } from './textSplitterCharacterTextSplitter.js';
+import { vectorStoreInMemoryNode } from './vectorStoreInMemory.js';
+import { retrieverVectorStoreNode } from './retrieverVectorStore.js';
+import { chainRetrievalQaNode } from './chainRetrievalQa.js';
+import { toolVectorStoreNode } from './toolVectorStore.js';
 
 export const builtinNodeTypes: NodeType[] = [
   manualTriggerNode,
@@ -111,6 +119,14 @@ export const builtinNodeTypes: NodeType[] = [
   lmChatOllamaNode,
   lmChatAzureOpenAiNode,
   toolThinkNode,
+  embeddingsOpenAiNode,
+  documentDefaultDataLoaderNode,
+  textSplitterRecursiveCharacterTextSplitterNode,
+  textSplitterCharacterTextSplitterNode,
+  vectorStoreInMemoryNode,
+  retrieverVectorStoreNode,
+  chainRetrievalQaNode,
+  toolVectorStoreNode,
 ];
 
 let defaultRegistry: NodeRegistry | undefined;

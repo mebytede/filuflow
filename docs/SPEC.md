@@ -310,6 +310,7 @@ Engine-Reihenfolge, Expressions (inkl. Rohwert vs. String), jeder Node, Filter-O
 | M24 | Plugin-Schnittstelle | Eigene Knoten als JavaScript-Modul, Knoten und Credentials im n8n-Format (programmatisch) |
 | M25 | Code-Helfer, vordefinierte Credentials | helpers im Code-Knoten wie n8n, HTTP Request mit vordefinierten Credential-Typen |
 | M26 | KI-Ausbau | OpenAI Responses API, Groq, Mistral, Ollama, DeepSeek, OpenRouter, Azure OpenAI, Think Tool |
+| M27 | Embeddings und Vektorspeicher (RAG) | OpenAI Embeddings, Default Data Loader, Text Splitter, Simple Vector Store, Retriever, Q&A Chain, Vector Store Tool |
 
 Nach jedem Meilenstein: `docs/STATUS.md` aktualisieren (was geht, was fehlt) und einen Commit mit aussagekräftiger Nachricht.
 
@@ -325,8 +326,10 @@ Offene Funktionen, ungefähr nach Nutzen geordnet. Jede wird wie ein Meilenstein
 ### 11.2 Knoten
 - Weitere vordefinierte Credential-Typen mit Authentifizierung und Dienst-Defaults (z. B. Google OAuth2 mit festen URLs)
   (helpers im Code-Node und vordefinierte Credential-Typen im HTTP Request: M25)
-- KI: Agent-Varianten aus typeVersion 1.x, Embeddings und Vektorspeicher, weitere Modelle (z. B. AWS Bedrock, Vertex)
-  und Tools (Responses API, Groq, Mistral, Ollama, DeepSeek, OpenRouter, Azure OpenAI, Think Tool: M26)
+- KI: Agent-Varianten aus typeVersion 1.x, weitere Modelle (z. B. AWS Bedrock, Vertex), weitere Embeddings und
+  Vektorspeicher (z. B. PGVector, Qdrant), Dateien wie PDF im Data Loader
+  (Responses API, Groq, Mistral, Ollama, DeepSeek, OpenRouter, Azure OpenAI, Think Tool: M26; Embeddings, Simple Vector
+  Store, Retriever, Q&A Chain: M27)
 - Dienst-Knoten mit eigenen OAuth-Flows (Gmail, Slack, Microsoft 365 usw.) und weitere Integrationen
 - Community-Nodes: Trigger, Polling, Webhooks und deklarative Knoten (`routing`) aus n8n-Paketen; Installation aus der
   Oberfläche (Plugin-Schnittstelle und programmatische Knoten: M24)

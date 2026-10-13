@@ -62,14 +62,15 @@ export function describeNodes(workflow: Workflow, registry: NodeRegistry): Recor
     };
     const outputs = safe(() => t.outputs(node), 1) + (node.onError === 'continueErrorOutput' ? 1 : 0);
     const names = safe(() => t.outputNames?.(node), undefined);
+    const dynamicOutput = safe(() => t.subNodeOutput?.(node), undefined);
     out[node.name] = {
       known: t.versions.includes(node.typeVersion),
       inputs: safe(() => (t.inputs ? t.inputs(node) : t.isTrigger ? 0 : 1), 1),
       outputs,
       ...(names ? { outputNames: node.onError === 'continueErrorOutput' ? [...names, 'error'] : names } : {}),
       isTrigger: !!t.isTrigger,
-      isSubNode: !!t.isSubNode,
-      ...(t.aiOutput ? { aiOutput: t.aiOutput } : {}),
+      isSubNode: !!t.isSubNode || !!dynamicOutput,
+      ...(dynamicOutput || t.aiOutput ? { aiOutput: dynamicOutput ?? t.aiOutput } : {}),
       aiInputs: safe(() => t.aiInputs?.(node) ?? [], []),
       credentialTypes: safe(() => t.credentialTypes?.(node) ?? [], []),
     };
