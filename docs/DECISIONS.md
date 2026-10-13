@@ -25,6 +25,7 @@ Neben dem Stack aus CLAUDE.md (luxon, better-sqlite3, fastify, croner, pino):
 | `lodash` | n8n nutzt `get`/`set`/`unset`/`isEqual` u. a. für Pfade wie `a.b[0]`; gleiche Bibliothek = gleiche Semantik (z. B. Schlüssel mit Punkt) |
 | `jsonrepair` | n8n repariert JSON im Set-Node (`repairJSON`) mit dieser Bibliothek |
 | `qs` | HTTP Request: n8n serialisiert Formular- und Query-Daten mit `qs`; gleiche Bibliothek = gleiche Kodierung |
+| `pyodide` (0.28.0) | Python im Code-Node (M12): dieselbe Version wie n8n 1.123.0, damit sich Python-Code gleich verhält (Python 3.13, Umwandlung von dicts und JS-Objekten). Läuft ohne installiertes Python; etwa 12 MB, nur geladen, wenn Python genutzt wird. Abhängigkeit `ws` (für den Browser-Teil, ungenutzt). Alternative wäre ein eigener Interpreter-Prozess für alle Fälle gewesen, dann bräuchte jeder Server Python |
 | `math-expression-evaluator` | Calculator-Tool (M7): n8n nutzt den LangChain-Calculator, der genau diese Bibliothek (2.0.7) aufruft. Eigene Syntax (Winkel in Grad, `root`, `Mod`, `C(n,k)` usw.); ein Nachbau würde zwangsläufig abweichen. MIT-Lizenz, ohne Abhängigkeiten |
 
 ## Weboberfläche (M8)
@@ -89,6 +90,19 @@ Neben dem Stack aus CLAUDE.md (luxon, better-sqlite3, fastify, croner, pino):
 - **IDs wie n8n:** Neue Credentials bekommen eine ID aus 16 Zeichen. Workflows referenzieren `{ id, name }`; gesucht wird nach Name,
   dann nach ID. Umbenennen behält die ID, damit Workflows mit gespeicherter ID das Credential weiter finden.
 - Keine neue Abhängigkeit.
+
+## Python im Code-Node (M12)
+- **Zwei Wege wie n8n:** "Python" läuft mit Pyodide im Serverprozess (Kontext mit `_` statt `$`, wie n8n `PythonSandbox`),
+  "Python (Native)" mit einem echten Interpreter in einem eigenen Prozess (wie der Python-Task-Runner von n8n). n8n verlangt für
+  Native einen separaten Task-Runner (`N8N_RUNNERS_ENABLED`); filuflow startet stattdessen je Ausführung `python3` mit einem
+  eigenen, kleinen Runner (Aufgabe als JSON über stdin, Ergebnis als JSON über stdout). Das spart einen Dienst; der Start kostet
+  etwa 30 ms je Ausführung des Knotens (nicht je Item).
+- **Zeitlimit für Pyodide:** n8n hat im Pyodide-Modus keines. Python blockiert den Hauptthread, ein Timer kann dann nicht
+  feuern. Deshalb setzt ein Worker-Thread den Interrupt-Buffer (SharedArrayBuffer); Python bricht mit KeyboardInterrupt ab, der
+  Wrapper macht daraus "Code execution timed out". Entkommt ein Interrupt in die Event-Loop von Pyodide, fängt ein eigener
+  Handler ihn ab, damit der Server weiterläuft.
+- **Sicherheitsvorgaben für Native wie n8n** (Allowlists leer, gesperrte Builtins, Umgebung leer), damit exportierte
+  Workflows dieselben Grenzen haben; Variablen mit den n8n-Namen gelten ebenfalls.
 
 ## Server
 - fastify mit eigenem Content-Type-Parser für Webhooks: Der Body wird roh gelesen (gzip/deflate wie n8n) und im Webhook-Node

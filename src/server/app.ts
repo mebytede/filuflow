@@ -24,6 +24,7 @@ import { registerOverview, triggersOf } from './overview.js';
 import type { LayeredCredentialProvider } from '../credentials/managed.js';
 import { CREDENTIAL_TYPES } from '../credentials/types.js';
 import { registerCredentialsApi } from './credentialsApi.js';
+import { warmUpPython } from '../python/pyodide.js';
 
 export interface ServerOptions {
   dir: string;
@@ -60,6 +61,13 @@ export interface FiluflowServer {
 }
 
 const WEBHOOK_METHODS = ['DELETE', 'GET', 'HEAD', 'PATCH', 'POST', 'PUT'];
+
+/** Code-Node oder Code Tool mit Python über Pyodide */
+function usesPyodide(workflow: { nodes?: Array<{ type: string; parameters?: Record<string, unknown> }> }): boolean {
+  return (workflow.nodes ?? []).some(
+    (n) => (n.type === 'n8n-nodes-base.code' || n.type === '@n8n/n8n-nodes-langchain.toolCode') && n.parameters?.language === 'python',
+  );
+}
 
 function checkApiKey(expected: string | undefined, request: FastifyRequest): boolean {
   if (!expected) return false;
@@ -135,6 +143,10 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
   const scheduler = new Scheduler(manager, logger, staticFor);
   workflows = new WorkflowManager({ dir: options.dir, registry, credentials, webhooks, scheduler, logger });
   await workflows.reload();
+  // Pyodide braucht beim ersten Lauf etwa zwei Sekunden: vorladen, wenn ein Workflow Python nutzt
+  if (process.env.FILUFLOW_PYTHON_PRELOAD !== 'false' && workflows.list().some((m) => usesPyodide(m.workflow))) {
+    warmUpPython().catch((error: unknown) => logger.warn({ err: (error as Error).message }, 'Python (Pyodide) konnte nicht vorgeladen werden'));
+  }
   if (options.watch !== false) workflows.watch();
 
   const pruneDays = options.pruneDays ?? 14;

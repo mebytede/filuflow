@@ -1,10 +1,12 @@
 // Code Tool, @n8n/n8n-nodes-langchain.toolCode (typeVersion 1 bis 1.3)
 // Nachgebaut nach n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/tools/ToolCode/ToolCode.node.ts
-// Nur JavaScript; die Variable `query` enthält die Eingabe. Ergebnis muss Text oder Zahl sein.
+// JavaScript oder Python (Pyodide, wie n8n über PythonSandbox.runCode); die Variable `query` enthält die Eingabe.
+// Ergebnis muss Text oder Zahl sein.
 import type { ExecContext, NodeIssue, NodeType } from './types.js';
 import type { Item } from '../types.js';
 import { NodeOperationError } from '../errors.js';
-import { buildContext, runInSandbox } from './code.js';
+import { buildContext, CODE_TIMEOUT_MS, runInSandbox, sandboxContext } from './code.js';
+import { runPython } from '../python/pyodide.js';
 import { createTool, nodeNameToToolName, type ToolInstance } from '../ai/tools.js';
 import { generateSchemaFromExample, jsonSchemaToZod, type ZType } from '../ai/schema.js';
 
@@ -13,7 +15,8 @@ function getTool(ctx: ExecContext, itemIndex: number, log: boolean): ToolInstanc
   const name = version <= 1.1 ? ctx.getParam<string>('name', itemIndex, '') : nodeNameToToolName(ctx.node.name);
   const description = ctx.getParam<string>('description', itemIndex, '');
   const useSchema = ctx.getParam<boolean>('specifyInputSchema', itemIndex, false);
-  const code = ctx.getParam<string>('jsCode', itemIndex, '');
+  const language = ctx.getParam<string>('language', itemIndex, 'javaScript');
+  const code = ctx.getParam<string>(language === 'python' ? 'pythonCode' : 'jsCode', itemIndex, '');
   let schema: ZType | undefined;
   if (useSchema) {
     try {
@@ -30,9 +33,15 @@ function getTool(ctx: ExecContext, itemIndex: number, log: boolean): ToolInstanc
   const run = async (query: unknown): Promise<string> => {
     let response: unknown;
     try {
-      const context = buildContext(ctx, itemIndex, 'runOnceForAllItems', (level, args) => ctx.logOutput(level, args));
-      context.query = query;
-      response = await runInSandbox(ctx, code, context);
+      if (language === 'python') {
+        const context = sandboxContext(ctx, itemIndex);
+        context.query = query;
+        response = await runPython(code, { context, timeoutMs: CODE_TIMEOUT_MS, onOutput: (text) => ctx.logOutput('log', [text]) });
+      } else {
+        const context = buildContext(ctx, itemIndex, 'runOnceForAllItems', (level, args) => ctx.logOutput(level, args));
+        context.query = query;
+        response = await runInSandbox(ctx, code, context);
+      }
     } catch (error) {
       return `There was an error: "${(error as Error).message}"`;
     }
@@ -53,8 +62,9 @@ export const toolCodeNode: NodeType = {
   outputs: () => 0,
   validate(node) {
     const issues: NodeIssue[] = [];
-    if (node.parameters.language === 'python') {
-      issues.push({ code: 'node.unsupportedParameter', message: 'Code Tool: Python wird nicht unterstützt', path: 'parameters.language' });
+    const language = node.parameters.language;
+    if (language !== undefined && language !== 'javaScript' && language !== 'python') {
+      issues.push({ code: 'node.unsupportedParameter', message: `Code Tool: Sprache "${String(language)}" wird nicht unterstützt`, path: 'parameters.language' });
     }
     return issues;
   },

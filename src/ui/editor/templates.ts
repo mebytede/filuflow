@@ -45,6 +45,25 @@ const TEMPLATES: Record<string, Template> = {
   '@n8n/n8n-nodes-langchain.sentimentAnalysis': () => ({ inputText: '={{ $json.text }}', options: {} }),
 };
 
+/** Startcode je Sprache und Modus (Code-Node, Code Tool) */
+export function codeTemplate(type: string, language: string, mode: string): string {
+  if (type === '@n8n/n8n-nodes-langchain.toolCode') return language === 'python' ? 'return query.upper()' : 'return query;';
+  const each = mode === 'runOnceForEachItem';
+  if (language === 'python') {
+    return each
+      ? "# Läuft für jedes Item; _json ist das aktuelle Item\n_json['neuesFeld'] = 1\nreturn _json"
+      : '# Alle Items durchlaufen und ein Feld ergänzen\nfor item in _input.all():\n    item.json.neuesFeld = 1\n\nreturn _input.all()';
+  }
+  if (language === 'pythonNative') {
+    return each
+      ? "# Läuft für jedes Item; _item ist ein dict\n_item['json']['neuesFeld'] = 1\nreturn _item"
+      : "# _items ist eine Liste von dicts\nfor item in _items:\n    item['json']['neuesFeld'] = 1\n\nreturn _items";
+  }
+  return each
+    ? '// Läuft für jedes Item\n$input.item.json.neuesFeld = 1;\n\nreturn $input.item;'
+    : '// Alle Items durchlaufen und ein Feld ergänzen\nfor (const item of $input.all()) {\n  item.json.neuesFeld = 1;\n}\n\nreturn $input.all();';
+}
+
 export function templateFor(type: string, version: number): Record<string, unknown> {
   return TEMPLATES[type]?.(version) ?? {};
 }

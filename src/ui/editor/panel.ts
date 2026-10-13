@@ -2,6 +2,7 @@
 import { h } from '../dom.js';
 import { iconButton } from '../shell.js';
 import type { CredentialInfo, Item, NodePorts, NodeTypeInfo, TaskData, ValidationIssue, Workflow, WorkflowNode } from '../types.js';
+import { codeTemplate } from './templates.js';
 import { paramEditor } from './paramForm.js';
 import { itemsView } from './dataView.js';
 
@@ -167,6 +168,47 @@ export class Panel {
           h('div', { class: 'muted' }, 'Produktiv-URL gilt nur für aktive, gespeicherte Workflows.'),
         ),
       );
+    }
+
+    // Sprache von Code-Node und Code Tool: beim Wechsel Startcode einsetzen, wenn das Feld noch leer ist
+    const isCode = node.type === 'n8n-nodes-base.code' && node.typeVersion >= 2;
+    const isToolCode = node.type === '@n8n/n8n-nodes-langchain.toolCode';
+    if (isCode || isToolCode) {
+      const languages: Array<[string, string]> = isCode
+        ? [
+            ['javaScript', 'JavaScript'],
+            ['python', 'Python'],
+            ['pythonNative', 'Python (Native)'],
+          ]
+        : [
+            ['javaScript', 'JavaScript'],
+            ['python', 'Python'],
+          ];
+      const current = typeof node.parameters.language === 'string' ? node.parameters.language : 'javaScript';
+      const hints: Record<string, string> = {
+        javaScript: 'Variablen wie $input, $json und $now; print-Ausgaben mit console.log.',
+        python: 'Python im Server (Pyodide). Variablen mit _ statt $, z. B. _input.all(), _json, _now; Ausgaben mit print().',
+        pythonNative: 'Lokaler Python-Interpreter des Servers. Nur _items (alle Items) bzw. _item (je Item); Imports nur mit Freigabe in FILUFLOW_PYTHON_STDLIB_ALLOW und FILUFLOW_PYTHON_EXTERNAL_ALLOW.',
+      };
+      const langSel = h(
+        'select',
+        {
+          class: 'param-input',
+          disabled: this.host.readonly,
+          'aria-label': 'Sprache',
+          onchange: () => {
+            const value = langSel.value;
+            this.mutateNode(node.name, (n) => {
+              n.parameters.language = value;
+              const key = value === 'javaScript' ? 'jsCode' : 'pythonCode';
+              if (!n.parameters[key]) n.parameters[key] = codeTemplate(n.type, value, String(n.parameters.mode ?? 'runOnceForAllItems'));
+            });
+            this.render();
+          },
+        },
+        languages.map(([value, label]) => h('option', { value, selected: value === current }, label)),
+      );
+      box.append(h('label', { class: 'field' }, h('span', null, 'Sprache'), langSel, h('span', { class: 'muted small' }, hints[current] ?? '')));
     }
 
     // Credentials

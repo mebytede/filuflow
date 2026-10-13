@@ -162,7 +162,7 @@ Pro Node: unterstützte Versionen gegen n8n prüfen und mindestens die aktuelle 
 | `n8n-nodes-base.if` (v2.x) | `conditions` (Filter-Format, siehe 4.4), Ausgang 0 = true, 1 = false |
 | `n8n-nodes-base.filter` (v2.x) | Filter-Format, ein Ausgang; `options.looseTypeValidation` |
 | `n8n-nodes-base.switch` (v3.x) | `mode: rules/expression`, `rules.values[]`, `options.fallbackOutput` (`none`/`extra`/Index), `options.allMatchingOutputs`, `renameOutput` |
-| `n8n-nodes-base.code` (v2) | `language: javaScript` und `python` (Python siehe Abschnitt 11), `mode: runOnceForAllItems/runOnceForEachItem`, `jsCode`; im Kontext alle Expression-Variablen plus `items` (Altform); Rückgabe normalisieren (Objekte ohne `json` einpacken, Einzelobjekt in Liste); async erlaubt; Timeout konfigurierbar (Default 60 s); `console.log` ins Execution-Log |
+| `n8n-nodes-base.code` (v2) | `language: javaScript`, `python` und `pythonNative` (M12), `mode: runOnceForAllItems/runOnceForEachItem`, `jsCode`; im Kontext alle Expression-Variablen plus `items` (Altform); Rückgabe normalisieren (Objekte ohne `json` einpacken, Einzelobjekt in Liste); async erlaubt; Timeout konfigurierbar (Default 60 s); `console.log` ins Execution-Log |
 
 ### 4.2 Meilenstein M3b: Daten und HTTP
 | Typ | Hinweise |
@@ -294,6 +294,7 @@ Engine-Reihenfolge, Expressions (inkl. Rohwert vs. String), jeder Node, Filter-O
 | M9 | Master und Worker: Benutzer, Rechte, Projekte, Mandanten, SSO | Integrationstests mit echten Workern, OIDC gegen nachgebauten Identity Provider |
 | M10 | Name filuflow und Design | Oberfläche nach dem Design-Handoff, alte Namen gelten weiter |
 | M11 | Credentials in der Oberfläche | Anlegen, Bearbeiten, Umbenennen, Löschen mit Formularen je Typ, im Einzelbetrieb und im Master; geheime Werte nie lesbar |
+| M12 | Python im Code-Node | Pyodide und lokaler Interpreter, Zeitlimit, Sperren wie n8n, Code Tool mit Python |
 
 Nach jedem Meilenstein: `docs/STATUS.md` aktualisieren (was geht, was fehlt) und einen Commit mit aussagekräftiger Nachricht.
 
@@ -313,7 +314,7 @@ Offene Funktionen, ungefähr nach Nutzen geordnet. Jede wird wie ein Meilenstein
 - Execution-Order v0 für ältere Workflows
 
 ### 11.2 Knoten
-- Python im Code-Node; Module im Code-Node über eine Freigabeliste (`require`), vollständige `helpers`
+- Module im Code-Node über eine Freigabeliste (`require`), vollständige `helpers` (Python im Code-Node: M12)
 - HTTP Request: Pagination, vordefinierte Credential-Typen, Digest-Auth, OAuth1, Client-Zertifikate
 - Merge `combineBySql`; Execute Workflow aus Datei und URL
 - Chat Trigger und Chat (Human in the Loop) mit Chat-Ansicht

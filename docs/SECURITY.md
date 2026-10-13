@@ -7,6 +7,16 @@ Ein böswilliger Workflow kann aus dem vm-Kontext ausbrechen. Wer fremde Workflo
 
 Trotzdem gilt:
 - Expressions laufen mit Timeout (Default 1000 ms), Code-Nodes mit Timeout (Default 60 s, `FILUFLOW_CODE_TIMEOUT_MS`).
+- Python (Pyodide) läuft als WebAssembly im Serverprozess. Wie in n8n sind das Python-Modul `js` (Zugriff auf JavaScript) und
+  `os.system` gesperrt, zusätzlich `pyodide_js`; das Dateisystem ist ein eigenes im Speicher, nicht das des Servers. Wer es
+  darauf anlegt, kann die Sperren umgehen (z. B. über interne Module von Pyodide); sie verhindern Versehen, keine Angriffe. Das
+  Zeitlimit setzt ein eigener Thread über den Interrupt-Buffer von Pyodide durch, auch bei Endlosschleifen. Läufe sind
+  nacheinander, solange Python rechnet, wartet der Server mit anderen Aufgaben (wie bei JavaScript im Code-Node).
+- Python (Native) startet einen eigenen Prozess mit den Rechten des Servers. Vor dem Start prüft filuflow den Code wie der
+  Task-Runner von n8n: Imports nur aus den Freigabelisten (Default: keine), keine relativen oder dynamischen Imports, keine
+  Attribute wie `__class__` oder `__globals__`; Builtins wie `eval`, `exec`, `open`, `getattr` fehlen. Der Prozess bekommt eine
+  leere Umgebung (keine Schlüssel des Servers), außer `FILUFLOW_PYTHON_ENV_ACCESS=true`. Mit freigegebenen Modulen wie `os`
+  oder `subprocess` hat der Code vollen Zugriff auf das System; das ist eine bewusste Entscheidung des Betreibers.
 - Im Sandbox-Kontext gibt es kein `require`, kein `process`, kein `import()`.
 - `$env` liefert nur freigegebene Umgebungsvariablen (`FILUFLOW_ENV_ALLOW`, Default: Präfix `FL_`).
 - Credential-Werte werden nie geloggt und im Execution-Log nicht gespeichert.

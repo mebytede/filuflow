@@ -1,17 +1,28 @@
-// Code, n8n-nodes-base.code (typeVersion 1, 2), nur JavaScript.
+// Code, n8n-nodes-base.code (typeVersion 1, 2): JavaScript, Python (Pyodide) und Python (Native).
 // Nachgebaut nach n8n 1.123.0 packages/nodes-base/nodes/Code:
-//   Code.node.ts, JavaScriptSandbox.ts, Sandbox.ts, result-validation.ts, utils.ts (standardizeOutput),
-//   JsCodeValidator.ts, ExecutionError.ts, ValidationError.ts
-//   packages/core/.../utils/normalize-items.ts
-// Sandbox ohne `require` und mit Timeout (Default 60 s, FILUFLOW_CODE_TIMEOUT_MS); Python und Module: Ausbau (SPEC 11.2).
+//   Code.node.ts, JavaScriptSandbox.ts, PythonSandbox.ts, PythonTaskRunnerSandbox.ts (PYTHON_TEXT_KEYS),
+//   Sandbox.ts, result-validation.ts, utils.ts (standardizeOutput), JsCodeValidator.ts, ExecutionError.ts,
+//   ValidationError.ts, packages/core/.../utils/normalize-items.ts
+// Sandbox ohne `require` und mit Timeout (Default 60 s, FILUFLOW_CODE_TIMEOUT_MS). Python: src/python/.
 import vm from 'node:vm';
 import type { ExecContext, NodeType } from './types.js';
 import type { Item } from '../types.js';
 import { NodeOperationError } from '../errors.js';
+import { runPython } from '../python/pyodide.js';
+import { runNativePython } from '../python/native.js';
 
 export const CODE_TIMEOUT_MS = Number(process.env.FILUFLOW_CODE_TIMEOUT_MS ?? 60_000);
 
 const REQUIRED_N8N_ITEM_KEYS = new Set(['json', 'binary', 'pairedItem', 'error', 'index']);
+
+/** n8n result-validation.ts TextKeys: JavaScript spricht von "object", Python von "dictionary" */
+interface TextKeys {
+  singular: string;
+  plural: string;
+}
+const JS_TEXT: TextKeys = { singular: 'object', plural: 'objects' };
+const PYTHON_TEXT: TextKeys = { singular: 'dictionary', plural: 'dictionaries' };
+const withArticle = (word: string) => (/^[aeiou]/.test(word) ? `an ${word}` : `a ${word}`);
 
 class CodeValidationError extends Error {
   description: string;
@@ -119,18 +130,19 @@ export function normalizeItems(data: unknown): Item[] {
   return list.map((item) => ({ json: item }) as Item);
 }
 
-function validateItem(item: Item, itemIndex: number): void {
+function validateItem(item: Item, itemIndex: number, text: TextKeys): void {
+  const a = withArticle(text.singular);
   if (item.json === undefined || !isObject(item.json)) {
     throw new CodeValidationError({
-      message: "A 'json' property isn't an object",
-      description: "In the returned data, every key named 'json' must point to an object.",
+      message: `A 'json' property isn't ${a}`,
+      description: `In the returned data, every key named 'json' must point to ${a}.`,
       itemIndex,
     });
   }
   if (item.binary !== undefined && !isObject(item.binary)) {
     throw new CodeValidationError({
-      message: "A 'binary' property isn't an object",
-      description: "In the returned data, every key named 'binary' must point to an object.",
+      message: `A 'binary' property isn't ${a}`,
+      description: `In the returned data, every key named 'binary' must point to ${a}.`,
       itemIndex,
     });
   }
@@ -160,11 +172,11 @@ function validateTopLevelKeys(item: Record<string, unknown>, itemIndex: number):
   }
 }
 
-function validateRunCodeAllItems(result: unknown): Item[] {
+function validateRunCodeAllItems(result: unknown, text: TextKeys = JS_TEXT): Item[] {
   if (typeof result !== 'object' || result === null) {
     throw new CodeValidationError({
       message: "Code doesn't return items properly",
-      description: 'Please return an array of objects, one for each item you would like to output.',
+      description: `Please return an array of ${text.plural}, one for each item you would like to output.`,
     });
   }
   if (Array.isArray(result)) {
@@ -172,7 +184,7 @@ function validateRunCodeAllItems(result: unknown): Item[] {
       if (!isObject(item)) {
         throw new CodeValidationError({
           message: "Code doesn't return items properly",
-          description: 'Please return an array of objects, one for each item you would like to output.',
+          description: `Please return an array of ${text.plural}, one for each item you would like to output.`,
         });
       }
     }
@@ -180,28 +192,28 @@ function validateRunCodeAllItems(result: unknown): Item[] {
     if (mustHaveKey) result.forEach((item, i) => validateTopLevelKeys(item as Record<string, unknown>, i));
   }
   const items = normalizeItems(result);
-  items.forEach((item, i) => validateItem(item, i));
+  items.forEach((item, i) => validateItem(item, i, text));
   return items;
 }
 
-function validateRunCodeEachItem(result: unknown, itemIndex: number): Item {
+function validateRunCodeEachItem(result: unknown, itemIndex: number, text: TextKeys = JS_TEXT): Item {
   if (typeof result !== 'object') {
     throw new CodeValidationError({
-      message: "Code doesn't return an object",
-      description: `Please return an object representing the output item. ('${String(result)}' was returned instead.)`,
+      message: `Code doesn't return ${withArticle(text.singular)}`,
+      description: `Please return ${withArticle(text.singular)} representing the output item. ('${String(result)}' was returned instead.)`,
       itemIndex,
     });
   }
   if (Array.isArray(result)) {
     const first = result.length > 0 ? `An array of ${typeof result[0]}s was returned.` : 'An empty array was returned.';
     throw new CodeValidationError({
-      message: "Code doesn't return a single object",
+      message: `Code doesn't return a single ${text.singular}`,
       description: `${first} If you need to output multiple items, please use the 'Run Once for All Items' mode instead.`,
       itemIndex,
     });
   }
   const [item] = normalizeItems([result]);
-  validateItem(item, itemIndex);
+  validateItem(item, itemIndex, text);
   validateTopLevelKeys(item as unknown as Record<string, unknown>, itemIndex);
   return item;
 }
@@ -225,7 +237,8 @@ function validateNoDisallowedMethodsInRunForEach(code: string, itemIndex: number
   }
 }
 
-export function buildContext(ctx: ExecContext, index: number, mode: string, logs: (level: 'log' | 'info' | 'warn' | 'error' | 'debug', args: unknown[]) => void) {
+/** n8n getSandboxContext: { $getNodeParameter, $getWorkflowStaticData, helpers, ...dataProxy } */
+export function sandboxContext(ctx: ExecContext, index: number): Record<string, unknown> {
   const proxy = ctx.getDataProxy(index, { cloneInput: true });
   // n8n getSandboxContext: { $getNodeParameter, $getWorkflowStaticData, helpers, ...dataProxy }
   const context: Record<string, unknown> = {
@@ -255,8 +268,20 @@ export function buildContext(ctx: ExecContext, index: number, mode: string, logs
     },
     ...proxy,
   };
-  if (mode === 'runOnceForAllItems') context.items = (proxy.$input as { all(): Item[] }).all();
-  else context.item = (proxy.$input as { item: Item }).item;
+  return context;
+}
+
+/** Kontext von Code-Node (mit items bzw. item) und Code Tool; JavaScript bekommt zusätzlich console, Timer usw. */
+export function codeContext(ctx: ExecContext, index: number, mode: string | undefined): Record<string, unknown> {
+  const context = sandboxContext(ctx, index);
+  const input = context.$input as { all(): Item[]; item: Item };
+  if (mode === 'runOnceForAllItems') context.items = input.all();
+  else if (mode === 'runOnceForEachItem') context.item = input.item;
+  return context;
+}
+
+export function buildContext(ctx: ExecContext, index: number, mode: string, logs: (level: 'log' | 'info' | 'warn' | 'error' | 'debug', args: unknown[]) => void) {
+  const context = codeContext(ctx, index, mode);
   const consoleShim: Record<string, unknown> = {};
   for (const level of ['log', 'info', 'warn', 'error', 'debug'] as const) consoleShim[level] = (...args: unknown[]) => logs(level, args);
   Object.assign(context, {
@@ -309,6 +334,91 @@ function mapItemsNotDefined(code: string, error: unknown, name: 'items' | 'item'
   }
 }
 
+const LANGUAGES = ['javaScript', 'python', 'pythonNative'];
+
+/** n8n NodesConfig.pythonEnabled (N8N_PYTHON_ENABLED): Python lässt sich abschalten */
+function pythonEnabled(): boolean {
+  const value = process.env.FILUFLOW_PYTHON_ENABLED ?? process.env.N8N_PYTHON_ENABLED;
+  return value !== 'false';
+}
+
+function wrapCodeError(node: { name: string }, error: unknown): Error {
+  if (error instanceof NodeOperationError) return error;
+  const e = error as Error & { description?: string; itemIndex?: number };
+  const wrapped = new NodeOperationError(node.name, e.message, { description: e.description ?? null, itemIndex: e.itemIndex, cause: error });
+  if (['ValidationError', 'ExecutionError', 'PythonError', 'TimeoutError', 'SecurityViolationError'].includes(e.name)) wrapped.name = e.name;
+  return wrapped;
+}
+
+/**
+ * Python wie n8n Code.node.ts: "python" mit Pyodide (Kontext mit "_" statt "$", je Item ein Lauf),
+ * "pythonNative" in einem eigenen Python-Prozess (nur _items bzw. _item, ein Prozess für alle Items).
+ * Ergebnisse prüft dieselbe Validierung wie bei JavaScript, mit "dictionary" statt "object".
+ */
+async function executePython(ctx: ExecContext, language: 'python' | 'pythonNative'): Promise<Item[][]> {
+  const node = ctx.node;
+  if (!pythonEnabled()) {
+    throw new NodeOperationError(
+      node.name,
+      'This instance disallows Python execution because it has the environment variable `N8N_PYTHON_ENABLED` set to `false`. To restore Python execution, remove this environment variable or set it to `true` and restart the instance.',
+    );
+  }
+  const mode = ctx.getParam<string>('mode', 0, 'runOnceForAllItems') as 'runOnceForAllItems' | 'runOnceForEachItem';
+  const output = (text: string) => ctx.logOutput('log', [text.replace(/\n$/, '')]);
+  const inputItems = ctx.items;
+
+  if (language === 'pythonNative') {
+    const code = ctx.getParam<string>('pythonCode', 0, '');
+    let items: Item[];
+    try {
+      const result = await runNativePython({ code, mode, items: inputItems, timeoutMs: CODE_TIMEOUT_MS, signal: ctx.signal, onOutput: output });
+      items =
+        mode === 'runOnceForAllItems'
+          ? validateRunCodeAllItems(result, PYTHON_TEXT)
+          : (result as unknown[]).map((item, index) => validateRunCodeEachItem(item, index, PYTHON_TEXT));
+    } catch (error) {
+      if (!ctx.continueOnFail()) throw wrapCodeError(node, error);
+      items = [{ json: { error: (error as Error).message } }];
+    }
+    return [items];
+  }
+
+  if (mode === 'runOnceForAllItems') {
+    const code = ctx.getParam<string>('pythonCode', 0, '');
+    let items: Item[];
+    try {
+      const result = await runPython(code, { context: codeContext(ctx, 0, mode), timeoutMs: CODE_TIMEOUT_MS, onOutput: output });
+      items = validateRunCodeAllItems(result, PYTHON_TEXT);
+    } catch (error) {
+      if (!ctx.continueOnFail()) throw wrapCodeError(node, error);
+      items = [{ json: { error: (error as Error).message } }];
+    }
+    for (const item of items) standardizeOutput(item.json);
+    return [items];
+  }
+
+  const out: Item[] = [];
+  for (let index = 0; index < inputItems.length; index++) {
+    const code = ctx.getParam<string>('pythonCode', index, '');
+    let result: Item | undefined;
+    try {
+      const raw = await runPython(code, { context: codeContext(ctx, index, mode), timeoutMs: CODE_TIMEOUT_MS, onOutput: output });
+      result = validateRunCodeEachItem(raw, index, PYTHON_TEXT);
+    } catch (error) {
+      if (!ctx.continueOnFail()) throw wrapCodeError(node, error);
+      out.push({ json: { error: (error as Error).message }, pairedItem: { item: index } });
+    }
+    if (result) {
+      out.push({
+        json: standardizeOutput(result.json),
+        pairedItem: { item: index },
+        ...(result.binary ? { binary: result.binary } : {}),
+      });
+    }
+  }
+  return [out];
+}
+
 export const codeNode: NodeType = {
   type: 'n8n-nodes-base.code',
   displayName: 'Code',
@@ -316,28 +426,20 @@ export const codeNode: NodeType = {
   outputs: () => 1,
   validate(node) {
     const language = (node.parameters.language as string | undefined) ?? 'javaScript';
-    if (node.typeVersion === 2 && language !== 'javaScript') {
-      return [{ code: 'node.unsupportedParameter', message: `Code-Node: Sprache "${language}" wird nicht unterstützt (nur JavaScript)`, path: 'parameters.language' }];
+    if (node.typeVersion === 2 && !LANGUAGES.includes(language)) {
+      return [{ code: 'node.unsupportedParameter', message: `Code-Node: Sprache "${language}" wird nicht unterstützt (javaScript, python, pythonNative)`, path: 'parameters.language' }];
     }
     return [];
   },
   async execute(ctx) {
     const node = ctx.node;
     const language = node.typeVersion === 2 ? ctx.getParam<string>('language', 0, 'javaScript') : 'javaScript';
-    if (language !== 'javaScript') {
-      throw new NodeOperationError(node.name, `Python im Code-Node wird von filuflow nicht unterstützt (language: ${language})`);
-    }
+    if (language === 'python' || language === 'pythonNative') return executePython(ctx, language);
     const mode = ctx.getParam<string>('mode', 0, 'runOnceForAllItems');
     const logs = (level: 'log' | 'info' | 'warn' | 'error' | 'debug', args: unknown[]) => ctx.logOutput(level, args);
     const inputItems = ctx.items;
 
-    const wrapError = (error: unknown): Error => {
-      if (error instanceof NodeOperationError) return error;
-      const e = error as Error & { description?: string; itemIndex?: number };
-      const wrapped = new NodeOperationError(node.name, e.message, { description: e.description ?? null, itemIndex: e.itemIndex, cause: error });
-      wrapped.name = e.name === 'ValidationError' || e.name === 'ExecutionError' ? e.name : wrapped.name;
-      return wrapped;
-    };
+    const wrapError = (error: unknown): Error => wrapCodeError(node, error);
 
     if (mode === 'runOnceForAllItems') {
       const code = ctx.getParam<string>('jsCode', 0, '');

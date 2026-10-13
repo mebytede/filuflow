@@ -31,7 +31,7 @@ und antworten. Jeder Lauf wird protokolliert und lässt sich Knoten für Knoten 
 | **Editor im Browser** | Knoten einfügen und verbinden, Parameter als Formular oder JSON, Rückgängig und Wiederholen, Testlauf mit dem aktuellen Stand |
 | **Nachvollziehbare Läufe** | Status und Dauer an jedem Knoten, der durchlaufene Pfad hervorgehoben, "Letzter Lauf" mit Zeitleiste, Ausführungsprotokoll in SQLite |
 | **Auslöser** | Webhooks mit Antwort-Knoten und Authentifizierung, Zeitpläne, Fehler-Workflows, Aufruf durch andere Workflows, REST-API |
-| **Knoten** | Daten setzen, filtern, sortieren, zusammenfassen, verzweigen (If, Switch), zusammenführen, Schleifen, Code (JavaScript), HTTP, HTML, XML, Datum, Krypto |
+| **Knoten** | Daten setzen, filtern, sortieren, zusammenfassen, verzweigen (If, Switch), zusammenführen, Schleifen, Code (JavaScript und Python), HTTP, HTML, XML, Datum, Krypto |
 | **KI** | AI Agent mit Tools, LLM Chain, Extraktion, Klassifikation, Stimmungsanalyse; Modelle von OpenAI, Anthropic und Google Gemini |
 | **Credentials** | in der Oberfläche anlegen und bearbeiten (Formulare je Typ) oder als Datei pflegen, verschlüsselt mit AES-256-GCM, Werte aus Umgebungsvariablen; geheime Werte erscheinen nie in Logs oder der Oberfläche |
 | **Team und Mandanten** | Master mit Benutzern, Rechten und Projekten; Worker in der Umgebung jedes Mandanten; Anmeldung mit Passwort und TOTP oder SSO (OIDC) |
@@ -209,6 +209,35 @@ unter dem ein Workflow das Credential verwendet:
   Namen und Typen bleiben lesbar, `decrypt` zum Bearbeiten, `check` zum Prüfen.
 - Geheime Werte verlassen den Server nicht und erscheinen maskiert im Protokoll; die REST-API dazu steht unter `/api/credentials`.
 
+## Code in JavaScript und Python
+
+Der Code-Knoten kennt drei Sprachen (Auswahl **Sprache** im Editor):
+
+- **JavaScript**: alle Variablen der Expressions (`$input`, `$json`, `$('Knoten')`, `$now` …), `console.log` landet im
+  Protokoll der Ausführung.
+- **Python**: läuft mit [Pyodide](https://pyodide.org) (CPython als WebAssembly) direkt im Server, ohne installiertes Python.
+  Die Variablen heißen wie in n8n mit `_` statt `$`: `_input.all()`, `_json`, `_('Knoten')`, `_now`, `_jmespath()`.
+  Objekte lassen sich als Attribut oder Schlüssel lesen (`item.json.name`, `item.json['name']`), `print()` landet im Protokoll.
+  Die Standardbibliothek ist dabei; Pakete wie numpy oder pandas lädt Pyodide beim ersten `import` aus dem Netz nach
+  (`FILUFLOW_PYTHON_PACKAGES_DIR`). Der erste Lauf nach dem Start dauert etwa zwei Sekunden, nutzt ein Workflow Python,
+  lädt der Server Pyodide schon beim Start.
+- **Python (Native)**: nutzt den Python-Interpreter des Servers (`FILUFLOW_PYTHON`, Default `python3`) in einem eigenen
+  Prozess je Ausführung, mit allen dort installierten Paketen. Wie im Task-Runner von n8n gibt es nur `_items` (alle Items) bzw.
+  `_item` (je Item) als dicts. Imports sind nur mit Freigabe erlaubt: `FILUFLOW_PYTHON_STDLIB_ALLOW=json,datetime,re` und
+  `FILUFLOW_PYTHON_EXTERNAL_ALLOW=numpy` (`*` für alle; die n8n-Namen `N8N_RUNNERS_STDLIB_ALLOW` usw. gelten auch).
+  Builtins wie `eval`, `open` oder `getattr` sind gesperrt (`FILUFLOW_PYTHON_BUILTINS_DENY`), die Umgebung ist leer
+  (`FILUFLOW_PYTHON_ENV_ACCESS=true` gibt sie frei).
+
+```python
+# Python: alle Items durchlaufen
+for item in _input.all():
+    item.json.summe = item.json.netto * 1.19
+return _input.all()
+```
+
+Alle Varianten haben ein Zeitlimit (`FILUFLOW_CODE_TIMEOUT_MS`, Default 60 s), das auch Endlosschleifen beendet. Das Code-Tool
+für KI-Agenten kann ebenfalls Python. `FILUFLOW_PYTHON_ENABLED=false` schaltet Python ab.
+
 ## KI-Knoten
 
 AI Agent (Tools Agent), Basic LLM Chain, Information Extractor, Text Classifier und Sentiment Analysis, mit den Modellen von
@@ -338,6 +367,8 @@ setzen Credentials beim Worker, verwalten Benutzer und lesen das Audit-Log.
 | `FILUFLOW_PRUNE_DAYS` | Aufbewahrung der Ausführungen in Tagen | `14` |
 | `FILUFLOW_TIMEZONE` | Zeitzone für Zeitpläne und Datumswerte | `Europe/Berlin` |
 | `FILUFLOW_CODE_TIMEOUT_MS` | Zeitlimit für Code-Knoten | `60000` |
+| `FILUFLOW_PYTHON`, `FILUFLOW_PYTHON_STDLIB_ALLOW`, `FILUFLOW_PYTHON_EXTERNAL_ALLOW` | Python (Native): Interpreter und erlaubte Imports | `python3`, keine, keine |
+| `FILUFLOW_PYTHON_PACKAGES_DIR` | Ablage für nachgeladene Python-Pakete (Pyodide) | `~/.cache/filuflow/pyodide` |
 | `FILUFLOW_ENV_ALLOW` | welche Umgebungsvariablen `$env` liefert | Präfix `FL_` |
 | `FILUFLOW_PAYLOAD_SIZE_MAX` | maximale Request-Größe in MB | `16` |
 | `FILUFLOW_UI` | `false` schaltet die Oberfläche ab | an |
@@ -352,7 +383,7 @@ Worker. Das Image basiert auf `node:22-slim` und läuft als Benutzer `node` mit 
 `/data/workflows`, optional `/data/credentials.json` und `/data/vars.json`).
 
 ```bash
-docker build -t filuflow .
+docker build -t filuflow .                                   # mit Python (Native): --build-arg WITH_PYTHON=true
 docker run -p 5678:5678 -e FILUFLOW_API_KEY=geheim -v "$PWD/data:/data" filuflow
 ```
 

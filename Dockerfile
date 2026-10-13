@@ -12,13 +12,18 @@ COPY scripts/copy-ui-assets.mjs ./scripts/
 RUN npm run build && npm prune --omit=dev
 
 FROM node:22-slim
+# Python (Native) im Code-Node braucht einen Python-Interpreter: docker build --build-arg WITH_PYTHON=true .
+# Python (Pyodide) läuft ohne, es steckt in node_modules.
+ARG WITH_PYTHON=false
+RUN if [ "$WITH_PYTHON" = "true" ]; then apt-get update && apt-get install -y --no-install-recommends python3 && rm -rf /var/lib/apt/lists/*; fi
 # credentials.json und vars.json sind optional und liegen im Arbeitsverzeichnis /data
 # (FILUFLOW_CREDENTIALS bzw. FILUFLOW_VARS würden die Datei verpflichtend machen)
 ENV NODE_ENV=production \
     FILUFLOW_DIR=/data/workflows \
     FILUFLOW_DB=/data/filuflow.db \
     FILUFLOW_BINARY_DIR=/data/binary \
-    FILUFLOW_PORT=5678
+    FILUFLOW_PORT=5678 \
+    FILUFLOW_PYTHON_PACKAGES_DIR=/data/pyodide
 WORKDIR /app
 COPY --from=build /app/package.json ./
 COPY --from=build /app/node_modules ./node_modules
