@@ -1,9 +1,11 @@
 // OpenAI Chat Model, @n8n/n8n-nodes-langchain.lmChatOpenAi (typeVersion 1 bis 1.3)
 // Nachgebaut nach n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/llms/LMChatOpenAi/LmChatOpenAi.node.ts
-// Unterstützt die Chat-Completions-API; die Responses API (v1.3, Default) meldet validate als nicht unterstützt.
-import type { NodeIssue, NodeType } from './types.js';
+// Chat-Completions-API und ab v1.3 (Default) die Responses API mit eingebauten Tools (M26).
+import type { NodeType } from './types.js';
 import type { WorkflowNode } from '../types.js';
 import { OpenAiChatModel } from '../ai/models/openai.js';
+import { OpenAiResponsesModel } from '../ai/models/openaiResponses.js';
+import { NodeOperationError } from '../errors.js';
 import type { ParamSchema } from './params.js';
 
 function responsesApiEnabled(node: WorkflowNode): boolean {
@@ -380,6 +382,81 @@ const parameters: ParamSchema[] = [
   },
 ];
 
+/** n8n jsonParse mit errorMessage */
+function parseJson(nodeName: string, value: unknown, errorMessage: string): unknown {
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    throw new NodeOperationError(nodeName, errorMessage);
+  }
+}
+
+/** Leere Werte entfernen (common.ts removeEmptyProperties) */
+function removeEmpty(obj: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== '' && v !== undefined && !(v && typeof v === 'object' && Object.keys(v).length === 0)));
+}
+
+const toArray = (text: string) =>
+  text
+    .split(',')
+    .map((e) => e.trim())
+    .filter(Boolean);
+
+/** common.ts formatBuiltInTools (n8n 1.123.0 LMChatOpenAi) */
+export function formatBuiltInTools(nodeName: string, builtIn: Record<string, unknown>): Array<Record<string, unknown>> {
+  const tools: Array<Record<string, unknown>> = [];
+  const web = builtIn.webSearch as Record<string, unknown> | undefined;
+  if (web) {
+    const domains = typeof web.allowedDomains === 'string' && web.allowedDomains ? toArray(web.allowedDomains) : undefined;
+    const location = web.country || web.city || web.region ? { type: 'approximate', country: web.country, city: web.city, region: web.region } : undefined;
+    tools.push({ type: 'web_search', search_context_size: web.searchContextSize ?? 'medium', user_location: location, ...(domains ? { filters: { allowed_domains: domains } } : {}) });
+  }
+  if (builtIn.codeInterpreter) tools.push({ type: 'code_interpreter', container: { type: 'auto' } });
+  const files = builtIn.fileSearch as Record<string, unknown> | undefined;
+  if (files) {
+    const filters = files.filters ?? '{}';
+    tools.push({
+      type: 'file_search',
+      vector_store_ids: parseJson(nodeName, files.vectorStoreIds ?? '[]', 'Failed to parse vector store IDs'),
+      filters: filters ? parseJson(nodeName, filters, 'Failed to parse filters') : undefined,
+      max_num_results: files.maxResults,
+    });
+  }
+  return tools;
+}
+
+/** common.ts prepareAdditionalResponsesParams */
+export function prepareAdditionalResponsesParams(nodeName: string, options: Record<string, unknown>): Record<string, unknown> {
+  const body: Record<string, unknown> = {
+    prompt_cache_key: options.promptCacheKey,
+    safety_identifier: options.safetyIdentifier,
+    service_tier: options.serviceTier,
+    top_logprobs: options.topLogprobs,
+  };
+  if (options.conversationId) body.conversation = options.conversationId;
+  if (options.metadata) body.metadata = parseJson(nodeName, options.metadata, 'Failed to parse metadata');
+  if (options.promptConfig) {
+    // fixedCollection ohne multipleValues: Objekt; der Default von n8n ist eine Liste
+    const raw = (options.promptConfig as { promptOptions?: unknown }).promptOptions;
+    const prompt = ((Array.isArray(raw) ? raw[0] : raw) ?? {}) as { promptId?: string; version?: string; variables?: string };
+    body.prompt = removeEmpty({
+      id: prompt.promptId,
+      version: prompt.version,
+      ...(prompt.variables ? { variables: parseJson(nodeName, prompt.variables, 'Failed to parse prompt variables') } : {}),
+    });
+  }
+  if (options.textFormat) {
+    const t = ((options.textFormat as { textOptions?: unknown }).textOptions ?? {}) as Record<string, unknown>;
+    const text: Record<string, unknown> = { verbosity: t.verbosity };
+    text.format =
+      t.type === 'json_schema' ? removeEmpty({ type: t.type, name: t.name, schema: parseJson(nodeName, t.schema, 'Failed to parse schema') }) : removeEmpty({ type: t.type });
+    body.text = text;
+  }
+  if (options.reasoningEffort) body.reasoning = { effort: options.reasoningEffort };
+  return body;
+}
+
 export const lmChatOpenAiNode: NodeType = {
   type: '@n8n/n8n-nodes-langchain.lmChatOpenAi',
   displayName: 'OpenAI Chat Model',
@@ -390,17 +467,6 @@ export const lmChatOpenAiNode: NodeType = {
   inputs: () => 0,
   outputs: () => 0,
   credentialTypes: () => ['openAiApi'],
-  validate(node) {
-    const issues: NodeIssue[] = [];
-    if (responsesApiEnabled(node)) {
-      issues.push({
-        code: 'node.unsupportedParameter',
-        message: 'OpenAI Chat Model: die Responses API wird nicht unterstützt; bitte "Use Responses API" ausschalten',
-        path: 'parameters.responsesApiEnabled',
-      });
-    }
-    return issues;
-  },
   async execute() {
     return null;
   },
@@ -415,6 +481,19 @@ export const lmChatOpenAiNode: NodeType = {
       headers[credentials.headerName] = credentials.headerValue;
     }
     const modelKwargs: Record<string, unknown> = {};
+    if (responsesApiEnabled(ctx.node)) {
+      return new OpenAiResponsesModel(ctx, {
+        apiKey: String(credentials.apiKey ?? ''),
+        baseURL,
+        model,
+        temperature: options.temperature as number | undefined,
+        topP: options.topP as number | undefined,
+        maxTokens: options.maxTokens as number | undefined,
+        modelKwargs: prepareAdditionalResponsesParams(ctx.node.name, options),
+        headers,
+        builtInTools: formatBuiltInTools(ctx.node.name, ctx.getParam<Record<string, unknown>>('builtInTools', itemIndex, {})),
+      });
+    }
     if (options.responseFormat) modelKwargs.response_format = { type: options.responseFormat };
     if (typeof options.reasoningEffort === 'string' && ['low', 'medium', 'high'].includes(options.reasoningEffort)) {
       modelKwargs.reasoning_effort = options.reasoningEffort;

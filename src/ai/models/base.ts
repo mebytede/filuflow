@@ -19,6 +19,8 @@ export interface ModelCallOptions {
   sourceRunIndex?: number;
   /** Streaming: Text-Teile, sobald das Modell sie liefert (n8n streamEvents, on_chat_model_stream) */
   onToken?: (text: string) => void;
+  /** Eingebaute Tools des Modells mitsenden (n8n Tools Agent V3: model.metadata.tools) */
+  includeBuiltInTools?: boolean;
 }
 
 export interface TokenUsage {

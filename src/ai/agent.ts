@@ -169,12 +169,13 @@ function buildMessages(p: PromptInput): ChatMessage[] {
 }
 
 /** Modell aufrufen; bei Fehler das Fallback-Modell (RunnableWithFallbacks) */
-async function invokeWithFallback(setup: AgentSetup, messages: ChatMessage[], tools: ToolDefinition[], onToken?: (text: string) => void): Promise<ChatResult> {
+async function invokeWithFallback(setup: AgentSetup, messages: ChatMessage[], tools: ToolDefinition[], onToken?: (text: string) => void, includeBuiltInTools = false): Promise<ChatResult> {
+  const options = { tools, ...(onToken ? { onToken } : {}), ...(includeBuiltInTools ? { includeBuiltInTools } : {}) };
   try {
-    return await setup.model.invoke(messages, { tools, ...(onToken ? { onToken } : {}) });
+    return await setup.model.invoke(messages, options);
   } catch (error) {
     if (!setup.fallbackModel) throw error;
-    return setup.fallbackModel.invoke(messages, { tools, ...(onToken ? { onToken } : {}) });
+    return setup.fallbackModel.invoke(messages, options);
   }
 }
 
@@ -490,7 +491,8 @@ async function runAgentV3Item(
   // V3 streamt je Modellaufruf (processEventStream: begin, Text-Teile, end)
   const stream = streamingEnabled(ctx);
   if (stream) ctx.sendChunk('begin', itemIndex);
-  const result = await invokeWithFallback(setup, messages, toolDefinitions(item.tools), stream ? (text) => ctx.sendChunk('item', itemIndex, text) : undefined);
+  // V3 (createAgentSequence getAllTools): eingebaute Tools des Modells (OpenAI Responses API) zusätzlich
+  const result = await invokeWithFallback(setup, messages, toolDefinitions(item.tools), stream ? (text) => ctx.sendChunk('item', itemIndex, text) : undefined, true);
   if (stream) ctx.sendChunk('end', itemIndex);
   const output = applyStepsParser(parseModelResult(result), item.outputParser, setup.memory);
   if (!Array.isArray(output)) {
