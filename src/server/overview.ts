@@ -1,6 +1,7 @@
 // Übersicht der Weboberfläche: Auslöser je Workflow und Kennzahlen (Ausführungen und Fehler der letzten 14 Tage,
 // letzte Ausführung je Workflow, Auslastung, Quelle und Zeitpunkt des letzten Ladens).
 import type { FastifyInstance } from 'fastify';
+import { formPath } from '../nodes/formTrigger.js';
 import type { RegisteredSchedule, Scheduler } from './schedules.js';
 import type { WorkflowManager } from './workflows.js';
 import type { Workflow } from '../types.js';
@@ -9,7 +10,7 @@ import type { ExecutionStore } from './store.js';
 import type { ExecutionManager } from './executions.js';
 
 export interface TriggerInfo {
-  kind: 'webhook' | 'schedule' | 'error' | 'manual' | 'workflow' | 'chat' | 'other';
+  kind: 'webhook' | 'schedule' | 'error' | 'manual' | 'workflow' | 'chat' | 'form' | 'other';
   label: string;
 }
 
@@ -62,6 +63,8 @@ export function triggersOf(workflow: Workflow, schedules: RegisteredSchedule[] =
       out.push({ kind: 'error', label: 'Fehler-Trigger' });
     } else if (type === 'n8n-nodes-base.manualTrigger') {
       out.push({ kind: 'manual', label: 'Manuell' });
+    } else if (type === 'n8n-nodes-base.formTrigger') {
+      out.push({ kind: 'form', label: `Formular /form/${formPath(node)}` });
     } else if (type === '@n8n/n8n-nodes-langchain.chatTrigger') {
       out.push({ kind: 'chat', label: node.parameters?.public === true ? 'Chat (öffentlich)' : 'Chat' });
     } else if (type === 'n8n-nodes-base.executeWorkflowTrigger') {

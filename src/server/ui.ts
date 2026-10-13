@@ -38,12 +38,12 @@ function headers(reply: FastifyReply, type: string): FastifyReply {
     .header('cache-control', 'no-cache');
 }
 
-/** Nur die Dateien der gehosteten Chat-Seite (wenn die Oberfläche abgeschaltet ist, z. B. im Worker) */
+/** Nur die Dateien der öffentlichen Chat- und Formularseiten (wenn die Oberfläche abgeschaltet ist, z. B. im Worker) */
 export function registerChatAssets(app: FastifyInstance, dir?: string): void {
   const root = dir && existsSync(join(dir, 'index.html')) ? dir : findUiDir();
-  app.get('/ui/chat/*', async (request, reply) => {
+  for (const sub of ['chat', 'form']) app.get(`/ui/${sub}/*`, async (request, reply) => {
     if (!root) return reply.code(404).send({ message: 'Nicht gefunden' });
-    const chatRoot = join(root, 'chat');
+    const chatRoot = join(root, sub);
     const rel = normalize((request.params as { '*': string })['*'] ?? '');
     const file = join(chatRoot, rel);
     if (rel.startsWith('..') || !file.startsWith(chatRoot + sep)) return reply.code(404).send({ message: 'Nicht gefunden' });

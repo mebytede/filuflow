@@ -43,6 +43,8 @@ import { toolCalculatorNode } from './toolCalculator.js';
 import { toolCodeNode } from './toolCode.js';
 import { memoryBufferWindowNode } from './memoryBufferWindow.js';
 import { chatTriggerNode } from './chatTrigger.js';
+import { formTriggerNode } from './formTrigger.js';
+import { formNode } from './form.js';
 import { toolWorkflowNode } from './toolWorkflow.js';
 import { toolHttpRequestNode } from './toolHttpRequest.js';
 
@@ -89,6 +91,8 @@ export const builtinNodeTypes: NodeType[] = [
   toolCodeNode,
   memoryBufferWindowNode,
   chatTriggerNode,
+  formTriggerNode,
+  formNode,
   toolWorkflowNode,
   toolHttpRequestNode,
 ];

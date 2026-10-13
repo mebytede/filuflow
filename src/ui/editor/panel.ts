@@ -170,6 +170,27 @@ export class Panel {
       );
     }
 
+    // Formular- und Chat-Adressen
+    if (node.type === 'n8n-nodes-base.formTrigger' || node.type === '@n8n/n8n-nodes-langchain.chatTrigger') {
+      const base = this.host.webhookBaseUrl();
+      const opts = (node.parameters.options ?? {}) as { path?: unknown };
+      const form = node.type === 'n8n-nodes-base.formTrigger';
+      const path = form
+        ? String((typeof node.parameters.path === 'string' && node.parameters.path) || (typeof opts.path === 'string' && opts.path) || node.webhookId || '').replace(/^\/+|\/+$/g, '')
+        : `${node.webhookId ?? ''}/chat`;
+      const prod = `${base}/${form ? 'form' : 'webhook'}/${path}`;
+      const test = `${base}/${form ? 'form-test' : 'webhook-test'}/${path}`;
+      box.append(
+        h(
+          'div',
+          { class: 'info-box' },
+          h('div', null, h('strong', null, 'Produktiv: '), h('a', { href: prod, target: '_blank', rel: 'noopener' }, prod)),
+          h('div', null, h('strong', null, 'Test: '), h('a', { href: test, target: '_blank', rel: 'noopener' }, test)),
+          h('div', { class: 'muted' }, form ? 'Produktiv-URL gilt nur für aktive, gespeicherte Workflows.' : 'Die Chat-Seite gibt es nur, wenn der Chat öffentlich ist ("public").'),
+        ),
+      );
+    }
+
     // Sprache von Code-Node und Code Tool: beim Wechsel Startcode einsetzen, wenn das Feld noch leer ist
     const isCode = node.type === 'n8n-nodes-base.code' && node.typeVersion >= 2;
     const isToolCode = node.type === '@n8n/n8n-nodes-langchain.toolCode';

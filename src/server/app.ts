@@ -248,6 +248,27 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
     };
     scope.all('/webhook/*', handler(false));
     scope.all('/webhook-test/*', handler(true));
+    // Formulare (M17): /form/<Pfad>, /form-test/<Pfad>, Folgeseiten /form-waiting/<executionId>
+    const formRequest = (request: FastifyRequest) => ({
+      method: request.method.toUpperCase(),
+      headers: request.headers,
+      query: (request.query ?? {}) as Record<string, unknown>,
+      rawBody: Buffer.isBuffer(request.body) ? request.body : Buffer.alloc(0),
+      ip: request.ip,
+      ips: [],
+    });
+    const formHandler = (test: boolean) => async (request: FastifyRequest, reply: FastifyReply) =>
+      sendHttp(reply, await webhooks.handleForm(test, (request.params as { '*': string })['*'] ?? '', formRequest(request)));
+    scope.route({ method: ['GET', 'POST'], url: '/form/*', handler: formHandler(false) });
+    scope.route({ method: ['GET', 'POST'], url: '/form-test/*', handler: formHandler(true) });
+    scope.route({
+      method: ['GET', 'POST'],
+      url: '/form-waiting/*',
+      handler: async (request: FastifyRequest, reply: FastifyReply) => {
+        const [executionId, ...rest] = ((request.params as { '*': string })['*'] ?? '').split('/');
+        return sendHttp(reply, await webhooks.handleWaitingForm(executionId ?? '', rest.join('/').replace(/\/+$/, ''), formRequest(request)));
+      },
+    });
     // Fortsetzen wartender Executions: /webhook-waiting/<executionId>[/<webhookSuffix>]
     scope.all('/webhook-waiting/*', async (request: FastifyRequest, reply: FastifyReply) => {
       const [executionId, ...rest] = ((request.params as { '*': string })['*'] ?? '').split('/');

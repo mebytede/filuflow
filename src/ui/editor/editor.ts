@@ -405,7 +405,7 @@ export class Editor {
     position = [Math.round(position[0] / GRID) * GRID, Math.round(position[1] / GRID) * GRID];
     const name = uniqueName(this.wf, info.displayName);
     const node: WorkflowNode = { parameters: templateFor(type, version), id: newId(), name, type, typeVersion: version, position };
-    if (type === 'n8n-nodes-base.webhook' || type === 'n8n-nodes-base.wait' || type === '@n8n/n8n-nodes-langchain.chatTrigger') node.webhookId = newId();
+    if (['n8n-nodes-base.webhook', 'n8n-nodes-base.wait', 'n8n-nodes-base.formTrigger', '@n8n/n8n-nodes-langchain.chatTrigger'].includes(type)) node.webhookId = newId();
     this.update((wf) => {
       wf.nodes.push(node);
       if (edge) addEdge(wf, { ...edge, to: name });

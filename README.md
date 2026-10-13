@@ -106,6 +106,10 @@ FILUFLOW_API_KEY=geheim filuflow serve --dir ./workflows --port 5678 --db ./filu
 - Ungültige Workflows (zum Beispiel mit unbekannten Knoten) werden nicht aktiviert. Der Grund steht im Log, in der Übersicht und
   in `GET /api/workflows`.
 - Ausführungen landen in SQLite, standardmäßig 14 Tage lang; höchstens 5 laufen gleichzeitig, weitere warten.
+- **Formulare:** Der Form Trigger stellt ein Formular unter `/form/<pfad>` bereit (Test: `/form-test/<pfad>`), mit Feldern
+  für Text, Zahl, E-Mail, Datum, Auswahl, Checkboxen, Radio-Buttons, Dateien, versteckte Felder und eigenes HTML. Mit dem
+  Form-Knoten folgen weitere Seiten und eine Abschlussseite; der Wait-Knoten kann ebenfalls auf ein Formular warten. Die Seiten
+  sind normale HTML-Formulare ohne Skript.
 - **Warten:** Der Wait-Knoten hält eine Ausführung an, bis eine Zeit erreicht ist oder ein Webhook kommt
   (`$execution.resumeUrl`, also `/webhook-waiting/<ausführung>`, optional mit Suffix und Authentifizierung). Wartende
   Ausführungen liegen in der Datenbank und überstehen einen Neustart; in der Liste steht, worauf sie warten, und sie lassen

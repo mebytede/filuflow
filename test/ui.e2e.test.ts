@@ -3,7 +3,6 @@
 // bearbeiten, im Editor ein neues Credential anlegen.
 // Wird übersprungen, wenn kein Chromium verfügbar ist. Baut die Oberfläche vorher (npm run build:ui).
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -13,7 +12,6 @@ import { createServer, type FiluflowServer } from '../src/server/app.js';
 import { StaticCredentialProvider } from '../src/credentials/store.js';
 import { LayeredCredentialProvider } from '../src/credentials/managed.js';
 
-const ROOT = join(__dirname, '..');
 const KEY = 'e2e-schluessel';
 let browser: Browser | undefined;
 let server: FiluflowServer | undefined;
@@ -36,8 +34,7 @@ async function launch(): Promise<Browser | undefined> {
 beforeAll(async () => {
   browser = await launch();
   if (!browser) return;
-  execFileSync(process.execPath, [join(ROOT, 'node_modules', 'typescript', 'bin', 'tsc'), '-p', join(ROOT, 'tsconfig.ui.json')], { cwd: ROOT });
-  execFileSync(process.execPath, [join(ROOT, 'scripts', 'copy-ui-assets.mjs')], { cwd: ROOT });
+  // dist/ui baut test/helpers/global-setup.ts
   dir = mkdtempSync(join(tmpdir(), 'filuflow-e2e-'));
   credDir = mkdtempSync(join(tmpdir(), 'filuflow-e2e-cred-'));
   const credentials = await new LayeredCredentialProvider(new StaticCredentialProvider(), join(credDir, 'credentials.managed.json')).load();

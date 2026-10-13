@@ -1,0 +1,24 @@
+/* Öffentliche Formularseiten (Form Trigger, Form-Knoten, Wait per Formular). Ohne Skript; hell als Standard,
+   dunkel nach Systemeinstellung. Eigene Gestaltung über "Custom Form Styling". */
+:root { --f-bg:#F2F6F8; --f-card:#FFFFFF; --f-line:#C3D2DC; --f-text:#0B1219; --f-muted:#4A5A69; --f-accent:#006A86; --f-accent-text:#FFFFFF; --f-error:#B3282F; }
+@media (prefers-color-scheme: dark) {
+  :root { --f-bg:#0B1219; --f-card:#101A24; --f-line:#2A3A4A; --f-text:#E8F1F6; --f-muted:#8FA3B4; --f-accent:#5BE1FF; --f-accent-text:#06202A; --f-error:#FF8A8F; }
+}
+html { background: var(--f-bg); }
+body { margin: 0; padding: 32px 16px; color: var(--f-text); font: 15px/1.5 'IBM Plex Sans', system-ui, sans-serif; }
+.form-card { max-width: 560px; margin: 0 auto; background: var(--f-card); border: 1px solid var(--f-line); padding: 32px; box-sizing: border-box; }
+.form-title { margin: 0 0 8px; font: 600 22px/1.3 'IBM Plex Mono', ui-monospace, monospace; }
+.form-description { color: var(--f-muted); margin: 0 0 24px; }
+.form-test { margin: 0 0 16px; padding: 8px 12px; border: 1px solid var(--f-accent); color: var(--f-muted); font-size: 13px; }
+.form-fields { display: flex; flex-direction: column; gap: 18px; }
+.form-field { display: flex; flex-direction: column; gap: 6px; border: 0; padding: 0; margin: 0; }
+.form-label { font-weight: 600; font-size: 14px; padding: 0; }
+.form-required { color: var(--f-error); }
+.form-field input[type=text], .form-field input[type=email], .form-field input[type=number], .form-field input[type=password],
+.form-field input[type=date], .form-field select, .form-field textarea {
+  padding: 9px 12px; border: 1px solid var(--f-line); border-radius: 4px; background: var(--f-card); color: var(--f-text); font: inherit;
+}
+.form-field input:focus, .form-field select:focus, .form-field textarea:focus { outline: 2px solid var(--f-accent); outline-offset: -1px; }
+.form-option { display: flex; align-items: center; gap: 8px; font-weight: 400; }
+.form-html img, .form-html video, .form-html iframe { max-width: 100%; }
+.form-submit { margin-top: 8px; padding: 11px 18px; border: 1px solid var(--f-accent); background: var(--f-accent); color: var(--f-accent-text); font: 600 15px 'IBM Plex Sans', system-ui, sans-serif; cursor: pointer; }

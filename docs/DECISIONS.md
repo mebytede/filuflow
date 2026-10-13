@@ -91,6 +91,15 @@ Neben dem Stack aus CLAUDE.md (luxon, better-sqlite3, fastify, croner, pino):
   dann nach ID. Umbenennen behält die ID, damit Workflows mit gespeicherter ID das Credential weiter finden.
 - Keine neue Abhängigkeit.
 
+## Formulare (M17)
+- **HTML-Formulare ohne Skript:** n8n rendert eine Vorlage mit JavaScript, schickt per fetch und leitet mit 307 weiter.
+  filuflow liefert normale Formulare (multipart/form-data), Weiterleitungen als 303, und zeigt beim Speichern des
+  Wartezustands kurz eine Seite mit Neuladen. Feldnamen (`field-0` …) und die Ausgabe der Knoten sind wie in n8n.
+- **Abschlussseite:** n8n setzt die Ausführung fort, wenn die Abschlussseite per Skript zurückmeldet; filuflow setzt sie beim
+  Anzeigen der Seite fort.
+- **HTML-Bereinigung** als kleiner eigener Filter mit der Freigabeliste von n8n (statt sanitize-html).
+- Pflicht-Checkboxen und Auswahlgrenzen prüft der Server (n8n prüft im Browser).
+
 ## Chat Trigger (M16)
 - **Eigene Chat-Seite statt @n8n/chat:** n8n lädt das Chat-Widget aus einem CDN. filuflow liefert eine kleine eigene Seite
   (`src/ui/chat/`, gebaut nach `dist/ui/chat/`), ohne fremde Quellen und mit strenger CSP. Das Protokoll ist dasselbe

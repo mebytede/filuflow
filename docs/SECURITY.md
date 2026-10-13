@@ -48,6 +48,10 @@ Trotzdem gilt:
   `/rest/oauth2-credential/callback` ist ohne Anmeldung erreichbar (der Browser kommt vom Anbieter zurück) und nimmt nur
   einen einmaligen, zufälligen `state` an, der 10 Minuten gilt; bei PKCE bleibt der `code_verifier` auf dem Server. Tokens
   liegen verschlüsselt in der Datenbank (beim Worker), nicht in der Oberfläche und nicht im Master.
+- Formulare: Die Seiten unter `/form/` und `/form-waiting/` laufen ohne Skript (CSP `script-src 'none'`). Beschreibungen
+  und eigenes HTML werden auf erlaubte Tags reduziert (wie n8n: Text, Listen, Tabellen, Links, Bilder, Videos, iframes in
+  einer Sandbox), Links und Quellen nur per http(s). Wer die Adresse einer Folgeseite kennt, kann sie ausfüllen; für
+  vertrauliche Abläufe Basic Auth am Form Trigger nutzen.
 - Chat Trigger: Ein öffentlicher Chat ist ohne Anmeldung erreichbar, außer der Knoten verlangt Basic Auth. Jede Nachricht
   startet eine Ausführung; für das Internet gehört eine Begrenzung (Reverse Proxy) davor. Die Chat-Seite lädt nur eigene
   Skripte (CSP `script-src 'self'`), Einstellungen stehen als JSON-Daten in der Seite; eigenes CSS (`customCss`) ist erlaubt.

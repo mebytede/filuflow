@@ -11,6 +11,7 @@ import lodash from 'lodash';
 import type { Execution, Item, TaskData, Workflow, WorkflowNode } from '../types.js';
 import {
   WEBHOOK_NODE_TYPE,
+  RESPOND_TO_WEBHOOK_TYPE,
   WebhookConfigurationError,
   UnprocessableRequestError,
   describeWebhooks,
@@ -28,11 +29,18 @@ import { ResumeError, type ActiveExecution, type ExecutionManager } from './exec
 import type { ExecutionStore } from './store.js';
 import type { RunHooks } from '../engine/executor.js';
 import { WAIT_NODE_TYPE } from '../nodes/wait.js';
+import { DEFAULT_TIMEZONE } from '../engine/executor.js';
+
+const BOT_UA = /bot|crawl|spider|slurp|scrape|facebookexternalhit|embedly|preview|curl\/|wget|python-requests|httpclient|headless|lighthouse|monitor/i;
+import { FORM_NODE_TYPE, FORM_TRIGGER_TYPE, FORM_CSP, formFieldsOf, formReturnItem, renderCompletionPage, renderFormPage, validateSubmission, type FormField } from '../nodes/shared/form.js';
+import { formPath } from '../nodes/formTrigger.js';
 import { CHAT_TRIGGER_TYPE, chatWebhookPath, handleChatRequest, type ChatOptions } from '../nodes/chatTrigger.js';
 import type { Logger } from '../logger.js';
 
 export interface RegisteredWebhook extends WebhookDescription {
   workflow: Workflow;
+  /** Formular (/form/<Pfad>), getrennt von /webhook/ */
+  form?: boolean;
   /** Pfad ohne Webhook-ID (dynamische Webhooks), z. B. "user/:id" */
   webhookPath: string;
   staticSegments: string[];
@@ -77,8 +85,8 @@ export class WebhookRegistry {
   private readonly staticHooks = new Map<string, RegisteredWebhook>();
   private readonly dynamicHooks: RegisteredWebhook[] = [];
 
-  private static key(method: string, path: string): string {
-    return `${method} ${path}`;
+  private static key(method: string, path: string, form = false): string {
+    return `${method} ${form ? 'form:' : ''}${path}`;
   }
 
   clear(): void {
@@ -90,6 +98,11 @@ export class WebhookRegistry {
   add(workflow: Workflow): RegisteredWebhook[] {
     const hooks: RegisteredWebhook[] = [];
     for (const node of workflow.nodes) {
+      if (node.type === FORM_TRIGGER_TYPE && !node.disabled && formPath(node)) {
+        const path = formPath(node);
+        for (const method of ['GET', 'POST']) hooks.push({ node: node.name, method, path, isDynamic: false, form: true, workflow, webhookPath: path, staticSegments: path.split('/'), pathLength: path.split('/').length });
+        continue;
+      }
       if (node.type === CHAT_TRIGGER_TYPE && !node.disabled && node.webhookId) {
         // Chat Trigger: GET (Seite) und POST (Nachrichten) unter <webhookId>/chat
         const path = chatWebhookPath(node);
@@ -112,7 +125,7 @@ export class WebhookRegistry {
     for (const h of hooks) {
       const conflict = h.isDynamic
         ? this.dynamicHooks.find((o) => o.webhookId === h.webhookId && o.method === h.method && o.webhookPath === h.webhookPath)
-        : this.staticHooks.get(WebhookRegistry.key(h.method, h.path));
+        : this.staticHooks.get(WebhookRegistry.key(h.method, h.path, h.form));
       if (conflict) {
         throw new WebhookConflictError(
           `There is a conflict with one of the webhooks: ${h.method} ${h.path} ist bereits von Workflow "${conflict.workflow.name}" belegt`,
@@ -121,7 +134,7 @@ export class WebhookRegistry {
     }
     for (const h of hooks) {
       if (h.isDynamic) this.dynamicHooks.push(h);
-      else this.staticHooks.set(WebhookRegistry.key(h.method, h.path), h);
+      else this.staticHooks.set(WebhookRegistry.key(h.method, h.path, h.form), h);
     }
     return hooks;
   }
@@ -158,16 +171,17 @@ export class WebhookRegistry {
     return best;
   }
 
-  methodsFor(path: string): string[] {
-    const statics = [...this.staticHooks.values()].filter((h) => h.path === path).map((h) => h.method);
+  methodsFor(path: string, form = false): string[] {
+    const statics = [...this.staticHooks.values()].filter((h) => h.path === path && !!h.form === form).map((h) => h.method);
+    if (form) return statics;
     if (statics.length) return statics;
     const dyn = this.findDynamic(path);
     return dyn ? [dyn.method] : [];
   }
 
-  find(method: string, rawPath: string): { hook: RegisteredWebhook; params: Record<string, string> } | undefined {
+  find(method: string, rawPath: string, form = false): { hook: RegisteredWebhook; params: Record<string, string> } | undefined {
     const path = rawPath.endsWith('/') ? rawPath.slice(0, -1) : rawPath;
-    const hook = this.staticHooks.get(WebhookRegistry.key(method, path)) ?? this.findDynamic(path, method);
+    const hook = this.staticHooks.get(WebhookRegistry.key(method, path, form)) ?? (form ? undefined : this.findDynamic(path, method));
     if (!hook) return undefined;
     const params: Record<string, string> = {};
     if (hook.isDynamic) {
@@ -322,6 +336,285 @@ export class WebhookService {
         hooks,
       }),
     );
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // Formulare (M17)
+
+  private formHtml(statusCode: number, body: string): HttpResponse {
+    return { statusCode, headers: { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': FORM_CSP }, body, raw: true };
+  }
+
+  private formRedirect(location: string): HttpResponse {
+    return { statusCode: 303, headers: { location }, body: '', raw: true };
+  }
+
+  private formMessage(statusCode: number, title: string, message: string): HttpResponse {
+    return this.formHtml(statusCode, renderCompletionPage({ title, message }));
+  }
+
+  /**
+   * Antwort auf ein abgeschicktes Formular. Die Seiten sind normale HTML-Formulare: Weiterleitungen gehen als 303
+   * (n8n nutzt 307 mit Skript in der Seite). Modi: onReceived (sofort), lastNode (nach dem Ende), responseNode
+   * (Respond to Webhook mit formSubmittedText oder redirectURL), next (Folgeseite: Weiterleitung des Form-Knotens,
+   * sonst nach dem Ende zur Seite der Ausführung).
+   */
+  private formFlow(
+    mode: string,
+    start: (hooks: RunHooks) => ActiveExecution,
+    page: { title: string; submittedText?: string; redirectUrl?: string; customCss?: string },
+  ): Promise<HttpResponse> {
+    const finished = (text = page.submittedText, redirectUrl = page.redirectUrl): HttpResponse => {
+      if (redirectUrl) return this.formRedirect(redirectUrl.includes('://') ? redirectUrl : `http://${redirectUrl}`);
+      return this.formHtml(200, renderCompletionPage({ title: page.title, message: text ?? 'Your response has been recorded', customCss: page.customCss }));
+    };
+    return new Promise<HttpResponse>((resolve) => {
+      let responded = false;
+      const respond = (r: HttpResponse) => {
+        if (responded) return;
+        responded = true;
+        resolve(r);
+      };
+      const sendResponse = (r: WebhookResponse) => {
+        const location = r.headers.location ?? r.headers.Location;
+        if ((mode === 'next' || mode === 'responseNode') && r.statusCode >= 300 && r.statusCode < 400 && location) return respond(this.formRedirect(location));
+        if (mode !== 'responseNode') return;
+        let body = r.body;
+        if (typeof body === 'string') {
+          try {
+            body = JSON.parse(body);
+          } catch {
+            // Text bleibt Text
+          }
+        }
+        const o = (body && typeof body === 'object' ? body : {}) as { formSubmittedText?: unknown; redirectURL?: unknown };
+        respond(finished(typeof o.formSubmittedText === 'string' ? o.formSubmittedText : page.submittedText, typeof o.redirectURL === 'string' ? o.redirectURL : undefined));
+      };
+      let entry: ActiveExecution;
+      try {
+        entry = start({ sendResponse });
+      } catch (error) {
+        const status = error instanceof ResumeError ? error.statusCode : 500;
+        return respond(this.formMessage(status, 'Formular', (error as Error).message));
+      }
+      if (mode === 'onReceived') respond(finished());
+      entry.promise
+        .then((execution) => {
+          if (mode === 'next') return respond(this.formRedirect(`/form-waiting/${execution.id}`));
+          if (execution.status === 'error') return respond(this.formMessage(500, 'Fehler', 'There was a problem executing the workflow'));
+          respond(finished());
+        })
+        .catch(() => respond(this.formMessage(500, 'Fehler', 'There was a problem executing the workflow')));
+    });
+  }
+
+  private async formData(request: Omit<IncomingWebhookRequest, 'params'>): Promise<FormData> {
+    const ct = request.headers['content-type'];
+    const contentType = Array.isArray(ct) ? ct[0] : (ct ?? '');
+    return new Request('http://localhost/', { method: 'POST', headers: { 'content-type': contentType }, body: new Uint8Array(request.rawBody) }).formData();
+  }
+
+  /** Basic Auth wie validateWebhookAuthentication; liefert eine Antwort, wenn der Zugriff abgelehnt wird */
+  private async formAuth(node: WorkflowNode, authProperty: string, request: Omit<IncomingWebhookRequest, 'params'>): Promise<HttpResponse | undefined> {
+    if ((node.parameters as Record<string, unknown>)[authProperty] !== 'basicAuth') return undefined;
+    const ref = node.credentials?.httpBasicAuth;
+    const entry = ref ? this.options.credentials.find(ref, 'httpBasicAuth') : undefined;
+    const expected = entry ? this.options.credentials.resolve(entry) : undefined;
+    const header = request.headers.authorization;
+    const m = /^ *(?:[Bb][Aa][Ss][Ii][Cc]) +([A-Za-z0-9._~+/-]+=*) *$/.exec((Array.isArray(header) ? header[0] : header) ?? '');
+    const decoded = m ? Buffer.from(m[1], 'base64').toString() : '';
+    const idx = decoded.indexOf(':');
+    if (expected?.user && expected?.password && idx !== -1 && decoded.slice(0, idx) === expected.user && decoded.slice(idx + 1) === expected.password) return undefined;
+    return { statusCode: 401, headers: { 'WWW-Authenticate': 'Basic realm="Enter credentials"' }, body: '', raw: true };
+  }
+
+  private formTimezone(workflow: Workflow, useWorkflowTimezone: boolean): string {
+    return useWorkflowTimezone ? String(workflow.settings?.timezone ?? DEFAULT_TIMEZONE) : 'UTC';
+  }
+
+  /** Form Trigger: /form/<Pfad> und /form-test/<Pfad> (formWebhook) */
+  async handleForm(test: boolean, path: string, request: Omit<IncomingWebhookRequest, 'params'>): Promise<HttpResponse> {
+    const registry = test ? this.test : this.production;
+    const method = request.method.toUpperCase();
+    const clean = path.replace(/\/+$/, '');
+    const found = registry.find(method, clean, true);
+    if (!found) return errorResponse(new WebhookNotFoundError(clean, method, registry.methodsFor(clean, true), test));
+    const workflow = found.hook.workflow;
+    const node = workflow.nodes.find((n) => n.name === found.hook.node)!;
+    const p = node.parameters as Record<string, unknown>;
+    const options = (p.options ?? {}) as {
+      ignoreBots?: boolean;
+      respondWithOptions?: { values?: { respondWith?: string; formSubmittedText?: string; redirectUrl?: string } };
+      formSubmittedText?: string;
+      useWorkflowTimezone?: boolean;
+      buttonLabel?: string;
+      customCss?: string;
+    };
+    if (options.ignoreBots && BOT_UA.test(String(request.headers['user-agent'] ?? ''))) {
+      return { statusCode: 401, headers: { 'WWW-Authenticate': 'Basic realm="Enter credentials"' }, body: '', raw: true };
+    }
+    if (node.typeVersion > 1) {
+      const denied = await this.formAuth(node, 'authentication', request);
+      if (denied) return denied;
+    }
+    const graph = new WorkflowGraph(workflow);
+    const children = graph.getChildNodes(node.name).map((n) => graph.getNode(n));
+    const hasNextPage = children.some((n) => n?.type === FORM_NODE_TYPE || (n?.type === WAIT_NODE_TYPE && n.parameters.resume === 'form'));
+    const respondConnected = children.some((n) => n?.type === RESPOND_TO_WEBHOOK_TYPE);
+    const responseMode = String(p.responseMode ?? 'onReceived');
+    // validateResponseModeConfiguration
+    if (!respondConnected && responseMode === 'responseNode') {
+      return this.formMessage(500, 'No Respond to Webhook node found in the workflow', 'Insert a Respond to Webhook node to your workflow to respond to the form submission or choose another option for the “Respond When” parameter');
+    }
+    if (respondConnected && node.typeVersion > 2.1) {
+      return this.formMessage(500, 'The "Respond to Webhook" node is not supported in workflows initiated by the "n8n Form Trigger"', 'To configure your response, add an "n8n Form" node and set the "Page Type" to "Form Ending"');
+    }
+    if (respondConnected && responseMode !== 'responseNode') {
+      return this.formMessage(500, 'Unused Respond to Webhook node found in the workflow', 'Set the “Respond When” parameter to “Using Respond to Webhook Node” or remove the Respond to Webhook node');
+    }
+    let fields: FormField[];
+    try {
+      fields = formFieldsOf(p);
+    } catch (error) {
+      return this.formMessage(500, 'Formular', (error as Error).message);
+    }
+    const values = options.respondWithOptions?.values;
+    const submittedText = values ? (values.respondWith === 'text' ? values.formSubmittedText : undefined) : options.formSubmittedText;
+    const redirectUrl = values?.respondWith === 'redirect' ? values.redirectUrl : undefined;
+    const title = String(p.formTitle ?? '');
+    if (method === 'GET') {
+      return this.formHtml(200, renderFormPage({ title, description: String(p.formDescription ?? ''), fields, buttonLabel: options.buttonLabel || 'Submit', customCss: options.customCss, query: request.query, testRun: test }));
+    }
+    let form: FormData;
+    try {
+      form = await this.formData(request);
+    } catch {
+      return this.formMessage(400, title || 'Formular', 'Expected multipart/form-data');
+    }
+    const invalid = validateSubmission(fields, form);
+    if (invalid) return this.formMessage(400, title || 'Formular', invalid);
+    const useWorkflowTimezone = options.useWorkflowTimezone ?? node.typeVersion > 2;
+    const item = await formReturnItem({ fields, form, mode: test ? 'test' : 'production', timezone: this.formTimezone(workflow, useWorkflowTimezone), binary: this.options.binary, query: request.query });
+    return this.formFlow(
+      hasNextPage ? 'next' : responseMode,
+      (hooks) => this.options.manager.start({ workflow, mode: test ? 'manual' : 'webhook', startNodeName: node.name, triggerOutputs: [[item]], usePinData: test, hooks }),
+      { title, submittedText, redirectUrl: hasNextPage ? undefined : redirectUrl, customCss: options.customCss },
+    );
+  }
+
+  /** Abschlussseite eines Form-Knotens (formCompletionUtils.renderFormCompletion) */
+  private async completionResponse(workflow: Workflow, node: WorkflowNode, runData: Record<string, TaskData[]> | undefined): Promise<HttpResponse> {
+    const p = node.parameters as Record<string, unknown>;
+    const options = (p.options ?? {}) as { formTitle?: string; customCss?: string };
+    const trigger = workflow.nodes.find((n) => n.type === FORM_TRIGGER_TYPE);
+    const formTitle = options.formTitle || String(trigger?.parameters.formTitle ?? '');
+    const respondWith = String(p.respondWith ?? 'text');
+    if (respondWith === 'redirect') {
+      const url = String(p.redirectUrl ?? '');
+      return this.formRedirect(url.includes('://') ? url : `http://${url}`);
+    }
+    if (respondWith === 'showText') return this.formHtml(200, renderCompletionPage({ title: formTitle, text: String(p.responseText ?? ''), customCss: options.customCss }));
+    if (respondWith === 'returnBinary' && runData) {
+      const field = String(p.inputDataFieldName ?? 'data');
+      for (const runs of Object.values(runData)) {
+        const ref = runs[runs.length - 1]?.data?.main?.[0]?.[0]?.binary?.[field];
+        if (ref) {
+          const data = await this.options.binary.getBuffer(ref);
+          return { statusCode: 200, headers: { 'content-type': ref.mimeType ?? 'application/octet-stream', 'content-disposition': `attachment; filename="${(ref.fileName ?? 'file').replace(/"/g, '')}"` }, body: data, raw: true };
+        }
+      }
+      return this.formMessage(500, 'Formular', `No binary data with field ${field} found.`);
+    }
+    return this.formHtml(200, renderCompletionPage({ title: String(p.completionTitle ?? ''), message: String(p.completionMessage ?? ''), formTitle, customCss: options.customCss }));
+  }
+
+  /** waiting-forms.ts findCompletionPage */
+  private findCompletion(workflow: Workflow, runData: Record<string, TaskData[]>, lastNode: string | undefined): WorkflowNode | undefined {
+    const isCompletion = (n?: WorkflowNode | null) => !!n && !n.disabled && n.type === FORM_NODE_TYPE && n.parameters.operation === 'completion';
+    const last = workflow.nodes.find((n) => n.name === lastNode);
+    if (isCompletion(last)) return last;
+    if (!lastNode) return undefined;
+    const graph = new WorkflowGraph(workflow);
+    return [...graph.getParentNodes(lastNode)]
+      .reverse()
+      .map((n) => graph.getNode(n) ?? undefined)
+      .find((n) => isCompletion(n) && !!runData[n!.name]);
+  }
+
+  /** Folgeseiten, Wait "On Form Submitted" und Abschluss: /form-waiting/<executionId>[/n8n-execution-status] */
+  async handleWaitingForm(executionId: string, suffix: string, request: Omit<IncomingWebhookRequest, 'params'>): Promise<HttpResponse> {
+    const method = request.method.toUpperCase();
+    const stored = this.options.store?.get(executionId);
+    if (suffix === 'n8n-execution-status') {
+      let status = stored?.status ?? 'null';
+      if (status === 'waiting') {
+        const record = this.options.store!.loadResume(executionId);
+        const node = record?.workflow.nodes.find((n) => n.name === stored!.lastNodeExecuted);
+        if (node && (node.type === FORM_NODE_TYPE || (node.type === WAIT_NODE_TYPE && node.parameters.resume === 'form'))) status = 'form-waiting';
+      }
+      return { statusCode: 200, headers: { 'content-type': 'text/html; charset=utf-8' }, body: status };
+    }
+    if (!stored) return this.formMessage(404, 'Nicht gefunden', `The execution "${executionId}" does not exist.`);
+    if (stored.error) return this.formMessage(409, 'Fehler', `The execution "${executionId}" has finished with error.`);
+    if (stored.status === 'running' || stored.status === 'new') {
+      // Die Ausführung speichert gerade ihren Wartezustand: kurz neu laden
+      const page = renderCompletionPage({ title: 'Einen Moment', message: 'Die Eingaben werden verarbeitet.' }).replace('<head>', '<head>\n<meta http-equiv="refresh" content="1">');
+      return this.formHtml(200, page);
+    }
+    if (stored.status !== 'waiting') {
+      const workflow = stored.workflow;
+      const completion = workflow && stored.runData ? this.findCompletion(workflow, stored.runData, stored.lastNodeExecuted) : undefined;
+      if (completion && workflow) return this.completionResponse(workflow, completion, stored.runData);
+      return this.formHtml(200, renderCompletionPage({ title: 'Form Submitted', message: 'Your response has been recorded', formTitle: 'Form Submitted' }));
+    }
+    const record = this.options.store!.loadResume(executionId);
+    const workflow = record?.workflow;
+    const node = workflow?.nodes.find((n) => n.name === stored.lastNodeExecuted);
+    if (!record || !workflow || !node) return this.formMessage(404, 'Nicht gefunden', `The execution "${executionId}" does not exist.`);
+    const trigger = workflow.nodes.find((n) => n.type === FORM_TRIGGER_TYPE);
+    const triggerJson = trigger ? record.runData[trigger.name]?.[0]?.data?.main?.[0]?.[0]?.json : undefined;
+    const mode = triggerJson?.formMode === 'test' ? 'test' : 'production';
+    const p = node.parameters as Record<string, unknown>;
+    const isWaitForm = node.type === WAIT_NODE_TYPE && p.resume === 'form';
+    if (node.type === FORM_NODE_TYPE && (p.operation ?? 'page') === 'completion') {
+      const response = await this.completionResponse(workflow, node, record.runData);
+      // n8n setzt die Ausführung nach dem Anzeigen der Abschlussseite fort (POST aus der Seite); hier direkt
+      try {
+        this.options.manager.resume(executionId);
+      } catch (error) {
+        this.options.logger.warn({ executionId, err: (error as Error).message }, 'Formular-Abschluss nicht fortgesetzt');
+      }
+      return response;
+    }
+    if (node.type !== FORM_NODE_TYPE && !isWaitForm) return this.formMessage(404, 'Nicht gefunden', `The execution "${executionId}" is not waiting for a form.`);
+    if (isWaitForm) {
+      const denied = await this.formAuth(node, 'incomingAuthentication', request);
+      if (denied) return denied;
+    }
+    const options = (p.options ?? {}) as { formTitle?: string; formDescription?: string; buttonLabel?: string; customCss?: string };
+    let fields: FormField[];
+    try {
+      fields = formFieldsOf(p, (raw) => JSON.parse(raw.replace(/^=+/, '')));
+    } catch (error) {
+      return this.formMessage(500, 'Formular', (error as Error).message);
+    }
+    const title = isWaitForm ? String(p.formTitle ?? '') : options.formTitle || String(trigger?.parameters.formTitle ?? '');
+    const description = isWaitForm ? String(p.formDescription ?? '') : (options.formDescription ?? '');
+    if (method === 'GET') {
+      return this.formHtml(200, renderFormPage({ title, description, fields, buttonLabel: options.buttonLabel || 'Submit', customCss: options.customCss, testRun: mode === 'test' }));
+    }
+    let form: FormData;
+    try {
+      form = await this.formData(request);
+    } catch {
+      return this.formMessage(400, title || 'Formular', 'Expected multipart/form-data');
+    }
+    const invalid = validateSubmission(fields, form);
+    if (invalid) return this.formMessage(400, title || 'Formular', invalid);
+    const triggerOptions = (trigger?.parameters.options ?? {}) as { useWorkflowTimezone?: boolean };
+    const useWorkflowTimezone = triggerOptions.useWorkflowTimezone ?? (trigger ? trigger.typeVersion > 2 : true);
+    const item = await formReturnItem({ fields, form, mode, timezone: this.formTimezone(workflow, useWorkflowTimezone), binary: this.options.binary });
+    return this.formFlow('next', (hooks) => this.options.manager.resume(executionId, { webhookData: [[item]], hooks }), { title });
   }
 
   /** Chat Trigger: Seite, frühere Nachrichten oder Ausführung mit der Nachricht (Antwort lastNode/responseNode) */
