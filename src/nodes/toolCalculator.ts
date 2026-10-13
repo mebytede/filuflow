@@ -5,14 +5,21 @@ import type { NodeType } from './types.js';
 import type { Item } from '../types.js';
 import { calculate } from '../ai/calculator.js';
 import { createTool } from '../ai/tools.js';
+import type { ParamSchema } from './params.js';
 
 const DESCRIPTION =
   'Useful for getting the result of a math expression. The input to this tool should be a valid mathematical expression that could be executed by a simple calculator.';
+
+// Parameter wie ToolCalculator.node.ts (n8n 1.123.0): nur der Hinweis auf die Verbindung (getConnectionHintNoticeField)
+const parameters: ParamSchema[] = [
+  { name: 'notice', label: 'Dieser Node muss mit einem AI Agent verbunden werden.', type: 'notice', default: '' },
+];
 
 export const toolCalculatorNode: NodeType = {
   type: '@n8n/n8n-nodes-langchain.toolCalculator',
   displayName: 'Calculator',
   versions: [1],
+  parameters,
   isSubNode: true,
   aiOutput: 'ai_tool',
   inputs: () => 0,

@@ -301,6 +301,7 @@ Engine-Reihenfolge, Expressions (inkl. Rohwert vs. String), jeder Node, Filter-O
 | M16 | Chat Trigger | Webhooks wie n8n, gehostete Chat-Seite, Chat-Fenster im Editor, Basic Auth, frühere Nachrichten aus dem Memory |
 | M17 | Formulare | Form Trigger, Form-Knoten mit Folgeseiten und Abschluss, Wait per Formular |
 | M18 | Testdaten, Variablen, Teilausführung | pinData per Klick, Variablen-Seite, "Bis hier ausführen", "Auf Test-Aufruf warten", Expressions in Webhook-Parametern |
+| M19 | Parameterformulare je Knotentyp | Formular aus der Beschreibung je Knotentyp neben Baum und JSON, Sichtbarkeit und Defaults wie n8n |
 
 Nach jedem Meilenstein: `docs/STATUS.md` aktualisieren (was geht, was fehlt) und einen Commit mit aussagekräftiger Nachricht.
 
@@ -329,6 +330,5 @@ Offene Funktionen, ungefähr nach Nutzen geordnet. Jede wird wie ein Meilenstein
 - Import verschlüsselter n8n-Exporte
 
 ### 11.4 Oberfläche und Master
-(Testdaten per Klick, Variablen-Seite: M18; Chat-Ansicht: M16)
-- Parameterformulare je Knotentyp (Felder, Auswahllisten, Hilfetexte) zusätzlich zum Baum- und JSON-Editor
+(Testdaten per Klick, Variablen-Seite: M18; Chat-Ansicht: M16; Parameterformulare: M19)
 - Eigene Rollen und Rechte je Workflow, Ausführungen mehrerer Worker zentral durchsuchen

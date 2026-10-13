@@ -207,3 +207,16 @@ erst nach dem nächsten Laden des Workflows (Speichern, Aktivieren, Neustart). L
 Test-URLs sind in filuflow für alle gespeicherten Workflows immer registriert. "Auf Test-Aufruf warten" legt für den
 übergebenen Editor-Stand eine eigene Registry an, die bei Test-URLs Vorrang hat und nach dem ersten Aufruf, nach Ablauf der
 Wartezeit (höchstens 5 Minuten) oder beim Abbruch der Anfrage entfernt wird. Im Master gibt es das noch nicht.
+
+## Parameterformulare (M19)
+Die Beschreibungen liegen in den Knotendateien (`parameters`) in einem eigenen, vereinfachten Format; Namen, Defaults,
+Optionswerte und Sichtbarkeitsregeln entsprechen n8n 1.123.0, damit gespeicherte Workflows dieselbe Struktur haben. Das
+Formular schreibt einen Parameter erst, wenn er geändert wird; die Ausführung nutzt weiter ihre eigenen Defaults (dieselben
+wie n8n). Ausnahmen:
+- Code-Felder: n8n hat einen leeren Default und setzt den Startcode im Editor. filuflow zeigt den Startcode als Default
+  und speichert ihn beim Anzeigen, damit sichtbarer und ausgeführter Code übereinstimmen.
+- `customCss` von Form Trigger, Form und Chat Trigger hat einen leeren Default; die eigenen Seiten nutzen die
+  CSS-Variablen von n8n nicht.
+- Optionen, die filuflow nicht ausführt (Webhook `streaming`, Chat Trigger `responseNodes` und `n8nUserAuth`), fehlen in
+  den Auswahllisten; `validate` meldet sie weiterhin, wenn ein importierter Workflow sie nutzt.
+- Expressions in einem steuernden Parameter lassen sich im Editor nicht auswerten; abhängige Felder bleiben dann sichtbar.

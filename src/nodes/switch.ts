@@ -5,6 +5,7 @@ import type { Item, WorkflowNode } from '../types.js';
 import { NodeOperationError } from '../errors.js';
 import { ENABLE_LESS_STRICT_TYPE_VALIDATION, executeFilter, type FilterValue } from './shared/filter.js';
 import { looseTypeValidation, rethrowWithItem } from './shared/conditions.js';
+import type { ParamSchema } from './params.js';
 
 /** Default von rules (eine Regel "string equals") */
 const DEFAULT_RULES = {
@@ -42,10 +43,137 @@ function outputNames(node: WorkflowNode): string[] {
   return rules;
 }
 
+const LOOSE_TYPE_DESCRIPTION = 'Passt der Typ eines Werts nicht zum Vergleich, wird er umgewandelt (z. B. "false" oder 0 zu false)';
+
+// Parameter wie packages/nodes-base/nodes/Switch/V3/SwitchV3.node.ts (looseTypeValidationProperty aus utils/descriptions.ts).
+// fallbackOutput lädt n8n dynamisch (getFallbackOutputOptions: none, extra, dann ein Eintrag je Regel mit dem Index als
+// Wert); hier fest none, extra und die Indizes 0 bis 9.
+const parameters: ParamSchema[] = [
+  {
+    name: 'mode',
+    label: 'Modus',
+    type: 'options',
+    noExpression: true,
+    default: 'rules',
+    options: [
+      { value: 'rules', label: 'Regeln', description: 'Für jeden Ausgang eine Regel festlegen' },
+      { value: 'expression', label: 'Expression', description: 'Eine Expression liefert den Index des Ausgangs' },
+    ],
+    description: 'Wie die Items verteilt werden',
+  },
+  {
+    name: 'numberOutputs',
+    label: 'Anzahl Ausgänge',
+    type: 'number',
+    noExpression: true,
+    default: 4,
+    description: 'Wie viele Ausgänge angelegt werden',
+    show: { mode: ['expression'], '@version': [{ _cnd: { gte: 3.3 } }] },
+  },
+  {
+    name: 'numberOutputs',
+    label: 'Anzahl Ausgänge',
+    type: 'number',
+    default: 4,
+    description: 'Wie viele Ausgänge angelegt werden',
+    show: { mode: ['expression'], '@version': [{ _cnd: { lt: 3.3 } }] },
+  },
+  {
+    name: 'output',
+    label: 'Index des Ausgangs',
+    type: 'number',
+    default: '={{}}',
+    description: 'Expression, die den Index des Ausgangs für das Item liefert (beginnt bei 0)',
+    show: { mode: ['expression'] },
+  },
+  {
+    name: 'rules',
+    label: 'Regeln',
+    type: 'fixedCollection',
+    multiple: true,
+    addLabel: 'Regel hinzufügen',
+    default: DEFAULT_RULES,
+    show: { mode: ['rules'] },
+    groups: [
+      {
+        name: 'values',
+        label: 'Regel',
+        children: [
+          { name: 'conditions', label: 'Bedingungen', type: 'filter', default: {}, placeholder: 'Bedingung hinzufügen' },
+          { name: 'renameOutput', label: 'Ausgang umbenennen', type: 'boolean', default: false },
+          {
+            name: 'outputKey',
+            label: 'Name des Ausgangs',
+            type: 'string',
+            default: '',
+            description: 'Name des Ausgangs, an den Items gehen, wenn die Regel zutrifft',
+            show: { renameOutput: [true] },
+          },
+        ],
+      },
+    ],
+  },
+  {
+    name: 'looseTypeValidation',
+    label: 'Typen bei Bedarf umwandeln',
+    type: 'boolean',
+    default: false,
+    description: LOOSE_TYPE_DESCRIPTION,
+    show: { '@version': [{ _cnd: { gte: 3.1 } }] },
+  },
+  {
+    name: 'options',
+    label: 'Optionen',
+    type: 'collection',
+    default: {},
+    addLabel: 'Option hinzufügen',
+    show: { mode: ['rules'] },
+    children: [
+      {
+        name: 'fallbackOutput',
+        label: 'Fallback-Ausgang',
+        type: 'options',
+        default: 'none',
+        options: [
+          { value: 'none', label: 'Keiner (Standard)', description: 'Items werden verworfen' },
+          { value: 'extra', label: 'Zusätzlicher Ausgang', description: 'Items gehen an einen eigenen, zusätzlichen Ausgang' },
+          ...Array.from({ length: 10 }, (_v, i) => ({ value: i, label: `Ausgang ${i}`, description: `Wie bei Treffer von Regel ${i + 1}` })),
+        ],
+        description: 'Wohin Items gehen, auf die keine Regel zutrifft',
+      },
+      { name: 'ignoreCase', label: 'Groß-/Kleinschreibung ignorieren', type: 'boolean', default: true, description: 'Ob die Groß-/Kleinschreibung beim Vergleich ignoriert wird' },
+      {
+        name: 'looseTypeValidation',
+        label: 'Typen bei Bedarf umwandeln',
+        type: 'boolean',
+        default: true,
+        description: LOOSE_TYPE_DESCRIPTION,
+        show: { '@version': [{ _cnd: { lt: 3.1 } }] },
+      },
+      {
+        name: 'renameFallbackOutput',
+        label: 'Fallback-Ausgang umbenennen',
+        type: 'string',
+        default: '',
+        placeholder: 'z. B. Fallback',
+        show: { fallbackOutput: ['extra'] },
+      },
+      {
+        name: 'allMatchingOutputs',
+        label: 'An alle passenden Ausgänge senden',
+        type: 'boolean',
+        default: false,
+        description: 'Ob Items an alle zutreffenden Ausgänge gehen statt nur an den ersten',
+      },
+    ],
+  },
+];
+
 export const switchNode: NodeType = {
   type: 'n8n-nodes-base.switch',
   displayName: 'Switch',
   versions: [3, 3.1, 3.2, 3.3, 3.4],
+  parameters,
   outputs: configuredOutputs,
   outputNames,
   async execute(ctx) {

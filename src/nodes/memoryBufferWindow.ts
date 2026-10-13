@@ -4,11 +4,70 @@
 import type { NodeType } from './types.js';
 import { NodeOperationError } from '../errors.js';
 import { BufferWindowMemory } from '../ai/memory.js';
+import type { ParamSchema } from './params.js';
+
+// Parameter wie MemoryBufferWindow.node.ts (properties) und memory/descriptions.ts (sessionIdOption,
+// expressionSessionKeyProperty(1.3), sessionKeyProperty, contextWindowLengthProperty), n8n 1.123.0.
+// In n8n ist "Session Key From Previous Node" gesperrt (disabledOptions); hier ein normales Textfeld.
+const parameters: ParamSchema[] = [
+  { name: 'notice', label: 'Dieser Node muss mit einem AI Agent verbunden werden.', type: 'notice', default: '' },
+  {
+    name: 'sessionKey',
+    label: 'Session Key',
+    type: 'string',
+    default: 'chat_history',
+    description: 'Schlüssel, unter dem die Memory in den Workflow-Daten liegt',
+    show: { '@version': [1] },
+  },
+  {
+    name: 'sessionKey',
+    label: 'Session-ID',
+    type: 'string',
+    default: '={{ $json.sessionId }}',
+    description: 'Schlüssel, unter dem die Memory gespeichert wird',
+    show: { '@version': [1.1] },
+  },
+  {
+    name: 'sessionIdType',
+    label: 'Session-ID',
+    type: 'options',
+    default: 'fromInput',
+    options: [
+      { value: 'fromInput', label: 'Verbundener Chat Trigger', description: "Nimmt das Feld 'sessionId' vom direkt verbundenen Chat Trigger" },
+      { value: 'customKey', label: 'Unten festlegen', description: 'Expression auf Daten vorheriger Nodes oder fester Text' },
+    ],
+    show: { '@version': [{ _cnd: { gte: 1.2 } }] },
+  },
+  {
+    name: 'sessionKey',
+    label: 'Session Key vom vorherigen Node',
+    type: 'string',
+    default: '={{ $json.sessionId }}',
+    description: 'Wird bei dieser Auswahl immer aus $json.sessionId gelesen.',
+    show: { sessionIdType: ['fromInput'], '@version': [{ _cnd: { gte: 1.3 } }] },
+  },
+  {
+    name: 'sessionKey',
+    label: 'Schlüssel',
+    type: 'string',
+    default: '',
+    description: 'Schlüssel, unter dem die Session in der Memory liegt',
+    show: { sessionIdType: ['customKey'] },
+  },
+  {
+    name: 'contextWindowLength',
+    label: 'Länge des Kontextfensters',
+    type: 'number',
+    default: 5,
+    description: 'Wie viele vergangene Interaktionen das Modell als Kontext erhält',
+  },
+];
 
 export const memoryBufferWindowNode: NodeType = {
   type: '@n8n/n8n-nodes-langchain.memoryBufferWindow',
   displayName: 'Simple Memory',
   versions: [1, 1.1, 1.2, 1.3],
+  parameters,
   isSubNode: true,
   aiOutput: 'ai_memory',
   inputs: () => 0,

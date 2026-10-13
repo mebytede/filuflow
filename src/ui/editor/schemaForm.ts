@@ -73,7 +73,9 @@ function toExpression(io: FieldIo, ctx: SchemaFormContext): void {
 
 function textInput(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext): HTMLElement {
   const value = io.get();
-  const text = value === undefined || value === null ? '' : String(value);
+  // JSON-Felder mit Objektwert (z. B. workflowInputs, n8n resourceMapper): als JSON zeigen und als Objekt speichern
+  const objectValue = def.type === 'json' && value !== null && typeof value === 'object';
+  const text = value === undefined || value === null ? '' : objectValue ? JSON.stringify(value, null, 2) : String(value);
   const multiline = (def.rows ?? 1) > 1 || def.type === 'json' || def.type === 'code' || text.includes('\n');
   const mono = def.type === 'json' || def.type === 'code';
   const field = multiline
@@ -86,7 +88,15 @@ function textInput(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext): HTMLE
       ctx.onStructure(io.key);
       return;
     }
-    io.set(field.value);
+    if (objectValue) {
+      try {
+        io.set(JSON.parse(field.value));
+        field.classList.remove('invalid');
+      } catch {
+        field.classList.add('invalid');
+        return;
+      }
+    } else io.set(field.value);
     if (field instanceof HTMLTextAreaElement) autoGrow(field);
     ctx.onChange(io.key);
   });

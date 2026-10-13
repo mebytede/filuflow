@@ -69,6 +69,8 @@ FILUFLOW_API_KEY=geheim docker compose up -d --build
 - **Editor:** Knoten über **Knoten** oben links (oder Taste N) einfügen; ein Klick hängt den neuen Knoten an den ausgewählten an.
   Ausgang auf Eingang ziehen verbindet, eine Verbindung anklicken und Entf löscht sie. Rechts stehen Parameter, Credentials,
   Einstellungen (deaktiviert, Fehlerverhalten, Wiederholen, Notizen) und nach dem Lauf das Ergebnis als Tabelle oder JSON.
+  Parameter bearbeiten Sie im **Formular** mit Feldern je Knotentyp (Auswahllisten, Bedingungen, Zuweisungen, Optionen);
+  **Baum** und **JSON** zeigen dieselben Parameter ungefiltert.
 - **Speichern** schreibt die Datei ins Workflow-Verzeichnis, der Schalter **Aktiv** schaltet Webhooks und Zeitpläne an.
   **Testlauf** führt den aktuellen, auch ungespeicherten Stand aus. **Bis hier ausführen** (Knopf oben im Panel) führt nur
   den gewählten Knoten und die Knoten davor aus. Bei Webhook- und Formular-Triggern wartet **Auf Test-Aufruf warten** auf
