@@ -61,6 +61,8 @@ export interface EditorOptions {
   status?: WorkflowStatus;
   types: NodeTypeInfo[];
   credentials: CredentialInfo[];
+  /** Neues Credential aus dem Node-Panel anlegen (Typ vorgegeben); ohne Callback gibt es die Option nicht */
+  createCredential?(type: string): Promise<CredentialInfo | null>;
   /** Basis-URL der Webhooks laut Server (Default: Adresse dieser Seite) */
   webhookBaseUrl?: string;
   /** Nur ansehen (Execution-Ansicht) */
@@ -162,6 +164,19 @@ export class Editor {
       ports: (name) => this.model.ports[name],
       types: () => this.types,
       credentials: () => opts.credentials,
+      ...(opts.createCredential
+        ? {
+            createCredential: async (type: string) => {
+              const made = await opts.createCredential!(type);
+              if (made) {
+                const i = opts.credentials.findIndex((c) => c.name === made.name);
+                if (i >= 0) opts.credentials.splice(i, 1, made);
+                else opts.credentials.push(made);
+              }
+              return made;
+            },
+          }
+        : {}),
       webhookBaseUrl: () => (opts.webhookBaseUrl ?? `${location.origin}/`).replace(/\/+$/, ''),
       issues: () => this.model.issues,
       runData: () => this.model.runData,

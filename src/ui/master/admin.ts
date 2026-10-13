@@ -3,8 +3,10 @@
 import { confirmDialog, dialog, formatDate, h, toast } from '../dom.js';
 import { mapi } from './api.js';
 import { pageHead } from '../shell.js';
-import { iconButton } from '../shell.js';
 import type { AuditEntry, OverviewWorker, Tenant, User, WorkerInfo } from './types.js';
+import type { CredentialTypeSchema } from '../types.js';
+import { credentialFormDialog, type CredentialFormBackend } from '../views/credentialForm.js';
+import { credentialTable } from '../views/credentials.js';
 
 const e = encodeURIComponent;
 
@@ -298,82 +300,19 @@ export async function tenantsPage(): Promise<HTMLElement> {
   return root;
 }
 
-const CREDENTIAL_TYPES = [
-  'httpHeaderAuth',
-  'httpBasicAuth',
-  'httpQueryAuth',
-  'httpBearerAuth',
-  'httpCustomAuth',
-  'oAuth2Api',
-  'openAiApi',
-  'anthropicApi',
-  'googlePalmApi',
-  'basicAuth',
-  'headerAuth',
-  'jwtAuth',
-];
+let credentialTypes: Promise<CredentialTypeSchema[]> | undefined;
 
-/** Credential beim Worker setzen: Werte gehen nur zum Worker, der Master speichert sie nicht */
-async function credentialDialog(name?: string, type?: string): Promise<{ name: string; type: string; data: Record<string, unknown> } | null> {
-  const nameInput = text(name ?? '', { disabled: !!name });
-  const typeInput = text(type ?? '', { list: 'credential-types', placeholder: 'z. B. httpHeaderAuth' });
-  const list = h('datalist', { id: 'credential-types' }, CREDENTIAL_TYPES.map((t) => h('option', { value: t })));
-  const rows = h('div', { class: 'kv-rows' });
-  const addRow = (k = '', v = '') => {
-    const key = text(k, { placeholder: 'Feld, z. B. name', 'aria-label': 'Feld' });
-    const value = h('input', { type: 'password', class: 'param-input', value: v, placeholder: 'Wert', autocomplete: 'off', 'aria-label': 'Wert' });
-    const row = h('div', { class: 'kv-row' }, key, value, iconButton('x', 'Feld entfernen', () => row.remove()));
-    rows.append(row);
+/** Formular-Anbindung für die Credentials eines Workers: Werte gehen nur zum Worker, der Master speichert sie nicht */
+export function workerCredentialBackend(workerId: string): CredentialFormBackend {
+  return {
+    types: () => (credentialTypes ??= mapi.credentialTypes().catch((err) => ((credentialTypes = undefined), Promise.reject(err)))),
+    get: (name) => mapi.workerCredential(workerId, name),
+    save: (name, body) => mapi.setWorkerCredential(workerId, name, body),
   };
-  const json = h('textarea', { class: 'param-input json-editor', rows: 5, spellcheck: false, placeholder: '{ "name": "X-Api-Key", "value": "..." }  (optional statt Feldern)' });
-  addRow();
-  addRow();
-  return dialog(
-    name ? `Credential "${name}" ersetzen` : 'Neues Credential',
-    h(
-      'div',
-      { class: 'form' },
-      list,
-      field('Name', nameInput, 'So referenzieren Workflows das Credential (credentials.<typ>.name).'),
-      field('Typ', typeInput),
-      h('div', { class: 'field' }, h('span', null, 'Werte'), rows, h('button', { type: 'button', class: 'btn btn-small', onclick: () => addRow() }, 'Feld hinzufügen')),
-      field('oder als JSON', json),
-      h('p', { class: 'muted small' }, 'Die Werte werden direkt an den Worker übertragen und dort (mit FILUFLOW_ENCRYPTION_KEY verschlüsselt) gespeichert. Sie können danach nicht mehr angezeigt werden. Verweise auf Umgebungsvariablen des Workers wie {{ env.API_KEY }} sind möglich.'),
-    ),
-    {
-      confirm: 'Beim Worker speichern',
-      wide: true,
-      onConfirm: () => {
-        const n = nameInput.value.trim();
-        const t = typeInput.value.trim();
-        if (!n || !t) {
-          toast('Name und Typ sind Pflicht', 'error');
-          return undefined;
-        }
-        let data: Record<string, unknown> = {};
-        if (json.value.trim()) {
-          try {
-            data = JSON.parse(json.value) as Record<string, unknown>;
-            if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('kein Objekt');
-          } catch (err) {
-            toast(`JSON ungültig: ${(err as Error).message}`, 'error');
-            return undefined;
-          }
-        } else {
-          for (const row of rows.querySelectorAll('.kv-row')) {
-            const [k, v] = row.querySelectorAll('input');
-            if (k.value.trim()) data[k.value.trim()] = v.value;
-          }
-        }
-        if (!Object.keys(data).length) {
-          toast('Mindestens ein Wert ist nötig', 'error');
-          return undefined;
-        }
-        return { name: n, type: t, data };
-      },
-    },
-  );
 }
+
+export const WORKER_CREDENTIAL_NOTE =
+  'Die Werte gehen direkt an den Worker und werden dort gespeichert (mit FILUFLOW_ENCRYPTION_KEY verschlüsselt). Der Master speichert sie nicht, geheime Werte werden nie wieder angezeigt.';
 
 export async function workerPage(id: string): Promise<HTMLElement> {
   const [workers, tenants, overview] = await Promise.all([mapi.workers(), mapi.tenants(), mapi.overview()]);
@@ -491,72 +430,46 @@ export async function workerPage(id: string): Promise<HTMLElement> {
     })
     .catch((err) => wfBox.replaceChildren(h('h2', null, 'Workflows beim Worker'), h('p', { class: 'error-text' }, message(err))));
 
+  const credBackend = workerCredentialBackend(id);
   const loadCredentials = () =>
-    mapi
-      .workerCredentials(id)
-      .then((list) => {
+    Promise.all([mapi.workerCredentials(id), credBackend.types()])
+      .then(([list, types]) => {
+        const edit = async (name?: string) => {
+          const saved = await credentialFormDialog(credBackend, { name, note: WORKER_CREDENTIAL_NOTE, confirm: 'Beim Worker speichern' });
+          if (!saved) return;
+          toast('Beim Worker gespeichert', 'success');
+          loadCredentials();
+        };
+        const remove = async (name: string, usedBy: string[]) => {
+          const warn = usedBy.length ? ` Es wird verwendet in: ${usedBy.join(', ')}.` : '';
+          if (!(await confirmDialog('Credential löschen', `"${name}" wird beim Worker gelöscht.${warn} Workflows, die es nutzen, schlagen danach fehl.`))) return;
+          try {
+            await mapi.deleteWorkerCredential(id, name);
+            loadCredentials();
+          } catch (err) {
+            toast(message(err), 'error');
+          }
+        };
         credBox.replaceChildren(
           h(
             'div',
             { class: 'page-head' },
             h('h2', null, 'Credentials beim Worker'),
             h('div', { class: 'spacer' }),
-            action('Credential hinzufügen', async () => {
-              const r = await credentialDialog();
-              if (!r) return;
-              await mapi.setWorkerCredential(id, r.name, r.type, r.data);
-              toast('Beim Worker gespeichert', 'success');
-              loadCredentials();
-            }),
+            list.writable === false ? null : action('Credential hinzufügen', () => edit()),
           ),
-          h('p', { class: 'muted small' }, 'Nur Namen und Typen sind sichtbar. Einträge aus der Credential-Datei des Workers (von Hand gepflegt) sind geschützt; vom Master gesetzte Einträge können ersetzt und gelöscht werden.'),
-          list.length
-            ? h(
-                'table',
-                { class: 'list-table' },
-                h('thead', null, h('tr', null, h('th', null, 'Name'), h('th', null, 'Typ'), h('th', null, 'Quelle'), h('th', null, ''))),
-                h(
-                  'tbody',
-                  null,
-                  list.map((c) =>
-                    h(
-                      'tr',
-                      null,
-                      h('td', { class: 'strong' }, c.name),
-                      h('td', null, h('code', null, c.type ?? '')),
-                      h('td', { class: 'small' }, c.managed ? 'vom Master gesetzt' : 'Datei beim Worker'),
-                      h(
-                        'td',
-                        { class: 'actions' },
-                        c.managed
-                          ? [
-                              action(
-                                'Ersetzen',
-                                async () => {
-                                  const r = await credentialDialog(c.name, c.type);
-                                  if (!r) return;
-                                  await mapi.setWorkerCredential(id, r.name, r.type, r.data);
-                                  toast('Ersetzt', 'success');
-                                  loadCredentials();
-                                },
-                                'btn btn-small',
-                              ),
-                              action(
-                                'Löschen',
-                                async () => {
-                                  if (!(await confirmDialog('Credential löschen', `"${c.name}" wird beim Worker gelöscht. Workflows, die es nutzen, schlagen danach fehl.`))) return;
-                                  await mapi.deleteWorkerCredential(id, c.name);
-                                  loadCredentials();
-                                },
-                                'btn btn-small btn-danger',
-                              ),
-                            ]
-                          : null,
-                      ),
-                    ),
-                  ),
-                ),
-              )
+          h(
+            'p',
+            { class: 'muted small' },
+            'Geheime Werte sind nicht sichtbar. Einträge aus der Credential-Datei des Workers (von Hand gepflegt) sind geschützt; hier angelegte Einträge können bearbeitet und gelöscht werden.',
+            list.writable !== false && list.encrypted === false ? ' Achtung: FILUFLOW_ENCRYPTION_KEY ist beim Worker nicht gesetzt, Credentials liegen dort unverschlüsselt.' : '',
+          ),
+          list.data.length
+            ? credentialTable({ writable: list.writable !== false, encrypted: !!list.encrypted, data: list.data }, types, {
+                edit: (n) => void edit(n),
+                remove: (n, u) => void remove(n, u),
+                fileHint: 'In der Credential-Datei des Workers gepflegt',
+              })
             : h('p', { class: 'muted' }, 'Keine Credentials.'),
         );
       })

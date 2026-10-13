@@ -33,7 +33,7 @@ und antworten. Jeder Lauf wird protokolliert und lässt sich Knoten für Knoten 
 | **Auslöser** | Webhooks mit Antwort-Knoten und Authentifizierung, Zeitpläne, Fehler-Workflows, Aufruf durch andere Workflows, REST-API |
 | **Knoten** | Daten setzen, filtern, sortieren, zusammenfassen, verzweigen (If, Switch), zusammenführen, Schleifen, Code (JavaScript), HTTP, HTML, XML, Datum, Krypto |
 | **KI** | AI Agent mit Tools, LLM Chain, Extraktion, Klassifikation, Stimmungsanalyse; Modelle von OpenAI, Anthropic und Google Gemini |
-| **Credentials** | in einer Datei je Server, optional verschlüsselt (AES-256-GCM), Werte aus Umgebungsvariablen; Werte erscheinen nie in Logs oder der Oberfläche |
+| **Credentials** | in der Oberfläche anlegen und bearbeiten (Formulare je Typ) oder als Datei pflegen, verschlüsselt mit AES-256-GCM, Werte aus Umgebungsvariablen; geheime Werte erscheinen nie in Logs oder der Oberfläche |
 | **Team und Mandanten** | Master mit Benutzern, Rechten und Projekten; Worker in der Umgebung jedes Mandanten; Anmeldung mit Passwort und TOTP oder SSO (OIDC) |
 | **Kommandozeile** | Workflows prüfen und ausführen, Ausführungen ansehen, Credentials verschlüsseln, Benutzer verwalten |
 | **Kompatibel mit n8n** | Exportierte n8n-Workflows laufen ohne Umbau, kopierte n8n-Knoten lassen sich in den Editor einfügen |
@@ -181,7 +181,17 @@ Exit-Code 0 bei Erfolg, 1 bei Fehlern (Prüfung oder fehlgeschlagene Ausführung
 
 ## Credentials
 
-Credentials stehen in `credentials.json` (oder in einem Verzeichnis mit einer Datei je Credential). Der Schlüssel ist der Name,
+Am einfachsten legen Sie Credentials in der Oberfläche an: Seite **Credentials** oder direkt im Editor über die Auswahl am Knoten
+("Neues Credential anlegen"). Das Formular kennt die Felder der eingebauten Typen und blendet je nach Auswahl die passenden ein;
+für andere Typen geben Sie die Felder frei an. Geheime Felder (Passwörter, Tokens, API-Keys) werden nach dem Speichern nie wieder
+angezeigt: Ein leeres Feld beim Bearbeiten behält den gespeicherten Wert. Die Oberfläche zeigt außerdem, welche Workflows ein
+Credential verwenden.
+
+In der Oberfläche angelegte Credentials landen in `credentials.managed.json` (Dateirechte 0600, mit `FILUFLOW_ENCRYPTION_KEY`
+verschlüsselt; Pfad über `FILUFLOW_MANAGED_CREDENTIALS`). Ohne Schlüssel weist die Oberfläche darauf hin.
+
+Alternativ oder zusätzlich stehen Credentials in `credentials.json` (oder in einem Verzeichnis mit einer Datei je Credential).
+Diese Einträge sind in der Oberfläche sichtbar, aber nur in der Datei änderbar, und haben Vorrang. Der Schlüssel ist der Name,
 unter dem ein Workflow das Credential verwendet:
 
 ```json
@@ -197,7 +207,7 @@ unter dem ein Workflow das Credential verwendet:
 - `{{ env.NAME }}` holt Werte aus der Umgebung; `filuflow validate` meldet fehlende Credentials und Variablen.
 - Verschlüsseln: `FILUFLOW_ENCRYPTION_KEY=... filuflow credentials encrypt credentials.json --out credentials.enc.json`.
   Namen und Typen bleiben lesbar, `decrypt` zum Bearbeiten, `check` zum Prüfen.
-- Die Oberfläche zeigt nur Namen und Typen; Werte verlassen den Server nicht und erscheinen maskiert im Protokoll.
+- Geheime Werte verlassen den Server nicht und erscheinen maskiert im Protokoll; die REST-API dazu steht unter `/api/credentials`.
 
 ## KI-Knoten
 
@@ -244,8 +254,8 @@ FILUFLOW_WEBHOOK_URL=https://flows.kunde.example/ filuflow worker --dir ./workfl
 
 - `FILUFLOW_API_KEY` (mindestens 16 Zeichen) ist der Token, den der Master beim Worker einträgt.
 - Workflows vom Master landen als `<id>.json` in `--dir`; von Hand abgelegte Workflows bleiben unberührt.
-- Credentials: die von Hand gepflegte `credentials.json` (nur lesen, hat Vorrang) plus `credentials.managed.json`, in die der
-  Master schreibt, ohne die Werte je wieder lesen zu können.
+- Credentials: die von Hand gepflegte `credentials.json` (nur lesen, hat Vorrang) plus `credentials.managed.json`, die
+  Administratoren im Master mit demselben Formular pflegen; geheime Werte kann der Master nie wieder lesen.
 - Die eigene Oberfläche ist im Worker aus (`FILUFLOW_UI=true` schaltet sie ein).
 
 ### Master starten
@@ -323,6 +333,7 @@ setzen Credentials beim Worker, verwalten Benutzer und lesen das Audit-Log.
 | `FILUFLOW_WEBHOOK_URL` | öffentliche Basis-URL für Webhooks | `http://localhost:5678/` |
 | `FILUFLOW_CREDENTIALS`, `FILUFLOW_VARS` | Credentials und Variablen | `./credentials.json`, `./vars.json` |
 | `FILUFLOW_ENCRYPTION_KEY` | Schlüssel für verschlüsselte Credentials | |
+| `FILUFLOW_MANAGED_CREDENTIALS` | Datei für Credentials aus der Oberfläche oder vom Master | `./credentials.managed.json` |
 | `FILUFLOW_CONCURRENCY` | gleichzeitige Ausführungen | `5` |
 | `FILUFLOW_PRUNE_DAYS` | Aufbewahrung der Ausführungen in Tagen | `14` |
 | `FILUFLOW_TIMEZONE` | Zeitzone für Zeitpläne und Datumswerte | `Europe/Berlin` |

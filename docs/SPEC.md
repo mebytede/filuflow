@@ -293,6 +293,7 @@ Engine-Reihenfolge, Expressions (inkl. Rohwert vs. String), jeder Node, Filter-O
 | M8 | Weboberfläche mit Workflow-Editor | Editor, Ausführungen und Credentials-Übersicht im Browser, Browser-Test |
 | M9 | Master und Worker: Benutzer, Rechte, Projekte, Mandanten, SSO | Integrationstests mit echten Workern, OIDC gegen nachgebauten Identity Provider |
 | M10 | Name filuflow und Design | Oberfläche nach dem Design-Handoff, alte Namen gelten weiter |
+| M11 | Credentials in der Oberfläche | Anlegen, Bearbeiten, Umbenennen, Löschen mit Formularen je Typ, im Einzelbetrieb und im Master; geheime Werte nie lesbar |
 
 Nach jedem Meilenstein: `docs/STATUS.md` aktualisieren (was geht, was fehlt) und einen Commit mit aussagekräftiger Nachricht.
 
@@ -322,7 +323,7 @@ Offene Funktionen, ungefähr nach Nutzen geordnet. Jede wird wie ein Meilenstein
 
 ### 11.3 Credentials
 - OAuth2 mit Authorization Code und PKCE inklusive Rückleitung in der Oberfläche
-- Credentials in der Oberfläche anlegen und bearbeiten (Einzelbetrieb), Teilen zwischen Projekten im Master
+- Teilen von Credentials zwischen Projekten im Master (Anlegen und Bearbeiten in der Oberfläche: M11)
 - Import verschlüsselter n8n-Exporte
 
 ### 11.4 Oberfläche und Master

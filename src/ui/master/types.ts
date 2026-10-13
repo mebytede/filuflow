@@ -149,13 +149,6 @@ export interface WorkerWorkflow {
   issues: number;
 }
 
-export interface WorkerCredential {
-  name: string;
-  id?: string;
-  type?: string;
-  managed: boolean;
-}
-
 export interface AuditEntry {
   id: number;
   time: string;

@@ -220,16 +220,35 @@ export function registerWorkerRoutes(api: FastifyInstance, ctx: MasterContext): 
     }
   });
 
+  // Einzelansicht: öffentliche Felder und die Namen gesetzter geheimer Felder (der Worker gibt keine Geheimnisse heraus)
+  api.get('/api/admin/workers/:id/credentials/:name', async (request, reply) => {
+    if (!ctx.requireAdmin(request, reply)) return;
+    const { id, name } = request.params as { id: string; name: string };
+    const worker = db.getWorker(id);
+    if (!worker) return reply.code(404).send({ message: 'Worker nicht gefunden' });
+    try {
+      return await hub.call(worker, 'GET', `/api/worker/credentials/${encodeURIComponent(name)}`, undefined, 15_000);
+    } catch (error) {
+      return sendWorkerError(reply, error);
+    }
+  });
+
   api.put('/api/admin/workers/:id/credentials/:name', async (request, reply) => {
     if (!ctx.requireAdmin(request, reply)) return;
     const { id, name } = request.params as { id: string; name: string };
     const worker = db.getWorker(id);
     if (!worker) return reply.code(404).send({ message: 'Worker nicht gefunden' });
-    const body = (request.body ?? {}) as { type?: unknown; data?: unknown };
+    const body = (request.body ?? {}) as { type?: unknown; data?: unknown; keep?: unknown; rename?: unknown; create?: unknown };
     try {
-      const result = await hub.call(worker, 'PUT', `/api/worker/credentials/${encodeURIComponent(name)}`, { type: body.type, data: body.data }, 30_000);
+      const result = await hub.call(
+        worker,
+        'PUT',
+        `/api/worker/credentials/${encodeURIComponent(name)}`,
+        { type: body.type, data: body.data, ...(Array.isArray(body.keep) ? { keep: body.keep } : {}), ...(typeof body.rename === 'string' ? { rename: body.rename } : {}), ...(body.create === true ? { create: true } : {}) },
+        30_000,
+      );
       // Werte nie ins Audit-Log
-      ctx.audit(request, 'worker.credential_set', worker.id, { name, type: body.type });
+      ctx.audit(request, 'worker.credential_set', worker.id, { name, type: body.type, ...(typeof body.rename === 'string' && body.rename !== name ? { rename: body.rename } : {}) });
       return result;
     } catch (error) {
       return sendWorkerError(reply, error);

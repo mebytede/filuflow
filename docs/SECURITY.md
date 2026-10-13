@@ -24,8 +24,17 @@ Trotzdem gilt:
   mit `X-API-Key`. Der Schlüssel liegt im localStorage des Browsers (Abmelden löscht ihn). Wer den API-Key hat, kann Workflows
   anlegen, ändern, löschen und ausführen, also auch Code-Nodes mit beliebigem Code; der Schlüssel ist entsprechend zu schützen.
   Für Zugriffe aus dem Netz einen Reverse Proxy mit HTTPS davorsetzen. Mit `FILUFLOW_UI=false` ist die Oberfläche abgeschaltet.
-- Credentials erscheinen in der Oberfläche nur mit Name, ID und Typ; Werte verlassen den Server nicht. Ergebnisse von Ausführungen
-  sind wie im Execution-Log maskiert.
+- Credentials in der Oberfläche: Lesen liefert Name, ID, Typ, die öffentlichen Felder (z. B. Header-Name, Client-ID, URL) und die
+  Namen der gesetzten geheimen Felder, nie deren Werte. Geheim sind die Felder mit `typeOptions.password` der n8n-Credential-Typen,
+  das JSON von Custom Auth und bei unbekannten Typen Felder, deren Name nach Passwort, Secret, Token, Key oder Wert aussieht.
+  Beim Bearbeiten nennt die Oberfläche in `keep` die geheimen Felder, die unverändert bleiben sollen; der Server übernimmt sie nur
+  bei gleichem Typ. Gespeichert wird in `credentials.managed.json` (Dateirechte 0600, atomar ersetzt, mit
+  `FILUFLOW_ENCRYPTION_KEY` je Eintrag AES-256-GCM-verschlüsselt). Ohne Schlüssel liegen die Werte im Klartext in der Datei; die
+  Oberfläche weist darauf hin. Einträge aus der von Hand gepflegten `credentials.json` sind über die API nicht änderbar. Das
+  Protokoll nennt Name und Typ geänderter Credentials, nie Werte. Wer den API-Key hat, kann Credentials anlegen und ändern und
+  über Workflows (Code-Node, HTTP Request an eigene Server) auch die Werte bestehender Credentials verwenden; die Trennung
+  schützt vor versehentlicher Anzeige, nicht vor einem Angreifer mit API-Key.
+- Ergebnisse von Ausführungen sind wie im Execution-Log maskiert.
 - Die Seiten senden eine Content-Security-Policy (`script-src 'self'`, kein `eval`, keine fremden Quellen), `X-Content-Type-Options`
   und `frame-ancestors 'none'`. Statische Pfade außerhalb von `dist/ui` werden abgewiesen.
 
@@ -78,7 +87,9 @@ Verbindung zum Worker:
 - Für Verbindungen über fremde Netze HTTPS verwenden; das TLS-Zertifikat wird geprüft (abschaltbar nur ausdrücklich je Worker,
   eigenes CA-Zertifikat möglich). Der Worker braucht keinen Zugang zum Master.
 - Wer den Token eines Workers hat, kann dort Workflows verteilen und damit Code ausführen; er ist wie ein Root-Zugang zu behandeln.
-- Credentials: Der Master überträgt neue Werte einmalig zum Worker, speichert sie nicht und kann sie nicht zurücklesen. Der Worker
+- Credentials: Der Master überträgt neue Werte einmalig zum Worker, speichert sie nicht und kann geheime Werte nicht zurücklesen
+  (nur öffentliche Felder für das Bearbeiten-Formular). Im Editor eines Projekts können nur globale Admins neue Credentials beim
+  Worker anlegen. Der Worker
   speichert sie in `credentials.managed.json` (Dateirechte 0600, mit `FILUFLOW_ENCRYPTION_KEY` des Workers verschlüsselt, wenn
   gesetzt). Einträge aus der von Hand gepflegten Credential-Datei des Workers kann der Master weder überschreiben noch löschen.
 - Ausführungsdaten bleiben beim Worker und werden nur bei Bedarf über den Master angezeigt (maskiert wie im Execution-Log).

@@ -1,10 +1,12 @@
 // API für den Master (M9, nur mit `filuflow worker`): Informationen, Workflows verteilen und entfernen,
-// Credentials setzen und löschen (ohne Rücklesen der Werte). Geschützt mit dem API-Key des Workers.
+// Credentials pflegen (ohne Rücklesen geheimer Werte). Geschützt mit dem API-Key des Workers.
 import type { FastifyInstance } from 'fastify';
 import type { Workflow } from '../types.js';
 import type { WorkflowManager } from './workflows.js';
 import type { LayeredCredentialProvider } from '../credentials/managed.js';
 import { asWorkflow } from './editorApi.js';
+import { registerCredentialsApi } from './credentialsApi.js';
+import type { Logger } from '../logger.js';
 
 export const MASTER_MARKER = 'filuflowMaster';
 /** Kennzeichnung vor der Umbenennung in filuflow; vom Master verteilte Dateien können sie noch tragen */
@@ -16,6 +18,7 @@ export interface WorkerApiOptions {
   workflows: () => WorkflowManager;
   credentials?: LayeredCredentialProvider;
   startedAt: Date;
+  logger?: Logger;
 }
 
 function masterVersion(wf: Workflow): number | undefined {
@@ -73,30 +76,6 @@ export async function registerWorkerApi(api: FastifyInstance, o: WorkerApiOption
     return reply.code(204).send();
   });
 
-  api.get('/api/worker/credentials', async () => ({ data: o.credentials?.info() ?? [] }));
-
-  api.put('/api/worker/credentials/:name', async (request, reply) => {
-    if (!o.credentials) return reply.code(409).send({ message: 'Credentials dieses Workers sind nicht beschreibbar' });
-    const name = decodeURIComponent((request.params as { name: string }).name);
-    const body = (request.body ?? {}) as { type?: unknown; data?: unknown; id?: unknown };
-    if (!name.trim() || name.length > 200) return reply.code(400).send({ message: 'Ungültiger Name' });
-    if (typeof body.type !== 'string' || !body.type) return reply.code(400).send({ message: 'Typ fehlt' });
-    if (!body.data || typeof body.data !== 'object' || Array.isArray(body.data)) return reply.code(400).send({ message: 'Daten müssen ein Objekt sein' });
-    try {
-      await o.credentials.set(name, { type: body.type, data: body.data as Record<string, unknown>, ...(typeof body.id === 'string' ? { id: body.id } : {}) });
-    } catch (error) {
-      return reply.code(409).send({ message: (error as Error).message });
-    }
-    // Workflows mit diesem Credential neu prüfen und aktivieren
-    await o.workflows().revalidate();
-    return { name, type: body.type };
-  });
-
-  api.delete('/api/worker/credentials/:name', async (request, reply) => {
-    if (!o.credentials) return reply.code(409).send({ message: 'Credentials dieses Workers sind nicht beschreibbar' });
-    const name = decodeURIComponent((request.params as { name: string }).name);
-    if (!(await o.credentials.remove(name))) return reply.code(404).send({ message: 'Credential nicht gefunden (oder in der Credential-Datei des Workers gepflegt)' });
-    await o.workflows().revalidate();
-    return reply.code(204).send();
-  });
+  // Credentials: dieselben Routen wie im Einzelbetrieb, Werte nur schreiben
+  await registerCredentialsApi(api, { prefix: '/api/worker/credentials', credentials: o.credentials, workflows: o.workflows, logger: o.logger });
 }

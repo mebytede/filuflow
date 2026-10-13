@@ -129,7 +129,7 @@ export function startMaster(app: HTMLElement): void {
       } else if (a === 'project' && b && c === 'members') setPage('projects', await projectMembersPage(b), undefined, seq);
       else if (a === 'project' && b && c === 'settings') setPage('projects', await projectSettingsPage(b, u), undefined, seq);
       else if (a === 'workflow' && b) {
-        const { el, editor } = await masterWorkflowView(b, await loadTypes());
+        const { el, editor } = await masterWorkflowView(b, await loadTypes(), u);
         setPage('projects', el, editor, seq);
       } else if (a === 'profile') {
         setPage(

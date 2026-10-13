@@ -8,6 +8,7 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { join, basename } from 'node:path';
+import { isSecretField, PUBLIC_KEY, SECRET_KEY } from './types.js';
 
 export interface CredentialEntry {
   name: string;
@@ -151,10 +152,9 @@ function toEntry(name: string, raw: unknown, where: string): CredentialEntry {
 
 /**
  * Geheime Felder (in n8n die Felder mit typeOptions.password der Credential-Typen, z. B. password, value,
- * token, clientSecret, privateKey). Nur diese werden in Ausgaben und im Execution-Log maskiert.
+ * token, clientSecret, privateKey). Nur diese werden in Ausgaben und im Execution-Log maskiert: nach dem
+ * Schema des Typs (types.ts) und zusätzlich nach Feldnamen.
  */
-const SECRET_KEY = /pass|secret|token|value|json|private|apikey|api_key/i;
-const PUBLIC_KEY = /^(publicKey|keyType|tokenType|accessTokenUrl|authUrl|grantType)$/;
 
 export class StaticCredentialProvider implements CredentialProvider {
   private readonly entries: CredentialEntry[];
@@ -185,7 +185,7 @@ export class StaticCredentialProvider implements CredentialProvider {
 
   secretValues(): string[] {
     const out = new Set<string>();
-    const walk = (v: unknown, secret: boolean): void => {
+    const walk = (v: unknown, secret: boolean, type?: string): void => {
       if (typeof v === 'string') {
         if (secret) out.add(v);
       } else if (typeof v === 'number') {
@@ -193,15 +193,15 @@ export class StaticCredentialProvider implements CredentialProvider {
       } else if (Array.isArray(v)) {
         v.forEach((x) => walk(x, secret));
       } else if (v && typeof v === 'object') {
-        Object.entries(v).forEach(([k, x]) => walk(x, secret || (SECRET_KEY.test(k) && !PUBLIC_KEY.test(k))));
+        Object.entries(v).forEach(([k, x]) => walk(x, secret || (type !== undefined && isSecretField(type, k)) || (SECRET_KEY.test(k) && !PUBLIC_KEY.test(k))));
       }
     };
     for (const e of this.entries) {
       try {
-        walk(this.resolve(e), false);
+        walk(this.resolve(e), false, e.type ?? '');
       } catch {
         // nicht auflösbare Env-Referenzen: nur Rohwerte maskieren
-        walk(e.data, false);
+        walk(e.data, false, e.type ?? '');
       }
     }
     // Kurze Werte (z. B. "1", "true") würden zu viel maskieren

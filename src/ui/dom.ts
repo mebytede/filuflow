@@ -76,16 +76,27 @@ export function toast(message: string, kind: 'info' | 'error' | 'success' = 'inf
 }
 
 /** Modaler Dialog; liefert ein Promise, das mit dem Ergebnis von onConfirm oder null endet */
-export function dialog<T>(title: string, body: Node, opts: { confirm?: string; cancel?: string; onConfirm?: () => T | undefined; wide?: boolean } = {}): Promise<T | null> {
+/** Dialog; onConfirm darf asynchron sein (Knopf ist dann gesperrt), undefined lässt den Dialog offen */
+export function dialog<T>(title: string, body: Node, opts: { confirm?: string; cancel?: string; onConfirm?: () => T | undefined | Promise<T | undefined>; wide?: boolean } = {}): Promise<T | null> {
   return new Promise((resolve) => {
     const close = (value: T | null) => {
       backdrop.remove();
       document.removeEventListener('keydown', onKey);
       resolve(value);
     };
-    const confirm = () => {
-      const result = opts.onConfirm ? opts.onConfirm() : (true as unknown as T);
-      if (result !== undefined) close(result);
+    let busy = false;
+    const confirm = async () => {
+      if (busy) return;
+      busy = true;
+      const btn = backdrop.querySelector<HTMLButtonElement>('.modal-actions .btn-primary');
+      if (btn) btn.disabled = true;
+      try {
+        const result = opts.onConfirm ? await opts.onConfirm() : (true as unknown as T);
+        if (result !== undefined) close(result);
+      } finally {
+        busy = false;
+        if (btn) btn.disabled = false;
+      }
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') close(null);

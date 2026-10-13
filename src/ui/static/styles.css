@@ -428,6 +428,9 @@ a.cell-name:hover { color: var(--ff-text); text-decoration: underline; }
 .tenant-card table { margin-top: 4px; }
 .kv-rows { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
 .kv-row { display: grid; grid-template-columns: 1fr 1.4fr auto; gap: 6px; align-items: center; }
+.kv-row.kv-row-3 { grid-template-columns: 1fr 1.4fr auto auto; }
+.notice { border: 1px solid var(--ff-warning, var(--ff-border-strong)); padding: 12px 16px; margin: 0 0 16px; max-width: 760px; }
+.notice strong { display: block; margin-bottom: 4px; }
 .info-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px 24px; }
 .info-grid code { word-break: break-all; }
 .span-all { grid-column: 1 / -1; }

@@ -76,6 +76,20 @@ Neben dem Stack aus CLAUDE.md (luxon, better-sqlite3, fastify, croner, pino):
 - **Oberfläche:** dieselbe SPA wie im Einzelbetrieb; sie erkennt den Master über `GET /healthz` (`mode: "master"`) und lädt dann
   `master/app.js`. Editor und Ausführungsansicht sind über eine kleine Backend-Schnittstelle an Master oder Einzelserver angebunden.
 
+## Credentials in der Oberfläche (M11)
+- **Zwei Quellen:** `credentials.json` bleibt die von Hand gepflegte Quelle (nur lesen, hat Vorrang); was in der Oberfläche oder
+  vom Master angelegt wird, landet in `credentials.managed.json`. So bleiben bestehende Installationen unverändert, und Einträge,
+  die jemand bewusst in einer Datei (oder per Konfigurationsmanagement) pflegt, kann niemand über die API überschreiben.
+- **Geheimnisse nur schreiben:** Die API gibt öffentliche Felder zurück, damit das Formular sie zeigen kann, geheime Felder nie.
+  Beim Bearbeiten schickt die Oberfläche geänderte Werte und in `keep` die geheimen Felder, die bleiben sollen. Ein Platzhalter
+  wie `********` als Wert wäre fehleranfällig (er könnte als echter Wert gespeichert werden).
+- **Typen deklarativ:** Die Felder der eingebauten Typen stehen als Daten in `src/credentials/types.ts` (nach den n8n-Definitionen,
+  aber eigene Beschreibung) und kommen über `GET /api/credential-types` in die Oberfläche. Dieselbe Beschreibung entscheidet, welche
+  Felder geheim sind; für andere Typen gilt weiter die Namensheuristik. Andere n8n-Typen lassen sich mit freien Feldern anlegen.
+- **IDs wie n8n:** Neue Credentials bekommen eine ID aus 16 Zeichen. Workflows referenzieren `{ id, name }`; gesucht wird nach Name,
+  dann nach ID. Umbenennen behält die ID, damit Workflows mit gespeicherter ID das Credential weiter finden.
+- Keine neue Abhängigkeit.
+
 ## Server
 - fastify mit eigenem Content-Type-Parser für Webhooks: Der Body wird roh gelesen (gzip/deflate wie n8n) und im Webhook-Node
   nach den Regeln von n8n (`parseRequestBody`, `body-parser.ts`) ausgewertet. Antworten bauen die Semantik von Express nach

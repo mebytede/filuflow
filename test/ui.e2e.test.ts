@@ -1,5 +1,6 @@
 // Browser-Test der Weboberfläche (Playwright mit Chromium): Anmelden, Workflow anlegen, Node einfügen,
-// Parameter ändern, verbinden, speichern, ausführen, Ergebnis ansehen, Rückgängig.
+// Parameter ändern, verbinden, speichern, ausführen, Ergebnis ansehen, Rückgängig. Credentials anlegen und
+// bearbeiten, im Editor ein neues Credential anlegen.
 // Wird übersprungen, wenn kein Chromium verfügbar ist. Baut die Oberfläche vorher (npm run build:ui).
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
@@ -9,12 +10,15 @@ import { tmpdir } from 'node:os';
 import type { AddressInfo } from 'node:net';
 import { chromium, type Browser, type Page } from 'playwright-core';
 import { createServer, type FiluflowServer } from '../src/server/app.js';
+import { StaticCredentialProvider } from '../src/credentials/store.js';
+import { LayeredCredentialProvider } from '../src/credentials/managed.js';
 
 const ROOT = join(__dirname, '..');
 const KEY = 'e2e-schluessel';
 let browser: Browser | undefined;
 let server: FiluflowServer | undefined;
 let dir: string;
+let credDir: string;
 let base: string;
 
 async function launch(): Promise<Browser | undefined> {
@@ -35,7 +39,9 @@ beforeAll(async () => {
   execFileSync(process.execPath, [join(ROOT, 'node_modules', 'typescript', 'bin', 'tsc'), '-p', join(ROOT, 'tsconfig.ui.json')], { cwd: ROOT });
   execFileSync(process.execPath, [join(ROOT, 'scripts', 'copy-ui-assets.mjs')], { cwd: ROOT });
   dir = mkdtempSync(join(tmpdir(), 'filuflow-e2e-'));
-  server = await createServer({ dir, dbFile: ':memory:', apiKey: KEY, webhookBaseUrl: 'http://localhost:5678/', watch: false });
+  credDir = mkdtempSync(join(tmpdir(), 'filuflow-e2e-cred-'));
+  const credentials = await new LayeredCredentialProvider(new StaticCredentialProvider(), join(credDir, 'credentials.managed.json')).load();
+  server = await createServer({ dir, dbFile: ':memory:', apiKey: KEY, webhookBaseUrl: 'http://localhost:5678/', watch: false, credentials });
   await server.app.listen({ port: 0, host: '127.0.0.1' });
   base = `http://127.0.0.1:${(server.app.server.address() as AddressInfo).port}`;
 }, 120_000);
@@ -44,6 +50,7 @@ afterAll(async () => {
   await browser?.close();
   await server?.close();
   if (dir) rmSync(dir, { recursive: true, force: true });
+  if (credDir) rmSync(credDir, { recursive: true, force: true });
 });
 
 /** Zeichnen passiert im nächsten Frame */
@@ -120,6 +127,76 @@ describe('Weboberfläche', () => {
     await page.waitForSelector('.list-table');
     await page.click('.list-table tbody tr >> nth=0');
     await page.waitForSelector('.editor.readonly .node.status-success');
+
+    expect(errors).toEqual([]);
+    await page.close();
+  }, 120_000);
+
+  it('legt Credentials an, bearbeitet sie und legt im Editor ein neues an', async (ctx) => {
+    if (!browser) ctx.skip();
+    const page = await browser!.newPage({ viewport: { width: 1400, height: 860 } });
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+    page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+    await server!.workflows.upsert('cred', {
+      id: 'cred',
+      name: 'Mit Credential',
+      settings: { executionOrder: 'v1' },
+      nodes: [{ id: 'w', name: 'Webhook', type: 'n8n-nodes-base.webhook', typeVersion: 2, position: [0, 0], webhookId: 'c1', parameters: { path: 'cred', authentication: 'headerAuth', options: {} } }],
+      connections: {},
+    });
+
+    await page.goto(`${base}/#/credentials`);
+    await page.fill('input[type=password]', KEY);
+    await page.click('button[type=submit]');
+    await page.waitForSelector('h1:has-text("Zugangsdaten")');
+    // Ohne FILUFLOW_ENCRYPTION_KEY: Hinweis
+    await page.waitForSelector('.notice:has-text("Ohne Verschlüsselung")');
+    await page.click('.page-head button:has-text("Credential hinzufügen")');
+    await page.locator('.modal [aria-label="Name"]').fill('Kunden-API');
+    await page.locator('.modal select[aria-label="Typ"]').selectOption('httpHeaderAuth');
+    await page.locator('.modal [aria-label="Header-Name"]').fill('X-Api-Key');
+    await page.locator('.modal [aria-label="Wert"]').fill('ui-geheim-123');
+    await page.click('.modal .btn-primary');
+    await page.waitForSelector('td:has-text("Kunden-API")');
+    expect(await page.content()).not.toContain('ui-geheim-123');
+
+    // JWT: Felder je nach Schlüsselart
+    await page.click('.page-head button:has-text("Credential hinzufügen")');
+    await page.locator('.modal select[aria-label="Typ"]').selectOption('jwtAuth');
+    expect(await page.locator('.modal [aria-label="Private Key"]').isVisible()).toBe(false);
+    await page.locator('.modal select[aria-label="Schlüsselart"]').selectOption('pemKey');
+    expect(await page.locator('.modal [aria-label="Private Key"]').isVisible()).toBe(true);
+    expect(await page.locator('.modal [aria-label="Secret"]').isVisible()).toBe(false);
+    await page.click('.modal button:has-text("Abbrechen")');
+
+    // Bearbeiten: umbenennen, Geheimnis bleibt
+    await page.click('button[aria-label="Kunden-API bearbeiten"]');
+    expect(await page.locator('.modal [aria-label="Wert"]').getAttribute('placeholder')).toMatch(/gespeichert/);
+    await page.locator('.modal [aria-label="Name"]').fill('Kunden-API 2');
+    await page.click('.modal .btn-primary');
+    await page.waitForSelector('td:has-text("Kunden-API 2")');
+    expect(readFileSync(join(credDir, 'credentials.managed.json'), 'utf8')).toContain('ui-geheim-123');
+
+    // Editor: vorhandenes auswählen oder neues anlegen
+    await page.goto(`${base}/#/workflow/cred`);
+    await page.waitForSelector('.node[data-node="Webhook"]');
+    await page.click('.node[data-node="Webhook"]');
+    const sel = page.locator('.panel select[aria-label="Credential httpHeaderAuth"]');
+    expect(await sel.locator('option').allInnerTexts()).toEqual(['(keine)', 'Kunden-API 2', 'Neues Credential anlegen …']);
+    await sel.selectOption({ label: 'Neues Credential anlegen …' });
+    await page.waitForSelector('.modal');
+    expect(await page.locator('.modal select[aria-label="Typ"]').isDisabled()).toBe(true);
+    await page.locator('.modal [aria-label="Name"]').fill('Aus dem Editor');
+    await page.locator('.modal [aria-label="Header-Name"]').fill('X-Editor');
+    await page.locator('.modal [aria-label="Wert"]').fill('editor-geheim-456');
+    await page.click('.modal .btn-primary');
+    await page.waitForSelector('.modal', { state: 'detached' });
+    await page.waitForFunction(() => {
+      const el = (globalThis as unknown as { document: { querySelector(s: string): { value: string } | null } }).document.querySelector('.panel select[aria-label="Credential httpHeaderAuth"]');
+      return el?.value === 'Aus dem Editor';
+    });
+    expect(server!.workflows.list().length).toBeGreaterThan(0);
 
     expect(errors).toEqual([]);
     await page.close();

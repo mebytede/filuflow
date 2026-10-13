@@ -12,7 +12,7 @@ import { Editor } from './editor/editor.js';
 import { emptyWorkflow } from './editor/model.js';
 import { workflowsView } from './views/workflows.js';
 import { executionDetailView, executionsView } from './views/executions.js';
-import { credentialsView } from './views/credentials.js';
+import { createCredential, credentialsView } from './views/credentials.js';
 
 const app = document.getElementById('app')!;
 let current: { editor?: Editor } = {};
@@ -112,7 +112,10 @@ function showLogin(message?: string): void {
 }
 
 async function openEditor(id: string | undefined, seq: number): Promise<void> {
-  const { types, credentials, webhookBaseUrl } = await loadCatalog();
+  const cat = await loadCatalog();
+  // Credentials können sich auf der Credentials-Seite geändert haben
+  cat.credentials = await api.credentials();
+  const { types, credentials, webhookBaseUrl } = cat;
   const crumbs = [{ label: 'Workflows', href: '#/workflows' }];
   if (!id) {
     const editor = new Editor({
@@ -120,6 +123,7 @@ async function openEditor(id: string | undefined, seq: number): Promise<void> {
       types,
       credentials,
       webhookBaseUrl,
+      createCredential,
       brandHref: '#/workflows',
       crumbs,
       onCreated: (newId) => {
@@ -132,7 +136,7 @@ async function openEditor(id: string | undefined, seq: number): Promise<void> {
   }
   const [source, status] = await Promise.all([api.source(id), api.workflow(id)]);
   if (seq !== routeSeq) return;
-  const editor = new Editor({ id, workflow: source, status, types, credentials, webhookBaseUrl, brandHref: '#/workflows', crumbs });
+  const editor = new Editor({ id, workflow: source, status, types, credentials, createCredential, webhookBaseUrl, brandHref: '#/workflows', crumbs });
   setPage('workflows', editor.el, editor, seq);
 }
 

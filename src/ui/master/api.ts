@@ -1,6 +1,6 @@
 // REST-Client für den Master. Anmeldung über das Sitzungs-Cookie (HttpOnly), ändernde Requests mit CSRF-Header.
 import { request } from '../api.js';
-import type { CredentialInfo, Execution, InspectResult, NodeTypeInfo, Overview as WorkerOverview, Workflow } from '../types.js';
+import type { CredentialDetail, CredentialInfo, CredentialList, CredentialSaveBody, CredentialTypeSchema, Execution, InspectResult, NodeTypeInfo, Overview as WorkerOverview, Workflow } from '../types.js';
 import type {
   ApiToken,
   AuditEntry,
@@ -14,7 +14,6 @@ import type {
   Tenant,
   User,
   VersionInfo,
-  WorkerCredential,
   WorkerInfo,
   WorkerWorkflow,
 } from './types.js';
@@ -63,9 +62,10 @@ export const mapi = {
   checkWorker: (id: string) => request<WorkerInfo>('POST', `/api/admin/workers/${e(id)}/check`),
   syncWorker: (id: string) => request<{ deployed: number; removed: number; errors: string[]; worker: WorkerInfo }>('POST', `/api/admin/workers/${e(id)}/sync`),
   workerWorkflows: (id: string) => request<{ data: WorkerWorkflow[] }>('GET', `/api/admin/workers/${e(id)}/workflows`).then((r) => r.data),
-  workerCredentials: (id: string) => request<{ data: WorkerCredential[] }>('GET', `/api/admin/workers/${e(id)}/credentials`).then((r) => r.data),
-  setWorkerCredential: (id: string, name: string, type: string, data: Record<string, unknown>) =>
-    request<unknown>('PUT', `/api/admin/workers/${e(id)}/credentials/${e(name)}`, { type, data }),
+  workerCredentials: (id: string) => request<CredentialList>('GET', `/api/admin/workers/${e(id)}/credentials`),
+  workerCredential: (id: string, name: string) => request<CredentialDetail>('GET', `/api/admin/workers/${e(id)}/credentials/${e(name)}`),
+  setWorkerCredential: (id: string, name: string, body: CredentialSaveBody) => request<CredentialInfo>('PUT', `/api/admin/workers/${e(id)}/credentials/${e(name)}`, body),
+  credentialTypes: () => request<{ data: CredentialTypeSchema[] }>('GET', '/api/credential-types').then((r) => r.data),
   deleteWorkerCredential: (id: string, name: string) => request<void>('DELETE', `/api/admin/workers/${e(id)}/credentials/${e(name)}`),
 
   // Projekte

@@ -1,6 +1,10 @@
 // REST-Client der Weboberfläche. Der API-Key liegt im localStorage dieses Browsers.
 import type {
+  CredentialDetail,
   CredentialInfo,
+  CredentialList,
+  CredentialSaveBody,
+  CredentialTypeSchema,
   Execution,
   InspectResult,
   InstanceInfo,
@@ -99,6 +103,11 @@ export const api = {
   overview: () => request<Overview>('GET', '/api/overview'),
   nodeTypes: () => request<{ data: NodeTypeInfo[] }>('GET', '/api/editor/node-types').then((r) => r.data),
   credentials: () => request<{ data: CredentialInfo[] }>('GET', '/api/editor/credentials').then((r) => r.data),
+  credentialTypes: () => request<{ data: CredentialTypeSchema[] }>('GET', '/api/credential-types').then((r) => r.data),
+  credentialList: () => request<CredentialList>('GET', '/api/credentials'),
+  credential: (name: string) => request<CredentialDetail>('GET', `/api/credentials/${encodeURIComponent(name)}`),
+  saveCredential: (name: string, body: CredentialSaveBody) => request<CredentialInfo>('PUT', `/api/credentials/${encodeURIComponent(name)}`, body),
+  removeCredential: (name: string) => request<void>('DELETE', `/api/credentials/${encodeURIComponent(name)}`),
   executions: (filter: { workflow?: string; status?: string; limit?: number } = {}) => {
     const q = new URLSearchParams();
     if (filter.workflow) q.set('workflow', filter.workflow);

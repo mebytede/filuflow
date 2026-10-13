@@ -8,7 +8,9 @@ import { executionDetailView } from '../views/executions.js';
 import { mapi } from './api.js';
 import { can, projectExecutionSource, workerBadge } from './projects.js';
 import { button } from '../shell.js';
-import type { MasterWorkflow } from './types.js';
+import type { MasterWorkflow, User } from './types.js';
+import { credentialFormDialog } from '../views/credentialForm.js';
+import { WORKER_CREDENTIAL_NOTE, workerCredentialBackend } from './admin.js';
 
 const e = encodeURIComponent;
 
@@ -25,7 +27,7 @@ function toStatus(w: MasterWorkflow): Partial<WorkflowStatus> & { id: string; sa
   };
 }
 
-export async function masterWorkflowView(id: string, types: NodeTypeInfo[]): Promise<{ el: HTMLElement; editor: Editor }> {
+export async function masterWorkflowView(id: string, types: NodeTypeInfo[], user?: User): Promise<{ el: HTMLElement; editor: Editor }> {
   const detail = await mapi.workflow(id);
   const project = await mapi.project(detail.projectId);
   const credentials: CredentialInfo[] = can(detail, 'credentials.read') ? await mapi.credentials(project.id).catch(() => []) : [];
@@ -129,6 +131,10 @@ export async function masterWorkflowView(id: string, types: NodeTypeInfo[]): Pro
     status: { ...(toStatus(detail) as WorkflowStatus), issues: [] },
     types,
     credentials,
+    // Credentials beim Worker anlegen dürfen nur globale Administratoren
+    ...(user?.role === 'admin' && project.worker
+      ? { createCredential: (type: string) => credentialFormDialog(workerCredentialBackend(project.worker!.id), { type, note: WORKER_CREDENTIAL_NOTE, confirm: 'Beim Worker speichern' }) }
+      : {}),
     webhookBaseUrl: project.worker?.webhookBaseUrl ?? '<Worker-Adresse>/',
     readonly: !can(detail, 'workflow.edit'),
     readonlyNote: 'nur lesen',

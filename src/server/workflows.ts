@@ -66,7 +66,7 @@ export class WorkflowManager implements WorkflowSource {
   constructor(private readonly options: WorkflowManagerOptions) {}
 
   list(): ManagedWorkflow[] {
-    return [...this.items.values()].sort((a, b) => a.workflow.name.localeCompare(b.workflow.name));
+    return [...this.items.values()].sort((a, b) => String(a.workflow.name ?? '').localeCompare(String(b.workflow.name ?? '')));
   }
 
   get(idOrName: string): ManagedWorkflow | undefined {

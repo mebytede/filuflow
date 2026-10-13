@@ -176,18 +176,26 @@ describe('Master-Oberfläche', () => {
     await page.click('a.strong:has-text("Produktion")');
     await page.waitForSelector('h2:has-text("Credentials beim Worker")');
     await page.click('button:has-text("Credential hinzufügen")');
-    await dialogField(page, 'Name', 'API Kunde A');
-    await dialogField(page, 'Typ', 'httpHeaderAuth');
-    const rows = page.locator('.modal .kv-row');
-    await rows.nth(0).locator('input').nth(0).fill('name');
-    await rows.nth(0).locator('input').nth(1).fill('X-Api-Key');
-    await rows.nth(1).locator('input').nth(0).fill('value');
-    await rows.nth(1).locator('input').nth(1).fill('streng-geheim-123');
+    await page.locator('.modal [aria-label="Name"]').fill('API Kunde A');
+    await page.locator('.modal select[aria-label="Typ"]').selectOption('httpHeaderAuth');
+    await page.locator('.modal [aria-label="Header-Name"]').fill('X-Api-Key');
+    await page.locator('.modal [aria-label="Wert"]').fill('streng-geheim-123');
     await page.click('.modal .btn-primary');
     await page.waitForSelector('td:has-text("API Kunde A")');
     await shot(page, '06-worker');
     expect(await page.content()).not.toContain('streng-geheim-123');
     expect(readFileSync(join(dir, 'credentials.managed.json'), 'utf8')).toContain('streng-geheim-123');
+    // Bearbeiten: öffentliches Feld sichtbar, geheimes leer; leer lassen behält den Wert
+    await page.click('button[aria-label="API Kunde A bearbeiten"]');
+    expect(await page.locator('.modal [aria-label="Header-Name"]').inputValue()).toBe('X-Api-Key');
+    expect(await page.locator('.modal [aria-label="Wert"]').inputValue()).toBe('');
+    expect(await page.locator('.modal [aria-label="Wert"]').getAttribute('placeholder')).toMatch(/gespeichert/);
+    await page.locator('.modal [aria-label="Header-Name"]').fill('X-Kunde');
+    await page.click('.modal .btn-primary');
+    await page.waitForSelector('.modal', { state: 'detached' });
+    const stored = readFileSync(join(dir, 'credentials.managed.json'), 'utf8');
+    expect(stored).toContain('streng-geheim-123');
+    expect(stored).toContain('X-Kunde');
 
     // Benutzer mit Leserecht im Projekt
     await page.click('.tab:has-text("Benutzer")');

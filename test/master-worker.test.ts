@@ -19,6 +19,7 @@ interface TestWorker {
   url: string;
   dir: string;
   close(): Promise<void>;
+  credentials?: LayeredCredentialProvider;
 }
 
 let root: string;
@@ -42,7 +43,7 @@ async function startWorker(name: string, base: Record<string, { type: string; da
   });
   await server.app.listen({ port, host: '127.0.0.1' });
   const url = `http://127.0.0.1:${(server.app.server.address() as AddressInfo).port}`;
-  const w: TestWorker = { server, url, dir, close: () => server.close() };
+  const w: TestWorker = { server, url, dir, credentials, close: () => server.close() };
   workers.push(w);
   return w;
 }
@@ -340,12 +341,21 @@ describe('Credentials beim Worker', () => {
       expect(w.server.workflows.get(created.id)?.active).toBe(true);
 
       const list = (await admin.get(`/api/admin/workers/${wk.id}/credentials`)).json();
+      expect(list).toMatchObject({ writable: true, encrypted: true });
       expect(list.data).toEqual(
         expect.arrayContaining([
-          { name: 'Handgepflegt', type: 'httpHeaderAuth', managed: false },
-          { name: 'API Kunde A', type: 'httpHeaderAuth', managed: true },
+          expect.objectContaining({ name: 'Handgepflegt', type: 'httpHeaderAuth', managed: false }),
+          expect.objectContaining({ name: 'API Kunde A', type: 'httpHeaderAuth', managed: true, usedBy: [created.workflow.name] }),
         ]),
       );
+      // Einzelansicht über den Master: öffentliche Felder, geheime nur als gesetzt markiert
+      const one = (await admin.get(`/api/admin/workers/${wk.id}/credentials/${encodeURIComponent('API Kunde A')}`)).json();
+      expect(one).toMatchObject({ name: 'API Kunde A', type: 'httpHeaderAuth', data: { name: 'X-Api-Key' }, secretsSet: ['value'] });
+      expect(JSON.stringify(one)).not.toContain('streng-geheim-123');
+      // Bearbeiten ohne geheimen Wert behält ihn (keep)
+      expect((await admin.put(`/api/admin/workers/${wk.id}/credentials/${encodeURIComponent('API Kunde A')}`, { type: 'httpHeaderAuth', data: { name: 'X-Key' }, keep: ['value'] })).statusCode).toBe(200);
+      expect(w.credentials!.find({ name: 'API Kunde A' })?.data).toEqual({ name: 'X-Key', value: 'streng-geheim-123' });
+      expect((await admin.get('/api/credential-types')).json().data.map((t: { name: string }) => t.name)).toContain('oAuth2Api');
       expect(JSON.stringify(list)).not.toMatch(/geheim/);
       // Projekt-Mitglieder sehen Namen und Typen
       expect((await admin.get(`/api/projects/${pid}/credentials`)).json().data.map((c: { name: string }) => c.name).sort()).toEqual(['API Kunde A', 'Handgepflegt']);

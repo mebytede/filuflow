@@ -22,6 +22,8 @@ import { registerUi } from './ui.js';
 import { registerWorkerApi } from './workerApi.js';
 import { registerOverview, triggersOf } from './overview.js';
 import type { LayeredCredentialProvider } from '../credentials/managed.js';
+import { CREDENTIAL_TYPES } from '../credentials/types.js';
+import { registerCredentialsApi } from './credentialsApi.js';
 
 export interface ServerOptions {
   dir: string;
@@ -259,6 +261,8 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
       return executionView(store.get(execution.id) as unknown as Execution, true);
     });
 
+    api.get('/api/credential-types', async () => ({ data: CREDENTIAL_TYPES }));
+    await registerCredentialsApi(api, { prefix: '/api/credentials', credentials, workflows: () => workflows!, logger });
     await registerEditorApi(api, { registry, credentials, runner, manager, store, workflows: () => workflows!, webhookBaseUrl: options.webhookBaseUrl });
     if (options.worker) {
       await registerWorkerApi(api, {
@@ -267,6 +271,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
         workflows: () => workflows!,
         credentials: options.worker.credentials,
         startedAt: new Date(),
+        logger,
       });
     }
 

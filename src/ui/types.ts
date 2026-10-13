@@ -104,6 +104,55 @@ export interface CredentialInfo {
   type?: string;
 }
 
+/** Beschreibung eines Credential-Typs (Server: src/credentials/types.ts) */
+export interface CredentialField {
+  name: string;
+  label: string;
+  kind: 'string' | 'password' | 'text' | 'options' | 'boolean' | 'json';
+  default?: string | boolean;
+  required?: boolean;
+  options?: Array<{ value: string; label: string }>;
+  show?: Record<string, Array<string | boolean>>;
+  placeholder?: string;
+  hint?: string;
+  secret?: boolean;
+}
+
+export interface CredentialTypeSchema {
+  name: string;
+  label: string;
+  description: string;
+  fields: CredentialField[];
+}
+
+/** Listeneintrag der Credential-Verwaltung */
+export interface CredentialListEntry extends CredentialInfo {
+  managed: boolean;
+  usedBy?: string[];
+}
+
+export interface CredentialList {
+  writable: boolean;
+  encrypted: boolean;
+  data: CredentialListEntry[];
+}
+
+/** Einzelansicht ohne Geheimnisse */
+export interface CredentialDetail extends CredentialListEntry {
+  data: Record<string, unknown>;
+  secretsSet: string[];
+}
+
+export interface CredentialSaveBody {
+  type: string;
+  data: Record<string, unknown>;
+  /** geheime Felder, deren gespeicherter Wert bleibt */
+  keep: string[];
+  rename?: string;
+  /** nur anlegen: vorhandenes Credential gleichen Namens nicht ersetzen */
+  create?: boolean;
+}
+
 export interface TaskData {
   startTime: number;
   executionIndex: number;

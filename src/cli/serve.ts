@@ -22,7 +22,9 @@ const USAGE = `Aufruf: filuflow serve [Optionen]
 
 Umgebung: FILUFLOW_API_KEY (REST-API und Weboberfläche), FILUFLOW_PRUNE_DAYS (Default 14),
 FILUFLOW_WEBHOOK_URL bzw. WEBHOOK_URL (öffentliche Basis-URL für webhookUrl),
-FILUFLOW_UI=false (Weboberfläche abschalten)
+FILUFLOW_UI=false (Weboberfläche abschalten),
+FILUFLOW_MANAGED_CREDENTIALS (Credentials aus der Oberfläche, Default ./credentials.managed.json),
+FILUFLOW_ENCRYPTION_KEY (verschlüsselt Credentials)
 `;
 
 const WORKER_USAGE = `Aufruf: filuflow worker [Optionen]
@@ -32,7 +34,7 @@ Workflows aus (Webhooks, Zeitpläne, manuelle Ausführung), speichert Ausführun
 Optionen wie bei "filuflow serve".
 
 Umgebung: FILUFLOW_API_KEY (Pflicht, mindestens 16 Zeichen; diesen Token im Master beim Worker eintragen),
-FILUFLOW_MANAGED_CREDENTIALS (vom Master beschreibbare Credential-Datei, Default ./credentials.managed.json),
+FILUFLOW_MANAGED_CREDENTIALS (Credentials aus Oberfläche oder Master, Default ./credentials.managed.json),
 FILUFLOW_ENCRYPTION_KEY (verschlüsselt diese Datei), FILUFLOW_WEBHOOK_URL, FILUFLOW_UI=true (eigene Oberfläche)
 `;
 
@@ -90,9 +92,8 @@ export async function cmdServe(args: string[], worker = false): Promise<number> 
     return 1;
   }
   const baseCredentials = await loadDefaultCredentials(values.credentials);
-  const credentials = worker
-    ? await new LayeredCredentialProvider(baseCredentials, resolve(env.FILUFLOW_MANAGED_CREDENTIALS ?? 'credentials.managed.json')).load()
-    : baseCredentials;
+  // Von Hand gepflegte Datei (nur lesend) plus die über Oberfläche oder Master verwaltete Datei
+  const credentials = await new LayeredCredentialProvider(baseCredentials, resolve(env.FILUFLOW_MANAGED_CREDENTIALS ?? 'credentials.managed.json')).load();
   // Worker: eigene Oberfläche nur auf Wunsch (bedient wird über den Master)
   const uiOff = worker ? env.FILUFLOW_UI !== 'true' : env.FILUFLOW_UI === 'false';
 
@@ -108,7 +109,7 @@ export async function cmdServe(args: string[], worker = false): Promise<number> 
     vars: await loadVars(values.vars),
     logger,
     ...(uiOff ? { uiDir: false as const } : {}),
-    ...(worker ? { worker: { version: packageVersion(), credentials: credentials as LayeredCredentialProvider } } : {}),
+    ...(worker ? { worker: { version: packageVersion(), credentials } } : {}),
   });
   await server.app.listen({ port, host });
   logger.info(

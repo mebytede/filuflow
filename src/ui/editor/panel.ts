@@ -11,6 +11,8 @@ export interface PanelHost {
   ports(name: string): NodePorts | undefined;
   types(): Map<string, NodeTypeInfo>;
   credentials(): CredentialInfo[];
+  /** Neues Credential anlegen (Typ vorgegeben); fehlt, wenn die Instanz das nicht erlaubt */
+  createCredential?(type: string): Promise<CredentialInfo | null>;
   webhookBaseUrl(): string;
   issues(): ValidationIssue[];
   runData(): Record<string, TaskData[]> | undefined;
@@ -177,24 +179,39 @@ export class Panel {
       for (const type of allTypes) {
         const current = node.credentials?.[type];
         const options = list.filter((c) => !c.type || c.type === type);
+        const NEW = '\u0000neu';
+        const assign = (chosen: CredentialInfo | undefined) =>
+          this.mutateNode(node.name, (n) => {
+            n.credentials ??= {};
+            if (!chosen) delete n.credentials[type];
+            else n.credentials[type] = { id: chosen.id ?? null, name: chosen.name };
+            if (!Object.keys(n.credentials).length) delete n.credentials;
+          });
+        const create = this.host.createCredential && !this.host.readonly ? this.host.createCredential.bind(this.host) : undefined;
         const sel = h(
           'select',
           {
             class: 'param-input',
             disabled: this.host.readonly,
             'aria-label': `Credential ${type}`,
-            onchange: () =>
-              this.mutateNode(node.name, (n) => {
-                const chosen = options.find((c) => c.name === sel.value);
-                n.credentials ??= {};
-                if (!chosen) delete n.credentials[type];
-                else n.credentials[type] = { id: chosen.id ?? null, name: chosen.name };
-                if (!Object.keys(n.credentials).length) delete n.credentials;
-              }),
+            onchange: async () => {
+              if (sel.value === NEW && create) {
+                const made = await create(type);
+                if (made) {
+                  // Panel wird bei Änderungen nicht neu gezeichnet: Option selbst ergänzen
+                  if (![...sel.options].some((x) => x.value === made.name)) sel.insertBefore(h('option', { value: made.name }, made.name), sel.lastElementChild);
+                  sel.value = made.name;
+                  assign(made);
+                } else sel.value = node.credentials?.[type]?.name ?? '';
+                return;
+              }
+              assign(options.find((c) => c.name === sel.value));
+            },
           },
           h('option', { value: '' }, '(keine)'),
           options.map((c) => h('option', { value: c.name, selected: current?.name === c.name }, c.name)),
-          current && !options.some((c) => c.name === current.name) && h('option', { value: current.name, selected: true }, `${current.name} (fehlt in credentials.json)`),
+          current && !options.some((c) => c.name === current.name) && h('option', { value: current.name, selected: true }, `${current.name} (nicht vorhanden)`),
+          create && h('option', { value: NEW }, 'Neues Credential anlegen …'),
         );
         box.append(h('label', { class: 'field' }, h('span', null, type), sel));
       }
