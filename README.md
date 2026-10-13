@@ -164,6 +164,7 @@ filuflow validate <workflow.json> [--json]
 filuflow run <workflow.json> [--input items.json] [--trigger "Knoten"] [--json] [--only-last] [--no-pin]
 filuflow executions list|show <id> [--json] [--db ./filuflow.db]
 filuflow credentials encrypt|decrypt|check <credentials.json>
+filuflow credentials import <n8n-export.json> [--n8n-key <k>] [--out <datei> | --managed <datei>]
 filuflow nodes [--json]
 ```
 
@@ -210,6 +211,19 @@ n8n, das Formular zeigt sie an), legen Sie das Credential an und klicken Sie in 
 verschlüsselt in der Datenbank und wird bei abgelaufenem Zugriff mit dem Refresh-Token erneuert. Im Master läuft die
 Anmeldung über die Adresse des Masters, das Token liegt beim Worker.
 
+**OAuth1** (`oAuth1Api`, z. B. ältere APIs von Twitter/X, Trello oder Xero) funktioniert genauso: Consumer Key und Secret sowie
+die drei URLs des Anbieters eintragen, speichern, **Verbinden**. Als Rückleitung nutzt filuflow
+`<FILUFLOW_WEBHOOK_URL>rest/oauth1-credential/callback`.
+
+**Aus n8n übernehmen**: Mit `n8n export:credentials --all --output=export.json` exportierte Credentials (verschlüsselt oder mit
+`--decrypted`) übernimmt der Knopf **Aus n8n übernehmen** auf der Seite Credentials, im Master auf der Worker-Seite. Für
+verschlüsselte Exporte geben Sie den n8n-Schlüssel an (`N8N_ENCRYPTION_KEY` der n8n-Instanz). Auf der Kommandozeile geht es mit
+`filuflow credentials import export.json --n8n-key ... --managed credentials.managed.json`. IDs bleiben erhalten, sodass
+importierte Workflows ihre Credentials finden.
+
+**Teilen im Master**: Credentials eines Workers stehen zunächst allen Projekten dieses Workers zur Verfügung. Über das Symbol
+**Freigabe** auf der Worker-Seite beschränken Sie ein Credential auf einzelne Projekte.
+
 In der Oberfläche angelegte Credentials landen in `credentials.managed.json` (Dateirechte 0600, mit `FILUFLOW_ENCRYPTION_KEY`
 verschlüsselt; Pfad über `FILUFLOW_MANAGED_CREDENTIALS`). Ohne Schlüssel weist die Oberfläche darauf hin.
 
@@ -226,7 +240,7 @@ unter dem ein Workflow das Credential verwendet:
 ```
 
 - Typen: `httpHeaderAuth`, `httpBasicAuth`, `httpDigestAuth`, `httpQueryAuth`, `httpBearerAuth`, `httpCustomAuth`, `oAuth2Api`,
-  `jwtAuth`, `httpSslAuth` (Client-Zertifikat und eigene CA für "SSL Certificates"),
+  `oAuth1Api`, `jwtAuth`, `httpSslAuth` (Client-Zertifikat und eigene CA für "SSL Certificates"),
   für KI-Modelle `openAiApi`, `anthropicApi` und `googlePalmApi` (jeweils `apiKey`, optional eigene URL).
 - `{{ env.NAME }}` holt Werte aus der Umgebung; `filuflow validate` meldet fehlende Credentials und Variablen.
 - Verschlüsseln: `FILUFLOW_ENCRYPTION_KEY=... filuflow credentials encrypt credentials.json --out credentials.enc.json`.
@@ -434,7 +448,7 @@ Für den Betrieb im Netz gehört ein Reverse Proxy mit HTTPS davor. Worker sollt
 
 filuflow liest das Workflow-Format von n8n. Exportierte Workflows (JSON, `executionOrder: v1`) laufen ohne Umbau und liefern
 dieselben Daten an denselben Knoten wie n8n 1.x; das prüfen Vergleichstests gegen echtes n8n (Referenz 1.123.0). Credentials aus
-`n8n export:credentials --decrypted` lassen sich direkt verwenden, kopierte n8n-Knoten im Editor einfügen.
+`n8n export:credentials` lassen sich direkt verwenden (verschlüsselte mit `N8N_ENCRYPTION_KEY`), kopierte n8n-Knoten im Editor einfügen.
 
 ## Entwicklung
 

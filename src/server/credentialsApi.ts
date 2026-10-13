@@ -19,6 +19,7 @@ import {
 } from '../credentials/oauth2.js';
 import { createHash, randomBytes } from 'node:crypto';
 import { readN8nExport } from '../credentials/n8nCipher.js';
+import { connectedOAuth1TokenData, oauth1AccessToken, oauth1AuthorizationUrl, oauth1TokenKey } from '../credentials/oauth1.js';
 
 export interface CredentialsApiOptions {
   prefix: string;
@@ -34,6 +35,8 @@ export interface OAuthSupport {
   http: HttpClient;
   /** Redirect-URI dieser Instanz (<Basis>/rest/oauth2-credential/callback); der Master gibt seine eigene mit */
   redirectUri: string;
+  /** Rückleitung für OAuth1 (<Basis>/rest/oauth1-credential/callback) */
+  oauth1CallbackUrl?: string;
 }
 
 /** Offene Autorisierung: wird beim Callback eingelöst (10 Minuten gültig) */
@@ -93,6 +96,36 @@ export async function completeOAuth(o: OAuthSupport, credentials: CredentialProv
   return { credential: entry.name };
 }
 
+/**
+ * OAuth1 verbinden (oauth1-credential.controller.ts getAuthUri): Request-Token mit oauth_callback samt state holen,
+ * Autorisierungs-URL zurückgeben. Der state liegt 10 Minuten in der Ablage.
+ */
+export async function startOAuth1(o: OAuthSupport, credentials: CredentialProvider, name: string, callbackUrl = o.oauth1CallbackUrl): Promise<{ url: string; state: string }> {
+  const entry = credentials.find({ name }, 'oAuth1Api');
+  if (!entry || entry.name !== name || entry.type !== 'oAuth1Api') throw new Error(`OAuth1-Credential "${name}" nicht gefunden`);
+  if (!callbackUrl) throw new Error('Keine Rückleitungs-URL für OAuth1 eingestellt');
+  const state = base64url(randomBytes(24));
+  const url = await oauth1AuthorizationUrl(o.http, credentials.resolve(entry), `${callbackUrl}?state=${state}`);
+  o.store.set(`oauth1-pending:${state}`, { credential: name, redirectUri: callbackUrl, createdAt: Date.now() } satisfies PendingAuth);
+  return { url, state };
+}
+
+/** OAuth1-Rückleitung (handleCallback): Verifier gegen Access-Token tauschen, als Token-Daten speichern */
+export async function completeOAuth1(o: OAuthSupport, credentials: CredentialProvider, query: Record<string, unknown>): Promise<{ credential: string }> {
+  const { oauth_verifier: verifier, oauth_token: token, state } = query;
+  if (typeof verifier !== 'string' || typeof token !== 'string' || typeof state !== 'string' || !verifier || !token || !state) {
+    throw new Error('Insufficient parameters for OAuth1 callback.');
+  }
+  const pending = o.store.get<PendingAuth>(`oauth1-pending:${state}`);
+  o.store.delete(`oauth1-pending:${state}`);
+  if (!pending || Date.now() - pending.createdAt > PENDING_TTL_MS) throw new Error('The OAuth callback state is invalid!');
+  const entry = credentials.find({ name: pending.credential }, 'oAuth1Api');
+  if (!entry) throw new Error(`Credential "${pending.credential}" nicht gefunden`);
+  const tokenData = await oauth1AccessToken(o.http, credentials.resolve(entry), { oauth_token: token, oauth_verifier: verifier });
+  o.store.set(oauth1TokenKey({ name: entry.name, ...(entry.id ? { id: entry.id } : {}) }), tokenData);
+  return { credential: entry.name };
+}
+
 /** HTML-Seite nach dem Callback (ohne Skript; die Oberfläche merkt das Schließen des Fensters) */
 export function oauthCallbackPage(ok: boolean, message: string): string {
   const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string);
@@ -121,8 +154,19 @@ export async function registerCredentialsApi(api: FastifyInstance, o: Credential
   const workflows = () => o.workflows().list().map((m) => m.workflow);
 
   /** OAuth2-Status eines Credentials (nur für oAuth2Api mit Authorization Code / PKCE) */
-  const oauthStatus = (name: string) => {
+  const oauthStatus = (name: string, type?: string) => {
     if (!o.oauth || !o.credentials) return undefined;
+    if (type === 'oAuth1Api') {
+      const entry = o.credentials.find({ name }, 'oAuth1Api');
+      if (!entry || entry.name !== name) return undefined;
+      let data: Record<string, unknown> = entry.data;
+      try {
+        data = o.credentials.resolve(entry);
+      } catch {
+        // Env-Referenz fehlt: Status aus den Rohdaten
+      }
+      return { version: 1, connected: !!connectedOAuth1TokenData(data, { name: entry.name, ...(entry.id ? { id: entry.id } : {}) }) };
+    }
     const entry = o.credentials.find({ name }, 'oAuth2Api');
     if (!entry || entry.name !== name || !isOAuthCodeCredential(entry)) return undefined;
     let data: Record<string, unknown> = entry.data;
@@ -131,7 +175,7 @@ export async function registerCredentialsApi(api: FastifyInstance, o: Credential
     } catch {
       // Env-Referenz fehlt: Status aus den Rohdaten
     }
-    return { grantType: String(data.grantType ?? 'authorizationCode'), connected: !!connectedTokenData(data, { name: entry.name, ...(entry.id ? { id: entry.id } : {}) }) };
+    return { version: 2, grantType: String(data.grantType ?? 'authorizationCode'), connected: !!connectedTokenData(data, { name: entry.name, ...(entry.id ? { id: entry.id } : {}) }) };
   };
 
   api.get(o.prefix, async () => {
@@ -140,10 +184,10 @@ export async function registerCredentialsApi(api: FastifyInstance, o: Credential
     return {
       writable: !!layered,
       encrypted: !!process.env.FILUFLOW_ENCRYPTION_KEY,
-      ...(o.oauth ? { oauthCallbackUrl: o.oauth.redirectUri } : {}),
+      ...(o.oauth ? { oauthCallbackUrl: o.oauth.redirectUri, ...(o.oauth.oauth1CallbackUrl ? { oauth1CallbackUrl: o.oauth.oauth1CallbackUrl } : {}) } : {}),
       data: entries.map((e) => {
         const usedBy = credentialUsage(all, e);
-        const oauth = e.type === 'oAuth2Api' ? oauthStatus(e.name) : undefined;
+        const oauth = e.type === 'oAuth2Api' || e.type === 'oAuth1Api' ? oauthStatus(e.name, e.type) : undefined;
         return { ...e, usedBy, ...(oauth ? { oauth } : {}) };
       }),
     };
@@ -179,6 +223,33 @@ export async function registerCredentialsApi(api: FastifyInstance, o: Credential
       oauth.store.delete(oauth2TokenKey({ name: entry.name, ...(entry.id ? { id: entry.id } : {}) }));
       return reply.code(204).send();
     });
+    // OAuth1: Request-Token und Autorisierungs-URL; der Master gibt seine Rückleitung als callbackUrl mit
+    api.post(`${o.prefix}/:name/oauth1/auth`, async (request, reply) => {
+      const name = (request.params as { name: string }).name;
+      const body = (request.body ?? {}) as { callbackUrl?: unknown };
+      const callbackUrl = typeof body.callbackUrl === 'string' && /^https?:\/\//.test(body.callbackUrl) ? body.callbackUrl : oauth.oauth1CallbackUrl;
+      try {
+        return await startOAuth1(oauth, o.credentials!, name, callbackUrl);
+      } catch (error) {
+        return reply.code(400).send({ message: (error as Error).message });
+      }
+    });
+    api.post(`${o.prefix}/oauth1/callback`, async (request, reply) => {
+      try {
+        const result = await completeOAuth1(oauth, o.credentials!, (request.body ?? {}) as Record<string, unknown>);
+        o.logger?.info({ credential: result.credential }, 'OAuth1-Credential verbunden');
+        return result;
+      } catch (error) {
+        return reply.code(400).send({ message: (error as Error).message });
+      }
+    });
+    api.delete(`${o.prefix}/:name/oauth1`, async (request, reply) => {
+      const name = (request.params as { name: string }).name;
+      const entry = o.credentials?.find({ name }, 'oAuth1Api');
+      if (!entry || entry.name !== name) return reply.code(404).send({ message: 'Credential nicht gefunden' });
+      oauth.store.delete(oauth1TokenKey({ name: entry.name, ...(entry.id ? { id: entry.id } : {}) }));
+      return reply.code(204).send();
+    });
   }
 
   api.get(`${o.prefix}/:name`, async (request, reply) => {
@@ -190,7 +261,7 @@ export async function registerCredentialsApi(api: FastifyInstance, o: Credential
     if (!found) return reply.code(404).send({ message: 'Credential nicht gefunden' });
     const { entry, managed } = found;
     const view = redactCredentialData(entry.type, entry.data);
-    const oauth = entry.type === 'oAuth2Api' ? oauthStatus(entry.name) : undefined;
+    const oauth = entry.type === 'oAuth2Api' || entry.type === 'oAuth1Api' ? oauthStatus(entry.name, entry.type) : undefined;
     return {
       name: entry.name,
       ...(entry.id ? { id: entry.id } : {}),

@@ -101,7 +101,9 @@ export async function oauth1AuthorizationUrl(http: HttpClient, cred: Record<stri
   const data = { oauth_callback: callbackUrl };
   const url = String(cred.requestTokenUrl ?? '');
   const oauth = authorizeOAuth1({ method: 'POST', url, data }, { consumerKey: String(cred.consumerKey ?? ''), consumerSecret: String(cred.consumerSecret ?? ''), signatureMethod: String(cred.signatureMethod ?? 'HMAC-SHA1') });
-  // n8n übergibt die Daten an axios: oauth_callback steht im Header und (als JSON) im Body
+  // n8n übergibt die Daten an axios (JSON-Body) und setzt nur die oauth_*-Werte der Signatur in den Header.
+  // filuflow nimmt oauth_callback zusätzlich in den Header auf (RFC 5849 2.1), da viele Anbieter keinen JSON-Body lesen;
+  // die Signatur ist dieselbe.
   const res = await http.request({ method: 'POST', url, headers: { authorization: oauth1Header({ ...oauth, ...data }), 'content-type': 'application/json' }, body: JSON.stringify(data) });
   const text = res.body.toString('utf8');
   if (res.statusCode >= 400) throw new Error(`Request-Token fehlgeschlagen (${res.statusCode}): ${text}`);

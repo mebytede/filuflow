@@ -21,7 +21,7 @@ export function createCredential(type?: string): Promise<CredentialInfo | null> 
 }
 
 /**
- * OAuth2 verbinden: Fenster sofort öffnen (sonst blockt der Browser), dann zur Autorisierungs-URL leiten und warten,
+ * OAuth2 oder OAuth1 verbinden: Fenster sofort öffnen (sonst blockt der Browser), dann zur Autorisierungs-URL leiten und warten,
  * bis es geschlossen wird. Die Callback-Seite des Servers sagt, ob es geklappt hat.
  */
 export async function connectOAuth(getUrl: () => Promise<{ url: string }>, onDone: () => void): Promise<void> {
@@ -97,8 +97,8 @@ export function credentialTable(
     edit(name: string): void;
     remove(name: string, usedBy: string[]): void;
     fileHint: string;
-    connect?(name: string): void;
-    disconnect?(name: string): void;
+    connect?(name: string, version: 1 | 2): void;
+    disconnect?(name: string, version: 1 | 2): void;
     /** Master: Freigabe für Projekte anzeigen und ändern */
     access?: { label(projects: string[] | null | undefined): string; edit(name: string): void };
   },
@@ -137,8 +137,8 @@ export function credentialTable(
             h(
               'td',
               { class: 'actions' },
-              c.oauth && o.connect ? button(c.oauth.connected ? 'Neu verbinden' : 'Verbinden', { icon: 'link', onclick: () => o.connect!(c.name) }) : null,
-              c.oauth?.connected && o.disconnect ? iconButton('x', `${c.name} trennen`, () => o.disconnect!(c.name)) : null,
+              c.oauth && o.connect ? button(c.oauth.connected ? 'Neu verbinden' : 'Verbinden', { icon: 'link', onclick: () => o.connect!(c.name, c.oauth!.version ?? 2) }) : null,
+              c.oauth?.connected && o.disconnect ? iconButton('x', `${c.name} trennen`, () => o.disconnect!(c.name, c.oauth!.version ?? 2)) : null,
               o.access ? iconButton('users', `Freigabe von ${c.name}`, () => o.access!.edit(c.name)) : null,
               editable ? iconButton('pencil', `${c.name} bearbeiten`, () => o.edit(c.name)) : null,
               editable ? iconButton('trash-2', `${c.name} löschen`, () => o.remove(c.name, used)) : null,
@@ -205,10 +205,10 @@ export async function credentialsView(): Promise<HTMLElement> {
           edit: (n) => void edit(n),
           remove: (n, u) => void remove(n, u),
           fileHint: 'In credentials.json gepflegt, hier nicht änderbar',
-          connect: (n) => void connectOAuth(() => api.oauthConnect(n), () => void reload()),
-          disconnect: async (n) => {
+          connect: (n, v) => void connectOAuth(() => api.oauthConnect(n, v), () => void reload()),
+          disconnect: async (n, v) => {
             if (!(await confirmDialog('Verbindung trennen', `Das gespeicherte Token von "${n}" wird gelöscht. Workflows können das Credential erst nach erneutem Verbinden nutzen.`, 'Trennen'))) return;
-            await api.oauthDisconnect(n);
+            await api.oauthDisconnect(n, v);
             await reload();
           },
         })

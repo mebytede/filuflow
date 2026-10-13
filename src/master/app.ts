@@ -3,6 +3,7 @@
 // keine Workflows aus und hält keine Credentials oder Ausführungsdaten.
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import { OAUTH2_CALLBACK_PATH } from '../credentials/oauth2.js';
+import { OAUTH1_CALLBACK_PATH } from '../credentials/oauth1.js';
 import { oauthCallbackPage } from '../server/credentialsApi.js';
 import type { Logger } from '../logger.js';
 import { getLogger } from '../logger.js';
@@ -128,22 +129,27 @@ export async function createMasterServer(options: MasterOptions): Promise<Master
   };
 
   app.get('/healthz', async () => ({ status: 'ok', mode: 'master' }));
-  // OAuth2-Rückleitung: der Master reicht Code und state an den Worker weiter, der das Credential hält (M14)
-  app.get(`/${OAUTH2_CALLBACK_PATH}`, async (request, reply) => {
-    reply.header('content-type', 'text/html; charset=utf-8').header('content-security-policy', "default-src 'none'; style-src 'unsafe-inline'");
-    const query = (request.query ?? {}) as Record<string, unknown>;
-    const pending = typeof query.state === 'string' ? oauthPending.get(query.state) : undefined;
-    if (typeof query.state === 'string') oauthPending.delete(query.state);
-    const worker = pending && Date.now() - pending.at < 10 * 60_000 ? db.getWorker(pending.workerId) : undefined;
-    if (!worker) return reply.code(400).send(oauthCallbackPage(false, 'The OAuth callback state is invalid!'));
-    try {
-      const result = (await hub.call(worker, 'POST', '/api/worker/credentials/oauth2/callback', query, 60_000)) as { credential: string };
-      db.audit({ userId: pending!.userId, email: null, action: 'worker.credential_oauth_connected', target: worker.id, details: { name: result.credential } });
-      return reply.send(oauthCallbackPage(true, `Das Credential "${result.credential}" ist beim Worker verbunden. Sie können dieses Fenster schließen.`));
-    } catch (error) {
-      return reply.code(400).send(oauthCallbackPage(false, (error as Error).message));
-    }
-  });
+  // OAuth2- und OAuth1-Rückleitung: der Master reicht die Werte samt state an den Worker weiter, der das Credential hält
+  for (const [path, version] of [
+    [OAUTH2_CALLBACK_PATH, 'oauth2'],
+    [OAUTH1_CALLBACK_PATH, 'oauth1'],
+  ] as const) {
+    app.get(`/${path}`, async (request, reply) => {
+      reply.header('content-type', 'text/html; charset=utf-8').header('content-security-policy', "default-src 'none'; style-src 'unsafe-inline'");
+      const query = (request.query ?? {}) as Record<string, unknown>;
+      const pending = typeof query.state === 'string' ? oauthPending.get(query.state) : undefined;
+      if (typeof query.state === 'string') oauthPending.delete(query.state);
+      const worker = pending && Date.now() - pending.at < 10 * 60_000 ? db.getWorker(pending.workerId) : undefined;
+      if (!worker) return reply.code(400).send(oauthCallbackPage(false, 'The OAuth callback state is invalid!'));
+      try {
+        const result = (await hub.call(worker, 'POST', `/api/worker/credentials/${version}/callback`, query, 60_000)) as { credential: string };
+        db.audit({ userId: pending!.userId, email: null, action: 'worker.credential_oauth_connected', target: worker.id, details: { name: result.credential } });
+        return reply.send(oauthCallbackPage(true, `Das Credential "${result.credential}" ist beim Worker verbunden. Sie können dieses Fenster schließen.`));
+      } catch (error) {
+        return reply.code(400).send(oauthCallbackPage(false, (error as Error).message));
+      }
+    });
+  }
   if (options.uiDir !== false) registerUi(app, options.uiDir);
 
   await app.register(async (api) => {

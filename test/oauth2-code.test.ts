@@ -123,7 +123,7 @@ describe('OAuth2 Authorization Code', () => {
     expect((await call(s, 'PUT', '/api/credentials/Kalender', { type: 'oAuth2Api', data: oauthData('authorizationCode'), create: true })).statusCode).toBe(200);
     const before = (await call(s, 'GET', '/api/credentials')).json();
     expect(before.oauthCallbackUrl).toBe('http://x/rest/oauth2-credential/callback');
-    expect(before.data[0].oauth).toEqual({ grantType: 'authorizationCode', connected: false });
+    expect(before.data[0].oauth).toEqual({ version: 2, grantType: 'authorizationCode', connected: false });
     expect((await call(s, 'GET', '/api/credential-types')).json().oauthCallbackUrl).toBe('http://x/rest/oauth2-credential/callback');
 
     // Nicht verbunden: klarer Fehler
@@ -157,7 +157,7 @@ describe('OAuth2 Authorization Code', () => {
     expect((await s.app.inject({ method: 'GET', url: `/rest/oauth2-credential/callback?code=code-123&state=${state}` })).statusCode).toBe(400);
 
     const after = (await call(s, 'GET', '/api/credentials')).json();
-    expect(after.data[0].oauth).toEqual({ grantType: 'authorizationCode', connected: true });
+    expect(after.data[0].oauth).toEqual({ version: 2, grantType: 'authorizationCode', connected: true });
     const detail = (await call(s, 'GET', '/api/credentials/Kalender')).json();
     expect(JSON.stringify(detail)).not.toMatch(/at-1|rt-1|client-geheim/);
 

@@ -514,10 +514,10 @@ export async function workerPage(id: string): Promise<HTMLElement> {
                   label: (projects) => (projects ? projects.map((p) => projectNames.get(p) ?? 'anderes Projekt').join(', ') : 'alle Projekte'),
                   edit: (n) => void editAccess(n, list.data.find((c) => c.name === n)?.projects ?? null),
                 },
-                connect: (n) => void connectOAuth(() => mapi.workerOauthConnect(id, n), () => void loadCredentials()),
-                disconnect: async (n) => {
+                connect: (n, v) => void connectOAuth(() => mapi.workerOauthConnect(id, n, v), () => void loadCredentials()),
+                disconnect: async (n, v) => {
                   if (!(await confirmDialog('Verbindung trennen', `Das gespeicherte Token von "${n}" wird beim Worker gelöscht.`, 'Trennen'))) return;
-                  await mapi.workerOauthDisconnect(id, n);
+                  await mapi.workerOauthDisconnect(id, n, v);
                   void loadCredentials();
                 },
               })

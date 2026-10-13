@@ -63,6 +63,15 @@ Trotzdem gilt:
   `/rest/oauth2-credential/callback` ist ohne Anmeldung erreichbar (der Browser kommt vom Anbieter zurück) und nimmt nur
   einen einmaligen, zufälligen `state` an, der 10 Minuten gilt; bei PKCE bleibt der `code_verifier` auf dem Server. Tokens
   liegen verschlüsselt in der Datenbank (beim Worker), nicht in der Oberfläche und nicht im Master.
+- OAuth1: gleiches Verfahren mit `/rest/oauth1-credential/callback`; der einmalige `state` steht in der Rückleitungs-URL,
+  die filuflow als `oauth_callback` beim Anbieter hinterlegt. Access-Token und Token-Secret liegen wie OAuth2-Tokens
+  verschlüsselt in der Datenbank des Workers.
+- Import aus n8n: Der n8n-Schlüssel wird nur zum Entschlüsseln genutzt, nie gespeichert oder protokolliert. Die Antwort
+  des Imports nennt nur Namen. Einträge aus `credentials.json` werden nie überschrieben.
+- Freigabe für Projekte (Master): Ein Credential mit Freigabe lässt sich nur in den genannten Projekten verwenden; der
+  Master weist Workflows anderer Projekte beim Anlegen, Speichern und Ausführen ab. Die Freigabe schützt vor
+  versehentlicher Nutzung; wer im Projekt Code-Nodes schreiben darf, erreicht auf dem Worker weiterhin dessen Dateien
+  und Umgebung (siehe unten).
 - Formulare: Die Seiten unter `/form/` und `/form-waiting/` laufen ohne Skript (CSP `script-src 'none'`). Beschreibungen
   und eigenes HTML werden auf erlaubte Tags reduziert (wie n8n: Text, Listen, Tabellen, Links, Bilder, Videos, iframes in
   einer Sandbox), Links und Quellen nur per http(s). Wer die Adresse einer Folgeseite kennt, kann sie ausfüllen; für

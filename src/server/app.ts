@@ -25,9 +25,10 @@ import { ChatSessionError, ChatSessions } from './chatSessions.js';
 import { registerOverview, triggersOf } from './overview.js';
 import type { LayeredCredentialProvider } from '../credentials/managed.js';
 import { CREDENTIAL_TYPES } from '../credentials/types.js';
-import { completeOAuth, oauthCallbackPage, registerCredentialsApi, type OAuthSupport } from './credentialsApi.js';
+import { completeOAuth, completeOAuth1, oauthCallbackPage, registerCredentialsApi, type OAuthSupport } from './credentialsApi.js';
 import { warmUpPython } from '../python/pyodide.js';
 import { OAUTH2_CALLBACK_PATH, setOAuth2TokenStore } from '../credentials/oauth2.js';
+import { OAUTH1_CALLBACK_PATH } from '../credentials/oauth1.js';
 import { UndiciHttpClient } from '../http.js';
 
 export interface ServerOptions {
@@ -154,8 +155,13 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
   const kvStore = { get: <T>(key: string) => store.getValue<T>(key), set: (key: string, value: unknown) => store.setValue(key, value), delete: (key: string) => store.deleteValue(key) };
   setOAuth2TokenStore(kvStore);
   const variables = new VariableStore(kvStore, options.vars);
-  // OAuth2 mit Authorization Code: Redirect-URI wie n8n unter der öffentlichen Basis-URL
-  const oauth: OAuthSupport = { store: kvStore, http: options.http ?? new UndiciHttpClient(), redirectUri: `${options.webhookBaseUrl}${OAUTH2_CALLBACK_PATH}` };
+  // OAuth2 mit Authorization Code und OAuth1: Rückleitung wie n8n unter der öffentlichen Basis-URL
+  const oauth: OAuthSupport = {
+    store: kvStore,
+    http: options.http ?? new UndiciHttpClient(),
+    redirectUri: `${options.webhookBaseUrl}${OAUTH2_CALLBACK_PATH}`,
+    oauth1CallbackUrl: `${options.webhookBaseUrl}${OAUTH1_CALLBACK_PATH}`,
+  };
 
   // Zirkuläre Abhängigkeiten (Runner <-> Manager <-> Workflows): erst deklarieren, dann zuweisen
   // eslint-disable-next-line prefer-const
@@ -216,18 +222,23 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
   });
 
   app.get('/healthz', async () => ({ status: 'ok' }));
-  // Rückleitung des OAuth2-Anbieters (ohne API-Key; abgesichert über den einmaligen state)
-  app.get(`/${OAUTH2_CALLBACK_PATH}`, async (request, reply) => {
-    reply.header('content-type', 'text/html; charset=utf-8').header('content-security-policy', "default-src 'none'; style-src 'unsafe-inline'");
-    try {
-      const result = await completeOAuth(oauth, credentials, (request.query ?? {}) as Record<string, unknown>);
-      logger.info({ credential: result.credential }, 'OAuth2-Credential verbunden');
-      return reply.send(oauthCallbackPage(true, `Das Credential "${result.credential}" ist verbunden. Sie können dieses Fenster schließen.`));
-    } catch (error) {
-      logger.warn({ err: (error as Error).message }, 'OAuth2-Callback fehlgeschlagen');
-      return reply.code(400).send(oauthCallbackPage(false, (error as Error).message));
-    }
-  });
+  // Rückleitung des OAuth2- bzw. OAuth1-Anbieters (ohne API-Key; abgesichert über den einmaligen state)
+  for (const [path, complete, label] of [
+    [OAUTH2_CALLBACK_PATH, completeOAuth, 'OAuth2'],
+    [OAUTH1_CALLBACK_PATH, completeOAuth1, 'OAuth1'],
+  ] as const) {
+    app.get(`/${path}`, async (request, reply) => {
+      reply.header('content-type', 'text/html; charset=utf-8').header('content-security-policy', "default-src 'none'; style-src 'unsafe-inline'");
+      try {
+        const result = await complete(oauth, credentials, (request.query ?? {}) as Record<string, unknown>);
+        logger.info({ credential: result.credential }, `${label}-Credential verbunden`);
+        return reply.send(oauthCallbackPage(true, `Das Credential "${result.credential}" ist verbunden. Sie können dieses Fenster schließen.`));
+      } catch (error) {
+        logger.warn({ err: (error as Error).message }, `${label}-Callback fehlgeschlagen`);
+        return reply.code(400).send(oauthCallbackPage(false, (error as Error).message));
+      }
+    });
+  }
   // Chat mit Antwortknoten (Human in the Loop): Kanal zur Chat-Seite und Antworten, abgesichert über die sessionId
   const chatSessions = new ChatSessions({ manager, store, logger });
   const chatError = (reply: FastifyReply, error: unknown) =>
@@ -390,7 +401,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
       return executionView(store.get(execution.id) as unknown as Execution, true);
     });
 
-    api.get('/api/credential-types', async () => ({ data: CREDENTIAL_TYPES, oauthCallbackUrl: oauth.redirectUri }));
+    api.get('/api/credential-types', async () => ({ data: CREDENTIAL_TYPES, oauthCallbackUrl: oauth.redirectUri, oauth1CallbackUrl: oauth.oauth1CallbackUrl }));
     await registerCredentialsApi(api, { prefix: '/api/credentials', credentials, workflows: () => workflows!, logger, oauth });
     await registerVariablesApi(api, { prefix: '/api/variables', variables, logger });
     if (options.worker) await registerVariablesApi(api, { prefix: '/api/worker/variables', variables, logger });

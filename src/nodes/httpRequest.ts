@@ -15,6 +15,8 @@ import { NodeApiError, NodeOperationError } from '../errors.js';
 import type { HttpRequest, HttpResponse } from '../http.js';
 import { jsonParse } from './shared/utils.js';
 import { getOAuth2Token, signRequest } from '../credentials/oauth2.js';
+import { authorizeOAuth1, connectedOAuth1TokenData, oauth1Header } from '../credentials/oauth1.js';
+import { credentialRefOf } from '../credentials/store.js';
 import { digestAuthorization, parseDigestChallenge } from '../credentials/digest.js';
 import { createHash } from 'node:crypto';
 import { httpRequestParameters } from './shared/httpRequestParams.js';
@@ -206,7 +208,7 @@ function credentialTypesFor(node: WorkflowNode): string[] {
   return ssl;
 }
 
-const SUPPORTED_GENERIC = new Set(['httpBasicAuth', 'httpBearerAuth', 'httpHeaderAuth', 'httpQueryAuth', 'httpCustomAuth', 'httpDigestAuth', 'oAuth2Api']);
+const SUPPORTED_GENERIC = new Set(['httpBasicAuth', 'httpBearerAuth', 'httpHeaderAuth', 'httpQueryAuth', 'httpCustomAuth', 'httpDigestAuth', 'oAuth2Api', 'oAuth1Api']);
 
 /** Teile eines Requests, die die Pagination je Seite überschreibt (n8n PaginationOptions.request) */
 interface PaginationRequest {
@@ -374,6 +376,7 @@ async function buildRequest(ctx: ExecContext, itemIndex: number, items: Item[], 
 
   // Authentifizierung
   let oauth2: Record<string, unknown> | undefined;
+  let oauth1: Record<string, unknown> | undefined;
   let digest: RequestSpec['digest'];
   const authentication = ctx.getParam<string>('authentication', 0, 'none');
   if (authentication === 'genericCredentialType') {
@@ -398,6 +401,9 @@ async function buildRequest(ctx: ExecContext, itemIndex: number, items: Item[], 
     } else if (type === 'oAuth2Api') {
       // Signatur nach dem Aufbau des Requests (signRequest), siehe unten
       oauth2 = cred;
+    } else if (type === 'oAuth1Api') {
+      // Signatur über URL, Query und Formular, siehe unten (requestOAuth1)
+      oauth1 = cred;
     } else if (type === 'httpDigestAuth') {
       digest = { user: String(cred.user ?? ''), password: String(cred.password ?? '') };
     } else {
@@ -473,7 +479,35 @@ async function buildRequest(ctx: ExecContext, itemIndex: number, items: Item[], 
     },
   };
   if (oauth2) spec.request = signRequest(spec.request, await getOAuth2Token(ctx, oauth2), node.name);
+  if (oauth1) spec.request = signOAuth1Request(spec.request, oauth1, form, node.name);
   return spec;
+}
+
+/**
+ * n8n 1.123.0 request-helper-functions.ts requestOAuth1: signiert mit oauth_token und oauth_token_secret aus den
+ * Token-Daten, Signatur über Query (in finalUrl enthalten) und Formularfelder. n8n ersetzt dabei alle Header durch den
+ * Authorization-Header; den Content-Type des Bodys setzt danach die HTTP-Bibliothek, hier wird er beibehalten.
+ */
+function signOAuth1Request(request: HttpRequest, cred: Record<string, unknown>, form: Record<string, unknown> | undefined, nodeName: string): HttpRequest {
+  const tokenData = connectedOAuth1TokenData(cred, credentialRefOf(cred));
+  if (!tokenData) {
+    throw new NodeOperationError(nodeName, 'OAuth credentials not connected', {
+      description: 'Das Credential ist noch nicht verbunden: in der Oberfläche unter Credentials auf "Verbinden" klicken.',
+    });
+  }
+  const oauth = authorizeOAuth1(
+    { method: request.method ?? 'GET', url: request.url, data: form },
+    {
+      consumerKey: String(cred.consumerKey ?? ''),
+      consumerSecret: String(cred.consumerSecret ?? ''),
+      signatureMethod: String(cred.signatureMethod ?? 'HMAC-SHA1'),
+      token: { key: String(tokenData.oauth_token ?? ''), secret: String(tokenData.oauth_token_secret ?? '') },
+    },
+  );
+  const headers: Record<string, string> = { Authorization: oauth1Header(oauth) };
+  const ct = hasHeader(request.headers ?? {}, 'content-type');
+  if (ct && request.body !== undefined) headers[ct] = String(request.headers![ct]);
+  return { ...request, headers };
 }
 
 /** Request senden; nach 401 OAuth2-Token erneuern bzw. auf die Digest-Challenge antworten und einmal wiederholen */

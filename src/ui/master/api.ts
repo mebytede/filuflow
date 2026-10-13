@@ -66,8 +66,8 @@ export const mapi = {
   workerCredential: (id: string, name: string) => request<CredentialDetail>('GET', `/api/admin/workers/${e(id)}/credentials/${e(name)}`),
   setWorkerCredential: (id: string, name: string, body: CredentialSaveBody) => request<CredentialInfo>('PUT', `/api/admin/workers/${e(id)}/credentials/${e(name)}`, body),
   credentialTypes: () => request<CredentialTypeCatalog>('GET', '/api/credential-types'),
-  workerOauthConnect: (id: string, name: string) => request<{ url: string }>('POST', `/api/admin/workers/${e(id)}/credentials/${e(name)}/oauth2/auth`, {}),
-  workerOauthDisconnect: (id: string, name: string) => request<void>('DELETE', `/api/admin/workers/${e(id)}/credentials/${e(name)}/oauth2`),
+  workerOauthConnect: (id: string, name: string, version: 1 | 2 = 2) => request<{ url: string }>('POST', `/api/admin/workers/${e(id)}/credentials/${e(name)}/oauth${version}/auth`, {}),
+  workerOauthDisconnect: (id: string, name: string, version: 1 | 2 = 2) => request<void>('DELETE', `/api/admin/workers/${e(id)}/credentials/${e(name)}/oauth${version}`),
   deleteWorkerCredential: (id: string, name: string) => request<void>('DELETE', `/api/admin/workers/${e(id)}/credentials/${e(name)}`),
   setWorkerCredentialAccess: (id: string, name: string, projects: string[] | null) =>
     request<{ name: string; projects: string[] | null }>('PUT', `/api/admin/workers/${e(id)}/credentials/${e(name)}/access`, { projects }),

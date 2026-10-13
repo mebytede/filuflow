@@ -491,12 +491,50 @@ describe('OAuth2 über den Master', () => {
       expect(cb.body).toContain('beim Worker verbunden');
       expect(new URLSearchParams(tokens[0]).get('redirect_uri')).toBe('http://localhost:5679/rest/oauth2-credential/callback');
       const list = (await admin.get(`/api/admin/workers/${wk.id}/credentials`)).json();
-      expect(list.data.find((c: { name: string }) => c.name === 'Mail').oauth).toEqual({ grantType: 'authorizationCode', connected: true });
+      expect(list.data.find((c: { name: string }) => c.name === 'Mail').oauth).toEqual({ version: 2, grantType: 'authorizationCode', connected: true });
       expect(JSON.stringify((await admin.get('/api/admin/audit')).json())).toContain('worker.credential_oauth_connected');
       // Unbekannter state
       expect((await master.app.inject({ method: 'GET', url: '/rest/oauth2-credential/callback?code=abc&state=nein' })).statusCode).toBe(400);
       expect((await admin.del(`/api/admin/workers/${wk.id}/credentials/Mail/oauth2`)).statusCode).toBe(204);
       expect((await admin.get(`/api/admin/workers/${wk.id}/credentials`)).json().data[0].oauth.connected).toBe(false);
+    } finally {
+      await new Promise((r) => provider.close(r));
+    }
+  });
+});
+
+describe('OAuth1 über den Master', () => {
+  it('schickt die Rückleitung des Masters als oauth_callback und reicht den Verifier an den Worker', async () => {
+    let callback = '';
+    const provider = (await import('node:http')).createServer((req, res) => {
+      let raw = '';
+      req.on('data', (c: Buffer) => (raw += c.toString()));
+      req.on('end', () => {
+        if (req.url === '/request') {
+          callback = (JSON.parse(raw) as { oauth_callback: string }).oauth_callback;
+          res.end('oauth_token=rt&oauth_token_secret=rs');
+        } else res.end('oauth_token=at&oauth_token_secret=as');
+      });
+    });
+    await new Promise<void>((r) => provider.listen(0, '127.0.0.1', r));
+    try {
+      const w = await startWorker('w1');
+      const wk = await registerWorker(w);
+      const base = `http://127.0.0.1:${(provider.address() as AddressInfo).port}`;
+      const data = { authUrl: 'https://login.example/authorize', accessTokenUrl: `${base}/access`, consumerKey: 'k', consumerSecret: 's', requestTokenUrl: `${base}/request`, signatureMethod: 'HMAC-SHA1' };
+      expect((await admin.put(`/api/admin/workers/${wk.id}/credentials/Dienst`, { type: 'oAuth1Api', data })).statusCode).toBe(200);
+      expect((await admin.get('/api/credential-types')).json().oauth1CallbackUrl).toBe('http://localhost:5679/rest/oauth1-credential/callback');
+      const auth = await admin.post(`/api/admin/workers/${wk.id}/credentials/Dienst/oauth1/auth`, {});
+      expect(auth.json()).toEqual({ url: 'https://login.example/authorize?oauth_token=rt' });
+      const state = new URL(callback).searchParams.get('state');
+      expect(callback).toBe(`http://localhost:5679/rest/oauth1-credential/callback?state=${state}`);
+      const cb = await master.app.inject({ method: 'GET', url: `/rest/oauth1-credential/callback?state=${state}&oauth_token=rt&oauth_verifier=v` });
+      expect(cb.statusCode).toBe(200);
+      expect(cb.body).toContain('beim Worker verbunden');
+      const list = (await admin.get(`/api/admin/workers/${wk.id}/credentials`)).json();
+      expect(list.data.find((c: { name: string }) => c.name === 'Dienst').oauth).toEqual({ version: 1, connected: true });
+      expect((await admin.del(`/api/admin/workers/${wk.id}/credentials/Dienst/oauth1`)).statusCode).toBe(204);
+      expect((await admin.get(`/api/admin/workers/${wk.id}/credentials`)).json().data.find((c: { name: string }) => c.name === 'Dienst').oauth.connected).toBe(false);
     } finally {
       await new Promise((r) => provider.close(r));
     }

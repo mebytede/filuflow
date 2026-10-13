@@ -135,6 +135,18 @@ export async function credentialFormDialog(backend: CredentialFormBackend, o: Cr
       boxes.set('__redirect', box);
       fieldsBox.append(box);
     }
+    // OAuth1: Rückleitung, die filuflow als oauth_callback mitschickt; manche Anbieter verlangen sie vorab
+    if (schema.name === 'oAuth1Api' && catalog.oauth1CallbackUrl) {
+      const box = h(
+        'div',
+        { class: 'field' },
+        h('span', null, 'Callback-URL'),
+        h('code', { class: 'mono', style: { wordBreak: 'break-all' } }, catalog.oauth1CallbackUrl),
+        h('span', { class: 'muted small' }, 'Falls der Anbieter es verlangt, dort als Callback-URL eintragen. Nach dem Speichern verbinden Sie das Credential in der Liste mit "Verbinden".'),
+      );
+      boxes.set('__redirect', box);
+      fieldsBox.append(box);
+    }
     const baseRefresh = refresh;
     refresh = () => {
       baseRefresh();

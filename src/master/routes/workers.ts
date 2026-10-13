@@ -2,6 +2,7 @@
 // (Werte werden nur geschrieben, nie gelesen). Übersicht für das Dashboard.
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { OAUTH2_CALLBACK_PATH } from '../../credentials/oauth2.js';
+import { OAUTH1_CALLBACK_PATH } from '../../credentials/oauth1.js';
 import type { MasterContext } from '../app.js';
 import type { WorkerRow } from '../db.js';
 import { WorkerError } from '../workers.js';
@@ -298,40 +299,41 @@ export function registerWorkerRoutes(api: FastifyInstance, ctx: MasterContext): 
     }
   });
 
-  // OAuth2 verbinden: Autorisierungs-URL vom Worker, Rückleitung an den Master (/rest/oauth2-credential/callback)
-  api.post('/api/admin/workers/:id/credentials/:name/oauth2/auth', async (request, reply) => {
-    const auth = ctx.requireAdmin(request, reply);
-    if (!auth) return;
-    const { id, name } = request.params as { id: string; name: string };
-    const worker = db.getWorker(id);
-    if (!worker) return reply.code(404).send({ message: 'Worker nicht gefunden' });
-    try {
-      const result = (await hub.call(worker, 'POST', `/api/worker/credentials/${encodeURIComponent(name)}/oauth2/auth`, { redirectUri: `${ctx.publicUrl}/${OAUTH2_CALLBACK_PATH}` }, 15_000)) as {
-        url: string;
-        state: string;
-      };
-      const now = Date.now();
-      for (const [k, v] of ctx.oauthPending) if (now - v.at > 10 * 60_000) ctx.oauthPending.delete(k);
-      ctx.oauthPending.set(result.state, { workerId: worker.id, userId: auth.user.id, at: now });
-      return { url: result.url };
-    } catch (error) {
-      return sendWorkerError(reply, error);
-    }
-  });
+  // OAuth2 und OAuth1 verbinden: Autorisierungs-URL vom Worker, Rückleitung an den Master
+  // (/rest/oauth2-credential/callback bzw. /rest/oauth1-credential/callback)
+  for (const version of ['oauth2', 'oauth1'] as const) {
+    api.post(`/api/admin/workers/:id/credentials/:name/${version}/auth`, async (request, reply) => {
+      const auth = ctx.requireAdmin(request, reply);
+      if (!auth) return;
+      const { id, name } = request.params as { id: string; name: string };
+      const worker = db.getWorker(id);
+      if (!worker) return reply.code(404).send({ message: 'Worker nicht gefunden' });
+      const body = version === 'oauth2' ? { redirectUri: `${ctx.publicUrl}/${OAUTH2_CALLBACK_PATH}` } : { callbackUrl: `${ctx.publicUrl}/${OAUTH1_CALLBACK_PATH}` };
+      try {
+        const result = (await hub.call(worker, 'POST', `/api/worker/credentials/${encodeURIComponent(name)}/${version}/auth`, body, 30_000)) as { url: string; state: string };
+        const now = Date.now();
+        for (const [k, v] of ctx.oauthPending) if (now - v.at > 10 * 60_000) ctx.oauthPending.delete(k);
+        ctx.oauthPending.set(result.state, { workerId: worker.id, userId: auth.user.id, at: now });
+        return { url: result.url };
+      } catch (error) {
+        return sendWorkerError(reply, error);
+      }
+    });
 
-  api.delete('/api/admin/workers/:id/credentials/:name/oauth2', async (request, reply) => {
-    if (!ctx.requireAdmin(request, reply)) return;
-    const { id, name } = request.params as { id: string; name: string };
-    const worker = db.getWorker(id);
-    if (!worker) return reply.code(404).send({ message: 'Worker nicht gefunden' });
-    try {
-      await hub.call(worker, 'DELETE', `/api/worker/credentials/${encodeURIComponent(name)}/oauth2`, undefined, 15_000);
-      ctx.audit(request, 'worker.credential_oauth_disconnected', worker.id, { name });
-      return reply.code(204).send();
-    } catch (error) {
-      return sendWorkerError(reply, error);
-    }
-  });
+    api.delete(`/api/admin/workers/:id/credentials/:name/${version}`, async (request, reply) => {
+      if (!ctx.requireAdmin(request, reply)) return;
+      const { id, name } = request.params as { id: string; name: string };
+      const worker = db.getWorker(id);
+      if (!worker) return reply.code(404).send({ message: 'Worker nicht gefunden' });
+      try {
+        await hub.call(worker, 'DELETE', `/api/worker/credentials/${encodeURIComponent(name)}/${version}`, undefined, 15_000);
+        ctx.audit(request, 'worker.credential_oauth_disconnected', worker.id, { name });
+        return reply.code(204).send();
+      } catch (error) {
+        return sendWorkerError(reply, error);
+      }
+    });
+  }
 
   api.delete('/api/admin/workers/:id/credentials/:name', async (request, reply) => {
     if (!ctx.requireAdmin(request, reply)) return;

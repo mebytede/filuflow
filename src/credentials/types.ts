@@ -194,6 +194,30 @@ export const CREDENTIAL_TYPES: CredentialTypeSchema[] = [
     ],
   },
   {
+    // n8n 1.123.0 packages/nodes-base/credentials/OAuth1Api.credentials.ts
+    name: 'oAuth1Api',
+    label: 'OAuth1 API',
+    description: 'OAuth 1.0a für den HTTP-Request-Node (Request-Token, Autorisierung, Access-Token).',
+    fields: [
+      { name: 'authUrl', label: 'Authorization URL', kind: 'string', default: '', required: true },
+      { name: 'accessTokenUrl', label: 'Access Token URL', kind: 'string', default: '', required: true },
+      { name: 'consumerKey', label: 'Consumer Key', kind: 'string', default: '', required: true },
+      { name: 'consumerSecret', label: 'Consumer Secret', kind: 'password', default: '', required: true },
+      { name: 'requestTokenUrl', label: 'Request Token URL', kind: 'string', default: '', required: true },
+      {
+        name: 'signatureMethod',
+        label: 'Signaturverfahren',
+        kind: 'options',
+        default: 'HMAC-SHA1',
+        options: [
+          { value: 'HMAC-SHA1', label: 'HMAC-SHA1' },
+          { value: 'HMAC-SHA256', label: 'HMAC-SHA256' },
+          { value: 'HMAC-SHA512', label: 'HMAC-SHA512' },
+        ],
+      },
+    ],
+  },
+  {
     name: 'openAiApi',
     label: 'OpenAI',
     description: 'API-Schlüssel für OpenAI oder einen kompatiblen Dienst.',

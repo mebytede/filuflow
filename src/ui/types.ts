@@ -190,8 +190,8 @@ export interface CredentialTypeSchema {
 export interface CredentialListEntry extends CredentialInfo {
   managed: boolean;
   usedBy?: string[];
-  /** OAuth2 mit Authorization Code / PKCE: verbunden? */
-  oauth?: { grantType: string; connected: boolean };
+  /** OAuth2 mit Authorization Code / PKCE oder OAuth1: verbunden? */
+  oauth?: { version?: 1 | 2; grantType?: string; connected: boolean };
   /** Master: freigegebene Projekte beim Worker (null: alle Projekte des Workers) */
   projects?: string[] | null;
 }
@@ -214,12 +214,14 @@ export interface CredentialList {
   encrypted: boolean;
   data: CredentialListEntry[];
   oauthCallbackUrl?: string;
+  oauth1CallbackUrl?: string;
 }
 
-/** Beschreibung der Typen und Redirect-URI für OAuth2 */
+/** Beschreibung der Typen und Rückleitungs-URLs für OAuth2 und OAuth1 */
 export interface CredentialTypeCatalog {
   data: CredentialTypeSchema[];
   oauthCallbackUrl?: string;
+  oauth1CallbackUrl?: string;
 }
 
 /** Einzelansicht ohne Geheimnisse */

@@ -255,3 +255,17 @@ Server-Sent Events für den Weg zur Seite und POST für Antworten: gleicher Abla
 Abstand von 500 ms statt 3 s), aber ohne neue Abhängigkeit und mit dem fastify-Server allein. Das eingebettete Chat-Widget von
 n8n (`@n8n/chat`) spricht diesen Kanal nicht; die gehostete Chat-Seite von filuflow schon.
 
+## Credentials aus n8n und OAuth1 (M22)
+n8n verschlüsselt Credentials mit crypto-js im OpenSSL-Format ("Salted__", 8 Byte Salz, Schlüssel und IV per EVP_BytesToKey
+mit MD5, AES-256-CBC, Base64). filuflow baut das mit `node:crypto` nach (keine neue Abhängigkeit) und prüft es im Test gegen
+`openssl enc -md md5`. Importierte Einträge behalten ihre n8n-ID, damit Workflows mit `credentials.<typ>.id` sie finden.
+
+Freigaben gelten je Worker und Projekt in der Master-Datenbank (`credential_access`), nicht beim Worker: Der Worker kennt keine
+Projekte, und der Master prüft ohnehin jeden Workflow vor dem Verteilen. Ohne Eintrag darf jedes Projekt des Workers das
+Credential nutzen, wie bisher; so ändert die Einführung nichts an bestehenden Installationen.
+
+OAuth1 folgt n8n (oauth-1.0a): Signatur über URL-Query und Formularfelder, beim Aufruf ersetzt der Authorization-Header alle
+übrigen Header. Den Content-Type des Bodys behält filuflow, weil ihn bei n8n die HTTP-Bibliothek danach selbst setzt. Beim
+Request-Token schickt filuflow `oauth_callback` zusätzlich im Header mit (n8n nur im JSON-Body), da Anbieter den JSON-Body
+meist nicht lesen; die Signatur ist dieselbe. Der Access-Token-Abruf ist wie bei n8n unsigniert (Formular mit
+`oauth_token` und `oauth_verifier`).
