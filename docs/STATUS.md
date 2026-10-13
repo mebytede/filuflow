@@ -26,5 +26,5 @@ Referenzversion: n8n **1.123.0** (Docker-Image `n8nio/n8n:1.123.0`, Quellcode-Ta
 - Docker-Image gebaut und geprüft (Healthcheck, Benutzer `node`, Webhook mit Respond-Node, REST-API, `executions list`). Die Build-Stufe nutzt `node:22` (Compiler für better-sqlite3), die Laufzeit `node:22-slim`. In dieser Umgebung lief der Build mit Proxy-CA in einer temporären Kopie, weil der Build-Container sonst kein Internet hat.
 - `fixtures/real/` fehlt noch: Es liegen keine echten Workflow-Exporte vor. Sobald welche vorhanden sind, mit `scripts/record-expected.sh` aufnehmen.
 - Orakel neu aufnehmen: `scripts/record-filter-table.sh`, `scripts/record-expression-table.sh`, `scripts/record-ai-oracle.sh`, `scripts/record-ai-tools-oracle.sh` (brauchen Docker).
-- Chat Trigger und Chat (Human in the Loop) sind laut SPEC 4.5 zurückgestellt, bis es eine Oberfläche gibt. Die Weboberfläche (M8) hat noch keine Chat-Ansicht.
+- Nächste Schritte stehen als Ausbau in `docs/SPEC.md` (Abschnitt 11), zum Beispiel Chat Trigger mit Chat-Ansicht, wartende Ausführungen, Python im Code-Node und HTTP-Pagination.
 - Docker-Image mit Oberfläche: Der Build-Ablauf (`npm run build` inklusive `build:ui`) ist lokal geprüft; der letzte `docker build` scheiterte an Docker Hub (429 Too Many Requests) und ist nachzuholen.

@@ -262,7 +262,7 @@ export function isIpWhitelisted(whitelist: string | string[] | undefined, ips: s
   return false;
 }
 
-// Näherung an das npm-Paket isbot (dort eine lange Musterliste), siehe docs/DEVIATIONS.md
+// Näherung an das npm-Paket isbot (dort eine lange Musterliste)
 const BOT_PATTERN = /bot|crawl|spider|slurp|scrape|facebookexternalhit|embedly|preview|curl\/|wget|python-requests|httpclient|headless|lighthouse|monitor/i;
 
 function base64UrlDecode(s: string): Buffer {

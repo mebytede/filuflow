@@ -3,7 +3,7 @@
 //   packages/nodes-base/nodes/HttpRequest/V3/HttpRequestV3.node.ts, GenericFunctions.ts, V3/utils/*
 //   packages/core/.../utils/request-helper-functions.ts (parseRequestObject, proxyRequestToAxios)
 //   packages/workflow/src/errors/node-api.error.ts (Fehlermeldungen je Statuscode)
-// Pagination wird in Phase 1 nicht unterstützt (validate meldet es).
+// Pagination ist noch nicht umgesetzt (validate meldet es, Ausbau SPEC 11.2).
 import lodash from 'lodash';
 import qs from 'qs';
 import type { ExecContext, NodeType } from './types.js';

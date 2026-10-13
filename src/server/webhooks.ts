@@ -356,7 +356,7 @@ export class WebhookService {
       return expressResponse(500, headers, { message: 'Error in workflow' }, false);
     }
     if (opts.responseMode === 'responseNode') {
-      // n8n wartet hier unbegrenzt auf den Respond-Node; filuflow antwortet (docs/DEVIATIONS.md)
+      // n8n wartet hier unbegrenzt auf den Respond-Node; filuflow antwortet, damit der Request nicht hängen bleibt
       return expressResponse(200, headers, { message: 'Workflow executed successfully but no Respond to Webhook node was executed' }, false);
     }
     if (task === undefined) {
@@ -379,7 +379,7 @@ export class WebhookService {
       const name = opts.responseBinaryPropertyName;
       const ref = item.binary[name];
       if (!ref) return errorResponse(new OperationalError(`The binary property '${name}' which should be returned does not exist`), headers);
-      // n8n sendet Inline-Binärdaten hier über res.json (serialisierter Buffer); filuflow sendet die Bytes (docs/DEVIATIONS.md)
+      // n8n sendet Inline-Binärdaten hier über res.json (serialisierter Buffer); filuflow sendet die Bytes mit ihrem MIME-Typ
       const content = await this.options.binary.getBuffer(ref);
       return { statusCode: opts.responseCode, headers: { ...headers, 'content-type': ref.mimeType }, body: content };
     }

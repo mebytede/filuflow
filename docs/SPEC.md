@@ -1,9 +1,12 @@
 # filuflow Spezifikation
 
-Ziel: n8n-Workflow-JSONs, die in n8n (aktuelle 1.x) laufen, liefern in filuflow dieselben Items an denselben Nodes.
-Umfang Phase 1: Engine, Expressions, Kern-Nodes, CLI, Server mit Webhook/Cron, Execution-Log, Credentials. Danach KI-Nodes. Ein visueller Editor ist ausdrücklich **nicht** Teil dieser Spezifikation.
+filuflow ist eine eigenständige Workflow-Plattform: Engine, Editor im Browser, CLI, Server mit Webhooks und Zeitplänen,
+Ausführungsprotokoll, Credentials, KI-Knoten sowie Mehrbenutzer- und Mandantenbetrieb mit Master und Worker. Der Umfang ist
+nicht begrenzt; was noch fehlt, steht als Ausbau in Abschnitt 11.
 
-Alle Angaben zu n8n-Parametern unten sind der Startpunkt. Vor der Implementierung jedes Nodes gegen `packages/nodes-base/nodes/<Node>/` im n8n-Repo prüfen.
+Workflows nutzen das Workflow-Format von n8n. Workflows, die in n8n (aktuelle 1.x) laufen, liefern in filuflow dieselben Items an
+denselben Knoten; das sichern die Golden-Tests (Abschnitt 9). Die Angaben zu Parametern unten sind der Startpunkt. Vor der
+Implementierung eines Knotens im n8n-Format gegen `packages/nodes-base/nodes/<Node>/` im n8n-Repo prüfen.
 
 ---
 
@@ -67,7 +70,7 @@ interface TaskData {
 ### 2.1 Ablauf
 1. Workflow laden, validieren (Abschnitt 6).
 2. Start-Node bestimmen: explizit angegebener Trigger, sonst der einzige Trigger, sonst Fehler.
-3. Ausführung nach **v1-Reihenfolge** (Pflicht; v0 nicht unterstützen, mit klarer Meldung ablehnen):
+3. Ausführung nach **v1-Reihenfolge** (v0 ist Ausbau, siehe Abschnitt 11):
    - Stack-basiert: Ein Node läuft, sobald seine Eingangsdaten vorliegen. Ein Zweig wird vollständig zu Ende ausgeführt, bevor der nächste Zweig startet.
    - Reihenfolge paralleler Kinder: nach Canvas-Position (oben vor unten, dann links vor rechts). Exakte Sortierung in `packages/core` (WorkflowExecute) nachschlagen und nachbauen.
    - Nodes mit mehreren Eingängen (Merge): warten, bis kein Vorgänger mehr Daten liefern kann. Hat ein Eingang nie Daten bekommen, verhält sich der Node wie n8n v1 (nachschlagen, Testfall dafür schreiben).
@@ -159,19 +162,19 @@ Pro Node: unterstützte Versionen gegen n8n prüfen und mindestens die aktuelle 
 | `n8n-nodes-base.if` (v2.x) | `conditions` (Filter-Format, siehe 4.4), Ausgang 0 = true, 1 = false |
 | `n8n-nodes-base.filter` (v2.x) | Filter-Format, ein Ausgang; `options.looseTypeValidation` |
 | `n8n-nodes-base.switch` (v3.x) | `mode: rules/expression`, `rules.values[]`, `options.fallbackOutput` (`none`/`extra`/Index), `options.allMatchingOutputs`, `renameOutput` |
-| `n8n-nodes-base.code` (v2) | `language: javaScript` (Python: ablehnen mit Meldung), `mode: runOnceForAllItems/runOnceForEachItem`, `jsCode`; im Kontext alle Expression-Variablen plus `items` (Altform); Rückgabe normalisieren (Objekte ohne `json` einpacken, Einzelobjekt in Liste); async erlaubt; Timeout konfigurierbar (Default 60 s); `console.log` ins Execution-Log |
+| `n8n-nodes-base.code` (v2) | `language: javaScript` und `python` (Python siehe Abschnitt 11), `mode: runOnceForAllItems/runOnceForEachItem`, `jsCode`; im Kontext alle Expression-Variablen plus `items` (Altform); Rückgabe normalisieren (Objekte ohne `json` einpacken, Einzelobjekt in Liste); async erlaubt; Timeout konfigurierbar (Default 60 s); `console.log` ins Execution-Log |
 
 ### 4.2 Meilenstein M3b: Daten und HTTP
 | Typ | Hinweise |
 |---|---|
-| `n8n-nodes-base.httpRequest` (v4.x) | `method`, `url`, `authentication` (`none`, `genericCredentialType` mit `httpHeaderAuth`/`httpBasicAuth`/`httpQueryAuth`/`httpBearerAuth`), `sendQuery`/`queryParameters`, `sendHeaders`/`headerParameters`, `sendBody` mit `contentType` json/form-urlencoded/multipart/raw/binaryData und `specifyBody` keypair/json, `options`: timeout, redirect, `response.response` (responseFormat autodetect/json/text/file, fullResponse, neverError), batching, allowUnauthorizedCerts, proxy. Pagination zuletzt. Fetch über `undici`, Proxy aus `HTTPS_PROXY` respektieren |
-| `n8n-nodes-base.merge` (v3.x) | `mode: append`, `combine` mit `combineBy: combineByFields/combineByPosition/combineAll`, `joinMode`, `chooseBranch`; `numberInputs`. `combineBySql` ablehnen |
+| `n8n-nodes-base.httpRequest` (v4.x) | `method`, `url`, `authentication` (`none`, `genericCredentialType` mit `httpHeaderAuth`/`httpBasicAuth`/`httpQueryAuth`/`httpBearerAuth`), `sendQuery`/`queryParameters`, `sendHeaders`/`headerParameters`, `sendBody` mit `contentType` json/form-urlencoded/multipart/raw/binaryData und `specifyBody` keypair/json, `options`: timeout, redirect, `response.response` (responseFormat autodetect/json/text/file, fullResponse, neverError), batching, allowUnauthorizedCerts, proxy, Pagination. Fetch über `undici`, Proxy aus `HTTPS_PROXY` respektieren |
+| `n8n-nodes-base.merge` (v3.x) | `mode: append`, `combine` mit `combineBy: combineByFields/combineByPosition/combineAll`, `joinMode`, `chooseBranch`, `combineBySql`; `numberInputs` |
 | `n8n-nodes-base.splitOut` | `fieldToSplitOut`, `include` |
 | `n8n-nodes-base.aggregate` | `aggregateIndividualFields` / `aggregateAllItemData` |
 | `n8n-nodes-base.splitInBatches` (v3, "Loop Over Items") | Ausgang 0 = done, 1 = loop; Zustand über Runs halten |
 | `n8n-nodes-base.removeDuplicates`, `sort`, `limit`, `summarize` | Standardoptionen |
 | `n8n-nodes-base.dateTime` (v2), `crypto`, `html` (extractHtmlContent mit cheerio), `xml` | häufig genutzte Operationen zuerst |
-| `n8n-nodes-base.wait` | nur `timeInterval` in Phase 1; Webhook-Resume später |
+| `n8n-nodes-base.wait` | `timeInterval`, `specificTime`, Fortsetzen per Webhook und per Formular; lange Wartezeiten überstehen einen Neustart |
 | `n8n-nodes-base.executeWorkflow` / `executeWorkflowTrigger` | Unter-Workflows aus dem Workflow-Verzeichnis per Name oder ID |
 | `n8n-nodes-base.stopAndError` | Fehler werfen |
 
@@ -192,13 +195,13 @@ Pro Node: unterstützte Versionen gegen n8n prüfen und mindestens die aktuelle 
 ```
 Operatoren je Typ (`string`, `number`, `boolean`, `dateTime`, `array`, `object`): equals, notEquals, contains, notContains, startsWith, endsWith, regex, notRegex, gt, gte, lt, lte, after, before, exists, notExists, empty, notEmpty, true, false, lengthEquals, lengthGt, lengthLt usw. Vollständige Liste und Typvalidierung (strict vs. loose) aus `packages/workflow` (FilterParameter) nachbauen. **Eigene Testtabelle** mit allen Operator/Typ-Kombinationen inkl. Grenzfällen (null, undefined, "", Zahlstrings).
 
-### 4.5 Meilenstein M7: KI-Nodes (nach Phase 1)
+### 4.5 Meilenstein M7: KI-Nodes
 Sub-Nodes sind über `ai_*`-Verbindungen **an** den Eltern-Node angeschlossen (Quelle = Sub-Node, Ziel = Eltern-Node). Sie werden nicht selbst ausgeführt, sondern vom Eltern-Node angefordert.
 - Modelle: `@n8n/n8n-nodes-langchain.lmChatGoogleGemini`, `lmChatAnthropic`, `lmChatOpenAi` (direkte HTTP-Calls an die jeweilige API, kein LangChain nötig)
 - `chainLlm` (Basic LLM Chain) mit `outputParserStructured` (JSON-Schema oder Beispiel-JSON)
 - `informationExtractor`, `textClassifier`, `sentimentAnalysis`
 - `agent` (Tools Agent) mit `toolCalculator`, `toolHttpRequest`, `toolCode`, `toolWorkflow`, `memoryBufferWindow`
-- `chatTrigger` und `chat` (Human in the Loop) erst, wenn es eine Oberfläche gibt
+- `chatTrigger` und `chat` (Human in the Loop) mit Chat-Ansicht in der Oberfläche
 Ausgabeformate (`output`, `text` usw.) exakt wie n8n.
 
 ---
@@ -207,7 +210,7 @@ Ausgabeformate (`output`, `text` usw.) exakt wie n8n.
 - Datei `credentials.json` (oder Verzeichnis), Schlüssel = Credential-**Name** wie im Workflow (`node.credentials.<typ>.name`), Fallback auf ID.
 - Werte dürfen `{{ env.NAME }}` referenzieren, damit Secrets in Env/Secret-Store bleiben.
 - Optional verschlüsselt mit `FILUFLOW_ENCRYPTION_KEY` (AES-256-GCM).
-- Unterstützte Typen Phase 1: `httpHeaderAuth`, `httpBasicAuth`, `httpQueryAuth`, `httpBearerAuth`, `oAuth2Api` (nur client_credentials). Feldnamen wie in n8n (`packages/nodes-base/credentials/`).
+- Typen: `httpHeaderAuth`, `httpBasicAuth`, `httpQueryAuth`, `httpBearerAuth`, `httpCustomAuth`, `jwtAuth`, `oAuth2Api` (alle Grant-Typen), dazu die Credentials der KI-Modelle und der Dienst-Knoten. Feldnamen wie in n8n (`packages/nodes-base/credentials/`).
 - Fehlende Credentials: Validierung meldet sie vor dem Lauf.
 
 ---
@@ -287,10 +290,42 @@ Engine-Reihenfolge, Expressions (inkl. Rohwert vs. String), jeder Node, Filter-O
 | M5 | Server, Webhooks, Schedules, REST-API, SQLite-Log, Docker | Fixture 8 grün, Smoke-Test per curl dokumentiert |
 | M6 | Credentials | HTTP mit Header-/Basic-Auth gegen Mock getestet |
 | M7 | KI-Nodes | Basic LLM Chain + Structured Output Parser gegen gemockte Gemini-API |
+| M8 | Weboberfläche mit Workflow-Editor | Editor, Ausführungen und Credentials-Übersicht im Browser, Browser-Test |
+| M9 | Master und Worker: Benutzer, Rechte, Projekte, Mandanten, SSO | Integrationstests mit echten Workern, OIDC gegen nachgebauten Identity Provider |
+| M10 | Name filuflow und Design | Oberfläche nach dem Design-Handoff, alte Namen gelten weiter |
 
-Nach jedem Meilenstein: `docs/STATUS.md` aktualisieren (was geht, was fehlt, bekannte Abweichungen) und einen Commit mit aussagekräftiger Nachricht.
+Nach jedem Meilenstein: `docs/STATUS.md` aktualisieren (was geht, was fehlt) und einen Commit mit aussagekräftiger Nachricht.
 
 ---
 
-## 11. Bewusst nicht im Umfang
-Visueller Editor, Mehrbenutzer/RBAC, Queue-Mode mit Redis, Python im Code-Node, Community-Nodes, Node-Typen mit eigenen OAuth-Flows (Gmail, Slack usw.; über HTTP Request + Credentials abbilden), `combineBySql`, Execution-Order v0.
+## 11. Ausbau
+Offene Funktionen, ungefähr nach Nutzen geordnet. Jede wird wie ein Meilenstein umgesetzt (Tests, `docs/STATUS.md`, Commit).
+
+### 11.1 Ausführung und Server
+- Wartende Ausführungen: Wait mit Fortsetzen per Webhook (`/webhook-waiting/`) und Formular, lange Wartezeiten im Zustand
+  "waiting" in der Datenbank statt im Prozess
+- Statische Workflow-Daten (`$getWorkflowStaticData`) und OAuth2-Tokens dauerhaft speichern
+- Streaming-Antworten (Webhook `responseMode: streaming`, Respond to Webhook mit Streaming, Agent-Streaming)
+- Expressions in Webhook-Parametern (`path`, `httpMethod`, `responseMode`, `responseData`)
+- Teilausführung ab einem Knoten und "Auf Test-Event warten" für Test-Webhooks
+- Skalierung über mehrere Prozesse (Warteschlange, z. B. Redis) für hohe Last
+- Execution-Order v0 für ältere Workflows
+
+### 11.2 Knoten
+- Python im Code-Node; Module im Code-Node über eine Freigabeliste (`require`), vollständige `helpers`
+- HTTP Request: Pagination, vordefinierte Credential-Typen, Digest-Auth, OAuth1, Client-Zertifikate
+- Merge `combineBySql`; Execute Workflow aus Datei und URL
+- Chat Trigger und Chat (Human in the Loop) mit Chat-Ansicht
+- KI: OpenAI Responses API, Agent-Varianten aus typeVersion 1.x, weitere Modelle, Tools und Vektorspeicher
+- Dienst-Knoten mit eigenen OAuth-Flows (Gmail, Slack, Microsoft 365 usw.) und weitere Integrationen
+- Eigene Knoten als Erweiterungen (Plugin-Schnittstelle, Community-Nodes)
+
+### 11.3 Credentials
+- OAuth2 mit Authorization Code und PKCE inklusive Rückleitung in der Oberfläche
+- Credentials in der Oberfläche anlegen und bearbeiten (Einzelbetrieb), Teilen zwischen Projekten im Master
+- Import verschlüsselter n8n-Exporte
+
+### 11.4 Oberfläche und Master
+- Parameterformulare je Knotentyp (Felder, Auswahllisten, Hilfetexte) zusätzlich zum Baum- und JSON-Editor
+- Testdaten (pinData) per Klick festhalten, Variablen-Seite, Chat-Ansicht
+- Eigene Rollen und Rechte je Workflow, Ausführungen mehrerer Worker zentral durchsuchen

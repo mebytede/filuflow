@@ -1,7 +1,7 @@
 // Wait, n8n-nodes-base.wait (typeVersion 1, 1.1)
 // Nachgebaut nach n8n 1.123.0 packages/nodes-base/nodes/Wait/Wait.node.ts
-// Phase 1: nur resume = timeInterval / specificTime. filuflow wartet immer im Prozess
-// (n8n legt Executions ab 65 s in den Wartezustand, siehe docs/DEVIATIONS.md).
+// Umgesetzt: resume = timeInterval / specificTime; filuflow wartet im Prozess (n8n legt Executions ab 65 s in den
+// Wartezustand). Fortsetzen per Webhook und Formular sowie dauerhaftes Warten: Ausbau (SPEC 11.1).
 import type { NodeType } from './types.js';
 import { NodeOperationError } from '../errors.js';
 import { tryToParseDateTime } from './shared/utils.js';
@@ -14,7 +14,7 @@ export const waitNode: NodeType = {
   validate(node) {
     const resume = (node.parameters.resume as string | undefined) ?? 'timeInterval';
     if (resume === 'webhook' || resume === 'form') {
-      return [{ code: 'node.unsupportedParameter', message: `Wait: resume "${resume}" wird in Phase 1 nicht unterstützt`, path: 'parameters.resume' }];
+      return [{ code: 'node.unsupportedParameter', message: `Wait: resume "${resume}" wird noch nicht unterstützt`, path: 'parameters.resume' }];
     }
     return [];
   },

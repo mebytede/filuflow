@@ -3,7 +3,7 @@
 //   Code.node.ts, JavaScriptSandbox.ts, Sandbox.ts, result-validation.ts, utils.ts (standardizeOutput),
 //   JsCodeValidator.ts, ExecutionError.ts, ValidationError.ts
 //   packages/core/.../utils/normalize-items.ts
-// Abweichung (docs/DEVIATIONS.md): kein `require`, Timeout (Default 60 s).
+// Sandbox ohne `require` und mit Timeout (Default 60 s, FILUFLOW_CODE_TIMEOUT_MS); Python und Module: Ausbau (SPEC 11.2).
 import vm from 'node:vm';
 import type { ExecContext, NodeType } from './types.js';
 import type { Item } from '../types.js';

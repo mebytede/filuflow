@@ -351,8 +351,7 @@ Für den Betrieb im Netz gehört ein Reverse Proxy mit HTTPS davor. Worker sollt
 
 filuflow liest das Workflow-Format von n8n. Exportierte Workflows (JSON, `executionOrder: v1`) laufen ohne Umbau und liefern
 dieselben Daten an denselben Knoten wie n8n 1.x; das prüfen Vergleichstests gegen echtes n8n (Referenz 1.123.0). Credentials aus
-`n8n export:credentials --decrypted` lassen sich direkt verwenden, kopierte n8n-Knoten im Editor einfügen. Bewusste Abweichungen
-stehen in [docs/DEVIATIONS.md](docs/DEVIATIONS.md).
+`n8n export:credentials --decrypted` lassen sich direkt verwenden, kopierte n8n-Knoten im Editor einfügen.
 
 ## Entwicklung
 
@@ -371,8 +370,7 @@ aus und wird mit `tsc` gebaut.
 - [docs/STATUS.md](docs/STATUS.md): Stand der Entwicklung
 - [docs/SECURITY.md](docs/SECURITY.md): Sicherheitsmodell, Anmeldung, Credentials
 - [docs/DECISIONS.md](docs/DECISIONS.md): Entscheidungen und Abhängigkeiten
-- [docs/DEVIATIONS.md](docs/DEVIATIONS.md): bewusste Abweichungen von n8n
-- [docs/SPEC.md](docs/SPEC.md): Spezifikation
+- [docs/SPEC.md](docs/SPEC.md): Spezifikation und Ausbau
 
 > **Früher flowlite.** filuflow hieß bis Oktober 2026 flowlite. Alte Umgebungsvariablen (`FLOWLITE_*`) gelten weiter, solange die
 > neue nicht gesetzt ist; beim Start erscheint ein Hinweis. Die Standard-Datenbank heißt jetzt `filuflow.db` (eine vorhandene
