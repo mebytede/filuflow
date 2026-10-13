@@ -333,3 +333,23 @@ Bewusst übernommene Eigenheiten:
   eigenen Läufen, der Retriever nicht (in n8n 1.123.0 greift die Umhüllung dort nicht).
 - PDF, DOCX und EPUB bräuchten zusätzliche Bibliotheken; der Data Loader lehnt sie mit einer klaren Meldung ab, statt sie
   falsch zu lesen. Ein Reranker am Vektorspeicher bricht die Ausführung ebenso mit einer Meldung ab.
+
+## OAuth2-Typen der Dienste (M28)
+Die Typen beschreiben, wie in n8n, nur feste Werte über `extends: ['oAuth2Api']`; Code-Tausch, Refresh und Signatur bleiben
+die vorhandene OAuth2-Umsetzung. Die Werte (URLs, Scopes, Query-Parameter, Art der Client-Authentifizierung) sind Daten
+der jeweiligen Dienste, gelesen aus n8n-nodes-base 1.121.0 und in eigener Struktur aufgeschrieben
+(`src/credentials/oauth2Types.ts`). Aufgenommen ist eine Auswahl häufig genutzter Dienste; andere Typen auf `…OAuth2Api`
+aus einem n8n-Export laufen weiter, wenn die gespeicherten Daten URLs enthalten (das speichert der n8n-Editor mit).
+
+Defaults gelten beim Laden in der Engine für alle Typen mit Beschreibung, wie n8n `applyDefaultsAndOverwrites`: fehlende
+Werte sichtbarer Felder bekommen ihren Default, gespeicherte Werte gehen vor. Abweichend von n8n:
+- Ausdrücke (`=…{{ $self.feld }}`) wertet filuflow nur in versteckten Feldern aus. Sie stammen aus der Typbeschreibung oder
+  einem n8n-Export; eingegebene Werte, etwa ein Passwort mit "=" am Anfang, bleiben unverändert. filuflow kennt für
+  Credentials weiterhin `{{ env.NAME }}`, aber keine n8n-Expressions mit `$vars` oder `$secrets`.
+- Felder, die keine Beschreibung kennt, verwirft filuflow nicht (n8n gibt nur beschriebene Felder weiter).
+- Ausgewertet wird in `node:vm` mit Zeitlimit; Credentials und Typen gelten wie Workflows als vertrauenswürdig.
+
+Die Optionen von `requestOAuth2` je Dienst (getOAuth2AdditionalParameters) gelten wie in n8n auch für Typen ohne eigene
+Beschreibung (z. B. `shopifyOAuth2Api` aus einem Export). Übernommen sind auch Eigenheiten: der HTTP Request erzwingt bei
+`oAuth2Api` den Token-Typ "Bearer"; nach einem Refresh signiert n8n den Request neu, ohne `keepBearer` anzuwenden, und
+setzt den Zusatz-Header (Shopify) mit dem bisherigen Token.

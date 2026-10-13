@@ -184,7 +184,13 @@ export interface N8nCredentialType {
 export function credentialToSchema(c: N8nCredentialType): CredentialTypeSchema {
   const fields: CredentialField[] = [];
   for (const p of c.properties ?? []) {
-    if (p.type === 'hidden' || p.type === 'notice') continue;
+    if (p.type === 'notice') continue;
+    if (p.type === 'hidden') {
+      // Feste Werte (z. B. URLs eines OAuth2-Dienstes); Ausdrücke mit $self wertet das Laden aus (M28)
+      const value = typeof p.default === 'number' ? String(p.default) : p.default;
+      if (typeof value === 'string' || typeof value === 'boolean') fields.push({ name: p.name, label: p.displayName ?? p.name, kind: 'hidden', default: value });
+      continue;
+    }
     const t = p.typeOptions ?? {};
     const kind = t.password ? 'password' : p.type === 'boolean' ? 'boolean' : p.type === 'options' ? 'options' : p.type === 'json' ? 'json' : typeof t.rows === 'number' ? 'text' : 'string';
     const field: CredentialField = { name: p.name, label: p.displayName ?? p.name, kind };
@@ -197,5 +203,11 @@ export function credentialToSchema(c: N8nCredentialType): CredentialTypeSchema {
     if (p.displayOptions?.show) field.show = p.displayOptions.show as Record<string, Array<string | boolean>>;
     fields.push(field);
   }
-  return { name: c.name, label: c.displayName ?? c.name, description: `Aus einem n8n-Paket${c.documentationUrl ? ` (${c.documentationUrl})` : ''}.`, fields };
+  return {
+    name: c.name,
+    label: c.displayName ?? c.name,
+    description: `Aus einem n8n-Paket${c.documentationUrl ? ` (${c.documentationUrl})` : ''}.`,
+    fields,
+    ...(c.extends?.length ? { extends: c.extends } : {}),
+  };
 }

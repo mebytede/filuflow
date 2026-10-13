@@ -35,6 +35,7 @@ import { getLogger, type Logger } from '../logger.js';
 import { UndiciHttpClient, type HttpClient } from '../http.js';
 import { FileBinaryStore, type BinaryStore } from '../binary.js';
 import { CREDENTIAL_REF, type CredentialProvider } from '../credentials/store.js';
+import { applySchemaDefaults } from '../credentials/defaults.js';
 import {
   ExecutionCancelledError,
   FiluflowError,
@@ -396,7 +397,8 @@ export class WorkflowExecutor {
     if (!provider || !entry) {
       throw new NodeOperationError(node.name, `Credentials "${ref.name}" for type "${type}" not found`, { itemIndex });
     }
-    const data = provider.resolve(entry);
+    // Defaults des Typs (auch geerbte und versteckte Felder) wie n8n getDecrypted mit applyDefaultsAndOverwrites
+    const data = applySchemaDefaults(type, provider.resolve(entry));
     // Identität für dauerhaft gespeicherte OAuth2-Tokens (nicht aufzählbar, erscheint nicht in Daten oder Logs)
     Object.defineProperty(data, CREDENTIAL_REF, { value: { name: entry.name, ...(entry.id ? { id: entry.id } : {}), type }, enumerable: false });
     return data;

@@ -311,6 +311,7 @@ Engine-Reihenfolge, Expressions (inkl. Rohwert vs. String), jeder Node, Filter-O
 | M25 | Code-Helfer, vordefinierte Credentials | helpers im Code-Knoten wie n8n, HTTP Request mit vordefinierten Credential-Typen |
 | M26 | KI-Ausbau | OpenAI Responses API, Groq, Mistral, Ollama, DeepSeek, OpenRouter, Azure OpenAI, Think Tool |
 | M27 | Embeddings und Vektorspeicher (RAG) | OpenAI Embeddings, Default Data Loader, Text Splitter, Simple Vector Store, Retriever, Q&A Chain, Vector Store Tool |
+| M28 | OAuth2-Typen der Dienste | Credential-Typen mit extends und festen Werten (Google, Microsoft, Slack, GitHub u. a.), Verbinden, Dienst-Eigenheiten von requestOAuth2 |
 
 Nach jedem Meilenstein: `docs/STATUS.md` aktualisieren (was geht, was fehlt) und einen Commit mit aussagekräftiger Nachricht.
 
@@ -324,8 +325,8 @@ Offene Funktionen, ungefähr nach Nutzen geordnet. Jede wird wie ein Meilenstein
 - Skalierung über mehrere Prozesse (Warteschlange, z. B. Redis) für hohe Last
 
 ### 11.2 Knoten
-- Weitere vordefinierte Credential-Typen mit Authentifizierung und Dienst-Defaults (z. B. Google OAuth2 mit festen URLs)
-  (helpers im Code-Node und vordefinierte Credential-Typen im HTTP Request: M25)
+- Weitere Credential-Typen der Dienste (API-Keys mit authenticate, Google Service Account mit JWT)
+  (helpers im Code-Node und vordefinierte Credential-Typen im HTTP Request: M25; OAuth2-Typen mit festen URLs: M28)
 - KI: Agent-Varianten aus typeVersion 1.x, weitere Modelle (z. B. AWS Bedrock, Vertex), weitere Embeddings und
   Vektorspeicher (z. B. PGVector, Qdrant), Dateien wie PDF im Data Loader
   (Responses API, Groq, Mistral, Ollama, DeepSeek, OpenRouter, Azure OpenAI, Think Tool: M26; Embeddings, Simple Vector

@@ -169,7 +169,8 @@ export interface CredentialInfo {
 export interface CredentialField {
   name: string;
   label: string;
-  kind: 'string' | 'password' | 'text' | 'options' | 'boolean' | 'json';
+  /** hidden: feste Werte des Typs, ohne Eingabe */
+  kind: 'string' | 'password' | 'text' | 'options' | 'boolean' | 'json' | 'hidden';
   default?: string | boolean;
   required?: boolean;
   options?: Array<{ value: string; label: string }>;
@@ -184,6 +185,8 @@ export interface CredentialTypeSchema {
   label: string;
   description: string;
   fields: CredentialField[];
+  /** OAuth-Typ (auch abgeleitet, z. B. googleOAuth2Api): Verbinden in der Liste */
+  oauth?: 1 | 2;
 }
 
 /** Listeneintrag der Credential-Verwaltung */

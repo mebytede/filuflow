@@ -212,10 +212,18 @@ n8n, das Formular zeigt sie an), legen Sie das Credential an und klicken Sie in 
 verschlüsselt in der Datenbank und wird bei abgelaufenem Zugriff mit dem Refresh-Token erneuert. Im Master läuft die
 Anmeldung über die Adresse des Masters, das Token liegt beim Worker.
 
+Für viele Dienste gibt es eigene OAuth2-Typen mit den Daten von n8n, etwa `googleOAuth2Api`, `gmailOAuth2`,
+`googleSheetsOAuth2Api`, `googleDriveOAuth2Api`, `microsoftOAuth2Api`, `microsoftOutlookOAuth2Api`, `microsoftTeamsOAuth2Api`,
+`slackOAuth2Api`, `githubOAuth2Api`, `notionOAuth2Api`, `hubspotOAuth2Api`, `airtableOAuth2Api`, `salesforceOAuth2Api` und
+weitere (insgesamt 47). Dort tragen Sie nur Client ID und Client Secret ein (bei manchen Diensten zusätzlich Server, Subdomain
+oder Umgebung); URLs, Scopes und Grant Type legt der Typ fest. Exportierte n8n-Workflows mit diesen Credentials laufen so
+ohne Umbau.
+
 **Vordefinierte Credential-Typen** im HTTP Request ("Vordefinierter Credential-Typ"): filuflow kennt die Anmeldung von
 `githubApi`, `notionApi`, `slackApi`, `stripeApi`, `airtableTokenApi`, `hubspotAppToken`, `openAiApi`, `anthropicApi`,
-`googlePalmApi` und den generischen Typen, dazu Typen aus Plugins. Typen auf `…OAuth2Api` (etwa aus einem n8n-Import)
-nutzen das verbundene Token.
+`googlePalmApi` und den generischen Typen, dazu Typen aus Plugins. OAuth2-Typen (die eingebauten oben, Typen auf
+`…OAuth2Api` aus einem n8n-Import oder aus Plugins) nutzen das verbundene Token, mit den Eigenheiten der Dienste wie bei
+n8n (z. B. Slack mit dem Benutzer-Token). Dasselbe gilt für das HTTP Request Tool am AI Agent.
 
 **OAuth1** (`oAuth1Api`, z. B. ältere APIs von Twitter/X, Trello oder Xero) funktioniert genauso: Consumer Key und Secret sowie
 die drei URLs des Anbieters eintragen, speichern, **Verbinden**. Als Rückleitung nutzt filuflow

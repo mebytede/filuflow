@@ -13,7 +13,9 @@ import type { ExecContext, NodeIssue, NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
 import type { WorkflowNode } from '../types.js';
 import { NodeOperationError } from '../errors.js';
-import { getOAuth2Token, signRequest } from '../credentials/oauth2.js';
+import { getOAuth2Token, oauth2ServiceOptions, signOAuth2Request, type OAuth2RequestOptions, type OAuth2Token } from '../credentials/oauth2.js';
+import { authenticateRequest, hasAuthentication } from '../credentials/authenticate.js';
+import { isOAuth2Type } from '../credentials/types.js';
 import type { HttpRequest } from '../http.js';
 import { STRING_INPUT_SCHEMA, type ToolInstance } from '../ai/tools.js';
 import { zodParse, zodToJsonSchema, type ZType } from '../ai/schema.js';
@@ -197,7 +199,12 @@ function makeToolInputSchema(params: ToolParameter[]): ZType {
 // ---------------------------------------------------------------------------------------------
 // HTTP (n8n helpers.httpRequest mit returnFullResponse)
 
-async function sendRequest(ctx: ExecContext, options: RequestOptions & { auth?: { username: string; password: string } }, oauth2?: Record<string, unknown>): Promise<FullResponse> {
+async function sendRequest(
+  ctx: ExecContext,
+  options: RequestOptions & { auth?: { username: string; password: string } },
+  oauth2?: Record<string, unknown>,
+  oauth2Options?: OAuth2RequestOptions,
+): Promise<FullResponse> {
   const headers: Record<string, string> = {};
   for (const [k, v] of Object.entries(options.headers ?? {})) if (v !== undefined && v !== null) headers[k] = String(v);
   let body: string | undefined;
@@ -219,8 +226,13 @@ async function sendRequest(ctx: ExecContext, options: RequestOptions & { auth?: 
     if (query) url += (url.includes('?') ? '&' : '?') + query;
   }
   let request: HttpRequest = { method: options.method, url, headers, body, signal: ctx.signal, timeout: 300_000 };
+  let token: OAuth2Token | undefined;
   const send = async (force: boolean) => {
-    if (oauth2) request = signRequest(request, await getOAuth2Token(ctx, oauth2, force), ctx.node.name);
+    if (oauth2) {
+      const fresh = await getOAuth2Token(ctx, oauth2, force, oauth2Options);
+      request = signOAuth2Request(request, fresh, ctx.node.name, oauth2Options, force ? token : undefined);
+      token = fresh;
+    }
     return ctx.helpers.http.request(request);
   };
   let res = await send(false);
@@ -288,7 +300,21 @@ async function configureHttpRequestFunction(ctx: ExecContext, authentication: st
     throw new NodeOperationError(ctx.node.name, `The type ${genericType} is not supported`, { itemIndex });
   }
   if (authentication === 'predefinedCredentialType') {
-    throw new NodeOperationError(ctx.node.name, 'HTTP Request Tool: vordefinierte Credential-Typen werden nicht unterstützt', { itemIndex });
+    // utils.ts predefinedCredentialRequest: httpRequestWithAuthentication mit getOAuth2AdditionalParameters (M28)
+    const type = ctx.getParam<string>('nodeCredentialType', itemIndex, '');
+    const cred = await ctx.getCredentials(type, itemIndex);
+    if (hasAuthentication(type)) {
+      return async (o) => {
+        const authed = await authenticateRequest(type, cred, { url: o.url, method: o.method, headers: o.headers, qs: o.qs, body: o.body });
+        return sendRequest(ctx, { ...o, headers: authed.headers ?? {}, qs: authed.qs ?? {}, body: authed.body, ...(authed.auth ? { auth: authed.auth } : {}) });
+      };
+    }
+    if (isOAuth2Type(type)) {
+      // requestOAuth2 mit isN8nRequest: erneuter Versuch nur nach 401
+      const options = oauth2ServiceOptions(type);
+      return (o) => sendRequest(ctx, o, cred, options && { ...options, tokenExpiredStatusCode: undefined });
+    }
+    throw new NodeOperationError(ctx.node.name, `HTTP Request Tool: für den Credential-Typ "${type}" kennt filuflow keine Authentifizierung`, { itemIndex });
   }
   return (o) => sendRequest(ctx, o);
 }
@@ -567,7 +593,10 @@ function validateNode(node: WorkflowNode): NodeIssue[] {
   const issues: NodeIssue[] = [];
   const auth = (p.authentication as string | undefined) ?? 'none';
   if (auth === 'predefinedCredentialType') {
-    issues.push({ code: 'node.unsupportedParameter', message: 'HTTP Request Tool: vordefinierte Credential-Typen werden nicht unterstützt', path: 'parameters.authentication' });
+    const type = String(p.nodeCredentialType ?? '');
+    if (!hasAuthentication(type) && !isOAuth2Type(type)) {
+      issues.push({ code: 'node.unsupportedParameter', message: `HTTP Request Tool: für den Credential-Typ "${type}" kennt filuflow keine Authentifizierung`, path: 'parameters.nodeCredentialType' });
+    }
   }
   if (auth === 'genericCredentialType' && !SUPPORTED_GENERIC.includes(String(p.genericAuthType))) {
     issues.push({ code: 'node.unsupportedParameter', message: `HTTP Request Tool: Authentifizierung "${String(p.genericAuthType)}" wird nicht unterstützt`, path: 'parameters.genericAuthType' });
@@ -686,7 +715,7 @@ const parameters: ParamSchema[] = [
     ],
   },
   {
-    // n8n: type credentialsSelect; filuflow liefert keine vordefinierten Dienst-Credentials, validate meldet diesen Fall
+    // n8n: type credentialsSelect; filuflow kennt Typen mit Authentifizierung und OAuth2-Typen (M28), validate meldet andere
     name: 'nodeCredentialType',
     label: 'Credential-Typ',
     type: 'string',
@@ -694,7 +723,7 @@ const parameters: ParamSchema[] = [
     required: true,
     noExpression: true,
     show: { authentication: ['predefinedCredentialType'] },
-    description: 'Name des vordefinierten Credential-Typs',
+    description: 'Name des vordefinierten Credential-Typs, z. B. githubApi, notionApi oder ein OAuth2-Typ wie googleSheetsOAuth2Api',
   },
   {
     name: 'googleApiWarning',
@@ -877,6 +906,7 @@ export const toolHttpRequestNode: NodeType = {
   inputs: () => 0,
   outputs: () => 0,
   credentialTypes(node) {
+    if (node.parameters.authentication === 'predefinedCredentialType') return [String(node.parameters.nodeCredentialType ?? '')];
     if (node.parameters.authentication !== 'genericCredentialType') return [];
     return [String(node.parameters.genericAuthType)];
   },

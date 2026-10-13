@@ -10,7 +10,8 @@ import type { HttpRequest, HttpResponse } from '../../http.js';
 import type { Item, WorkflowNode } from '../../types.js';
 import { NodeApiError, NodeOperationError } from '../../errors.js';
 import { authenticateRequest, hasAuthentication, withCredentialDefaults, type HttpOptions } from '../../credentials/authenticate.js';
-import { getOAuth2Token } from '../../credentials/oauth2.js';
+import { getOAuth2Token, type OAuth2RequestOptions } from '../../credentials/oauth2.js';
+import { isOAuth2Type } from '../../credentials/types.js';
 
 /** HTTP-Fehler wie n8n: Status, Antwort und Meldung am Fehler */
 function httpError(node: WorkflowNode, res: HttpResponse, body: unknown): NodeApiError {
@@ -110,24 +111,27 @@ const isOAuth2 = (c: Record<string, unknown>) => !!c.oauthTokenData || c.grantTy
 export function executeHelpers(ctx: ExecContext): Record<string, unknown> {
   const node = ctx.node;
   const credentials = async (type: string) => withCredentialDefaults(type, await ctx.getCredentials(type));
-  /** Credential anwenden: bekannte Authentifizierung oder OAuth2-Token */
-  const authenticate = async (type: string, options: HttpOptions): Promise<HttpOptions> => {
+  /** Credential anwenden: bekannte Authentifizierung oder OAuth2-Token (oauth2: Optionen wie requestOAuth2) */
+  const authenticate = async (type: string, options: HttpOptions, oauth2?: OAuth2RequestOptions): Promise<HttpOptions> => {
     const c = await credentials(type);
     if (hasAuthentication(type)) return authenticateRequest(type, c, options);
-    if (isOAuth2(c)) {
-      const token = await getOAuth2Token(ctx, c);
-      return { ...options, headers: { ...(options.headers ?? {}), Authorization: `Bearer ${token.accessToken}` } };
+    if (isOAuth2Type(type) || isOAuth2(c)) {
+      const token = await getOAuth2Token(ctx, c, false, oauth2);
+      const headers: Record<string, unknown> = { ...(options.headers ?? {}), Authorization: oauth2?.keepBearer === false ? token.accessToken : `Bearer ${token.accessToken}` };
+      if (oauth2?.keyToIncludeInAccessTokenHeader) headers[oauth2.keyToIncludeInAccessTokenHeader] = token.accessToken;
+      return { ...options, headers };
     }
     throw new NodeOperationError(node.name, `Credential-Typ "${type}" hat keine Authentifizierung, die filuflow anwenden kann`);
   };
   return {
     httpRequest: (options: HttpOptions) => httpRequest(ctx, options),
-    async httpRequestWithAuthentication(type: string, options: HttpOptions) {
-      return httpRequest(ctx, await authenticate(type, options));
+    async httpRequestWithAuthentication(type: string, options: HttpOptions, additional?: { oauth2?: OAuth2RequestOptions }) {
+      return httpRequest(ctx, await authenticate(type, options, additional?.oauth2));
     },
     request: (uriOrObject: string | Record<string, unknown>, options?: Record<string, unknown>) => legacyRequest(ctx, uriOrObject, options),
-    requestWithAuthentication: (type: string, options: Record<string, unknown>) => legacyRequest(ctx, options, {}, (o) => authenticate(type, o)),
-    requestOAuth2: (type: string, options: Record<string, unknown>) => legacyRequest(ctx, options, {}, (o) => authenticate(type, o)),
+    requestWithAuthentication: (type: string, options: Record<string, unknown>, additional?: { oauth2?: OAuth2RequestOptions }) =>
+      legacyRequest(ctx, options, {}, (o) => authenticate(type, o, additional?.oauth2)),
+    requestOAuth2: (type: string, options: Record<string, unknown>, oauth2?: OAuth2RequestOptions) => legacyRequest(ctx, options, {}, (o) => authenticate(type, o, oauth2)),
     requestOAuth1: () => Promise.reject(new NodeOperationError(node.name, 'requestOAuth1 wird hier noch nicht unterstützt; bitte den HTTP Request mit OAuth1 nutzen')),
     returnJsonArray(data: unknown): Item[] {
       const list = Array.isArray(data) ? data : [data];

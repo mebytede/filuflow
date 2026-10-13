@@ -5,7 +5,8 @@
 import type { FastifyInstance } from 'fastify';
 import type { CredentialProvider } from '../credentials/store.js';
 import { LayeredCredentialProvider } from '../credentials/managed.js';
-import { credentialType, isFieldVisible, isSecretField, redactCredentialData } from '../credentials/types.js';
+import { credentialType, isFieldVisible, isOAuth1Type, isOAuth2Type, isSecretField, OAUTH2_EDITABLE_SCOPE, redactCredentialData } from '../credentials/types.js';
+import { applySchemaDefaults } from '../credentials/defaults.js';
 import type { Workflow } from '../types.js';
 import type { Logger } from '../logger.js';
 import type { WorkflowManager } from './workflows.js';
@@ -50,16 +51,28 @@ interface PendingAuth {
 const PENDING_TTL_MS = 10 * 60_000;
 const base64url = (b: Buffer) => b.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
+/** OAuth2-Credential (oAuth2Api oder abgeleitet, M28) mit Grant Type Authorization Code oder PKCE (auch als Default des Typs) */
 export function isOAuthCodeCredential(entry: { type?: string; data: Record<string, unknown> }): boolean {
-  return entry.type === 'oAuth2Api' && (entry.data.grantType === undefined || entry.data.grantType === 'authorizationCode' || entry.data.grantType === 'pkce');
+  if (!isOAuth2Type(entry.type)) return false;
+  const grantType = applySchemaDefaults(entry.type!, entry.data).grantType;
+  return grantType === undefined || grantType === 'authorizationCode' || grantType === 'pkce';
+}
+
+/** OAuth2-Credential nach Name (beliebiger OAuth2-Typ) */
+function findOAuth2(credentials: CredentialProvider, name: string) {
+  const entry = credentials.find({ name });
+  return entry && entry.name === name && isOAuth2Type(entry.type) ? entry : undefined;
 }
 
 /** Autorisierung beginnen: URL mit state (und PKCE-Challenge); state und code_verifier liegen in der Ablage */
 export function startOAuth(o: OAuthSupport, credentials: CredentialProvider, name: string, redirectUri = o.redirectUri): { url: string; state: string } {
-  const entry = credentials.find({ name }, 'oAuth2Api');
-  if (!entry || entry.name !== name) throw new Error(`Credential "${name}" nicht gefunden`);
+  const entry = findOAuth2(credentials, name);
+  if (!entry) throw new Error(`Credential "${name}" nicht gefunden`);
   if (!isOAuthCodeCredential(entry)) throw new Error('Nur OAuth2-Credentials mit Grant Type "Authorization Code" oder "PKCE" lassen sich verbinden');
-  const data = credentials.resolve(entry);
+  const raw = credentials.resolve(entry);
+  // Wie n8n getAuthUri: bei Dienst-Typen gilt der feste Scope des Typs, nicht ein gespeicherter
+  if (raw.scope !== undefined && !OAUTH2_EDITABLE_SCOPE.includes(entry.type!)) delete raw.scope;
+  const data = applySchemaDefaults(entry.type!, raw);
   const state = base64url(randomBytes(24));
   let codeVerifier: string | undefined;
   let codeChallenge: string | undefined;
@@ -84,9 +97,9 @@ export async function completeOAuth(o: OAuthSupport, credentials: CredentialProv
   const pending = o.store.get<PendingAuth>(`oauth2-pending:${state}`);
   o.store.delete(`oauth2-pending:${state}`);
   if (!pending || Date.now() - pending.createdAt > PENDING_TTL_MS) throw new Error('The OAuth callback state is invalid!');
-  const entry = credentials.find({ name: pending.credential }, 'oAuth2Api');
+  const entry = findOAuth2(credentials, pending.credential);
   if (!entry) throw new Error(`Credential "${pending.credential}" nicht gefunden`);
-  const data = credentials.resolve(entry);
+  const data = applySchemaDefaults(entry.type!, credentials.resolve(entry));
   const token = await exchangeAuthorizationCode(o.http, data, { code, redirectUri: pending.redirectUri, codeVerifier: pending.codeVerifier });
   const extra = Object.fromEntries(Object.entries(query).filter(([k]) => k !== 'state' && k !== 'code'));
   if (Object.keys(extra).length) token.callbackQueryString = extra;
@@ -101,11 +114,11 @@ export async function completeOAuth(o: OAuthSupport, credentials: CredentialProv
  * Autorisierungs-URL zurückgeben. Der state liegt 10 Minuten in der Ablage.
  */
 export async function startOAuth1(o: OAuthSupport, credentials: CredentialProvider, name: string, callbackUrl = o.oauth1CallbackUrl): Promise<{ url: string; state: string }> {
-  const entry = credentials.find({ name }, 'oAuth1Api');
-  if (!entry || entry.name !== name || entry.type !== 'oAuth1Api') throw new Error(`OAuth1-Credential "${name}" nicht gefunden`);
+  const entry = credentials.find({ name });
+  if (!entry || entry.name !== name || !isOAuth1Type(entry.type)) throw new Error(`OAuth1-Credential "${name}" nicht gefunden`);
   if (!callbackUrl) throw new Error('Keine Rückleitungs-URL für OAuth1 eingestellt');
   const state = base64url(randomBytes(24));
-  const url = await oauth1AuthorizationUrl(o.http, credentials.resolve(entry), `${callbackUrl}?state=${state}`);
+  const url = await oauth1AuthorizationUrl(o.http, applySchemaDefaults(entry.type!, credentials.resolve(entry)), `${callbackUrl}?state=${state}`);
   o.store.set(`oauth1-pending:${state}`, { credential: name, redirectUri: callbackUrl, createdAt: Date.now() } satisfies PendingAuth);
   return { url, state };
 }
@@ -119,9 +132,9 @@ export async function completeOAuth1(o: OAuthSupport, credentials: CredentialPro
   const pending = o.store.get<PendingAuth>(`oauth1-pending:${state}`);
   o.store.delete(`oauth1-pending:${state}`);
   if (!pending || Date.now() - pending.createdAt > PENDING_TTL_MS) throw new Error('The OAuth callback state is invalid!');
-  const entry = credentials.find({ name: pending.credential }, 'oAuth1Api');
-  if (!entry) throw new Error(`Credential "${pending.credential}" nicht gefunden`);
-  const tokenData = await oauth1AccessToken(o.http, credentials.resolve(entry), { oauth_token: token, oauth_verifier: verifier });
+  const entry = credentials.find({ name: pending.credential });
+  if (!entry || entry.name !== pending.credential || !isOAuth1Type(entry.type)) throw new Error(`Credential "${pending.credential}" nicht gefunden`);
+  const tokenData = await oauth1AccessToken(o.http, applySchemaDefaults(entry.type!, credentials.resolve(entry)), { oauth_token: token, oauth_verifier: verifier });
   o.store.set(oauth1TokenKey({ name: entry.name, ...(entry.id ? { id: entry.id } : {}) }), tokenData);
   return { credential: entry.name };
 }
@@ -153,11 +166,12 @@ export async function registerCredentialsApi(api: FastifyInstance, o: Credential
   const layered = o.credentials instanceof LayeredCredentialProvider ? o.credentials : undefined;
   const workflows = () => o.workflows().list().map((m) => m.workflow);
 
-  /** OAuth2-Status eines Credentials (nur für oAuth2Api mit Authorization Code / PKCE) */
+  /** OAuth-Status eines Credentials (OAuth2-Typen mit Authorization Code / PKCE, OAuth1-Typen) */
   const oauthStatus = (name: string, type?: string) => {
     if (!o.oauth || !o.credentials) return undefined;
-    if (type === 'oAuth1Api') {
-      const entry = o.credentials.find({ name }, 'oAuth1Api');
+    if (!isOAuth2Type(type) && !isOAuth1Type(type)) return undefined;
+    if (isOAuth1Type(type)) {
+      const entry = o.credentials.find({ name }, type);
       if (!entry || entry.name !== name) return undefined;
       let data: Record<string, unknown> = entry.data;
       try {
@@ -167,7 +181,7 @@ export async function registerCredentialsApi(api: FastifyInstance, o: Credential
       }
       return { version: 1, connected: !!connectedOAuth1TokenData(data, { name: entry.name, ...(entry.id ? { id: entry.id } : {}) }) };
     }
-    const entry = o.credentials.find({ name }, 'oAuth2Api');
+    const entry = o.credentials.find({ name }, type);
     if (!entry || entry.name !== name || !isOAuthCodeCredential(entry)) return undefined;
     let data: Record<string, unknown> = entry.data;
     try {
@@ -175,6 +189,7 @@ export async function registerCredentialsApi(api: FastifyInstance, o: Credential
     } catch {
       // Env-Referenz fehlt: Status aus den Rohdaten
     }
+    data = applySchemaDefaults(entry.type ?? type!, data);
     return { version: 2, grantType: String(data.grantType ?? 'authorizationCode'), connected: !!connectedTokenData(data, { name: entry.name, ...(entry.id ? { id: entry.id } : {}) }) };
   };
 
@@ -187,7 +202,7 @@ export async function registerCredentialsApi(api: FastifyInstance, o: Credential
       ...(o.oauth ? { oauthCallbackUrl: o.oauth.redirectUri, ...(o.oauth.oauth1CallbackUrl ? { oauth1CallbackUrl: o.oauth.oauth1CallbackUrl } : {}) } : {}),
       data: entries.map((e) => {
         const usedBy = credentialUsage(all, e);
-        const oauth = e.type === 'oAuth2Api' || e.type === 'oAuth1Api' ? oauthStatus(e.name, e.type) : undefined;
+        const oauth = oauthStatus(e.name, e.type);
         return { ...e, usedBy, ...(oauth ? { oauth } : {}) };
       }),
     };
@@ -218,8 +233,8 @@ export async function registerCredentialsApi(api: FastifyInstance, o: Credential
     });
     api.delete(`${o.prefix}/:name/oauth2`, async (request, reply) => {
       const name = (request.params as { name: string }).name;
-      const entry = o.credentials?.find({ name }, 'oAuth2Api');
-      if (!entry || entry.name !== name) return reply.code(404).send({ message: 'Credential nicht gefunden' });
+      const entry = o.credentials?.find({ name });
+      if (!entry || entry.name !== name || !isOAuth2Type(entry.type)) return reply.code(404).send({ message: 'Credential nicht gefunden' });
       oauth.store.delete(oauth2TokenKey({ name: entry.name, ...(entry.id ? { id: entry.id } : {}) }));
       return reply.code(204).send();
     });
@@ -245,8 +260,8 @@ export async function registerCredentialsApi(api: FastifyInstance, o: Credential
     });
     api.delete(`${o.prefix}/:name/oauth1`, async (request, reply) => {
       const name = (request.params as { name: string }).name;
-      const entry = o.credentials?.find({ name }, 'oAuth1Api');
-      if (!entry || entry.name !== name) return reply.code(404).send({ message: 'Credential nicht gefunden' });
+      const entry = o.credentials?.find({ name });
+      if (!entry || entry.name !== name || !isOAuth1Type(entry.type)) return reply.code(404).send({ message: 'Credential nicht gefunden' });
       oauth.store.delete(oauth1TokenKey({ name: entry.name, ...(entry.id ? { id: entry.id } : {}) }));
       return reply.code(204).send();
     });
@@ -261,7 +276,7 @@ export async function registerCredentialsApi(api: FastifyInstance, o: Credential
     if (!found) return reply.code(404).send({ message: 'Credential nicht gefunden' });
     const { entry, managed } = found;
     const view = redactCredentialData(entry.type, entry.data);
-    const oauth = entry.type === 'oAuth2Api' || entry.type === 'oAuth1Api' ? oauthStatus(entry.name, entry.type) : undefined;
+    const oauth = oauthStatus(entry.name, entry.type);
     return {
       name: entry.name,
       ...(entry.id ? { id: entry.id } : {}),
@@ -293,7 +308,7 @@ export async function registerCredentialsApi(api: FastifyInstance, o: Credential
       const existing = layered.get(name);
       const sameType = existing?.entry.type === body.type;
       const missing = schema.fields.filter((f) => {
-        if (!f.required || !isFieldVisible(schema, f, data)) return false;
+        if (!f.required || f.kind === 'hidden' || !isFieldVisible(schema, f, data)) return false;
         const v = data[f.name];
         if (v !== undefined && v !== null && v !== '') return false;
         return !(sameType && keep.includes(f.name) && isSecretField(body.type as string, f.name) && existing!.entry.data[f.name]);

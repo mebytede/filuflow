@@ -24,7 +24,7 @@ import { VariableStore, registerVariablesApi } from './variablesApi.js';
 import { ChatSessionError, ChatSessions } from './chatSessions.js';
 import { registerOverview, triggersOf } from './overview.js';
 import type { LayeredCredentialProvider } from '../credentials/managed.js';
-import { CREDENTIAL_TYPES } from '../credentials/types.js';
+import { credentialTypeCatalog } from '../credentials/types.js';
 import { completeOAuth, completeOAuth1, oauthCallbackPage, registerCredentialsApi, type OAuthSupport } from './credentialsApi.js';
 import { warmUpPython } from '../python/pyodide.js';
 import { OAUTH2_CALLBACK_PATH, setOAuth2TokenStore } from '../credentials/oauth2.js';
@@ -401,7 +401,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
       return executionView(store.get(execution.id) as unknown as Execution, true);
     });
 
-    api.get('/api/credential-types', async () => ({ data: CREDENTIAL_TYPES, oauthCallbackUrl: oauth.redirectUri, oauth1CallbackUrl: oauth.oauth1CallbackUrl }));
+    api.get('/api/credential-types', async () => ({ data: credentialTypeCatalog(), oauthCallbackUrl: oauth.redirectUri, oauth1CallbackUrl: oauth.oauth1CallbackUrl }));
     await registerCredentialsApi(api, { prefix: '/api/credentials', credentials, workflows: () => workflows!, logger, oauth });
     await registerVariablesApi(api, { prefix: '/api/variables', variables, logger });
     if (options.worker) await registerVariablesApi(api, { prefix: '/api/worker/variables', variables, logger });

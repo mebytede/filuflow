@@ -5,10 +5,14 @@
 //   JwtAuth.credentials.ts, OAuth2Api.credentials.ts, OpenAiApi.credentials.ts, HttpDigestAuth.credentials.ts,
 //   HttpSslAuth.credentials.ts
 //   packages/@n8n/nodes-langchain/credentials/AnthropicApi.credentials.ts, GooglePalmApi.credentials.ts
+//   OAuth2-Typen der Dienste (Google, Microsoft, Slack …): src/credentials/oauth2Types.ts
 // Felder mit typeOptions.password heißen hier "password" und sind geheim. Das JSON von httpCustomAuth enthält
 // Header- und Query-Werte und gilt deshalb ebenfalls als geheim.
 
-export type CredentialFieldKind = 'string' | 'password' | 'text' | 'options' | 'boolean' | 'json';
+import { OAUTH2_SERVICE_TYPES } from './oauth2Types.js';
+
+// "hidden": festes Feld ohne Eingabe (n8n type "hidden"), der Default gilt beim Laden, Werte mit "=" sind Ausdrücke über $self
+export type CredentialFieldKind = 'string' | 'password' | 'text' | 'options' | 'boolean' | 'json' | 'hidden';
 
 export interface CredentialField {
   name: string;
@@ -30,6 +34,8 @@ export interface CredentialTypeSchema {
   label: string;
   description: string;
   fields: CredentialField[];
+  /** Erweiterte Typen (n8n ICredentialType.extends): deren Felder zuerst, gleichnamige eigene ersetzen sie */
+  extends?: string[];
 }
 
 const opt = (...values: string[]) => values.map((v) => ({ value: v, label: v }));
@@ -338,19 +344,92 @@ export const CREDENTIAL_TYPES: CredentialTypeSchema[] = [
       { name: 'apiKey', label: 'API-Key', kind: 'password', default: '', required: true },
     ],
   },
+  ...OAUTH2_SERVICE_TYPES,
 ];
 
 const BY_NAME = new Map(CREDENTIAL_TYPES.map((t) => [t.name, t]));
+const resolved = new Map<string, CredentialTypeSchema>();
 
 /** Credential-Typ aus einem Plugin ergänzen (M24); eingebaute Typen bleiben unverändert */
 export function registerCredentialType(schema: CredentialTypeSchema): void {
   if (BY_NAME.has(schema.name)) return;
   CREDENTIAL_TYPES.push(schema);
   BY_NAME.set(schema.name, schema);
+  resolved.clear();
 }
 
+/**
+ * Felder samt geerbten wie n8n CredentialsHelper.getCredentialsProperties mit NodeHelpers.mergeNodeProperties:
+ * erst die Felder der erweiterten Typen, dann die eigenen; ein gleichnamiges Feld ersetzt das geerbte an seiner Stelle.
+ */
+function mergedFields(schema: CredentialTypeSchema, seen: Set<string>): CredentialField[] {
+  if (!schema.extends?.length) return schema.fields;
+  const out: CredentialField[] = [];
+  const merge = (fields: CredentialField[]) => {
+    for (const f of fields) {
+      const i = out.findIndex((x) => x.name === f.name);
+      if (i === -1) out.push(f);
+      else out[i] = f;
+    }
+  };
+  for (const parentName of schema.extends) {
+    const parent = BY_NAME.get(parentName);
+    if (parent && !seen.has(parentName)) merge(mergedFields(parent, new Set([...seen, parentName])));
+  }
+  merge(schema.fields);
+  return out;
+}
+
+/** Beschreibung mit allen Feldern (auch geerbten) */
 export function credentialType(name: string | undefined): CredentialTypeSchema | undefined {
-  return name ? BY_NAME.get(name) : undefined;
+  if (!name) return undefined;
+  const cached = resolved.get(name);
+  if (cached) return cached;
+  const schema = BY_NAME.get(name);
+  if (!schema) return undefined;
+  const full = schema.extends?.length ? { ...schema, fields: mergedFields(schema, new Set([name])) } : schema;
+  resolved.set(name, full);
+  return full;
+}
+
+/** Erweitert der Typ (direkt oder über weitere Typen) den genannten Basistyp? */
+export function extendsType(name: string | undefined, base: string): boolean {
+  const seen = new Set<string>();
+  const walk = (n: string): boolean => {
+    if (n === base) return true;
+    if (seen.has(n)) return false;
+    seen.add(n);
+    return (BY_NAME.get(n)?.extends ?? []).some(walk);
+  };
+  return !!name && walk(name);
+}
+
+/** OAuth2-Typ: oAuth2Api oder davon abgeleitet; unbekannte Typen nach dem Namen (…OAuth2Api, …OAuth2) */
+export function isOAuth2Type(name: string | undefined): boolean {
+  if (!name) return false;
+  return BY_NAME.has(name) ? extendsType(name, 'oAuth2Api') : /OAuth2(Api)?$/.test(name);
+}
+
+/** OAuth1-Typ: oAuth1Api oder davon abgeleitet */
+export function isOAuth1Type(name: string | undefined): boolean {
+  if (!name) return false;
+  return BY_NAME.has(name) ? extendsType(name, 'oAuth1Api') : /OAuth1(Api)?$/.test(name);
+}
+
+/**
+ * Typen, deren gespeicherter Scope beim Verbinden gilt; bei allen übrigen OAuth2-Typen gilt der feste Scope des Typs
+ * (n8n 1.123.0 packages/cli/src/constants.ts GENERIC_OAUTH2_CREDENTIALS_WITH_EDITABLE_SCOPE, genutzt in
+ * oauth2-credential.controller.ts getAuthUri)
+ */
+export const OAUTH2_EDITABLE_SCOPE = ['oAuth2Api', 'googleOAuth2Api', 'microsoftOAuth2Api', 'highLevelOAuth2Api', 'mcpOAuth2Api'];
+
+/** Beschreibungen aller Typen für die Oberfläche: Felder samt geerbten, OAuth-Version */
+export function credentialTypeCatalog(): Array<CredentialTypeSchema & { oauth?: 1 | 2 }> {
+  return CREDENTIAL_TYPES.map((t) => {
+    const full = credentialType(t.name)!;
+    const oauth = isOAuth2Type(t.name) ? 2 : isOAuth1Type(t.name) ? 1 : undefined;
+    return { ...full, ...(oauth ? { oauth } : {}) };
+  });
 }
 
 /**

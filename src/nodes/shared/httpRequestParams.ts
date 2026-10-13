@@ -115,7 +115,7 @@ export const httpRequestParameters: ParamSchema[] = [
     required: true,
     noExpression: true,
     show: { authentication: ['predefinedCredentialType'] },
-    description: 'Name des Credential-Typs, z. B. githubApi, notionApi, slackApi, stripeApi, airtableTokenApi, hubspotAppToken, openAiApi, anthropicApi oder ein Typ aus einem Plugin; Typen auf …OAuth2Api nutzen das verbundene Token',
+    description: 'Name des Credential-Typs, z. B. githubApi, notionApi, slackApi, stripeApi, airtableTokenApi, hubspotAppToken, openAiApi, anthropicApi oder ein Typ aus einem Plugin; OAuth2-Typen (z. B. googleSheetsOAuth2Api, slackOAuth2Api) nutzen das verbundene Token',
   },
   {
     name: 'googleApiWarning',

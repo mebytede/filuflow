@@ -73,13 +73,15 @@ export async function credentialFormDialog(backend: CredentialFormBackend, o: Cr
   const sameType = () => currentType() === detail?.type;
 
   const renderKnown = (schema: CredentialTypeSchema) => {
+    // Versteckte Felder (feste URLs, Scopes) haben keine Eingabe; ihre Defaults gelten beim Laden
+    const formFields = schema.fields.filter((f) => f.kind !== 'hidden');
     const inputs = new Map<string, HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>();
     const boxes = new Map<string, HTMLElement>();
     let refresh = () => {
-      for (const f of schema.fields) boxes.get(f.name)!.hidden = !visible(schema, f, values);
+      for (const f of formFields) boxes.get(f.name)!.hidden = !visible(schema, f, values);
     };
     fieldsBox.replaceChildren();
-    for (const f of schema.fields) {
+    for (const f of formFields) {
       const stored = sameType() && secretsSet.has(f.name);
       const initial = values[f.name] ?? f.default;
       let input: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
@@ -124,7 +126,7 @@ export async function credentialFormDialog(backend: CredentialFormBackend, o: Cr
       fieldsBox.append(box);
     }
     // OAuth2 mit Authorization Code / PKCE: Redirect-URL zum Eintragen beim Anbieter
-    if (schema.name === 'oAuth2Api' && catalog.oauthCallbackUrl) {
+    if ((schema.oauth === 2 || schema.name === 'oAuth2Api') && catalog.oauthCallbackUrl) {
       const box = h(
         'div',
         { class: 'field' },
@@ -136,7 +138,7 @@ export async function credentialFormDialog(backend: CredentialFormBackend, o: Cr
       fieldsBox.append(box);
     }
     // OAuth1: Rückleitung, die filuflow als oauth_callback mitschickt; manche Anbieter verlangen sie vorab
-    if (schema.name === 'oAuth1Api' && catalog.oauth1CallbackUrl) {
+    if ((schema.oauth === 1 || schema.name === 'oAuth1Api') && catalog.oauth1CallbackUrl) {
       const box = h(
         'div',
         { class: 'field' },
@@ -151,14 +153,14 @@ export async function credentialFormDialog(backend: CredentialFormBackend, o: Cr
     refresh = () => {
       baseRefresh();
       const box = boxes.get('__redirect');
-      const grant = values.grantType ?? 'authorizationCode';
+      const grant = values.grantType ?? schema.fields.find((f) => f.name === 'grantType')?.default ?? 'authorizationCode';
       if (box) box.hidden = grant === 'clientCredentials';
     };
     refresh();
     collect = () => {
       const data: Record<string, unknown> = {};
       const keep: string[] = [];
-      for (const f of schema.fields) {
+      for (const f of formFields) {
         if (!visible(schema, f, values)) continue;
         const input = inputs.get(f.name)!;
         if (f.kind === 'boolean') {

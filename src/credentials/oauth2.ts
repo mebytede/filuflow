@@ -230,8 +230,71 @@ export async function exchangeAuthorizationCode(
   return accessTokenRequest(http, tokenUrl, headers, { ...body, ...extra });
 }
 
+/**
+ * Zusatzoptionen von requestOAuth2 (n8n IOAuth2Options): Token-Typ erzwingen, Token aus einem anderen Feld der
+ * Token-Daten, "Bearer" weglassen, Token zusätzlich in einem eigenen Header, Client-Daten beim Refresh im Body,
+ * anderer Statuscode für abgelaufene Tokens
+ */
+export interface OAuth2RequestOptions {
+  tokenType?: string;
+  property?: string;
+  keepBearer?: boolean;
+  keyToIncludeInAccessTokenHeader?: string;
+  includeCredentialsOnRefreshOnBody?: boolean;
+  tokenExpiredStatusCode?: number;
+}
+
+/**
+ * Optionen je Credential-Typ, die der HTTP Request (vordefinierter Typ) und das HTTP Request Tool mitgeben, wie
+ * n8n-nodes-base 1.121.0 nodes/HttpRequest/GenericFunctions.ts getOAuth2AdditionalParameters
+ */
+const SERVICE_OAUTH2_OPTIONS: Record<string, OAuth2RequestOptions> = {
+  bitlyOAuth2Api: { tokenType: 'Bearer' },
+  boxOAuth2Api: { includeCredentialsOnRefreshOnBody: true },
+  ciscoWebexOAuth2Api: { tokenType: 'Bearer' },
+  clickUpOAuth2Api: { keepBearer: false, tokenType: 'Bearer' },
+  goToWebinarOAuth2Api: { tokenExpiredStatusCode: 403 },
+  hubspotDeveloperApi: { tokenType: 'Bearer', includeCredentialsOnRefreshOnBody: true },
+  hubspotOAuth2Api: { tokenType: 'Bearer', includeCredentialsOnRefreshOnBody: true },
+  lineNotifyOAuth2Api: { tokenType: 'Bearer' },
+  linkedInOAuth2Api: { tokenType: 'Bearer' },
+  mailchimpOAuth2Api: { tokenType: 'Bearer' },
+  mauticOAuth2Api: { includeCredentialsOnRefreshOnBody: true },
+  microsoftAzureMonitorOAuth2Api: { tokenExpiredStatusCode: 403 },
+  microsoftDynamicsOAuth2Api: { property: 'id_token' },
+  philipsHueOAuth2Api: { tokenType: 'Bearer' },
+  raindropOAuth2Api: { includeCredentialsOnRefreshOnBody: true },
+  shopifyOAuth2Api: { tokenType: 'Bearer', keyToIncludeInAccessTokenHeader: 'X-Shopify-Access-Token' },
+  slackOAuth2Api: { tokenType: 'Bearer', property: 'authed_user.access_token' },
+  stravaOAuth2Api: { includeCredentialsOnRefreshOnBody: true },
+};
+
+export function oauth2ServiceOptions(type: string): OAuth2RequestOptions | undefined {
+  return SERVICE_OAUTH2_OPTIONS[type];
+}
+
+/** lodash get mit Punkt-Pfad */
+const getPath = (obj: unknown, path: string): unknown => path.split('.').reduce<unknown>((o, k) => (o && typeof o === 'object' ? (o as Record<string, unknown>)[k] : undefined), obj);
+
+/** requestOAuth2: Token aus property, Token-Typ aus den Optionen (createToken, danach klein geschrieben) */
+function withOptions(token: OAuth2Token, options?: OAuth2RequestOptions): OAuth2Token {
+  if (!options) return token;
+  const fromProperty = options.property ? getPath(token.data, options.property) : undefined;
+  return {
+    ...token,
+    accessToken: fromProperty ? String(fromProperty) : token.accessToken,
+    tokenType: options.tokenType ? options.tokenType.toLowerCase() : token.tokenType,
+  };
+}
+
 /** ClientOAuth2Token.refresh: neue Token-Daten, zusammengeführt mit den alten (refresh_token bleibt, wenn keiner kommt) */
-export async function refreshOAuth2Token(http: HttpClient, cred: Record<string, unknown>, data: Record<string, unknown>, signal?: AbortSignal): Promise<Record<string, unknown>> {
+export async function refreshOAuth2Token(
+  http: HttpClient,
+  cred: Record<string, unknown>,
+  data: Record<string, unknown>,
+  signal?: AbortSignal,
+  options?: OAuth2RequestOptions,
+): Promise<Record<string, unknown>> {
   const refreshToken = data.refresh_token;
   if (typeof refreshToken !== 'string' || !refreshToken) throw new Error('refreshToken is required');
   const clientId = String(cred.clientId ?? '');
@@ -248,7 +311,9 @@ export async function refreshOAuth2Token(http: HttpClient, cred: Record<string, 
   } else {
     body.client_id = clientId;
   }
-  const fresh = await accessTokenRequest(http, String(cred.accessTokenUrl ?? ''), headers, { ...body, ...additionalBody(cred) }, signal);
+  // includeCredentialsOnRefreshOnBody: client_id und client_secret zusätzlich im Body (der Basic-Header bleibt)
+  const extra = options?.includeCredentialsOnRefreshOnBody ? { client_id: cred.clientId, client_secret: cred.clientSecret } : {};
+  const fresh = await accessTokenRequest(http, String(cred.accessTokenUrl ?? ''), headers, { ...body, ...additionalBody(cred), ...extra }, signal);
   return { ...data, ...fresh };
 }
 
@@ -268,8 +333,12 @@ export function connectedTokenData(cred: Record<string, unknown>, ref?: { name: 
   return undefined;
 }
 
-/** Token aus dem Cache oder neu holen; force = nach 401 neu holen */
-export async function getOAuth2Token(ctx: ExecContext, cred: Record<string, unknown>, force = false): Promise<OAuth2Token> {
+/** Token aus dem Cache oder neu holen; force = nach 401 neu holen; options wie requestOAuth2 */
+export async function getOAuth2Token(ctx: ExecContext, cred: Record<string, unknown>, force = false, options?: OAuth2RequestOptions): Promise<OAuth2Token> {
+  return withOptions(await loadOAuth2Token(ctx, cred, force, options), options);
+}
+
+async function loadOAuth2Token(ctx: ExecContext, cred: Record<string, unknown>, force: boolean, options?: OAuth2RequestOptions): Promise<OAuth2Token> {
   const grantType = String(cred.grantType ?? 'authorizationCode');
   if (grantType === 'authorizationCode' || grantType === 'pkce') {
     // requestOAuth2: Token aus oauthTokenData, nach 401 mit dem refresh_token erneuern und speichern
@@ -283,7 +352,7 @@ export async function getOAuth2Token(ctx: ExecContext, cred: Record<string, unkn
     if (!force) return toToken(data);
     let fresh: Record<string, unknown>;
     try {
-      fresh = await refreshOAuth2Token(ctx.helpers.http, cred, data, ctx.signal);
+      fresh = await refreshOAuth2Token(ctx.helpers.http, cred, data, ctx.signal, options);
     } catch (error) {
       if (error instanceof OAuth2RequestError) throw new NodeOperationError(ctx.node.name, error.message, { description: error.body });
       throw new NodeOperationError(ctx.node.name, (error as Error).message);
@@ -306,6 +375,18 @@ export async function getOAuth2Token(ctx: ExecContext, cred: Record<string, unkn
   cache.set(key, token);
   tokenStore?.set(`oauth2:${key}`, token);
   return token;
+}
+
+/**
+ * Request signieren wie requestOAuth2: ClientOAuth2Token.sign, danach keepBearer und keyToIncludeInAccessTokenHeader.
+ * Nach einem Refresh signiert n8n nur neu und setzt den Zusatz-Header mit dem bisherigen Token (previous).
+ */
+export function signOAuth2Request(request: HttpRequest, token: OAuth2Token, nodeName: string, options?: OAuth2RequestOptions, previous?: OAuth2Token): HttpRequest {
+  const signed = signRequest(request, token, nodeName);
+  const headers = { ...(signed.headers ?? {}) };
+  if (!previous && options?.keepBearer === false && typeof headers.Authorization === 'string') headers.Authorization = headers.Authorization.split(' ')[1];
+  if (options?.keyToIncludeInAccessTokenHeader) headers[options.keyToIncludeInAccessTokenHeader] = (previous ?? token).accessToken;
+  return { ...signed, headers };
 }
 
 /** ClientOAuth2Token.sign */

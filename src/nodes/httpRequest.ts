@@ -14,7 +14,8 @@ import type { Item, WorkflowNode } from '../types.js';
 import { NodeApiError, NodeOperationError } from '../errors.js';
 import type { HttpRequest, HttpResponse } from '../http.js';
 import { jsonParse } from './shared/utils.js';
-import { getOAuth2Token, signRequest } from '../credentials/oauth2.js';
+import { getOAuth2Token, oauth2ServiceOptions, signOAuth2Request, type OAuth2RequestOptions, type OAuth2Token } from '../credentials/oauth2.js';
+import { isOAuth1Type, isOAuth2Type } from '../credentials/types.js';
 import { authorizeOAuth1, connectedOAuth1TokenData, oauth1Header } from '../credentials/oauth1.js';
 import { credentialRefOf } from '../credentials/store.js';
 import { authenticateRequest, hasAuthentication, withCredentialDefaults } from '../credentials/authenticate.js';
@@ -184,6 +185,9 @@ interface RequestSpec {
   request: HttpRequest;
   /** oAuth2Api: Credential für Signatur und erneuten Versuch nach 401 */
   oauth2?: Record<string, unknown>;
+  /** Optionen von requestOAuth2 (Token-Typ, Dienst-Eigenheiten) und das zuletzt genutzte Token */
+  oauth2Options?: OAuth2RequestOptions;
+  oauth2Token?: OAuth2Token;
   /** httpDigestAuth: Anmeldung erst nach der Challenge (sendImmediately: false) */
   digest?: { user: string; password: string };
   /** Request für $request in Pagination-Expressions (n8n requestOptions) */
@@ -377,6 +381,7 @@ async function buildRequest(ctx: ExecContext, itemIndex: number, items: Item[], 
 
   // Authentifizierung
   let oauth2: Record<string, unknown> | undefined;
+  let oauth2Options: OAuth2RequestOptions | undefined;
   let oauth1: Record<string, unknown> | undefined;
   let digest: RequestSpec['digest'];
   const authentication = ctx.getParam<string>('authentication', 0, 'none');
@@ -400,8 +405,9 @@ async function buildRequest(ctx: ExecContext, itemIndex: number, items: Item[], 
       if (custom.body) bodyObject = { ...((bodyObject as object) ?? {}), ...custom.body };
       if (custom.qs) qsParams = { ...(qsParams ?? {}), ...custom.qs };
     } else if (type === 'oAuth2Api') {
-      // Signatur nach dem Aufbau des Requests (signRequest), siehe unten
+      // Signatur nach dem Aufbau des Requests, siehe unten; HttpRequestV3 ruft requestOAuth2 mit tokenType "Bearer"
       oauth2 = cred;
+      oauth2Options = { tokenType: 'Bearer' };
     } else if (type === 'oAuth1Api') {
       // Signatur über URL, Query und Formular, siehe unten (requestOAuth1)
       oauth1 = cred;
@@ -421,10 +427,12 @@ async function buildRequest(ctx: ExecContext, itemIndex: number, items: Item[], 
       qsParams = authed.qs as typeof qsParams;
       if (authed.body !== bodyObject) bodyObject = authed.body as typeof bodyObject;
       if (authed.auth) headers.authorization = `Basic ${Buffer.from(`${authed.auth.username}:${authed.auth.password}`).toString('base64')}`;
-    } else if (type === 'oAuth1Api' || cred.consumerKey !== undefined) {
+    } else if (isOAuth1Type(type) || cred.consumerKey !== undefined) {
       oauth1 = cred;
-    } else if (cred.oauthTokenData || cred.grantType || cred.accessTokenUrl) {
+    } else if (isOAuth2Type(type) || cred.oauthTokenData || cred.grantType || cred.accessTokenUrl) {
+      // Dienst-Eigenheiten wie getOAuth2AdditionalParameters (z. B. Slack mit dem Benutzer-Token)
       oauth2 = cred;
+      oauth2Options = oauth2ServiceOptions(type);
     } else {
       throw new NodeOperationError(node.name, `Credential-Typ "${type}": filuflow kennt keine Authentifizierung dafür`, {
         itemIndex,
@@ -482,7 +490,7 @@ async function buildRequest(ctx: ExecContext, itemIndex: number, items: Item[], 
     json,
     neverError: !!options.response?.response?.neverError,
     info: requestInfo,
-    ...(oauth2 ? { oauth2 } : {}),
+    ...(oauth2 ? { oauth2, ...(oauth2Options ? { oauth2Options } : {}) } : {}),
     ...(digest ? { digest } : {}),
     request: {
       method,
@@ -498,7 +506,10 @@ async function buildRequest(ctx: ExecContext, itemIndex: number, items: Item[], 
       ...(tls ? { tls } : {}),
     },
   };
-  if (oauth2) spec.request = signRequest(spec.request, await getOAuth2Token(ctx, oauth2), node.name);
+  if (oauth2) {
+    spec.oauth2Token = await getOAuth2Token(ctx, oauth2, false, oauth2Options);
+    spec.request = signOAuth2Request(spec.request, spec.oauth2Token, node.name, oauth2Options);
+  }
   if (oauth1) spec.request = signOAuth1Request(spec.request, oauth1, form, node.name);
   return spec;
 }
@@ -530,14 +541,20 @@ function signOAuth1Request(request: HttpRequest, cred: Record<string, unknown>, 
   return { ...request, headers };
 }
 
-/** Request senden; nach 401 OAuth2-Token erneuern bzw. auf die Digest-Challenge antworten und einmal wiederholen */
+/**
+ * Request senden; nach 401 (OAuth2: tokenExpiredStatusCode) das Token erneuern bzw. auf die Digest-Challenge antworten
+ * und einmal wiederholen
+ */
 async function sendRequest(ctx: ExecContext, spec: RequestSpec): Promise<HttpResponse> {
   const response = await ctx.helpers.http.request(spec.request);
-  if (response.statusCode !== 401) return response;
   if (spec.oauth2) {
-    spec.request = signRequest(spec.request, await getOAuth2Token(ctx, spec.oauth2, true), ctx.node.name);
+    if (response.statusCode !== (spec.oauth2Options?.tokenExpiredStatusCode ?? 401)) return response;
+    const fresh = await getOAuth2Token(ctx, spec.oauth2, true, spec.oauth2Options);
+    spec.request = signOAuth2Request(spec.request, fresh, ctx.node.name, spec.oauth2Options, spec.oauth2Token ?? fresh);
+    spec.oauth2Token = fresh;
     return ctx.helpers.http.request(spec.request);
   }
+  if (response.statusCode !== 401) return response;
   if (spec.digest) {
     const challenge = parseDigestChallenge(response.headers['www-authenticate']);
     if (!challenge) return response;
@@ -697,8 +714,8 @@ export const httpRequestNode: NodeType = {
     const auth = node.parameters.authentication as string | undefined;
     if (auth === 'predefinedCredentialType') {
       const type = String(node.parameters.nodeCredentialType ?? '');
-      // OAuth2-Typen (…OAuth2Api) laufen über das gespeicherte Token, alle anderen brauchen eine bekannte Authentifizierung
-      if (!hasAuthentication(type) && !/OAuth2Api$/i.test(type) && type !== 'oAuth1Api') {
+      // OAuth2-Typen (oAuth2Api und abgeleitete wie googleOAuth2Api) laufen über das gespeicherte Token, alle anderen brauchen eine bekannte Authentifizierung
+      if (!hasAuthentication(type) && !isOAuth2Type(type) && !isOAuth1Type(type)) {
         issues.push({ code: 'node.unsupportedParameter', message: `HTTP Request: für den Credential-Typ "${type}" kennt filuflow keine Authentifizierung`, path: 'parameters.nodeCredentialType' });
       }
     }

@@ -103,7 +103,11 @@ describe('Laden', () => {
     expect(greeter.parameters!.find((p) => p.name === 'url')!.show).toEqual({ callApi: [true] });
     expect(list.find((t) => t.type === 'n8n-nodes-demo.splitter')).toMatchObject({ outputs: 2 });
     expect(list.find((t) => t.type === 'beispiel.zaehler')).toMatchObject({ group: 'Erweiterungen' });
-    expect(credentialType('demoApi')!.fields).toEqual([{ name: 'apiKey', label: 'API-Key', kind: 'password', default: '' }]);
+    // Versteckte Felder kommen als feste Werte mit (Default beim Laden, keine Eingabe im Formular)
+    expect(credentialType('demoApi')!.fields).toEqual([
+      { name: 'apiKey', label: 'API-Key', kind: 'password', default: '' },
+      { name: 'region', label: 'Region', kind: 'hidden', default: 'eu' },
+    ]);
     expect(credentialType('beispielApi')!.label).toBe('Beispiel');
   });
 });

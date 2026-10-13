@@ -5,6 +5,7 @@
 // unten sind nach den Credential-Dateien aus n8n 1.123.0 nachgebaut (Fundstelle je Eintrag); Plugins ergänzen eigene.
 
 import { CREDENTIAL_REF, credentialRefOf } from './store.js';
+import { applySchemaDefaults } from './defaults.js';
 
 export interface HttpOptions {
   url: string;
@@ -117,12 +118,14 @@ export function authenticatedTypes(): string[] {
   return [...Object.keys(BUILTIN), ...[...registered].filter(([, d]) => !d.passive).map(([k]) => k)].sort();
 }
 
-/** Defaults der Felder ergänzen, wie n8n beim Laden eines Credentials */
+/**
+ * Defaults der Felder ergänzen, wie n8n beim Laden eines Credentials: Felder der Typbeschreibung samt geerbten und
+ * versteckten (M28, src/credentials/defaults.ts), dazu die Defaults der Authentifizierung (leere Werte zählen als fehlend)
+ */
 export function withCredentialDefaults(type: string, data: Record<string, unknown>): Record<string, unknown> {
   const defaults = definition(type)?.defaults;
-  if (!defaults) return data;
-  const out = { ...data };
-  for (const [k, v] of Object.entries(defaults)) if (out[k] === undefined || out[k] === '') out[k] = v;
+  const out = applySchemaDefaults(type, data);
+  for (const [k, v] of Object.entries(defaults ?? {})) if (out[k] === undefined || out[k] === '') out[k] = v;
   // Verweis auf das gespeicherte Credential (nicht aufzählbar) mitnehmen, z. B. für OAuth-Tokens
   const ref = credentialRefOf(data);
   if (ref) Object.defineProperty(out, CREDENTIAL_REF, { value: ref, enumerable: false });
