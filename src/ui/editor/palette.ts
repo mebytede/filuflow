@@ -6,7 +6,7 @@ import { icon } from '../icons.js';
 import { iconButton } from '../shell.js';
 import { nodeLook } from './nodeStyle.js';
 
-const GROUP_ORDER = ['Trigger', 'Kern', 'KI', 'KI: Sub-Nodes', 'Sonstiges'];
+const GROUP_ORDER = ['Trigger', 'Kern', 'KI', 'KI: Sub-Nodes', 'Erweiterungen', 'Sonstiges'];
 
 export function palette(types: NodeTypeInfo[], onAdd: (type: string) => void, onClose: () => void): HTMLElement {
   const search = h('input', { type: 'search', class: 'palette-search', placeholder: 'Knoten suchen', 'aria-label': 'Knoten suchen' });
@@ -15,7 +15,10 @@ export function palette(types: NodeTypeInfo[], onAdd: (type: string) => void, on
     const q = search.value.trim().toLowerCase();
     list.replaceChildren();
     const matches = types.filter((t) => !q || t.displayName.toLowerCase().includes(q) || t.type.toLowerCase().includes(q));
-    for (const group of GROUP_ORDER) {
+    // Unbekannte Gruppen (z. B. aus Plugins) vor "Sonstiges"
+    const extra = [...new Set(matches.map((t) => t.group).filter((g) => !GROUP_ORDER.includes(g)))].sort();
+    const order = [...GROUP_ORDER.slice(0, -1), ...extra, GROUP_ORDER[GROUP_ORDER.length - 1]];
+    for (const group of order) {
       const inGroup = matches.filter((t) => t.group === group).sort((a, b) => a.displayName.localeCompare(b.displayName));
       if (!inGroup.length) continue;
       appendAll(

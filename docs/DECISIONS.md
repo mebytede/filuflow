@@ -279,3 +279,18 @@ Die zentrale Suche hält keinen Index im Master: Ausführungen und ihre Daten bl
 Der Master fragt die Worker parallel mit den lesbaren Workflow-IDs (POST, weil die Liste lang werden kann) und führt die
 Ergebnisse nach Beginn zusammen. Geblättert wird über den Beginn des letzten Treffers; das ist über mehrere Worker stabil,
 solange keine zwei Ausführungen auf die Millisekunde gleich beginnen.
+
+## Plugins (M24)
+Knoten im n8n-Format sind CommonJS und importieren `n8n-workflow`. filuflow liefert dafür einen eigenen Ersatz (Fehlerklassen,
+Verbindungstypen, kleine Hilfen), der über `Module._resolveFilename` greift, wenn das Paket beim Plugin nicht installiert ist:
+Das echte Paket bringt viele Abhängigkeiten mit und steht unter der Sustainable Use License; der Ersatz ist eigene Arbeit nach
+dem beobachtbaren Verhalten. Klassen werden wie bei n8n aus dem Dateinamen bestimmt; die Isolation über `vm`, die n8n beim
+Laden nutzt, entfällt (sie ist auch bei n8n keine Sicherheitsgrenze).
+
+Der Kontext für `execute` bildet die häufig genutzten Funktionen nach statt der ganzen `IExecuteFunctions`. Fehlt eine
+Funktion, scheitert der Knoten mit einer klaren Meldung. Trigger, Polling, Webhooks und deklarative Knoten brauchen eigene
+Laufzeitteile (Aktivierung, Routing-Engine) und sind bewusst ausgelassen; der Lader meldet sie, statt sie still falsch
+auszuführen.
+
+Eigene filuflow-Plugins schreiben Knoten gegen dieselbe Schnittstelle wie die eingebauten Knoten. Es gibt keinen eigenen
+Sandbox-Modus: Plugins sind Code der Betreiber und laufen im Prozess.

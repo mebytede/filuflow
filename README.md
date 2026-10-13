@@ -37,6 +37,7 @@ und antworten. Jeder Lauf wird protokolliert und lässt sich Knoten für Knoten 
 | **Team und Mandanten** | Master mit Benutzern, Rechten und Projekten; Worker in der Umgebung jedes Mandanten; Anmeldung mit Passwort und TOTP oder SSO (OIDC) |
 | **Kommandozeile** | Workflows prüfen und ausführen, Ausführungen ansehen, Credentials verschlüsseln, Benutzer verwalten |
 | **Kompatibel mit n8n** | Exportierte n8n-Workflows laufen ohne Umbau, kopierte n8n-Knoten lassen sich in den Editor einfügen |
+| **Eigene Knoten** | Plugins als JavaScript-Modul oder Knoten im n8n-Format (eigene Ordner und Community-Pakete mit `execute`) |
 
 ## Schnellstart
 
@@ -298,6 +299,39 @@ ebenfalls hinein.
 Chat-Seite und warten auf die Antwort der Person, etwa für Rückfragen oder Freigaben (Human in the Loop). Die Seite hält
 dafür einen Kanal zur laufenden Ausführung offen; die Ausführung wartet dauerhaft und übersteht auch einen Neustart.
 
+## Eigene Knoten (Plugins)
+
+filuflow lädt eigene Knoten beim Start aus `~/.filuflow/custom`, aus den Pfaden in `FILUFLOW_CUSTOM_EXTENSIONS` (mit `;`
+getrennt; `N8N_CUSTOM_EXTENSIONS` gilt auch) und aus `--nodes <pfad>` (bei `validate`, `run`, `serve`, `worker`, `master` und
+`nodes`). Probleme beim Laden erscheinen als Hinweis, der Rest läuft weiter; `filuflow nodes` zeigt, was geladen ist.
+
+**Knoten im n8n-Format:** Ein Ordner mit `*.node.js` und `*.credentials.js` (wie `~/.n8n/custom`, Typ `CUSTOM.<name>`) oder ein
+Community-Paket (Ordner mit `package.json` und `"n8n": { "nodes": [...], "credentials": [...] }`, Typ `<paket>.<name>`, auch in
+`node_modules` des Ordners). Unterstützt sind programmatische Knoten mit `execute()`, auch versionierte; der Kontext bietet die
+üblichen Funktionen (`getInputData`, `getNodeParameter` mit Defaults, `getCredentials`, `continueOnFail`,
+`helpers.httpRequest` und `request` mit und ohne Authentifizierung, `returnJsonArray`, `constructExecutionMetaData`,
+Binärdaten). Das Paket `n8n-workflow` muss nicht installiert sein: filuflow stellt Fehlerklassen, Verbindungstypen und
+Hilfsfunktionen bereit. Trigger-, Polling- und Webhook-Knoten sowie deklarative Knoten (`routing`) werden noch nicht geladen.
+
+**filuflow-Plugins:** ein ES-Modul (`*.mjs` oder Paket mit `"filuflow": { "plugin": "index.js" }`), das ein Objekt oder eine
+Funktion exportiert:
+
+```js
+export default (api) => ({
+  nodes: [{
+    type: 'firma.begruessung', displayName: 'Begrüßung', versions: [1],
+    parameters: [{ name: 'name', label: 'Name', type: 'string', default: '' }],
+    async execute(ctx) {
+      return [ctx.items.map((item, i) => ({ json: { ...item.json, gruss: `Hallo ${ctx.getParam('name', i, '')}` } }))];
+    },
+  }],
+  credentialTypes: [{ name: 'firmaApi', label: 'Firma', description: '', fields: [{ name: 'token', label: 'Token', kind: 'password' }] }],
+});
+```
+
+Plugin-Knoten stehen im Editor unter "Erweiterungen", mit Formular aus ihrer Parameterbeschreibung. Im Master-Betrieb gehören
+die Plugins auf die Worker (Ausführung) und auf den Master (Editor und Prüfung).
+
 ## Mehrere Benutzer und Mandanten
 
 Für Teams und für den Betrieb bei mehreren Kunden gibt es zwei weitere Betriebsarten. Der Einzelbetrieb mit `filuflow serve`
@@ -436,6 +470,7 @@ setzen Credentials beim Worker, verwalten Benutzer und lesen das Audit-Log.
 | `FILUFLOW_INSTANCE_NAME` | Name im Fuß der Seitenleiste | Hostname |
 | `FILUFLOW_IMPRINT_URL`, `FILUFLOW_PRIVACY_URL` | Links "Impressum" und "Datenschutz" (nur wenn gesetzt) | |
 | `FILUFLOW_LOG_LEVEL` | Log-Level (pino) | `info` |
+| `FILUFLOW_CUSTOM_EXTENSIONS` / `--nodes` | Pfade zu eigenen Knoten (mit `;` getrennt; auch `N8N_CUSTOM_EXTENSIONS`) | `~/.filuflow/custom` |
 
 ### Docker
 

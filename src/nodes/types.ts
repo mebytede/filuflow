@@ -184,6 +184,10 @@ export interface NodeType {
   credentialTypes?(node: WorkflowNode): string[];
   /** Nicht unterstützte Parameterwerte melden */
   validate?(node: WorkflowNode): NodeIssue[];
+  /** Gruppe in der Palette des Editors (Plugins: "Erweiterungen"); ohne Angabe nach Typ bestimmt */
+  group?: string;
+  /** Herkunft bei Knoten aus Plugins (Datei oder Paket), für `filuflow nodes` */
+  source?: string;
   /** Beschreibung der Parameter für das Formular im Editor (M19), über alle unterstützten Versionen */
   parameters?: ParamSchema[];
   /**

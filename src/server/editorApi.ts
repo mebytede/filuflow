@@ -108,7 +108,7 @@ export function nodeTypeList(registry: NodeRegistry) {
         ...(t.aiOutput ? { aiOutput: t.aiOutput } : {}),
         outputs,
         ...(t.parameters ? { parameters: t.parameters } : {}),
-        group: t.type === STICKY_NOTE_TYPE ? 'Sonstiges' : group(t.type, !!t.isTrigger, !!t.isSubNode),
+        group: t.group ?? (t.type === STICKY_NOTE_TYPE ? 'Sonstiges' : group(t.type, !!t.isTrigger, !!t.isSubNode)),
       };
     });
 }

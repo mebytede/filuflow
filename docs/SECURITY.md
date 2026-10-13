@@ -87,6 +87,12 @@ Trotzdem gilt:
 - Die Seiten senden eine Content-Security-Policy (`script-src 'self'`, kein `eval`, keine fremden Quellen), `X-Content-Type-Options`
   und `frame-ancestors 'none'`. Statische Pfade außerhalb von `dist/ui` werden abgewiesen.
 
+## Plugins (M24)
+Plugins (eigene Module und Knoten im n8n-Format) laufen ohne Sandbox im Prozess von filuflow, mit allen Rechten des Prozesses
+(Dateien, Netz, Umgebung, Credentials anderer Workflows). Sie gelten wie Workflows als vertrauenswürdig: nur Pakete aus
+bekannter Quelle in die Plugin-Ordner legen und diese Ordner nur für Betreiber beschreibbar halten. Credential-Werte gelangen
+an Plugins nur über `getCredentials` des jeweiligen Knotens; in Logs und Ausführungen werden sie wie sonst maskiert.
+
 ## Master und Worker (M9)
 Benutzer des Masters sind das interne Team. Wer in einem Projekt bearbeiten darf, kann Code-Nodes schreiben und damit beliebigen
 Code auf dem Worker des Projekts ausführen, also in der Umgebung des Mandanten. Das Recht "Bearbeiten" ist entsprechend zu vergeben.

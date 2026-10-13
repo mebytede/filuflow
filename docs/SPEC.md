@@ -307,6 +307,7 @@ Engine-Reihenfolge, Expressions (inkl. Rohwert vs. String), jeder Node, Filter-O
 | M22a | Chat mit Antwortknoten | Respond to Chat und Respond to Webhook im Chat, Warten auf die Antwort des Nutzers |
 | M22 | Credentials aus n8n, Teilen, OAuth1 | Import verschlüsselter n8n-Exporte, Freigabe für Projekte im Master, OAuth1 mit Verbinden |
 | M23 | Rollen je Workflow, zentrale Suche | Eigene Rollen für einzelne Workflows, Freigabe an Gäste, Ausführungen aller Worker durchsuchen |
+| M24 | Plugin-Schnittstelle | Eigene Knoten als JavaScript-Modul, Knoten und Credentials im n8n-Format (programmatisch) |
 
 Nach jedem Meilenstein: `docs/STATUS.md` aktualisieren (was geht, was fehlt) und einen Commit mit aussagekräftiger Nachricht.
 
@@ -324,7 +325,8 @@ Offene Funktionen, ungefähr nach Nutzen geordnet. Jede wird wie ein Meilenstein
 - HTTP Request: vordefinierte Credential-Typen (Pagination, Digest-Auth, Client-Zertifikate: M15; OAuth1: M22)
 - KI: OpenAI Responses API, Agent-Varianten aus typeVersion 1.x, weitere Modelle, Tools und Vektorspeicher
 - Dienst-Knoten mit eigenen OAuth-Flows (Gmail, Slack, Microsoft 365 usw.) und weitere Integrationen
-- Eigene Knoten als Erweiterungen (Plugin-Schnittstelle, Community-Nodes)
+- Community-Nodes: Trigger, Polling, Webhooks und deklarative Knoten (`routing`) aus n8n-Paketen; Installation aus der
+  Oberfläche (Plugin-Schnittstelle und programmatische Knoten: M24)
 
 ### 11.3 Credentials
 (Anlegen und Bearbeiten in der Oberfläche: M11; Import verschlüsselter n8n-Exporte und Freigabe für Projekte im Master: M22)

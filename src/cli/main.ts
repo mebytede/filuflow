@@ -18,7 +18,37 @@ Befehle:
   filuflow nodes [--json]
   filuflow credentials encrypt|decrypt <credentials.json> [--out datei]
   filuflow credentials check [<credentials.json>]
+
+Eigene Knoten (Plugins): --nodes <pfad> (mehrfach) bei validate, run, serve, worker, master und nodes;
+außerdem FILUFLOW_CUSTOM_EXTENSIONS (Pfade mit ";" getrennt) und ~/.filuflow/custom.
 `;
+
+/** Befehle, die Knotentypen brauchen und deshalb Plugins laden */
+const WITH_PLUGINS = new Set(['validate', 'run', 'serve', 'worker', 'master', 'nodes']);
+
+/** --nodes <pfad> bzw. --nodes=<pfad> aus den Argumenten lösen */
+export function extractNodesArgs(args: string[]): { paths: string[]; rest: string[] } {
+  const paths: string[] = [];
+  const rest: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a === '--nodes' && i + 1 < args.length) paths.push(args[++i]);
+    else if (a.startsWith('--nodes=')) paths.push(a.slice(8));
+    else rest.push(a);
+  }
+  return { paths, rest };
+}
+
+/** Plugins in die Standard-Registry laden; Probleme als Hinweis auf stderr, der Befehl läuft weiter */
+async function loadCliPlugins(extra: string[]): Promise<void> {
+  const { loadPlugins, pluginPathsFromEnv } = await import('../plugins/loader.js');
+  const { getDefaultRegistry } = await import('../nodes/index.js');
+  const paths = [...pluginPathsFromEnv(), ...extra];
+  if (!paths.length) return;
+  for (const r of await loadPlugins(paths, getDefaultRegistry())) {
+    for (const e of r.errors) process.stderr.write(`Plugin ${r.source}: ${e}\n`);
+  }
+}
 
 export type CommandHandler = (args: string[]) => Promise<number>;
 
@@ -60,6 +90,12 @@ export async function main(argv: string[]): Promise<number> {
   if (!handler) {
     process.stderr.write(`Unbekannter Befehl "${command}"\n\n${USAGE}`);
     return 1;
+  }
+  // "master user ..." und Hilfen brauchen keine Knoten
+  if (WITH_PLUGINS.has(command) && !(command === 'master' && rest[0] === 'user')) {
+    const { paths, rest: args } = extractNodesArgs(rest);
+    await loadCliPlugins(paths);
+    return handler(args);
   }
   return handler(rest);
 }

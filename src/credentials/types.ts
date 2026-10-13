@@ -251,6 +251,13 @@ export const CREDENTIAL_TYPES: CredentialTypeSchema[] = [
 
 const BY_NAME = new Map(CREDENTIAL_TYPES.map((t) => [t.name, t]));
 
+/** Credential-Typ aus einem Plugin ergänzen (M24); eingebaute Typen bleiben unverändert */
+export function registerCredentialType(schema: CredentialTypeSchema): void {
+  if (BY_NAME.has(schema.name)) return;
+  CREDENTIAL_TYPES.push(schema);
+  BY_NAME.set(schema.name, schema);
+}
+
 export function credentialType(name: string | undefined): CredentialTypeSchema | undefined {
   return name ? BY_NAME.get(name) : undefined;
 }
