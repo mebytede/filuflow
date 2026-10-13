@@ -217,6 +217,51 @@ export const CREDENTIAL_TYPES: CredentialTypeSchema[] = [
       },
     ],
   },
+  // Dienste für den HTTP Request mit "Vordefinierter Credential-Typ" (M25), Felder wie n8n 1.123.0
+  // packages/nodes-base/credentials/GithubApi, NotionApi, AirtableTokenApi, SlackApi, StripeApi, HubspotAppToken
+  {
+    name: 'githubApi',
+    label: 'GitHub API',
+    description: 'Personal Access Token für GitHub.',
+    fields: [
+      { name: 'server', label: 'GitHub-Server', kind: 'string', default: 'https://api.github.com' },
+      { name: 'user', label: 'Benutzer', kind: 'string', default: '' },
+      { name: 'accessToken', label: 'Access Token', kind: 'password', default: '' },
+    ],
+  },
+  {
+    name: 'notionApi',
+    label: 'Notion API',
+    description: 'Internal Integration Secret für Notion.',
+    fields: [{ name: 'apiKey', label: 'Internal Integration Secret', kind: 'password', default: '' }],
+  },
+  {
+    name: 'airtableTokenApi',
+    label: 'Airtable Personal Access Token API',
+    description: 'Personal Access Token für Airtable.',
+    fields: [{ name: 'accessToken', label: 'Access Token', kind: 'password', default: '' }],
+  },
+  {
+    name: 'slackApi',
+    label: 'Slack API',
+    description: 'Bot- oder User-Token für Slack.',
+    fields: [
+      { name: 'accessToken', label: 'Access Token', kind: 'password', default: '' },
+      { name: 'signatureSecret', label: 'Signature Secret', kind: 'password', default: '' },
+    ],
+  },
+  {
+    name: 'stripeApi',
+    label: 'Stripe API',
+    description: 'Secret Key für Stripe.',
+    fields: [{ name: 'secretKey', label: 'Secret Key', kind: 'password', default: '' }],
+  },
+  {
+    name: 'hubspotAppToken',
+    label: 'HubSpot App Token',
+    description: 'Private-App-Token für HubSpot.',
+    fields: [{ name: 'appToken', label: 'App Token', kind: 'password', default: '' }],
+  },
   {
     name: 'openAiApi',
     label: 'OpenAI',

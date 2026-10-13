@@ -308,6 +308,7 @@ Engine-Reihenfolge, Expressions (inkl. Rohwert vs. String), jeder Node, Filter-O
 | M22 | Credentials aus n8n, Teilen, OAuth1 | Import verschlüsselter n8n-Exporte, Freigabe für Projekte im Master, OAuth1 mit Verbinden |
 | M23 | Rollen je Workflow, zentrale Suche | Eigene Rollen für einzelne Workflows, Freigabe an Gäste, Ausführungen aller Worker durchsuchen |
 | M24 | Plugin-Schnittstelle | Eigene Knoten als JavaScript-Modul, Knoten und Credentials im n8n-Format (programmatisch) |
+| M25 | Code-Helfer, vordefinierte Credentials | helpers im Code-Knoten wie n8n, HTTP Request mit vordefinierten Credential-Typen |
 
 Nach jedem Meilenstein: `docs/STATUS.md` aktualisieren (was geht, was fehlt) und einen Commit mit aussagekräftiger Nachricht.
 
@@ -321,8 +322,8 @@ Offene Funktionen, ungefähr nach Nutzen geordnet. Jede wird wie ein Meilenstein
 - Skalierung über mehrere Prozesse (Warteschlange, z. B. Redis) für hohe Last
 
 ### 11.2 Knoten
-- Vollständige `helpers` im Code-Node (Python im Code-Node: M12, `require` mit Freigabeliste: M20)
-- HTTP Request: vordefinierte Credential-Typen (Pagination, Digest-Auth, Client-Zertifikate: M15; OAuth1: M22)
+- Weitere vordefinierte Credential-Typen mit Authentifizierung und Dienst-Defaults (z. B. Google OAuth2 mit festen URLs)
+  (helpers im Code-Node und vordefinierte Credential-Typen im HTTP Request: M25)
 - KI: OpenAI Responses API, Agent-Varianten aus typeVersion 1.x, weitere Modelle, Tools und Vektorspeicher
 - Dienst-Knoten mit eigenen OAuth-Flows (Gmail, Slack, Microsoft 365 usw.) und weitere Integrationen
 - Community-Nodes: Trigger, Polling, Webhooks und deklarative Knoten (`routing`) aus n8n-Paketen; Installation aus der

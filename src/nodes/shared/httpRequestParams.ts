@@ -106,8 +106,8 @@ export const httpRequestParameters: ParamSchema[] = [
     ],
   },
   {
-    // n8n: type credentialsSelect (extends:oAuth2Api, extends:oAuth1Api, has:authenticate); filuflow liefert keine
-    // vordefinierten Dienst-Credentials, validate meldet diesen Fall
+    // n8n: type credentialsSelect (extends:oAuth2Api, extends:oAuth1Api, has:authenticate); filuflow kennt die
+    // Authentifizierung der Typen in src/credentials/authenticate.ts und aus Plugins, validate meldet andere
     name: 'nodeCredentialType',
     label: 'Credential-Typ',
     type: 'string',
@@ -115,7 +115,7 @@ export const httpRequestParameters: ParamSchema[] = [
     required: true,
     noExpression: true,
     show: { authentication: ['predefinedCredentialType'] },
-    description: 'Name des vordefinierten Credential-Typs',
+    description: 'Name des Credential-Typs, z. B. githubApi, notionApi, slackApi, stripeApi, airtableTokenApi, hubspotAppToken, openAiApi, anthropicApi oder ein Typ aus einem Plugin; Typen auf …OAuth2Api nutzen das verbundene Token',
   },
   {
     name: 'googleApiWarning',

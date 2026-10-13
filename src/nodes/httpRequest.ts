@@ -17,6 +17,7 @@ import { jsonParse } from './shared/utils.js';
 import { getOAuth2Token, signRequest } from '../credentials/oauth2.js';
 import { authorizeOAuth1, connectedOAuth1TokenData, oauth1Header } from '../credentials/oauth1.js';
 import { credentialRefOf } from '../credentials/store.js';
+import { authenticateRequest, hasAuthentication, withCredentialDefaults } from '../credentials/authenticate.js';
 import { digestAuthorization, parseDigestChallenge } from '../credentials/digest.js';
 import { createHash } from 'node:crypto';
 import { httpRequestParameters } from './shared/httpRequestParams.js';
@@ -410,7 +411,26 @@ async function buildRequest(ctx: ExecContext, itemIndex: number, items: Item[], 
       throw new NodeOperationError(node.name, `Credential-Typ "${type}" wird nicht unterstützt`, { itemIndex });
     }
   } else if (authentication === 'predefinedCredentialType') {
-    throw new NodeOperationError(node.name, 'Vordefinierte Credential-Typen werden nicht unterstützt; bitte "Generic Credential Type" verwenden', { itemIndex });
+    // n8n HttpRequestV3: requestWithAuthentication mit ICredentialType.authenticate des Typs, bei OAuth2-Typen
+    // requestOAuth2 (Token, erneuter Versuch nach 401), bei OAuth1 requestOAuth1 (M25)
+    const type = ctx.getParam<string>('nodeCredentialType', 0, '');
+    const cred = withCredentialDefaults(type, await ctx.getCredentials(type, itemIndex));
+    if (hasAuthentication(type)) {
+      const authed = await authenticateRequest(type, cred, { url, method, headers, qs: qsParams, body: bodyObject });
+      headers = Object.fromEntries(Object.entries(authed.headers ?? {}).filter(([, v]) => v !== undefined && v !== null).map(([k, v]) => [k, String(v)]));
+      qsParams = authed.qs as typeof qsParams;
+      if (authed.body !== bodyObject) bodyObject = authed.body as typeof bodyObject;
+      if (authed.auth) headers.authorization = `Basic ${Buffer.from(`${authed.auth.username}:${authed.auth.password}`).toString('base64')}`;
+    } else if (type === 'oAuth1Api' || cred.consumerKey !== undefined) {
+      oauth1 = cred;
+    } else if (cred.oauthTokenData || cred.grantType || cred.accessTokenUrl) {
+      oauth2 = cred;
+    } else {
+      throw new NodeOperationError(node.name, `Credential-Typ "${type}": filuflow kennt keine Authentifizierung dafür`, {
+        itemIndex,
+        description: 'Eingebaute Typen sind z. B. githubApi, notionApi, slackApi, stripeApi, airtableTokenApi; weitere bringen Plugins mit.',
+      });
+    }
   }
 
   if (!hasHeader(headers, 'accept')) {
@@ -676,7 +696,11 @@ export const httpRequestNode: NodeType = {
     const issues = [];
     const auth = node.parameters.authentication as string | undefined;
     if (auth === 'predefinedCredentialType') {
-      issues.push({ code: 'node.unsupportedParameter', message: `HTTP Request: vordefinierte Credentials ("${String(node.parameters.nodeCredentialType)}") werden nicht unterstützt`, path: 'parameters.nodeCredentialType' });
+      const type = String(node.parameters.nodeCredentialType ?? '');
+      // OAuth2-Typen (…OAuth2Api) laufen über das gespeicherte Token, alle anderen brauchen eine bekannte Authentifizierung
+      if (!hasAuthentication(type) && !/OAuth2Api$/i.test(type) && type !== 'oAuth1Api') {
+        issues.push({ code: 'node.unsupportedParameter', message: `HTTP Request: für den Credential-Typ "${type}" kennt filuflow keine Authentifizierung`, path: 'parameters.nodeCredentialType' });
+      }
     }
     if (auth === 'genericCredentialType' && !SUPPORTED_GENERIC.has(String(node.parameters.genericAuthType))) {
       issues.push({ code: 'node.unsupportedParameter', message: `HTTP Request: Credential-Typ "${String(node.parameters.genericAuthType)}" wird nicht unterstützt`, path: 'parameters.genericAuthType' });

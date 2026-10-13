@@ -294,3 +294,13 @@ auszuführen.
 
 Eigene filuflow-Plugins schreiben Knoten gegen dieselbe Schnittstelle wie die eingebauten Knoten. Es gibt keinen eigenen
 Sandbox-Modus: Plugins sind Code der Betreiber und laufen im Prozess.
+
+## Vordefinierte Credential-Typen (M25)
+n8n bringt Hunderte Credential-Typen mit eigener `authenticate`-Beschreibung mit. filuflow übernimmt sie nicht als Kopie,
+sondern beschreibt eine Auswahl häufig genutzter Typen selbst nach dem beobachtbaren Verhalten (Fundstelle je Typ in
+`src/credentials/authenticate.ts`); weitere kommen über Plugins (M24), deren `authenticate` dieselbe Stelle nutzt. Typen auf
+`…OAuth2Api` laufen ohne eigene Beschreibung über das verbundene oder importierte Token; für den Refresh braucht es die
+Token-URL im Credential.
+
+Die helpers des Code-Knotens und der Plugin-Knoten sind dieselbe Umsetzung (`src/nodes/shared/executeHelpers.ts`), damit
+sich Code, der in n8n mit `this.helpers` bzw. `helpers` arbeitet, an beiden Stellen gleich verhält.

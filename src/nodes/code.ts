@@ -5,6 +5,7 @@
 //   ValidationError.ts, packages/core/.../utils/normalize-items.ts
 // Sandbox mit `require` nur für freigegebene Module (shared/requireResolver.ts) und Timeout (Default 60 s, FILUFLOW_CODE_TIMEOUT_MS). Python: src/python/.
 import vm from 'node:vm';
+import { executeHelpers } from './shared/executeHelpers.js';
 import type { ExecContext, NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
 import type { Item } from '../types.js';
@@ -246,28 +247,8 @@ export function sandboxContext(ctx: ExecContext, index: number): Record<string, 
   const context: Record<string, unknown> = {
     $getNodeParameter: (name: string, itemIndex = index, fallback?: unknown) => ctx.getParam(name, itemIndex, fallback),
     $getWorkflowStaticData: (type: 'global' | 'node') => ctx.getStaticData(type),
-    helpers: {
-      getBinaryDataBuffer: async (itemIndex: number, propertyName: string) => {
-        const ref = ctx.items[itemIndex]?.binary?.[propertyName];
-        if (!ref) throw new Error(`This operation expects the node's input data to contain a binary file '${propertyName}', but none was found [item ${itemIndex}]`);
-        return ctx.helpers.binary.getBuffer(ref);
-      },
-      prepareBinaryData: (data: Buffer, fileName?: string, mimeType?: string) => ctx.helpers.binary.prepare(data, fileName, mimeType),
-      returnJsonArray: (data: unknown) => (Array.isArray(data) ? data : [data]).map((json) => ({ json })),
-      normalizeItems,
-      httpRequest: async (options: { url: string; method?: string; headers?: Record<string, string>; body?: unknown; json?: boolean }) => {
-        const body = options.body === undefined ? undefined : typeof options.body === 'string' ? options.body : JSON.stringify(options.body);
-        const headers = { ...(options.headers ?? {}) };
-        if (body !== undefined && typeof options.body !== 'string') headers['content-type'] ??= 'application/json';
-        const res = await ctx.helpers.http.request({ method: options.method ?? 'GET', url: options.url, headers, body, signal: ctx.signal });
-        const text = res.body.toString('utf8');
-        try {
-          return JSON.parse(text);
-        } catch {
-          return text;
-        }
-      },
-    },
+    // Wie n8n: this.helpers des Knotens (httpRequest, httpRequestWithAuthentication, Binärdaten …) plus normalizeItems
+    helpers: { ...executeHelpers(ctx), normalizeItems },
     ...proxy,
   };
   return context;

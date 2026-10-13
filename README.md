@@ -212,6 +212,11 @@ n8n, das Formular zeigt sie an), legen Sie das Credential an und klicken Sie in 
 verschlüsselt in der Datenbank und wird bei abgelaufenem Zugriff mit dem Refresh-Token erneuert. Im Master läuft die
 Anmeldung über die Adresse des Masters, das Token liegt beim Worker.
 
+**Vordefinierte Credential-Typen** im HTTP Request ("Vordefinierter Credential-Typ"): filuflow kennt die Anmeldung von
+`githubApi`, `notionApi`, `slackApi`, `stripeApi`, `airtableTokenApi`, `hubspotAppToken`, `openAiApi`, `anthropicApi`,
+`googlePalmApi` und den generischen Typen, dazu Typen aus Plugins. Typen auf `…OAuth2Api` (etwa aus einem n8n-Import)
+nutzen das verbundene Token.
+
 **OAuth1** (`oAuth1Api`, z. B. ältere APIs von Twitter/X, Trello oder Xero) funktioniert genauso: Consumer Key und Secret sowie
 die drei URLs des Anbieters eintragen, speichern, **Verbinden**. Als Rückleitung nutzt filuflow
 `<FILUFLOW_WEBHOOK_URL>rest/oauth1-credential/callback`.
@@ -253,7 +258,8 @@ unter dem ein Workflow das Credential verwendet:
 Der Code-Knoten kennt drei Sprachen (Auswahl **Sprache** im Editor):
 
 - **JavaScript**: alle Variablen der Expressions (`$input`, `$json`, `$('Knoten')`, `$now` …), `console.log` landet im
-  Protokoll der Ausführung.
+  Protokoll der Ausführung. `helpers` bietet wie in n8n `httpRequest`, `httpRequestWithAuthentication` (mit einem
+  Credential am Knoten), `returnJsonArray`, `constructExecutionMetaData`, `prepareBinaryData`, `getBinaryDataBuffer` u. a.
 - **Python**: läuft mit [Pyodide](https://pyodide.org) (CPython als WebAssembly) direkt im Server, ohne installiertes Python.
   Die Variablen heißen wie in n8n mit `_` statt `$`: `_input.all()`, `_json`, `_('Knoten')`, `_now`, `_jmespath()`.
   Objekte lassen sich als Attribut oder Schlüssel lesen (`item.json.name`, `item.json['name']`), `print()` landet im Protokoll.
