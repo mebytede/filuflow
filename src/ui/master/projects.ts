@@ -6,10 +6,12 @@ import { executionsView, type ExecutionSource } from '../views/executions.js';
 import { workflowTable, type WorkflowRow } from '../views/workflowTable.js';
 import { button, kpis, pageHead } from '../shell.js';
 import { mapi } from './api.js';
-import type { MasterWorkflow, Project, ProjectAction, ProjectRole, User, WorkerInfo } from './types.js';
+import type { AccessRole, MasterWorkflow, Project, ProjectAction, ProjectRole, User, WorkerInfo, WorkflowRole } from './types.js';
 
 const e = encodeURIComponent;
-export const ROLE_LABEL: Record<ProjectRole, string> = { admin: 'Projekt-Admin', editor: 'Bearbeiten', viewer: 'Lesen' };
+export const ROLE_LABEL: Record<AccessRole, string> = { admin: 'Projekt-Admin', editor: 'Bearbeiten', viewer: 'Lesen', guest: 'Gast' };
+const PROJECT_ROLES: ProjectRole[] = ['admin', 'editor', 'viewer'];
+const WORKFLOW_ROLE_LABEL: Record<WorkflowRole, string> = { admin: 'Verwalten', editor: 'Bearbeiten', viewer: 'Lesen', none: 'Kein Zugriff' };
 
 export function can(p: { permissions: ProjectAction[] }, action: ProjectAction): boolean {
   return p.permissions.includes(action);
@@ -112,7 +114,7 @@ export function projectHeader(p: Project, active: string): HTMLElement {
       { class: 'tabs page-tabs' },
       tab('workflows', 'Workflows', `#/project/${e(p.id)}`),
       tab('executions', 'Ausführungen', `#/project/${e(p.id)}/executions`),
-      tab('members', 'Mitglieder', `#/project/${e(p.id)}/members`),
+      can(p, 'workflow.read') ? tab('members', 'Mitglieder', `#/project/${e(p.id)}/members`) : null,
       can(p, 'project.manage') ? tab('settings', 'Einstellungen', `#/project/${e(p.id)}/settings`) : null,
     ),
   );
@@ -169,6 +171,7 @@ export async function projectWorkflowsPage(projectId: string): Promise<HTMLEleme
     }
   };
   const edit = can(p, 'workflow.edit');
+  if (p.role === 'guest') root.append(h('div', { class: 'notice', style: { marginTop: '24px' } }, 'Sie sind kein Mitglied dieses Projekts und sehen nur die Workflows, die für Sie freigegeben sind.'));
   const actions = h(
     'div',
     { class: 'page-head', style: { marginBottom: '0' } },
@@ -239,12 +242,86 @@ export async function projectWorkflowsPage(projectId: string): Promise<HTMLEleme
     menu: [
       { label: 'Im Editor öffnen', onclick: () => (location.hash = `#/workflow/${e(w.id)}`) },
       { label: 'Ausführungen', onclick: () => (location.hash = `#/project/${e(p.id)}/executions?workflow=${e(w.id)}`) },
-      ...(can(p, 'workflow.delete') ? [{ label: 'Verschieben', onclick: () => void move(w) }, { label: 'Löschen', danger: true, onclick: () => void remove(w) }] : []),
+      { label: 'Rollen', onclick: () => void workflowAccessDialog(w).then(async (changed) => (changed ? reload() : undefined)) },
+      ...((w.role ? w.role !== 'viewer' : can(p, 'workflow.delete')) ? [{ label: 'Verschieben', onclick: () => void move(w) }, { label: 'Löschen', danger: true, onclick: () => void remove(w) }] : []),
     ],
+    ...(w.restricted ? { note: 'Eigene Rollen' } : {}),
   }));
   const updated = list.reduce((max, w) => (w.updatedAt > max ? w.updatedAt : max), '');
   root.append(workflowTable(rows, { source: `Worker ${p.worker ? `${p.worker.tenant?.name ?? '?'} / ${p.worker.name}` : 'keiner'}${updated ? ` · geändert ${formatDate(updated)}` : ''}` }));
   return root;
+}
+
+/**
+ * Rollen eines Workflows: Projektmitglieder mit ihrer Projektrolle und eigener Rolle für diesen Workflow, dazu Personen,
+ * die nur über den Workflow Zugriff haben. Liefert true, wenn etwas geändert wurde.
+ */
+export async function workflowAccessDialog(w: { id: string; name: string }): Promise<boolean> {
+  let changed = false;
+  const body = h('div', { class: 'form' });
+  const render = async () => {
+    const [{ data, canShare, admins }, directory] = await Promise.all([mapi.workflowMembers(w.id), mapi.directory()]);
+    const apply = async (userId: string, value: string) => {
+      try {
+        if (value) await mapi.setWorkflowMember(w.id, userId, value as WorkflowRole);
+        else await mapi.removeWorkflowMember(w.id, userId);
+        changed = true;
+        await render();
+      } catch (err) {
+        toast(message(err), 'error');
+      }
+    };
+    const rows = data.map((m) => {
+      const fixed = !canShare || m.projectRole === 'admin';
+      const select = h(
+        'select',
+        { class: 'param-input', disabled: fixed, 'aria-label': `Rolle von ${m.email}`, onchange: (ev: Event) => void apply(m.userId, (ev.target as HTMLSelectElement).value) },
+        m.projectRole ? h('option', { value: '', selected: !m.workflowRole }, `Wie im Projekt (${ROLE_LABEL[m.projectRole]})`) : null,
+        (Object.keys(WORKFLOW_ROLE_LABEL) as WorkflowRole[]).map((r) => h('option', { value: r, selected: m.workflowRole === r }, WORKFLOW_ROLE_LABEL[r])),
+      );
+      return h(
+        'tr',
+        null,
+        h('td', null, h('div', { class: 'strong' }, m.name), h('div', { class: 'cell-sub' }, m.email)),
+        h('td', { class: 'muted' }, m.projectRole ? ROLE_LABEL[m.projectRole] : 'kein Mitglied'),
+        h('td', null, m.projectRole === 'admin' ? h('span', { class: 'muted' }, 'Immer voller Zugriff') : select),
+        h('td', { class: 'actions' }, canShare && !m.projectRole ? h('button', { type: 'button', class: 'btn btn-small', onclick: () => void apply(m.userId, '') }, 'Entfernen') : null),
+      );
+    });
+    const others = directory.filter((u) => !data.some((m) => m.userId === u.id) && !admins.includes(u.id));
+    const userSel = h('select', { class: 'param-input', 'aria-label': 'Person' }, others.map((u) => h('option', { value: u.id }, `${u.name} (${u.email})`)));
+    const roleSel = h('select', { class: 'param-input', 'aria-label': 'Rolle für den Workflow' }, (['viewer', 'editor', 'admin'] as WorkflowRole[]).map((r) => h('option', { value: r }, WORKFLOW_ROLE_LABEL[r])));
+    body.replaceChildren(
+      h(
+        'p',
+        { class: 'muted small' },
+        'Eine eigene Rolle gilt nur für diesen Workflow und ersetzt die Projektrolle: höher (z. B. Bearbeiten für Lesende), niedriger oder "Kein Zugriff". Verwalten erlaubt zusätzlich, Rollen zu vergeben. Projekt-Admins haben immer vollen Zugriff.',
+      ),
+      h(
+        'div',
+        { class: 'table-wrap' },
+        h(
+          'table',
+          { class: 'list-table' },
+          h('thead', null, h('tr', null, h('th', null, 'Person'), h('th', null, 'Projekt'), h('th', null, 'Workflow'), h('th', null, ''))),
+          h('tbody', null, rows.length ? rows : h('tr', null, h('td', { colspan: 4, class: 'muted' }, 'Noch keine Mitglieder.'))),
+        ),
+      ),
+      ...(canShare && others.length
+        ? [h(
+            'div',
+            { class: 'inline-form' },
+            h('span', { class: 'strong' }, 'Freigeben für:'),
+            userSel,
+            roleSel,
+            h('button', { type: 'button', class: 'btn', onclick: () => void apply(userSel.value, roleSel.value) }, 'Freigeben'),
+          )]
+        : []),
+    );
+  };
+  await render();
+  await dialog(`Rollen für "${w.name}"`, body, { confirm: '', cancel: 'Schließen', wide: true });
+  return changed;
 }
 
 /** Stand der Verteilung als Text (Tooltip am Zustand) */
@@ -306,7 +383,7 @@ export async function projectMembersPage(projectId: string): Promise<HTMLElement
     h(
       'select',
       { class: 'param-input', disabled: !onchange, 'aria-label': 'Rolle', onchange: (ev: Event) => onchange?.((ev.target as HTMLSelectElement).value as ProjectRole) },
-      (Object.keys(ROLE_LABEL) as ProjectRole[]).map((r) => h('option', { value: r, selected: r === value }, ROLE_LABEL[r])),
+      PROJECT_ROLES.map((r) => h('option', { value: r, selected: r === value }, ROLE_LABEL[r])),
     );
   root.append(
     h('div', { class: 'page-head' }, h('h2', null, 'Mitglieder')),

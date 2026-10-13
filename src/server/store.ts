@@ -37,6 +37,14 @@ export interface ListFilter {
   workflowIds?: string[];
   status?: string;
   limit?: number;
+  /** Suche (M23): Ausführungs-ID, Workflow-Name, letzter Knoten oder Fehlermeldung */
+  q?: string;
+  /** Beginn ab bzw. vor (ISO-Zeit) */
+  from?: string;
+  to?: string;
+  /** Blättern: nur Ausführungen, die vor diesem Zeitpunkt begonnen haben */
+  before?: string;
+  mode?: string;
 }
 
 interface Row {
@@ -241,6 +249,27 @@ export class ExecutionStore {
     if (filter.status) {
       where.push('status = ?');
       args.push(filter.status);
+    }
+    if (filter.mode) {
+      where.push('mode = ?');
+      args.push(filter.mode);
+    }
+    if (filter.from) {
+      where.push('started_at >= ?');
+      args.push(filter.from);
+    }
+    if (filter.to) {
+      where.push('started_at < ?');
+      args.push(filter.to);
+    }
+    if (filter.before) {
+      where.push('started_at < ?');
+      args.push(filter.before);
+    }
+    if (filter.q?.trim()) {
+      const like = `%${filter.q.trim().replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+      where.push("(id = ? OR workflow_name LIKE ? ESCAPE '\\' OR last_node LIKE ? ESCAPE '\\' OR error LIKE ? ESCAPE '\\')");
+      args.push(filter.q.trim(), like, like, like);
     }
     const limit = Math.min(Math.max(1, filter.limit ?? 20), 1000);
     const sql = `SELECT * FROM executions ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY started_at DESC, rowid DESC LIMIT ${limit}`;

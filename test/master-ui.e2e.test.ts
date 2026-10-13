@@ -211,6 +211,28 @@ describe('Master-Oberfläche', () => {
     await page.click('.inline-form button:has-text("Hinzufügen")');
     await page.waitForSelector('td:has-text("Vera")');
 
+    // Rolle nur für diesen Workflow (M23): ausdrücklich Lesen, Kennzeichnung in der Liste
+    await page.click('.tab:has-text("Workflows")');
+    await page.click('[aria-label="Aktionen für Rechnungen"]');
+    await page.click('.menu-item:has-text("Rollen")');
+    await page.waitForSelector('.modal td:has-text("vera@example.org")');
+    await page.locator('.modal select[aria-label="Rolle von vera@example.org"]').selectOption('viewer');
+    await page.waitForSelector('.modal select[aria-label="Rolle von vera@example.org"] option[value="viewer"]:checked', { state: 'attached' });
+    await shot(page, '07a-workflow-roles');
+    await page.click('.modal button:has-text("Schließen")');
+    await page.waitForSelector('.cell-sub:has-text("Eigene Rollen")');
+
+    // Zentrale Ausführungssuche
+    await page.click('.side-link:has-text("Ausführungen")');
+    await page.waitForSelector('.list-table td a:has-text("Rechnungen")');
+    await page.fill('input[aria-label="Ausführungen durchsuchen"]', 'gibt-es-nicht');
+    await page.click('button:has-text("Suchen")');
+    await page.waitForSelector('.empty:has-text("Keine Ausführungen gefunden")');
+    await page.fill('input[aria-label="Ausführungen durchsuchen"]', 'Rechn');
+    await page.click('button:has-text("Suchen")');
+    await page.waitForSelector('.list-table td a:has-text("Rechnungen")');
+    await shot(page, '07b-executions-search');
+
     // Profil: TOTP einrichten zeigt den Schlüssel
     await page.click('.side-link[href="#/profile"]');
     await page.click('button:has-text("Einrichten")');

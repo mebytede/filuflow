@@ -21,6 +21,8 @@ export interface WorkflowRow {
   last?: Execution;
   runs?: number;
   menu: MenuItem[];
+  /** Zusatz unter dem Namen (z. B. "Eigene Rollen") */
+  note?: string;
 }
 
 const TRIGGER_ICONS: Record<string, string> = { webhook: 'link', schedule: 'clock', error: 'circle-alert', manual: 'play', workflow: 'workflow', other: 'zap' };
@@ -66,7 +68,7 @@ export function workflowTable(rows: WorkflowRow[], o: { source?: string; emptyTe
         return h(
           'tr',
           { class: 'clickable', 'data-workflow': r.id, onclick: (ev: MouseEvent) => !(ev.target as Element).closest('button, a, .menu') && (location.hash = r.href) },
-          h('td', null, h('a', { class: 'cell-name', href: r.href }, r.name), r.nodes !== undefined ? h('div', { class: 'cell-sub' }, `${r.nodes} Knoten`) : null),
+          h('td', null, h('a', { class: 'cell-name', href: r.href }, r.name), r.nodes !== undefined || r.note ? h('div', { class: 'cell-sub' }, [r.nodes !== undefined ? `${r.nodes} Knoten` : '', r.note ?? ''].filter(Boolean).join(' · ')) : null),
           h(
             'td',
             null,

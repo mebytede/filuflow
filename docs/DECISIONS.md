@@ -269,3 +269,13 @@ OAuth1 folgt n8n (oauth-1.0a): Signatur über URL-Query und Formularfelder, beim
 Request-Token schickt filuflow `oauth_callback` zusätzlich im Header mit (n8n nur im JSON-Body), da Anbieter den JSON-Body
 meist nicht lesen; die Signatur ist dieselbe. Der Access-Token-Abruf ist wie bei n8n unsigniert (Formular mit
 `oauth_token` und `oauth_verifier`).
+
+## Rollen je Workflow und zentrale Suche (M23)
+Rollen je Workflow ergänzen die festen Projektrollen, statt ein frei konfigurierbares Rechtemodell einzuführen: Die vorhandenen
+Rollen decken die Fälle "einzelner Workflow für Lesende bearbeitbar", "vertraulicher Workflow" und "Freigabe an Externe" ab und
+bleiben überschaubar. Projekt-Admins sind bewusst nicht einschränkbar, damit niemand ein Projekt unverwaltbar machen kann.
+
+Die zentrale Suche hält keinen Index im Master: Ausführungen und ihre Daten bleiben beim Worker (Datenhaltung beim Mandanten).
+Der Master fragt die Worker parallel mit den lesbaren Workflow-IDs (POST, weil die Liste lang werden kann) und führt die
+Ergebnisse nach Beginn zusammen. Geblättert wird über den Beginn des letzten Treffers; das ist über mehrere Worker stabil,
+solange keine zwei Ausführungen auf die Millisekunde gleich beginnen.

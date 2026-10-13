@@ -541,6 +541,129 @@ describe('OAuth1 über den Master', () => {
   });
 });
 
+describe('Rollen je Workflow', () => {
+  it('überschreibt die Projektrolle, sperrt mit none und teilt mit Nicht-Mitgliedern', async () => {
+    const w = await startWorker('w1');
+    const wk = await registerWorker(w);
+    const pid = await project('Team', wk.id);
+    const offen = await createWorkflow(pid, manual('Offen'));
+    const geheim = await createWorkflow(pid, manual('Geheim'));
+    const vera = await addUser(master, admin, 'vera@example.org');
+    const gast = await addUser(master, admin, 'gast@example.org');
+    const chef = await addUser(master, admin, 'chef@example.org');
+    await admin.put(`/api/projects/${pid}/members/${vera.id}`, { role: 'viewer' });
+    await admin.put(`/api/projects/${pid}/members/${chef.id}`, { role: 'admin' });
+
+    // Leserin darf "Offen" bearbeiten, "Geheim" gar nicht sehen
+    expect((await vera.client.put(`/api/workflows/${offen.id}`, { workflow: manual('Offen') })).statusCode).toBe(403);
+    expect((await admin.put(`/api/workflows/${offen.id}/members/${vera.id}`, { role: 'editor' })).statusCode).toBe(200);
+    expect((await admin.put(`/api/workflows/${geheim.id}/members/${vera.id}`, { role: 'none' })).statusCode).toBe(200);
+    expect((await vera.client.put(`/api/workflows/${offen.id}`, { workflow: manual('Offen 2') })).statusCode).toBe(200);
+    expect((await vera.client.get(`/api/workflows/${geheim.id}`)).statusCode).toBe(404);
+    const list = (await vera.client.get(`/api/projects/${pid}/workflows`)).json().data as Array<{ name: string; role: string; restricted: boolean }>;
+    expect(list.map((x) => [x.name, x.role, x.restricted])).toEqual([['Offen 2', 'editor', true]]);
+    const detail = (await vera.client.get(`/api/workflows/${offen.id}`)).json();
+    expect(detail.role).toBe('editor');
+    expect(detail.permissions).toContain('workflow.run');
+    expect(detail.permissions).not.toContain('workflow.share');
+    expect((await vera.client.put(`/api/workflows/${offen.id}/members/${gast.id}`, { role: 'viewer' })).statusCode).toBe(403);
+
+    // Ausführungen nur von sichtbaren Workflows
+    await admin.post(`/api/workflows/${offen.id}/run`);
+    const geheimRun = (await admin.post(`/api/workflows/${geheim.id}/run`)).json() as { id: string };
+    const execs = (await vera.client.get(`/api/projects/${pid}/executions`)).json().data as Array<{ workflowId: string }>;
+    expect(execs.map((e) => e.workflowId)).toEqual([offen.id]);
+    expect((await vera.client.get(`/api/projects/${pid}/executions/${geheimRun.id}`)).statusCode).toBe(404);
+    expect((await vera.client.post(`/api/workflows/${geheim.id}/run`)).statusCode).toBe(404);
+
+    // Gast ohne Mitgliedschaft: Projekt als Gast mit genau einem Workflow
+    expect((await gast.client.get(`/api/projects/${pid}`)).statusCode).toBe(404);
+    expect((await chef.client.put(`/api/workflows/${geheim.id}/members/${gast.id}`, { role: 'viewer' })).statusCode).toBe(200);
+    const projects = (await gast.client.get('/api/projects')).json().data as Array<{ id: string; role: string; permissions: string[]; workflows: number }>;
+    expect(projects).toEqual([expect.objectContaining({ id: pid, role: 'guest', permissions: ['project.read'], workflows: 1 })]);
+    expect(((await gast.client.get(`/api/projects/${pid}/workflows`)).json().data as Array<{ name: string }>).map((x) => x.name)).toEqual(['Geheim']);
+    expect((await gast.client.get(`/api/projects/${pid}/members`)).statusCode).toBe(403);
+    expect((await gast.client.get(`/api/projects/${pid}/credentials`)).statusCode).toBe(200);
+    expect((await gast.client.get(`/api/projects/${pid}/executions/${geheimRun.id}`)).statusCode).toBe(200);
+    expect((await gast.client.post(`/api/workflows/${geheim.id}/run`)).statusCode).toBe(403);
+    expect((await gast.client.post(`/api/projects/${pid}/workflows`, { name: 'Neu' })).statusCode).toBe(403);
+
+    // Übersicht der Rollen; Projekt-Admins sind nicht einschränkbar
+    const members = (await admin.get(`/api/workflows/${geheim.id}/members`)).json();
+    expect(members.canShare).toBe(true);
+    expect(members.data.map((m: { email: string; role: string; projectRole: string | null }) => [m.email, m.projectRole, m.role])).toEqual([
+      ['chef@example.org', 'admin', 'admin'],
+      ['gast@example.org', null, 'viewer'],
+      ['vera@example.org', 'viewer', 'none'],
+    ]);
+    expect((await admin.put(`/api/workflows/${geheim.id}/members/${chef.id}`, { role: 'none' })).statusCode).toBe(400);
+    expect((await admin.put(`/api/workflows/${geheim.id}/members/${gast.id}`, { role: 'owner' })).statusCode).toBe(400);
+    expect(JSON.stringify((await admin.get('/api/admin/audit')).json())).toContain('workflow.member_set');
+
+    // Entfernen aus dem Projekt nimmt die Workflow-Rollen mit; Freigabe zurücknehmen
+    await admin.del(`/api/projects/${pid}/members/${vera.id}`);
+    expect((await vera.client.get(`/api/workflows/${offen.id}`)).statusCode).toBe(404);
+    expect((await admin.del(`/api/workflows/${geheim.id}/members/${gast.id}`)).statusCode).toBe(204);
+    expect((await gast.client.get('/api/projects')).json().data).toEqual([]);
+  });
+});
+
+describe('Zentrale Ausführungssuche', () => {
+  it('durchsucht alle Worker, filtert nach Rechten und meldet nicht erreichbare Worker', async () => {
+    const w1 = await startWorker('w1');
+    const w2 = await startWorker('w2');
+    const k1 = await registerWorker(w1);
+    const k2 = await registerWorker(w2, WORKER_KEY, 'Kunde B');
+    const pa = await project('A', k1.id);
+    const pb = await project('B', k2.id);
+    const a = await createWorkflow(pa, manual('Bestellungen'));
+    const b = await createWorkflow(pb, manual('Rechnungen'));
+    const bad = await createWorkflow(pb, { ...manual('Kaputt'), nodes: [manual('x').nodes[0], { id: 'c', name: 'Fehler', type: 'n8n-nodes-base.stopAndError', typeVersion: 1, position: [200, 0], parameters: { errorMessage: 'Lager leer' } }], connections: { Start: { main: [[{ node: 'Fehler', type: 'main', index: 0 }]] } } });
+    const runA = (await admin.post(`/api/workflows/${a.id}/run`)).json() as { id: string };
+    await new Promise((r) => setTimeout(r, 5));
+    const runB = (await admin.post(`/api/workflows/${b.id}/run`)).json() as { id: string };
+    await new Promise((r) => setTimeout(r, 5));
+    const runBad = (await admin.post(`/api/workflows/${bad.id}/run`)).json() as { id: string };
+
+    const all = (await admin.get('/api/executions')).json();
+    expect(all.errors).toEqual([]);
+    expect(all.workers).toBe(2);
+    expect(all.data.map((e: { id: string; project: { name: string }; worker: { id: string } }) => [e.id, e.project.name, e.worker.id])).toEqual([
+      [runBad.id, 'B', k2.id],
+      [runB.id, 'B', k2.id],
+      [runA.id, 'A', k1.id],
+    ]);
+    // Filter: Status, Text (Fehlermeldung, Workflow-Name, ID), Projekt, Worker, Mandant, Zeitraum, Grenze
+    expect((await admin.get('/api/executions?status=error')).json().data.map((e: { id: string }) => e.id)).toEqual([runBad.id]);
+    expect((await admin.get('/api/executions?q=lager')).json().data.map((e: { id: string }) => e.id)).toEqual([runBad.id]);
+    expect((await admin.get('/api/executions?q=Bestell')).json().data.map((e: { id: string }) => e.id)).toEqual([runA.id]);
+    expect((await admin.get(`/api/executions?q=${runB.id}`)).json().data.map((e: { id: string }) => e.id)).toEqual([runB.id]);
+    expect((await admin.get(`/api/executions?project=${pa}`)).json().data.map((e: { id: string }) => e.id)).toEqual([runA.id]);
+    expect((await admin.get(`/api/executions?worker=${k2.id}`)).json().data).toHaveLength(2);
+    expect((await admin.get(`/api/executions?tenant=${k1.tenantId}`)).json().data.map((e: { id: string }) => e.id)).toEqual([runA.id]);
+    expect((await admin.get('/api/executions?from=2999-01-01T00:00:00.000Z')).json().data).toEqual([]);
+    const page = (await admin.get('/api/executions?limit=2')).json();
+    expect(page.data).toHaveLength(2);
+    expect(page.hasMore).toBe(true);
+    const next = (await admin.get(`/api/executions?limit=2&before=${encodeURIComponent(page.data[1].startedAt)}`)).json();
+    expect(next.data.map((e: { id: string }) => e.id)).toEqual([runA.id]);
+
+    // Mitglied sieht nur sein Projekt
+    const mia = await addUser(master, admin, 'mia@example.org');
+    await admin.put(`/api/projects/${pb}/members/${mia.id}`, { role: 'viewer' });
+    await admin.put(`/api/workflows/${bad.id}/members/${mia.id}`, { role: 'none' });
+    const own = (await mia.client.get('/api/executions')).json();
+    expect(own.workers).toBe(1);
+    expect(own.data.map((e: { id: string }) => e.id)).toEqual([runB.id]);
+
+    // Worker nicht erreichbar: Ergebnis der anderen plus Fehler
+    await w2.close();
+    const partial = (await admin.get('/api/executions')).json();
+    expect(partial.data.map((e: { id: string }) => e.id)).toEqual([runA.id]);
+    expect(partial.errors).toEqual([expect.objectContaining({ worker: expect.objectContaining({ id: k2.id }) })]);
+  });
+});
+
 describe('Worker nicht erreichbar', () => {
   it('speichert trotzdem, meldet den Fehler und holt beim Abgleich nach', async () => {
     const w = await startWorker('w1');

@@ -3,6 +3,10 @@ import type { Workflow } from '../types.js';
 
 export type GlobalRole = 'admin' | 'member';
 export type ProjectRole = 'admin' | 'editor' | 'viewer';
+/** Rolle im Projekt aus Sicht des Benutzers; 'guest': nur über einzelne Workflows */
+export type AccessRole = ProjectRole | 'guest';
+/** Rolle für einen einzelnen Workflow; 'none' sperrt */
+export type WorkflowRole = ProjectRole | 'none';
 export type ProjectAction =
   | 'project.read'
   | 'project.manage'
@@ -11,6 +15,7 @@ export type ProjectAction =
   | 'workflow.run'
   | 'workflow.activate'
   | 'workflow.delete'
+  | 'workflow.share'
   | 'execution.read'
   | 'execution.cancel'
   | 'credentials.read';
@@ -62,7 +67,7 @@ export interface Project {
   name: string;
   description: string;
   createdAt: string;
-  role: ProjectRole;
+  role: AccessRole;
   permissions: ProjectAction[];
   worker: WorkerRef | null;
   workflows: number;
@@ -87,6 +92,43 @@ export interface MasterWorkflow {
   updatedBy: { id: string; email: string; name: string } | null;
   deployment: { version: number | null; workerId: string | null; at: string | null; error: string | null; upToDate: boolean };
   workflow?: Workflow;
+  /** Effektive Rolle des Benutzers für diesen Workflow (Liste im Projekt) */
+  role?: ProjectRole;
+  /** Workflow hat eigene Rollen */
+  restricted?: boolean;
+}
+
+/** Eintrag in der Rollenübersicht eines Workflows */
+export interface WorkflowMember {
+  userId: string;
+  email: string;
+  name: string;
+  /** null: kein Mitglied des Projekts (nur über den Workflow) */
+  projectRole: ProjectRole | null;
+  workflowRole?: WorkflowRole;
+  role: WorkflowRole;
+}
+
+/** Treffer der zentralen Ausführungssuche */
+export interface CentralExecution {
+  id: string;
+  workflowId?: string;
+  workflowName: string;
+  mode: string;
+  status: string;
+  startedAt: string;
+  stoppedAt?: string;
+  waitTill?: string;
+  error?: { message?: string };
+  project: { id: string; name: string };
+  worker: { id: string; name: string };
+}
+
+export interface ExecutionSearchResult {
+  data: CentralExecution[];
+  errors: Array<{ worker: { id: string; name: string }; message: string }>;
+  workers: number;
+  hasMore: boolean;
 }
 
 export interface MasterWorkflowDetail extends MasterWorkflow {

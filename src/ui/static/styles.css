@@ -98,6 +98,9 @@ input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--ff-accen
 .search-field { position: relative; display: inline-flex; align-items: center; }
 .search-field .icon { position: absolute; left: 12px; color: var(--ff-text-secondary); pointer-events: none; }
 .search-field .param-input { padding-left: 36px; width: 320px; }
+.field-inline { display: inline-flex; align-items: center; gap: 8px; }
+.field-inline .param-input { width: auto; }
+.load-more { display: flex; justify-content: center; margin-top: 16px; }
 
 /* Segmentfilter, Schalter */
 .segmented { display: inline-flex; }

@@ -7,6 +7,7 @@ import { mapi } from './api.js';
 import { loginPage, profilePage, setupPage } from './auth.js';
 import { projectExecutionsPage, projectMembersPage, projectSettingsPage, projectsPage, projectWorkflowsPage } from './projects.js';
 import { masterExecutionView, masterWorkflowView } from './workflow.js';
+import { executionSearchPage } from './executions.js';
 import { auditPage, overviewPage, settingsPage, tenantsPage, usersPage, workerPage } from './admin.js';
 import type { AuthStatus, User } from './types.js';
 import { icon } from '../icons.js';
@@ -40,6 +41,7 @@ export function startMaster(app: HTMLElement): void {
     const u = user()!;
     return [
       { key: 'projects', label: 'Projekte', icon: 'folder', href: '#/projects' },
+      { key: 'executions', label: 'Ausführungen', icon: 'list-checks', href: '#/executions' },
       ...(u.role === 'admin' ? [{ key: 'admin', label: 'Verwaltung', icon: 'building-2', href: '#/admin/overview' }] : []),
     ];
   };
@@ -121,6 +123,7 @@ export function startMaster(app: HTMLElement): void {
       }
       const [a, b, c, d] = parts;
       if (!a || a === 'projects' || a === 'login' || a === 'setup') setPage('projects', await projectsPage(u), undefined, seq);
+      else if (a === 'executions') setPage('executions', await executionSearchPage(params, u), undefined, seq);
       else if (a === 'project' && b && !c) setPage('projects', await projectWorkflowsPage(b), undefined, seq);
       else if (a === 'project' && b && c === 'executions') setPage('projects', await projectExecutionsPage(b, params), undefined, seq);
       else if (a === 'project' && b && c === 'execution' && d) {

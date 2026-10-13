@@ -6,7 +6,7 @@ import type { CredentialInfo, NodeTypeInfo, Workflow, WorkflowStatus } from '../
 import { Editor, type EditorBackend } from '../editor/editor.js';
 import { executionDetailView } from '../views/executions.js';
 import { mapi } from './api.js';
-import { can, projectExecutionSource, workerBadge } from './projects.js';
+import { can, projectExecutionSource, workerBadge, workflowAccessDialog } from './projects.js';
 import { button } from '../shell.js';
 import type { MasterWorkflow, User } from './types.js';
 import { credentialFormDialog } from '../views/credentialForm.js';
@@ -155,6 +155,7 @@ export async function masterWorkflowView(id: string, types: NodeTypeInfo[], user
     toolbarExtras: () => [
       workerBadge(project),
       button('Versionen', { icon: 'history', title: 'Gespeicherte Versionen', onclick: () => void versionsDialog() }),
+      button('Rollen', { icon: 'users', title: 'Wer diesen Workflow sehen und bearbeiten darf', onclick: () => void workflowAccessDialog({ id, name: detail.name }) }),
     ],
   });
   return { el: editor.el, editor };

@@ -306,6 +306,7 @@ Engine-Reihenfolge, Expressions (inkl. Rohwert vs. String), jeder Node, Filter-O
 | M21 | Streaming | Webhook, Respond to Webhook, Chat Trigger und AI Agent mit gestreamten Antworten wie n8n |
 | M22a | Chat mit Antwortknoten | Respond to Chat und Respond to Webhook im Chat, Warten auf die Antwort des Nutzers |
 | M22 | Credentials aus n8n, Teilen, OAuth1 | Import verschlüsselter n8n-Exporte, Freigabe für Projekte im Master, OAuth1 mit Verbinden |
+| M23 | Rollen je Workflow, zentrale Suche | Eigene Rollen für einzelne Workflows, Freigabe an Gäste, Ausführungen aller Worker durchsuchen |
 
 Nach jedem Meilenstein: `docs/STATUS.md` aktualisieren (was geht, was fehlt) und einen Commit mit aussagekräftiger Nachricht.
 
@@ -330,5 +331,6 @@ Offene Funktionen, ungefähr nach Nutzen geordnet. Jede wird wie ein Meilenstein
 - Credentials über Worker hinweg teilen (heute gehört jedes Credential zu genau einem Worker)
 
 ### 11.4 Oberfläche und Master
-(Testdaten per Klick, Variablen-Seite: M18; Chat-Ansicht: M16; Parameterformulare: M19)
-- Eigene Rollen und Rechte je Workflow, Ausführungen mehrerer Worker zentral durchsuchen
+(Testdaten per Klick, Variablen-Seite: M18; Chat-Ansicht: M16; Parameterformulare: M19; Rollen je Workflow und zentrale
+Ausführungssuche: M23)
+- Frei definierbare Rollen mit einzelnen Rechten (heute feste Rollen Lesen, Bearbeiten, Verwalten/Projekt-Admin)

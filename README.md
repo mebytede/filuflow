@@ -324,6 +324,12 @@ bleibt davon unberührt.
   Mitgliedern, genau einem Worker zugeordnet.
 - **Rollen:** global Administrator oder Mitglied. Im Projekt: Lesen, Bearbeiten (ändern, ausführen, aktivieren, löschen) oder
   Projekt-Admin (zusätzlich Mitglieder).
+- **Rollen je Workflow:** Über **Rollen** (Menü in der Workflow-Liste oder im Editor) bekommt eine Person für einen einzelnen
+  Workflow eine andere Rolle als im Projekt: Bearbeiten für sonst Lesende, "Kein Zugriff" für einen vertraulichen Workflow oder
+  "Verwalten" (darf selbst Rollen vergeben). Personen außerhalb des Projekts sehen das Projekt dann als Gast mit genau den für sie
+  freigegebenen Workflows. Projekt-Admins und globale Administratoren haben immer vollen Zugriff.
+- **Ausführungen** in der Seitenleiste durchsucht die Ausführungen aller Projekte über alle Worker auf einmal: nach Text (ID,
+  Workflow, Knoten, Fehlermeldung), Status, Projekt, Worker und Zeitraum. Nicht erreichbare Worker erscheinen als Hinweis.
 - Workflows sind im Master versioniert. Speichern zwei Personen gleichzeitig, fragt der Editor nach; ältere Versionen lassen sich
   wiederherstellen.
 

@@ -90,6 +90,17 @@ Trotzdem gilt:
 ## Master und Worker (M9)
 Benutzer des Masters sind das interne Team. Wer in einem Projekt bearbeiten darf, kann Code-Nodes schreiben und damit beliebigen
 Code auf dem Worker des Projekts ausführen, also in der Umgebung des Mandanten. Das Recht "Bearbeiten" ist entsprechend zu vergeben.
+Das gilt auch für Bearbeiten-Rechte an einem einzelnen Workflow (M23): Wer einen Workflow bearbeiten darf, erreicht über seine
+Code-Nodes den ganzen Worker, also auch Credentials und Daten anderer Workflows dort. "Kein Zugriff" für einen Workflow schützt
+vor Einsicht im Master (Workflow, Ausführungen und deren Daten), nicht vor Projektmitgliedern, die auf demselben Worker Code
+ausführen dürfen.
+
+Rollen je Workflow und Ausführungssuche:
+- Die effektive Rolle für einen Workflow ist bei Projekt-Admins immer admin, sonst die eigene Rolle für den Workflow (falls gesetzt)
+  oder die Projektrolle. Gesperrte Workflows antworten mit 404 (nicht 403), damit ihre Existenz nicht sichtbar wird.
+- Entfernen aus einem Projekt löscht auch die Rollen der Person für dessen Workflows.
+- Die zentrale Suche fragt jeden Worker nur nach den Workflow-IDs, die die Person lesen darf, und verwirft Treffer anderer
+  Workflows im Master noch einmal. Ausführungsdaten lädt erst die Detailansicht, mit derselben Prüfung.
 
 Anmeldung und Sitzungen:
 - Passwörter mit scrypt (N=32768, r=8, p=1, 16 Byte Salz), mindestens 12 Zeichen. Bei unbekannter E-Mail wird trotzdem ein Hash

@@ -4,6 +4,9 @@ import type { CredentialDetail, CredentialImportResult, CredentialInfo, Credenti
 import type {
   ApiToken,
   AuditEntry,
+  ExecutionSearchResult,
+  WorkflowMember,
+  WorkflowRole,
   AuthStatus,
   Member,
   MasterWorkflow,
@@ -96,6 +99,17 @@ export const mapi = {
   moveWorkflow: (id: string, projectId: string) => request<MasterWorkflow>('POST', `/api/workflows/${e(id)}/move`, { projectId }),
   versions: (id: string) => request<{ data: VersionInfo[] }>('GET', `/api/workflows/${e(id)}/versions`).then((r) => r.data),
   version: (id: string, version: number) => request<{ version: number; workflow: Workflow }>('GET', `/api/workflows/${e(id)}/versions/${version}`),
+
+  workflowMembers: (id: string) => request<{ data: WorkflowMember[]; canShare: boolean; admins: string[] }>('GET', `/api/workflows/${e(id)}/members`),
+  setWorkflowMember: (id: string, userId: string, role: WorkflowRole) => request<unknown>('PUT', `/api/workflows/${e(id)}/members/${e(userId)}`, { role }),
+  removeWorkflowMember: (id: string, userId: string) => request<void>('DELETE', `/api/workflows/${e(id)}/members/${e(userId)}`),
+
+  /** Zentrale Ausführungssuche über alle Worker */
+  searchExecutions: (filter: Record<string, string | undefined>) => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(filter)) if (v) q.set(k, v);
+    return request<ExecutionSearchResult>('GET', `/api/executions?${q.toString()}`);
+  },
 
   projectOverview: (projectId: string) => request<{ overview: WorkerOverview | null; error?: string }>('GET', `/api/projects/${e(projectId)}/overview`),
 

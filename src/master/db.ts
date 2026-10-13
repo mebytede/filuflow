@@ -9,6 +9,8 @@ import type { Workflow } from '../types.js';
 
 export type GlobalRole = 'admin' | 'member';
 export type ProjectRole = 'admin' | 'editor' | 'viewer';
+/** Rolle für einen einzelnen Workflow; 'none' sperrt den Workflow für ein Projektmitglied */
+export type WorkflowRole = ProjectRole | 'none';
 
 export interface UserRow {
   id: string;
@@ -215,6 +217,13 @@ CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS workflow_members (
+  workflow_id TEXT NOT NULL REFERENCES workflows(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role TEXT NOT NULL CHECK (role IN ('admin', 'editor', 'viewer', 'none')),
+  PRIMARY KEY (workflow_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS workflow_members_user ON workflow_members(user_id);
 CREATE TABLE IF NOT EXISTS credential_access (
   worker_id TEXT NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
   credential TEXT NOT NULL,
@@ -495,8 +504,58 @@ export class MasterDb {
     this.db.prepare('INSERT OR REPLACE INTO project_members (project_id, user_id, role) VALUES (?, ?, ?)').run(projectId, userId, role);
   }
 
+  /** Entfernt auch die Rollen je Workflow im Projekt, damit kein Zugriff über einzelne Workflows bleibt */
   removeMember(projectId: string, userId: string): void {
-    this.db.prepare('DELETE FROM project_members WHERE project_id = ? AND user_id = ?').run(projectId, userId);
+    this.transaction(() => {
+      this.db.prepare('DELETE FROM project_members WHERE project_id = ? AND user_id = ?').run(projectId, userId);
+      this.db.prepare('DELETE FROM workflow_members WHERE user_id = ? AND workflow_id IN (SELECT id FROM workflows WHERE project_id = ?)').run(userId, projectId);
+    });
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // Rollen je Workflow (M23)
+
+  getWorkflowRole(workflowId: string, userId: string): WorkflowRole | undefined {
+    return (this.db.prepare('SELECT role FROM workflow_members WHERE workflow_id = ? AND user_id = ?').get(workflowId, userId) as { role: WorkflowRole } | undefined)?.role;
+  }
+
+  /** Rollen eines Benutzers für die Workflows eines Projekts (oder aller Projekte) */
+  workflowRolesForUser(userId: string, projectId?: string): Map<string, WorkflowRole> {
+    const rows = (
+      projectId
+        ? this.db.prepare('SELECT m.workflow_id, m.role FROM workflow_members m JOIN workflows w ON w.id = m.workflow_id WHERE m.user_id = ? AND w.project_id = ?').all(userId, projectId)
+        : this.db.prepare('SELECT workflow_id, role FROM workflow_members WHERE user_id = ?').all(userId)
+    ) as Array<{ workflow_id: string; role: WorkflowRole }>;
+    return new Map(rows.map((r) => [r.workflow_id, r.role]));
+  }
+
+  /** Projekte, in denen der Benutzer nur über einzelne Workflows Zugriff hat */
+  projectsSharedWithUser(userId: string): ProjectRow[] {
+    return this.db
+      .prepare(
+        "SELECT DISTINCT p.* FROM projects p JOIN workflows w ON w.project_id = p.id JOIN workflow_members m ON m.workflow_id = w.id WHERE m.user_id = ? AND m.role != 'none' AND p.id NOT IN (SELECT project_id FROM project_members WHERE user_id = ?) ORDER BY p.name",
+      )
+      .all(userId, userId) as ProjectRow[];
+  }
+
+  listWorkflowMembers(workflowId: string): Array<{ user_id: string; email: string; name: string; role: WorkflowRole }> {
+    return this.db
+      .prepare('SELECT m.user_id, u.email, u.name, m.role FROM workflow_members m JOIN users u ON u.id = m.user_id WHERE m.workflow_id = ? ORDER BY u.email')
+      .all(workflowId) as Array<{ user_id: string; email: string; name: string; role: WorkflowRole }>;
+  }
+
+  /** Workflows mit eigenen Rollen (für die Kennzeichnung in Listen) */
+  workflowsWithMembers(projectId: string): Set<string> {
+    const rows = this.db.prepare('SELECT DISTINCT m.workflow_id FROM workflow_members m JOIN workflows w ON w.id = m.workflow_id WHERE w.project_id = ?').all(projectId) as Array<{ workflow_id: string }>;
+    return new Set(rows.map((r) => r.workflow_id));
+  }
+
+  setWorkflowMember(workflowId: string, userId: string, role: WorkflowRole): void {
+    this.db.prepare('INSERT OR REPLACE INTO workflow_members (workflow_id, user_id, role) VALUES (?, ?, ?)').run(workflowId, userId, role);
+  }
+
+  removeWorkflowMember(workflowId: string, userId: string): void {
+    this.db.prepare('DELETE FROM workflow_members WHERE workflow_id = ? AND user_id = ?').run(workflowId, userId);
   }
 
   // ---------------------------------------------------------------------------------------------

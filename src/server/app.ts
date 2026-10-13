@@ -419,9 +419,30 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
     }
 
     api.get('/api/executions', async (request) => {
-      const q = request.query as { workflow?: string; workflowIds?: string; status?: string; limit?: string };
+      const q = request.query as { workflow?: string; workflowIds?: string; status?: string; limit?: string; q?: string; from?: string; to?: string; before?: string; mode?: string };
       const workflowIds = q.workflowIds !== undefined ? q.workflowIds.split(',').filter(Boolean).slice(0, 1000) : undefined;
-      return { data: store.list({ workflow: q.workflow, workflowIds, status: q.status, limit: q.limit ? Number(q.limit) : undefined }) };
+      return {
+        data: store.list({ workflow: q.workflow, workflowIds, status: q.status, limit: q.limit ? Number(q.limit) : undefined, q: q.q, from: q.from, to: q.to, before: q.before, mode: q.mode }),
+      };
+    });
+
+    // Suche mit Filtern im Body (Master: viele Workflow-IDs, zentrale Ausführungssuche M23)
+    api.post('/api/executions/search', async (request) => {
+      const b = (request.body ?? {}) as Record<string, unknown>;
+      const text = (k: string) => (typeof b[k] === 'string' && b[k] ? (b[k] as string).slice(0, 200) : undefined);
+      const workflowIds = Array.isArray(b.workflowIds) ? b.workflowIds.filter((x): x is string => typeof x === 'string').slice(0, 10_000) : undefined;
+      return {
+        data: store.list({
+          workflowIds,
+          status: text('status'),
+          mode: text('mode'),
+          q: text('q'),
+          from: text('from'),
+          to: text('to'),
+          before: text('before'),
+          limit: typeof b.limit === 'number' ? b.limit : undefined,
+        }),
+      };
     });
 
     api.get('/api/executions/:id', async (request, reply) => {
