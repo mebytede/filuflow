@@ -288,9 +288,9 @@ dem beobachtbaren Verhalten. Klassen werden wie bei n8n aus dem Dateinamen besti
 Laden nutzt, entfällt (sie ist auch bei n8n keine Sicherheitsgrenze).
 
 Der Kontext für `execute` bildet die häufig genutzten Funktionen nach statt der ganzen `IExecuteFunctions`. Fehlt eine
-Funktion, scheitert der Knoten mit einer klaren Meldung. Trigger, Polling, Webhooks und deklarative Knoten brauchen eigene
-Laufzeitteile (Aktivierung, Routing-Engine) und sind bewusst ausgelassen; der Lader meldet sie, statt sie still falsch
-auszuführen.
+Funktion, scheitert der Knoten mit einer klaren Meldung. Trigger, Polling und Webhooks brauchen eigene Laufzeitteile
+(Aktivierung) und sind bewusst ausgelassen; der Lader meldet sie, statt sie still falsch auszuführen. Deklarative Knoten
+kamen mit M29 dazu (siehe unten).
 
 Eigene filuflow-Plugins schreiben Knoten gegen dieselbe Schnittstelle wie die eingebauten Knoten. Es gibt keinen eigenen
 Sandbox-Modus: Plugins sind Code der Betreiber und laufen im Prozess.
@@ -353,3 +353,17 @@ Die Optionen von `requestOAuth2` je Dienst (getOAuth2AdditionalParameters) gelte
 Beschreibung (z. B. `shopifyOAuth2Api` aus einem Export). Übernommen sind auch Eigenheiten: der HTTP Request erzwingt bei
 `oAuth2Api` den Token-Typ "Bearer"; nach einem Refresh signiert n8n den Request neu, ohne `keepBearer` anzuwenden, und
 setzt den Zusatz-Header (Shopify) mit dem bisherigen Token.
+
+## Deklarative Knoten (M29)
+Knoten ohne `execute`, die ihre Requests beschreiben (`requestDefaults`, `routing` an Parametern und Auswahlwerten,
+`requestOperations`), führt `src/plugins/routingNode.ts` aus. Maßstab ist n8n-core 1.122.0 (in n8n 1.123.0)
+`execution-engine/routing-node.ts`; nachgebaut sind Reihenfolge und Zusammenführung der Request-Teile (lodash merge),
+Sichtbarkeit gegen die Parameter der obersten Ebene, `$credentials`, `$value`, `$index`, `$parent`, `$request`,
+`$response`, `$responseItem` und `$version` in Expressions, preSend und postReceive (Funktionen sowie rootProperty, filter,
+limit, set, sort, setKeyValue, binaryData), Pagination (Funktion mit `makeRoutingRequest`, generic, offset), maxResults,
+Batching und die Einstellung "Request Options", die n8n beim Laden ergänzt. Fehler werden wie dort zu NodeApiError, bei 429
+mit dem Hinweis auf Batching.
+
+Dafür folgt `helpers.httpRequest` jetzt genauer convertN8nRequestToAxios: Ein leerer Body (z. B. `{}` aus den Defaults)
+wird nicht gesendet, bei GET nie ein Body. Nicht nachgebaut: `preAuthentication` von Credential-Typen (Tokens, die n8n vor
+dem Request holt und im Credential speichert) und der Header `User-Agent: n8n`.

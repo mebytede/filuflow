@@ -312,6 +312,7 @@ Engine-Reihenfolge, Expressions (inkl. Rohwert vs. String), jeder Node, Filter-O
 | M26 | KI-Ausbau | OpenAI Responses API, Groq, Mistral, Ollama, DeepSeek, OpenRouter, Azure OpenAI, Think Tool |
 | M27 | Embeddings und Vektorspeicher (RAG) | OpenAI Embeddings, Default Data Loader, Text Splitter, Simple Vector Store, Retriever, Q&A Chain, Vector Store Tool |
 | M28 | OAuth2-Typen der Dienste | Credential-Typen mit extends und festen Werten (Google, Microsoft, Slack, GitHub u. a.), Verbinden, Dienst-Eigenheiten von requestOAuth2 |
+| M29 | Deklarative Knoten | Community-Knoten mit requestDefaults und routing wie n8n RoutingNode |
 
 Nach jedem Meilenstein: `docs/STATUS.md` aktualisieren (was geht, was fehlt) und einen Commit mit aussagekräftiger Nachricht.
 
@@ -332,8 +333,8 @@ Offene Funktionen, ungefähr nach Nutzen geordnet. Jede wird wie ein Meilenstein
   (Responses API, Groq, Mistral, Ollama, DeepSeek, OpenRouter, Azure OpenAI, Think Tool: M26; Embeddings, Simple Vector
   Store, Retriever, Q&A Chain: M27)
 - Dienst-Knoten mit eigenen OAuth-Flows (Gmail, Slack, Microsoft 365 usw.) und weitere Integrationen
-- Community-Nodes: Trigger, Polling, Webhooks und deklarative Knoten (`routing`) aus n8n-Paketen; Installation aus der
-  Oberfläche (Plugin-Schnittstelle und programmatische Knoten: M24)
+- Community-Nodes: Trigger, Polling und Webhooks aus n8n-Paketen; Installation aus der Oberfläche
+  (Plugin-Schnittstelle und programmatische Knoten: M24; deklarative Knoten: M29)
 
 ### 11.3 Credentials
 (Anlegen und Bearbeiten in der Oberfläche: M11; Import verschlüsselter n8n-Exporte und Freigabe für Projekte im Master: M22)

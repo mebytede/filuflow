@@ -36,6 +36,8 @@ export interface N8nNodeDescription {
   properties: N8nProperty[];
   credentials?: Array<{ name: string; required?: boolean; displayOptions?: { show?: DisplayRule; hide?: DisplayRule } }>;
   requestDefaults?: Record<string, unknown>;
+  /** Pagination usw. für deklarative Knoten */
+  requestOperations?: Record<string, unknown>;
   polling?: boolean;
   webhooks?: unknown[];
 }
@@ -127,6 +129,8 @@ export function isDisplayed(options: N8nProperty['displayOptions'], values: Valu
     for (const [key, allowed] of Object.entries(rule)) {
       const value = lookup(key);
       const list = Array.isArray(value) ? value : [value];
+      // displayParameter: ein Ausdruck als Wert zeigt den Parameter immer an
+      if (show && list.some((v) => typeof v === 'string' && v.charAt(0) === '=')) continue;
       const hit = list.some((v) => allowed.some((a) => matches(v, a)));
       if (show && !hit) return false;
       if (!show && hit) return false;

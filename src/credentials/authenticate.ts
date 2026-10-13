@@ -113,6 +113,11 @@ export function hasAuthentication(type: string): boolean {
   return !!def && !def.passive;
 }
 
+/** Typ aus einem Plugin ohne authenticate: n8n (credentialsHelper.authenticate) lässt den Request dann unverändert */
+export function hasPassiveAuthentication(type: string): boolean {
+  return !!definition(type)?.passive;
+}
+
 /** Typen mit Authentifizierung (Auswahl im Editor) */
 export function authenticatedTypes(): string[] {
   return [...Object.keys(BUILTIN), ...[...registered].filter(([, d]) => !d.passive).map(([k]) => k)].sort();

@@ -331,7 +331,9 @@ Community-Paket (Ordner mit `package.json` und `"n8n": { "nodes": [...], "creden
 üblichen Funktionen (`getInputData`, `getNodeParameter` mit Defaults, `getCredentials`, `continueOnFail`,
 `helpers.httpRequest` und `request` mit und ohne Authentifizierung, `returnJsonArray`, `constructExecutionMetaData`,
 Binärdaten). Das Paket `n8n-workflow` muss nicht installiert sein: filuflow stellt Fehlerklassen, Verbindungstypen und
-Hilfsfunktionen bereit. Trigger-, Polling- und Webhook-Knoten sowie deklarative Knoten (`routing`) werden noch nicht geladen.
+Hilfsfunktionen bereit. Deklarative Knoten (ohne `execute`, Requests über `requestDefaults` und `routing` beschrieben, wie
+viele Community-Knoten aus der n8n-Vorlage) laufen ebenfalls, mit Pagination, Nachbearbeitung und der Einstellung "Request
+Options" (Batching, Proxy, Timeout). Trigger-, Polling- und Webhook-Knoten werden noch nicht geladen.
 
 **filuflow-Plugins:** ein ES-Modul (`*.mjs` oder Paket mit `"filuflow": { "plugin": "index.js" }`), das ein Objekt oder eine
 Funktion exportiert:

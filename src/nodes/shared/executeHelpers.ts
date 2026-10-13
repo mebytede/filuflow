@@ -9,7 +9,7 @@ import type { ExecContext } from '../types.js';
 import type { HttpRequest, HttpResponse } from '../../http.js';
 import type { Item, WorkflowNode } from '../../types.js';
 import { NodeApiError, NodeOperationError } from '../../errors.js';
-import { authenticateRequest, hasAuthentication, withCredentialDefaults, type HttpOptions } from '../../credentials/authenticate.js';
+import { authenticateRequest, hasAuthentication, hasPassiveAuthentication, withCredentialDefaults, type HttpOptions } from '../../credentials/authenticate.js';
 import { getOAuth2Token, type OAuth2RequestOptions } from '../../credentials/oauth2.js';
 import { isOAuth2Type } from '../../credentials/types.js';
 
@@ -35,6 +35,26 @@ function parseBody(res: HttpResponse, encoding: unknown, json: boolean): unknown
   return text;
 }
 
+/** n8n-workflow isObjectEmpty: leere Objekte, Listen, Puffer, FormData; Text gilt nie als leer */
+function isEmptyBody(body: unknown): boolean {
+  if (typeof body === 'string') return false;
+  if (typeof body !== 'object' || body === null) return true;
+  if (Buffer.isBuffer(body) || ArrayBuffer.isView(body)) return body.byteLength === 0;
+  if (body instanceof FormData || body instanceof URLSearchParams) return [...body.keys()].length === 0;
+  if (Array.isArray(body)) return body.length === 0;
+  return Object.keys(body).length === 0;
+}
+
+/** Proxy als URL (Text oder axios-Objekt { host, port, protocol, auth }) */
+function proxyUrl(proxy: unknown): string | undefined {
+  if (typeof proxy === 'string') return proxy || undefined;
+  if (!proxy || typeof proxy !== 'object') return undefined;
+  const p = proxy as { host?: string; port?: number; protocol?: string; auth?: { username?: string; password?: string } };
+  if (!p.host) return undefined;
+  const auth = p.auth?.username ? `${encodeURIComponent(p.auth.username)}:${encodeURIComponent(p.auth.password ?? '')}@` : '';
+  return `${p.protocol ?? 'http'}://${auth}${p.host}${p.port ? `:${p.port}` : ''}`;
+}
+
 /** IHttpRequestOptions (helpers.httpRequest, axios-basiert) ausführen */
 export async function httpRequest(ctx: ExecContext, o: HttpOptions): Promise<unknown> {
   let url = o.baseURL ? `${String(o.baseURL).replace(/\/$/, '')}/${String(o.url).replace(/^\//, '')}` : String(o.url);
@@ -43,7 +63,9 @@ export async function httpRequest(ctx: ExecContext, o: HttpOptions): Promise<unk
   for (const [k, v] of Object.entries(o.headers ?? {})) if (v !== undefined && v !== null) headers[k] = String(v);
   const has = (name: string) => Object.keys(headers).find((h) => h.toLowerCase() === name);
   let body: HttpRequest['body'];
-  if (o.body !== undefined && o.body !== null) {
+  const method = String(o.method ?? 'GET').toUpperCase();
+  // convertN8nRequestToAxios: nur Text oder nicht leere Objekte als Body; httpRequest löscht den Body bei GET
+  if (o.body !== undefined && o.body !== null && method !== 'GET' && !isEmptyBody(o.body)) {
     const ct = has('content-type') ? headers[has('content-type')!] : undefined;
     if (typeof o.body === 'string' || Buffer.isBuffer(o.body) || o.body instanceof FormData || o.body instanceof URLSearchParams) body = o.body as HttpRequest['body'];
     else if (ct?.includes('application/x-www-form-urlencoded')) body = qs.stringify(o.body);
@@ -55,7 +77,7 @@ export async function httpRequest(ctx: ExecContext, o: HttpOptions): Promise<unk
   if (o.auth) headers.authorization = `Basic ${Buffer.from(`${o.auth.username}:${o.auth.password}`).toString('base64')}`;
   if (!has('accept') && o.json) headers.accept = 'application/json';
   const res = await ctx.helpers.http.request({
-    method: String(o.method ?? 'GET').toUpperCase(),
+    method,
     url,
     headers,
     body,
@@ -63,6 +85,7 @@ export async function httpRequest(ctx: ExecContext, o: HttpOptions): Promise<unk
     followRedirects: o.disableFollowRedirect !== true,
     maxRedirects: typeof o.maxRedirects === 'number' ? o.maxRedirects : 21,
     allowUnauthorizedCerts: o.skipSslCertificateValidation === true,
+    ...(proxyUrl(o.proxy) ? { proxy: proxyUrl(o.proxy) } : {}),
     signal: ctx.signal,
   });
   const parsed = parseBody(res, o.encoding, o.json === true);
@@ -121,6 +144,7 @@ export function executeHelpers(ctx: ExecContext): Record<string, unknown> {
       if (oauth2?.keyToIncludeInAccessTokenHeader) headers[oauth2.keyToIncludeInAccessTokenHeader] = token.accessToken;
       return { ...options, headers };
     }
+    if (hasPassiveAuthentication(type)) return options;
     throw new NodeOperationError(node.name, `Credential-Typ "${type}" hat keine Authentifizierung, die filuflow anwenden kann`);
   };
   return {
