@@ -31,7 +31,7 @@ und antworten. Jeder Lauf wird protokolliert und lässt sich Knoten für Knoten 
 | **Editor im Browser** | Knoten einfügen und verbinden, Parameter als Formular oder JSON, Rückgängig und Wiederholen, Testlauf mit dem aktuellen Stand |
 | **Nachvollziehbare Läufe** | Status und Dauer an jedem Knoten, der durchlaufene Pfad hervorgehoben, "Letzter Lauf" mit Zeitleiste, Ausführungsprotokoll in SQLite |
 | **Auslöser** | Webhooks mit Antwort-Knoten und Authentifizierung, Zeitpläne, Fehler-Workflows, Aufruf durch andere Workflows, REST-API |
-| **Knoten** | Daten setzen, filtern, sortieren, zusammenfassen, verzweigen (If, Switch), zusammenführen, Schleifen, Code (JavaScript und Python), HTTP, HTML, XML, Datum, Krypto |
+| **Knoten** | Daten setzen, filtern, sortieren, zusammenfassen, verzweigen (If, Switch), zusammenführen, Schleifen, Code (JavaScript und Python), HTTP (mit Pagination, Digest-Auth, Client-Zertifikaten), HTML, XML, Datum, Krypto |
 | **KI** | AI Agent mit Tools, LLM Chain, Extraktion, Klassifikation, Stimmungsanalyse; Modelle von OpenAI, Anthropic und Google Gemini |
 | **Credentials** | in der Oberfläche anlegen und bearbeiten (Formulare je Typ) oder als Datei pflegen, verschlüsselt mit AES-256-GCM, Werte aus Umgebungsvariablen; geheime Werte erscheinen nie in Logs oder der Oberfläche |
 | **Team und Mandanten** | Master mit Benutzern, Rechten und Projekten; Worker in der Umgebung jedes Mandanten; Anmeldung mit Passwort und TOTP oder SSO (OIDC) |
@@ -213,7 +213,8 @@ unter dem ein Workflow das Credential verwendet:
 }
 ```
 
-- Typen: `httpHeaderAuth`, `httpBasicAuth`, `httpQueryAuth`, `httpBearerAuth`, `httpCustomAuth`, `oAuth2Api`, `jwtAuth`,
+- Typen: `httpHeaderAuth`, `httpBasicAuth`, `httpDigestAuth`, `httpQueryAuth`, `httpBearerAuth`, `httpCustomAuth`, `oAuth2Api`,
+  `jwtAuth`, `httpSslAuth` (Client-Zertifikat und eigene CA für "SSL Certificates"),
   für KI-Modelle `openAiApi`, `anthropicApi` und `googlePalmApi` (jeweils `apiKey`, optional eigene URL).
 - `{{ env.NAME }}` holt Werte aus der Umgebung; `filuflow validate` meldet fehlende Credentials und Variablen.
 - Verschlüsseln: `FILUFLOW_ENCRYPTION_KEY=... filuflow credentials encrypt credentials.json --out credentials.enc.json`.

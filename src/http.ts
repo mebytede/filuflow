@@ -2,6 +2,7 @@
 // (EnvHttpProxyAgent) und erlaubt einen eigenen Dispatcher (MockAgent) für Tests.
 import { Agent, EnvHttpProxyAgent, ProxyAgent, request as undiciRequest, type Dispatcher } from 'undici';
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 
 export interface HttpRequest {
   method: string;
@@ -16,6 +17,8 @@ export interface HttpRequest {
   /** Proxy-URL, überschreibt Umgebungsvariablen */
   proxy?: string;
   signal?: AbortSignal;
+  /** Eigene TLS-Daten (HTTP Request "SSL Certificates", n8n agentOptions): CA ersetzt die Standard-CAs */
+  tls?: { ca?: string; cert?: string; key?: string; passphrase?: string };
 }
 
 export interface HttpResponse {
@@ -51,10 +54,17 @@ const dispatcherCache = new Map<string, Dispatcher>();
 
 function getDispatcher(req: HttpRequest): Dispatcher {
   if (globalDispatcher) return globalDispatcher;
-  const key = `${req.proxy ?? ''}|${req.allowUnauthorizedCerts ? 1 : 0}`;
+  const tlsKey = req.tls ? createHash('sha256').update(JSON.stringify(req.tls)).digest('hex') : '';
+  const key = `${req.proxy ?? ''}|${req.allowUnauthorizedCerts ? 1 : 0}|${tlsKey}`;
   let d = dispatcherCache.get(key);
   if (!d) {
-    const connect = { rejectUnauthorized: !req.allowUnauthorizedCerts, ca: extraCa() };
+    const connect = {
+      rejectUnauthorized: !req.allowUnauthorizedCerts,
+      ca: req.tls?.ca ? [req.tls.ca] : extraCa(),
+      ...(req.tls?.cert ? { cert: req.tls.cert } : {}),
+      ...(req.tls?.key ? { key: req.tls.key } : {}),
+      ...(req.tls?.passphrase ? { passphrase: req.tls.passphrase } : {}),
+    };
     if (req.proxy) {
       d = new ProxyAgent({ uri: req.proxy, requestTls: connect, proxyTls: connect });
     } else if (process.env.HTTPS_PROXY || process.env.HTTP_PROXY || process.env.https_proxy || process.env.http_proxy) {

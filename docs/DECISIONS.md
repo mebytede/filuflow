@@ -91,6 +91,14 @@ Neben dem Stack aus CLAUDE.md (luxon, better-sqlite3, fastify, croner, pino):
   dann nach ID. Umbenennen behält die ID, damit Workflows mit gespeicherter ID das Credential weiter finden.
 - Keine neue Abhängigkeit.
 
+## HTTP Request erweitert (M15)
+- **Pagination:** gleiche Optionen und Abbruchregeln wie n8n; die Werte je Seite werden vor dem Serialisieren in Query,
+  Header und Body gemischt (lodash merge wie `applyPaginationRequestData`). Jede Seite durchläuft dieselbe Auswertung der
+  Antwort wie ein einzelner Request.
+- **Digest-Auth** selbst umgesetzt (RFC 7616, rund 40 Zeilen): n8n nutzt dafür die alte Bibliothek "request".
+- **Client-Zertifikate** über eigene undici-Agents je Zertifikat (zwischengespeichert nach Hash); eine angegebene CA
+  ersetzt wie in Node die Standard-CAs.
+
 ## OAuth2 mit Authorization Code (M14)
 - **Tokens in der Datenbank, nicht im Credential:** n8n schreibt `oauthTokenData` ins Credential. filuflow legt die Tokens
   (verschlüsselt) in die Schlüssel-Wert-Tabelle, Schlüssel ist die ID des Credentials. So lassen sich auch Credentials aus der

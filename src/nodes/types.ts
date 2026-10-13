@@ -90,6 +90,8 @@ export interface ExecContext {
   getParam<T = unknown>(path: string, itemIndex: number, fallback?: T, options?: GetParamOptions): T;
   /** Expression (ohne führendes `=`) für ein Item auswerten */
   evaluateExpression(expression: string, itemIndex: number): unknown;
+  /** Wert wie einen Parameter auswerten (Expressions in Strings, Objekte rekursiv), mit zusätzlichen Variablen wie $response */
+  resolveValue(value: unknown, itemIndex: number, extraKeys?: Record<string, unknown>): unknown;
   /** Datenobjekt mit allen Expression-Variablen ($json, $input, $() …) für ein Item */
   getDataProxy(itemIndex: number, options?: { cloneInput?: boolean }): Record<string, unknown>;
   getCredentials(type: string, itemIndex?: number): Promise<Record<string, unknown>>;

@@ -297,6 +297,7 @@ Engine-Reihenfolge, Expressions (inkl. Rohwert vs. String), jeder Node, Filter-O
 | M12 | Python im Code-Node | Pyodide und lokaler Interpreter, Zeitlimit, Sperren wie n8n, Code Tool mit Python |
 | M13 | Wartende Ausführungen | Wait mit Fortsetzen per Webhook und zum Zeitpunkt, Zustand in SQLite, statische Daten und OAuth2-Tokens dauerhaft |
 | M14 | OAuth2 mit Anmeldung | Authorization Code und PKCE mit Rückleitung, Refresh, Einzelbetrieb und Master |
+| M15 | HTTP Request erweitert | Pagination in allen Modi wie n8n, Digest-Auth, Client-Zertifikate |
 
 Nach jedem Meilenstein: `docs/STATUS.md` aktualisieren (was geht, was fehlt) und einen Commit mit aussagekräftiger Nachricht.
 
@@ -315,7 +316,7 @@ Offene Funktionen, ungefähr nach Nutzen geordnet. Jede wird wie ein Meilenstein
 
 ### 11.2 Knoten
 - Module im Code-Node über eine Freigabeliste (`require`), vollständige `helpers` (Python im Code-Node: M12)
-- HTTP Request: Pagination, vordefinierte Credential-Typen, Digest-Auth, OAuth1, Client-Zertifikate
+- HTTP Request: vordefinierte Credential-Typen, OAuth1 (Pagination, Digest-Auth, Client-Zertifikate: M15)
 - Merge `combineBySql`; Execute Workflow aus Datei und URL
 - Chat Trigger und Chat (Human in the Loop) mit Chat-Ansicht
 - KI: OpenAI Responses API, Agent-Varianten aus typeVersion 1.x, weitere Modelle, Tools und Vektorspeicher

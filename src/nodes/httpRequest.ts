@@ -3,7 +3,10 @@
 //   packages/nodes-base/nodes/HttpRequest/V3/HttpRequestV3.node.ts, GenericFunctions.ts, V3/utils/*
 //   packages/core/.../utils/request-helper-functions.ts (parseRequestObject, proxyRequestToAxios)
 //   packages/workflow/src/errors/node-api.error.ts (Fehlermeldungen je Statuscode)
-// Pagination ist noch nicht umgesetzt (validate meldet es, Ausbau SPEC 11.2).
+//   packages/core/.../utils/request-helper-functions.ts requestWithAuthenticationPaginated, applyPaginationRequestData
+//   (Pagination mit $response, $request, $pageCount; Abbruch nach 5x gleicher Antwort)
+//   packages/nodes-base/nodes/HttpRequest/GenericFunctions.ts setAgentOptions (SSL-Zertifikate, httpSslAuth)
+// Digest-Auth: src/credentials/digest.ts.
 import lodash from 'lodash';
 import qs from 'qs';
 import type { ExecContext, NodeType } from './types.js';
@@ -12,6 +15,8 @@ import { NodeApiError, NodeOperationError } from '../errors.js';
 import type { HttpRequest, HttpResponse } from '../http.js';
 import { jsonParse } from './shared/utils.js';
 import { getOAuth2Token, signRequest } from '../credentials/oauth2.js';
+import { digestAuthorization, parseDigestChallenge } from '../credentials/digest.js';
+import { createHash } from 'node:crypto';
 
 const BINARY_CONTENT_TYPES = [
   'image/', 'audio/', 'video/', 'application/octet-stream', 'application/gzip', 'application/zip', 'application/vnd.rar',
@@ -175,6 +180,10 @@ interface RequestSpec {
   request: HttpRequest;
   /** oAuth2Api: Credential für Signatur und erneuten Versuch nach 401 */
   oauth2?: Record<string, unknown>;
+  /** httpDigestAuth: Anmeldung erst nach der Challenge (sendImmediately: false) */
+  digest?: { user: string; password: string };
+  /** Request für $request in Pagination-Expressions (n8n requestOptions) */
+  info: Record<string, unknown>;
   /** n8n `simple: false` */
   neverError: boolean;
   json: boolean;
@@ -190,17 +199,36 @@ interface ResponseOptions {
 
 function credentialTypesFor(node: WorkflowNode): string[] {
   const auth = node.parameters.authentication as string | undefined;
-  if (auth === 'genericCredentialType') return [String(node.parameters.genericAuthType ?? '')];
-  if (auth === 'predefinedCredentialType') return [String(node.parameters.nodeCredentialType ?? '')];
-  return [];
+  const ssl = node.parameters.provideSslCertificates === true ? ['httpSslAuth'] : [];
+  if (auth === 'genericCredentialType') return [String(node.parameters.genericAuthType ?? ''), ...ssl];
+  if (auth === 'predefinedCredentialType') return [String(node.parameters.nodeCredentialType ?? ''), ...ssl];
+  return ssl;
 }
 
-const SUPPORTED_GENERIC = new Set(['httpBasicAuth', 'httpBearerAuth', 'httpHeaderAuth', 'httpQueryAuth', 'httpCustomAuth', 'oAuth2Api']);
+const SUPPORTED_GENERIC = new Set(['httpBasicAuth', 'httpBearerAuth', 'httpHeaderAuth', 'httpQueryAuth', 'httpCustomAuth', 'httpDigestAuth', 'oAuth2Api']);
 
-async function buildRequest(ctx: ExecContext, itemIndex: number, items: Item[]): Promise<RequestSpec> {
+/** Teile eines Requests, die die Pagination je Seite überschreibt (n8n PaginationOptions.request) */
+interface PaginationRequest {
+  url?: string;
+  qs?: Record<string, unknown>;
+  headers?: Record<string, unknown>;
+  body?: Record<string, unknown>;
+}
+
+/** formatPrivateKey (nodes-base utils/utilities.ts), vereinfacht: PEM-Zeilenumbrüche wiederherstellen */
+function formatPem(key: string): string {
+  if (!key || /\n/.test(key)) return key;
+  const m = /^(-----BEGIN [A-Z ]+-----)(.*)(-----END [A-Z ]+-----)$/.exec(key.trim());
+  if (!m) return key;
+  const body = m[2].replace(/\s+/g, '').match(/.{1,64}/g)?.join('\n') ?? '';
+  return `${m[1]}\n${body}\n${m[3]}`;
+}
+
+async function buildRequest(ctx: ExecContext, itemIndex: number, items: Item[], page?: PaginationRequest): Promise<RequestSpec> {
   const node = ctx.node;
   const version = node.typeVersion;
-  const url = ctx.getParam<unknown>('url', itemIndex, '');
+  let url = ctx.getParam<unknown>('url', itemIndex, '');
+  if (page?.url !== undefined) url = page.url;
   if (typeof url !== 'string') {
     throw new NodeOperationError(node.name, `URL parameter must be a string, got ${url === null ? 'null' : typeof url}`);
   }
@@ -331,8 +359,21 @@ async function buildRequest(ctx: ExecContext, itemIndex: number, items: Item[]):
   const json = !(autodetect || responseFormat === 'file') && contentType !== 'raw';
   if (contentType === 'raw') headers['content-type'] = ctx.getParam<string>('rawContentType', itemIndex, '');
 
+  // Pagination: Werte der Seite tief zusammenführen (applyPaginationRequestData, lodash merge)
+  const requestInfo = { uri: url, url, method, qs: { ...(qsParams ?? {}) }, headers: { ...headers }, body: form ?? bodyObject };
+  if (page) {
+    if (page.qs) qsParams = lodash.merge({}, qsParams ?? {}, page.qs);
+    if (page.headers) headers = { ...headers, ...Object.fromEntries(Object.entries(lodash.merge({}, page.headers)).map(([k, v]) => [k, String(v)])) };
+    if (page.body) {
+      if (formData) for (const [k, v] of Object.entries(page.body)) formData.set(k, String(v));
+      else if (form !== undefined) form = lodash.merge({}, form, page.body);
+      else bodyObject = lodash.merge({}, typeof bodyObject === 'object' && bodyObject !== null ? bodyObject : {}, page.body);
+    }
+  }
+
   // Authentifizierung
   let oauth2: Record<string, unknown> | undefined;
+  let digest: RequestSpec['digest'];
   const authentication = ctx.getParam<string>('authentication', 0, 'none');
   if (authentication === 'genericCredentialType') {
     const type = ctx.getParam<string>('genericAuthType', 0, '');
@@ -356,6 +397,8 @@ async function buildRequest(ctx: ExecContext, itemIndex: number, items: Item[]):
     } else if (type === 'oAuth2Api') {
       // Signatur nach dem Aufbau des Requests (signRequest), siehe unten
       oauth2 = cred;
+    } else if (type === 'httpDigestAuth') {
+      digest = { user: String(cred.user ?? ''), password: String(cred.password ?? '') };
     } else {
       throw new NodeOperationError(node.name, `Credential-Typ "${type}" wird nicht unterstützt`, { itemIndex });
     }
@@ -396,11 +439,24 @@ async function buildRequest(ctx: ExecContext, itemIndex: number, items: Item[]):
   if (redirect?.redirect?.maxRedirects || defaultRedirect) maxRedirects = redirect?.redirect?.maxRedirects;
 
   const finalUrl = buildUrl(url, qsParams, sendQuery ? options.queryParameterArrays : undefined);
+  // SSL-Zertifikate (setAgentOptions)
+  let tls: HttpRequest['tls'];
+  if (ctx.getParam<boolean>('provideSslCertificates', itemIndex, false) === true) {
+    const ssl = await ctx.getCredentials('httpSslAuth', itemIndex);
+    tls = {};
+    if (ssl.ca) tls.ca = formatPem(String(ssl.ca));
+    if (ssl.cert) tls.cert = formatPem(String(ssl.cert));
+    if (ssl.key) tls.key = formatPem(String(ssl.key));
+    if (ssl.passphrase) tls.passphrase = String(ssl.passphrase);
+  }
+
   const spec: RequestSpec = {
     url: finalUrl,
     json,
     neverError: !!options.response?.response?.neverError,
+    info: requestInfo,
     ...(oauth2 ? { oauth2 } : {}),
+    ...(digest ? { digest } : {}),
     request: {
       method,
       url: finalUrl,
@@ -412,10 +468,156 @@ async function buildRequest(ctx: ExecContext, itemIndex: number, items: Item[]):
       allowUnauthorizedCerts: !!options.allowUnauthorizedCerts,
       proxy: options.proxy || undefined,
       signal: ctx.signal,
+      ...(tls ? { tls } : {}),
     },
   };
   if (oauth2) spec.request = signRequest(spec.request, await getOAuth2Token(ctx, oauth2), node.name);
   return spec;
+}
+
+/** Request senden; nach 401 OAuth2-Token erneuern bzw. auf die Digest-Challenge antworten und einmal wiederholen */
+async function sendRequest(ctx: ExecContext, spec: RequestSpec): Promise<HttpResponse> {
+  const response = await ctx.helpers.http.request(spec.request);
+  if (response.statusCode !== 401) return response;
+  if (spec.oauth2) {
+    spec.request = signRequest(spec.request, await getOAuth2Token(ctx, spec.oauth2, true), ctx.node.name);
+    return ctx.helpers.http.request(spec.request);
+  }
+  if (spec.digest) {
+    const challenge = parseDigestChallenge(response.headers['www-authenticate']);
+    if (!challenge) return response;
+    const authorization = digestAuthorization({ ...spec.digest, method: spec.request.method, url: spec.request.url, challenge });
+    return ctx.helpers.http.request({ ...spec.request, headers: { ...(spec.request.headers ?? {}), authorization } });
+  }
+  return response;
+}
+
+interface PaginationParameters {
+  paginationMode?: 'off' | 'updateAParameterInEachRequest' | 'responseContainsNextURL';
+  nextURL?: string;
+  parameters?: { parameters?: Array<{ type: 'body' | 'headers' | 'qs'; name: string; value: string }> };
+  paginationCompleteWhen?: 'responseIsEmpty' | 'receiveSpecificStatusCodes' | 'other';
+  statusCodesWhenComplete?: string;
+  completeExpression?: string;
+  limitPagesFetched?: boolean;
+  maxRequests?: number | string;
+  requestInterval?: number | string;
+}
+
+/**
+ * Pagination wie HttpRequestV3 (Optionen zusammenstellen) und requestWithAuthenticationPaginated (Schleife):
+ * je Seite die Request-Werte mit $response, $request und $pageCount auswerten, Abbruch über "continue",
+ * maxRequests, 5x gleiche Länge und 3x gleicher Hash, Fehler bei Statuscodes außerhalb 2xx nur beim Weitermachen.
+ */
+async function paginate(ctx: ExecContext, itemIndex: number, items: Item[], p: PaginationParameters, binaryResult: boolean): Promise<{ responses: HttpResponse[]; spec: RequestSpec }> {
+  const node = ctx.node;
+  let continueExpression: string;
+  if (p.paginationCompleteWhen === 'receiveSpecificStatusCodes') {
+    const codes = String(p.statusCodesWhenComplete ?? '')
+      .split(',')
+      .map((c) => parseInt(c.trim()));
+    continueExpression = `={{ !${JSON.stringify(codes)}.includes($response.statusCode) }}`;
+  } else if (p.paginationCompleteWhen === 'other') {
+    const complete = String(p.completeExpression ?? '');
+    if (!complete.length || complete[0] !== '=') throw new NodeOperationError(node.name, 'Invalid or empty Complete Expression');
+    continueExpression = `={{ !(${complete.trim().slice(3, -2)}) }}`;
+  } else {
+    // responseIsEmpty (Default)
+    continueExpression = '={{ Array.isArray($response.body) ? $response.body.length : !!$response.body }}';
+  }
+  const request: Record<string, Record<string, unknown> | string> = {};
+  if (p.paginationMode === 'updateAParameterInEachRequest') {
+    const parameters = p.parameters?.parameters ?? [];
+    if (parameters.length === 1 && parameters[0].name === '' && parameters[0].value === '') {
+      throw new NodeOperationError(
+        node.name,
+        "At least one entry with 'Name' and 'Value' filled must be included in 'Parameters' to use 'Update a Parameter in Each Request' mode ",
+      );
+    }
+    parameters.forEach((parameter, index) => {
+      const target = ((request[parameter.type] as Record<string, unknown> | undefined) ??= {});
+      if (parameter.name === '') throw new NodeOperationError(node.name, `Parameter name must be set for parameter [${index + 1}] in pagination settings`);
+      if (parameter.value === '') {
+        throw new NodeOperationError(node.name, `Some value must be provided for parameter [${index + 1}] in pagination settings, omitting it will result in an infinite loop`);
+      }
+      target[parameter.name] = parameter.value;
+    });
+  } else if (p.paginationMode === 'responseContainsNextURL') {
+    request.url = p.nextURL ?? '';
+  }
+  const maxRequests = p.limitPagesFetched ? p.maxRequests : undefined;
+
+  const first = await buildRequest(ctx, itemIndex, items);
+  const keys: Record<string, unknown> = { $request: first.info, $response: {}, $version: node.typeVersion, $pageCount: 0 };
+  const hashData = { identicalCount: 0, previousLength: 0, previousHash: '' };
+  const responses: HttpResponse[] = [];
+  let makeAdditionalRequest: boolean;
+  do {
+    const page = ctx.resolveValue(request, itemIndex, keys) as PaginationRequest;
+    if (page.url !== undefined) {
+      let valid: boolean;
+      try {
+        valid = !!page.url && !!new URL(String(page.url));
+      } catch {
+        valid = false;
+      }
+      if (!valid) {
+        throw new NodeOperationError(node.name, `'${String(page.url)}' is not a valid URL.`, {
+          itemIndex,
+          description: `Make sure the "${p.paginationMode === 'responseContainsNextURL' ? 'Next URL' : 'URL'}" parameter evaluates to a valid URL.`,
+        });
+      }
+    }
+    const spec = await buildRequest(ctx, itemIndex, items, page);
+    const response = await sendRequest(ctx, spec);
+    const contentType = String(response.headers['content-type'] ?? '');
+    let contentBody: unknown = response.body;
+    let parsedBody: unknown = response.body;
+    if (!binaryResult) {
+      contentBody = decodeBody(response.body, contentType);
+      parsedBody = contentType.includes('application/json') ? jsonParse(contentBody as string, { fallbackValue: {} }) : contentBody;
+    }
+    if (!binaryResult || response.headers.etag) {
+      const contentLength = parseInt(String(response.headers['content-length'] ?? '0')) || 0;
+      if (hashData.previousLength === contentLength) {
+        const etag = response.headers.etag;
+        const hash = etag
+          ? String(etag)
+          : createHash('md5')
+              .update(typeof contentBody === 'string' ? contentBody : Buffer.isBuffer(contentBody) ? contentBody : JSON.stringify(contentBody))
+              .digest('base64');
+        if (hashData.previousHash === hash) {
+          hashData.identicalCount += 1;
+          if (hashData.identicalCount > 2) {
+            throw new NodeOperationError(node.name, 'The returned response was identical 5x, so requests got stopped', {
+              itemIndex,
+              description: 'Check if "Pagination Completed When" has been configured correctly.',
+            });
+          }
+        } else {
+          hashData.identicalCount = 0;
+        }
+        hashData.previousHash = hash;
+      } else {
+        hashData.identicalCount = 0;
+      }
+      hashData.previousLength = contentLength;
+    }
+    responses.push(response);
+    keys.$response = { body: parsedBody, headers: response.headers, statusCode: response.statusCode };
+    keys.$pageCount = (keys.$pageCount as number) + 1;
+    const max = Number(ctx.resolveValue(maxRequests, itemIndex, keys) ?? 0);
+    if (max && (keys.$pageCount as number) >= max) break;
+    makeAdditionalRequest = !!ctx.resolveValue(continueExpression, itemIndex, keys);
+    if (makeAdditionalRequest) {
+      const interval = Number(ctx.resolveValue(p.requestInterval, itemIndex, keys) ?? 0);
+      if (interval) await new Promise((r) => setTimeout(r, interval));
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw new HttpStatusError(response.statusCode, binaryResult ? response.body.toString('utf8') : contentBody, response.headers);
+      }
+    }
+  } while (makeAdditionalRequest);
+  return { responses, spec: first };
 }
 
 function parseJsonLoose(text: string): unknown {
@@ -442,20 +644,17 @@ export const httpRequestNode: NodeType = {
     if (auth === 'genericCredentialType' && !SUPPORTED_GENERIC.has(String(node.parameters.genericAuthType))) {
       issues.push({ code: 'node.unsupportedParameter', message: `HTTP Request: Credential-Typ "${String(node.parameters.genericAuthType)}" wird nicht unterstützt`, path: 'parameters.genericAuthType' });
     }
-    const pagination = lodash.get(node.parameters, 'options.pagination.pagination') as { paginationMode?: string } | undefined;
-    if (pagination && pagination.paginationMode && pagination.paginationMode !== 'off') {
-      issues.push({ code: 'node.unsupportedParameter', message: 'HTTP Request: Pagination wird noch nicht unterstützt', path: 'parameters.options.pagination' });
-    }
-    if (lodash.get(node.parameters, 'provideSslCertificates')) {
-      issues.push({ code: 'node.unsupportedParameter', message: 'HTTP Request: SSL-Zertifikate (httpSslAuth) werden nicht unterstützt', path: 'parameters.provideSslCertificates' });
-    }
     return issues;
   },
   async execute(ctx) {
     const node = ctx.node;
     const items = ctx.items;
     const errorItems: Record<number, string> = {};
-    const promises: Array<Promise<{ response: HttpResponse; spec: RequestSpec }>> = [];
+    const promises: Array<Promise<{ responses: HttpResponse[]; spec: RequestSpec }>> = [];
+    // Pagination gilt für alle Items (n8n liest sie mit Index 0 und rohen Expressions)
+    const pagination = ctx.getParam<PaginationParameters | null>('options.pagination.pagination', 0, null, { rawExpressions: true });
+    const paginated = !!pagination && !!pagination.paginationMode && pagination.paginationMode !== 'off';
+    const fileResult = ctx.getParam<string>('options.response.response.responseFormat', 0, 'autodetect') === 'file';
 
     for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
       try {
@@ -465,23 +664,21 @@ export const httpRequestNode: NodeType = {
         if (itemIndex > 0 && batchSize >= 0 && batchInterval > 0 && itemIndex % batchSize === 0) {
           await new Promise((r) => setTimeout(r, batchInterval));
         }
+        if (paginated) {
+          const p = paginate(ctx, itemIndex, items, pagination!, fileResult);
+          p.catch(() => undefined);
+          promises.push(p);
+          continue;
+        }
         const spec = await buildRequest(ctx, itemIndex, items);
-        // oAuth2Api: bei 401 neues Token holen und einmal wiederholen (n8n requestOAuth2)
-        const send = async () => {
-          const response = await ctx.helpers.http.request(spec.request);
-          if (response.statusCode === 401 && spec.oauth2) {
-            spec.request = signRequest(spec.request, await getOAuth2Token(ctx, spec.oauth2, true), node.name);
-            return ctx.helpers.http.request(spec.request);
-          }
-          return response;
-        };
-        const p = send().then((response) => {
+        // oAuth2Api: bei 401 neues Token holen und einmal wiederholen (n8n requestOAuth2); Digest nach der Challenge
+        const p = sendRequest(ctx, spec).then((response) => {
           if (response.statusCode >= 400 && !spec.neverError) {
             let errBody: unknown = response.body.toString('utf8');
             if (spec.json) errBody = parseJsonLoose(errBody as string);
             throw new HttpStatusError(response.statusCode, errBody, response.headers);
           }
-          return { response, spec };
+          return { responses: [response], spec };
         });
         p.catch(() => undefined);
         promises.push(p);
@@ -518,95 +715,97 @@ export const httpRequestNode: NodeType = {
           });
           continue;
         }
-        const { response, spec } = result.value;
-        let responseFormat = responseOptions.responseFormat ?? 'autodetect';
-        const autodetect = responseFormat === 'autodetect';
-        const contentType = String(response.headers['content-type'] ?? '');
-        let bodyValue: unknown = response.body;
-        if (autodetect) {
-          if (contentType.includes('application/json')) {
-            responseFormat = 'json';
-            const text = decodeBody(response.body, contentType);
-            bodyValue = responseOptions.neverError
-              ? jsonParse(text, { fallbackValue: {} })
-              : jsonParse(text, { errorMessage: 'Invalid JSON in response body' });
-          } else if (BINARY_CONTENT_TYPES.some((t) => contentType.includes(t))) {
-            responseFormat = 'file';
-          } else {
-            responseFormat = 'text';
-            const text = decodeBody(response.body, contentType);
-            bodyValue = !text ? undefined : text;
+        const { responses, spec } = result.value;
+        for (const response of responses) {
+          let responseFormat = responseOptions.responseFormat ?? 'autodetect';
+          const autodetect = responseFormat === 'autodetect';
+          const contentType = String(response.headers['content-type'] ?? '');
+          let bodyValue: unknown = response.body;
+          if (autodetect) {
+            if (contentType.includes('application/json')) {
+              responseFormat = 'json';
+              const text = decodeBody(response.body, contentType);
+              bodyValue = responseOptions.neverError
+                ? jsonParse(text, { fallbackValue: {} })
+                : jsonParse(text, { errorMessage: 'Invalid JSON in response body' });
+            } else if (BINARY_CONTENT_TYPES.some((t) => contentType.includes(t))) {
+              responseFormat = 'file';
+            } else {
+              responseFormat = 'text';
+              const text = decodeBody(response.body, contentType);
+              bodyValue = !text ? undefined : text;
+            }
+          } else if (responseFormat !== 'file') {
+            const text = response.body.toString('utf8');
+            bodyValue = spec.json ? parseJsonLoose(text) : text === '' ? undefined : text;
           }
-        } else if (responseFormat !== 'file') {
-          const text = response.body.toString('utf8');
-          bodyValue = spec.json ? parseJsonLoose(text) : text === '' ? undefined : text;
-        }
-        const full: Record<string, unknown> = {
-          body: bodyValue,
-          headers: { ...response.headers },
-          statusCode: response.statusCode,
-          statusMessage: response.statusMessage,
-        };
-        const toText = (v: unknown) => (typeof v === 'object' && v !== null ? JSON.stringify(v) : v);
+          const full: Record<string, unknown> = {
+            body: bodyValue,
+            headers: { ...response.headers },
+            statusCode: response.statusCode,
+            statusMessage: response.statusMessage,
+          };
+          const toText = (v: unknown) => (typeof v === 'object' && v !== null ? JSON.stringify(v) : v);
 
-        if (responseFormat === 'file') {
-          const newItem: Item = { json: {}, binary: {}, pairedItem: { item: itemIndex } };
-          if (items[itemIndex].binary !== undefined) Object.assign(newItem.binary!, items[itemIndex].binary);
-          newItem.json = fullResponse
-            ? { headers: full.headers, statusCode: full.statusCode, statusMessage: full.statusMessage }
-            : items[itemIndex].json;
-          // n8n prepareBinaryData mit IncomingMessage: Dateiname aus Content-Disposition oder URL-Pfad,
-          // directory = vollständige Antwort-URL
-          let filePath = contentDispositionFilename(response.headers['content-disposition']);
-          if (!filePath) {
-            try {
-              filePath = new URL(response.url).pathname.slice(1);
-            } catch {
-              filePath = undefined;
+          if (responseFormat === 'file') {
+            const newItem: Item = { json: {}, binary: {}, pairedItem: { item: itemIndex } };
+            if (items[itemIndex].binary !== undefined) Object.assign(newItem.binary!, items[itemIndex].binary);
+            newItem.json = fullResponse
+              ? { headers: full.headers, statusCode: full.statusCode, statusMessage: full.statusMessage }
+              : items[itemIndex].json;
+            // n8n prepareBinaryData mit IncomingMessage: Dateiname aus Content-Disposition oder URL-Pfad,
+            // directory = vollständige Antwort-URL
+            let filePath = contentDispositionFilename(response.headers['content-disposition']);
+            if (!filePath) {
+              try {
+                filePath = new URL(response.url).pathname.slice(1);
+              } catch {
+                filePath = undefined;
+              }
             }
-          }
-          const prepared = await ctx.helpers.binary.prepare(response.body, filePath || undefined, mimeTypeFromResponse(contentType));
-          if (filePath) {
-            prepared.directory = response.url;
-          }
-          if (!prepared.fileName && prepared.fileExtension && spec.url.endsWith(prepared.fileExtension)) {
-            prepared.fileName = spec.url.split('/').pop();
-          } else if (!prepared.fileName && prepared.fileExtension) {
-            prepared.fileName = `${responseOptions.outputPropertyName ?? 'data'}.${prepared.fileExtension}`;
-          }
-          newItem.binary![outputPropertyName] = prepared;
-          returnItems.push(newItem);
-        } else if (responseFormat === 'text') {
-          if (fullResponse) {
-            returnItems.push({
-              json: { [outputPropertyName]: toText(full.body), headers: full.headers, statusCode: full.statusCode, statusMessage: full.statusMessage },
-              pairedItem: { item: itemIndex },
-            });
+            const prepared = await ctx.helpers.binary.prepare(response.body, filePath || undefined, mimeTypeFromResponse(contentType));
+            if (filePath) {
+              prepared.directory = response.url;
+            }
+            if (!prepared.fileName && prepared.fileExtension && spec.url.endsWith(prepared.fileExtension)) {
+              prepared.fileName = spec.url.split('/').pop();
+            } else if (!prepared.fileName && prepared.fileExtension) {
+              prepared.fileName = `${responseOptions.outputPropertyName ?? 'data'}.${prepared.fileExtension}`;
+            }
+            newItem.binary![outputPropertyName] = prepared;
+            returnItems.push(newItem);
+          } else if (responseFormat === 'text') {
+            if (fullResponse) {
+              returnItems.push({
+                json: { [outputPropertyName]: toText(full.body), headers: full.headers, statusCode: full.statusCode, statusMessage: full.statusMessage },
+                pairedItem: { item: itemIndex },
+              });
+            } else {
+              returnItems.push({ json: { [outputPropertyName]: toText(bodyValue) }, pairedItem: { item: itemIndex } });
+            }
+          } else if (fullResponse) {
+            if (responseFormat === 'json' && typeof full.body === 'string') {
+              try {
+                full.body = JSON.parse(full.body);
+              } catch {
+                throw new NodeOperationError(node.name, 'Response body is not valid JSON. Change "Response Format" to "Text"', { itemIndex });
+              }
+            }
+            returnItems.push({ json: full, pairedItem: { item: itemIndex } });
           } else {
-            returnItems.push({ json: { [outputPropertyName]: toText(bodyValue) }, pairedItem: { item: itemIndex } });
-          }
-        } else if (fullResponse) {
-          if (responseFormat === 'json' && typeof full.body === 'string') {
-            try {
-              full.body = JSON.parse(full.body);
-            } catch {
-              throw new NodeOperationError(node.name, 'Response body is not valid JSON. Change "Response Format" to "Text"', { itemIndex });
+            let resp = bodyValue;
+            if (responseFormat === 'json' && typeof resp === 'string') {
+              try {
+                resp = JSON.parse(resp);
+              } catch {
+                throw new NodeOperationError(node.name, 'Response body is not valid JSON. Change "Response Format" to "Text"', { itemIndex });
+              }
             }
-          }
-          returnItems.push({ json: full, pairedItem: { item: itemIndex } });
-        } else {
-          let resp = bodyValue;
-          if (responseFormat === 'json' && typeof resp === 'string') {
-            try {
-              resp = JSON.parse(resp);
-            } catch {
-              throw new NodeOperationError(node.name, 'Response body is not valid JSON. Change "Response Format" to "Text"', { itemIndex });
+            if (Array.isArray(resp)) {
+              for (const entry of resp) returnItems.push({ json: entry as Record<string, unknown>, pairedItem: { item: itemIndex } });
+            } else {
+              returnItems.push({ json: resp as Record<string, unknown>, pairedItem: { item: itemIndex } });
             }
-          }
-          if (Array.isArray(resp)) {
-            for (const entry of resp) returnItems.push({ json: entry as Record<string, unknown>, pairedItem: { item: itemIndex } });
-          } else {
-            returnItems.push({ json: resp as Record<string, unknown>, pairedItem: { item: itemIndex } });
           }
         }
       } catch (error) {

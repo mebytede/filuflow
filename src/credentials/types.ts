@@ -2,7 +2,8 @@
 // Feldnamen, Defaults, Optionen und Sichtbarkeit wie in n8n 1.123.0:
 //   packages/nodes-base/credentials/HttpHeaderAuth.credentials.ts, HttpBasicAuth.credentials.ts,
 //   HttpQueryAuth.credentials.ts, HttpBearerAuth.credentials.ts, HttpCustomAuth.credentials.ts,
-//   JwtAuth.credentials.ts, OAuth2Api.credentials.ts, OpenAiApi.credentials.ts
+//   JwtAuth.credentials.ts, OAuth2Api.credentials.ts, OpenAiApi.credentials.ts, HttpDigestAuth.credentials.ts,
+//   HttpSslAuth.credentials.ts
 //   packages/@n8n/nodes-langchain/credentials/AnthropicApi.credentials.ts, GooglePalmApi.credentials.ts
 // Felder mit typeOptions.password heißen hier "password" und sind geheim. Das JSON von httpCustomAuth enthält
 // Header- und Query-Werte und gilt deshalb ebenfalls als geheim.
@@ -56,6 +57,26 @@ export const CREDENTIAL_TYPES: CredentialTypeSchema[] = [
     fields: [
       { name: 'user', label: 'Benutzer', kind: 'string', default: '' },
       { name: 'password', label: 'Passwort', kind: 'password', default: '' },
+    ],
+  },
+  {
+    name: 'httpDigestAuth',
+    label: 'Digest Auth',
+    description: 'Benutzername und Passwort (HTTP Digest).',
+    fields: [
+      { name: 'user', label: 'Benutzer', kind: 'string', default: '' },
+      { name: 'password', label: 'Passwort', kind: 'password', default: '' },
+    ],
+  },
+  {
+    name: 'httpSslAuth',
+    label: 'SSL-Zertifikate',
+    description: 'Client-Zertifikat und eigene CA für HTTP Request ("SSL Certificates").',
+    fields: [
+      { name: 'ca', label: 'CA', kind: 'text', default: '', secret: true, hint: 'PEM; ersetzt die Standard-CAs' },
+      { name: 'cert', label: 'Zertifikat', kind: 'text', default: '', secret: true },
+      { name: 'key', label: 'Private Key', kind: 'text', default: '', secret: true },
+      { name: 'passphrase', label: 'Passphrase', kind: 'password', default: '' },
     ],
   },
   {
