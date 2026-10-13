@@ -112,6 +112,7 @@ export async function handleChatRequest(ctx: ChatHandleContext): Promise<ChatHan
       allowFileUploads: options.allowFileUploads === true,
       allowedFilesMimeTypes: options.allowedFilesMimeTypes ?? '',
       enableStreaming: options.responseMode === 'streaming',
+      responseNodes: options.responseMode === 'responseNodes',
       ...(options.title !== undefined ? { title: options.title } : {}),
       ...(options.subtitle !== undefined ? { subtitle: options.subtitle } : {}),
       ...(options.inputPlaceholder !== undefined ? { inputPlaceholder: options.inputPlaceholder } : {}),
@@ -181,8 +182,8 @@ function loadSessionMessages(workflow: Workflow, node: WorkflowNode, sessionId: 
   return [];
 }
 
-// Parameter wie n8n ChatTrigger.node.ts (properties, commonOptionsFields). Abweichungen: authentication ohne
-// "n8nUserAuth" und responseMode ohne "responseNodes" (Knoten 'Respond to Chat'); beides gibt es in filuflow nicht. customCss hat einen leeren Default statt der n8n-Vorlage (constants.ts cssVariables), weil die
+// Parameter wie n8n ChatTrigger.node.ts (properties, commonOptionsFields). Abweichung: authentication ohne
+// "n8nUserAuth", das es in filuflow nicht gibt. customCss hat einen leeren Default statt der n8n-Vorlage (constants.ts cssVariables), weil die
 // gehostete Seite eine eigene Umsetzung ohne diese CSS-Variablen ist.
 const HOSTED = { '/mode': ['hostedChat'] };
 const allowFileUploadsParam: ParamSchema = {
@@ -202,6 +203,7 @@ const allowedFilesMimeTypesParam: ParamSchema = {
 };
 const lastNodeMode = { value: 'lastNode', label: 'Wenn der letzte Knoten fertig ist', description: 'Antwortet mit Daten des zuletzt ausgeführten Knotens' };
 const responseNodeMode = { value: 'responseNode', label: "Über Knoten 'Respond to Webhook'", description: 'Die Antwort legt jener Knoten fest' };
+const responseNodesMode = { value: 'responseNodes', label: 'Über Antwortknoten', description: "Antworten kommen von Knoten 'Respond to Chat' oder 'Respond to Webhook'" };
 const streamingMode = { value: 'streaming', label: 'Streaming', description: 'Antwort laufend von Knoten mit Streaming (z. B. AI Agent)' };
 function responseModeParam(options: ParamSchema['options'], show?: ParamSchema['show']): ParamSchema {
   return { name: 'responseMode', label: 'Antwortmodus', type: 'options', default: 'lastNode', description: 'Wann und wie geantwortet wird', options, ...(show ? { show } : {}) };
@@ -371,11 +373,11 @@ const parameters: ParamSchema[] = [
   chatOptions({ public: [false], '@version': [1, 1.1] }, [allowFileUploadsParam, allowedFilesMimeTypesParam]),
   chatOptions({ ...PUBLIC_MODES, '@version': [1, 1.1] }, [...commonOptions, responseModeParam([lastNodeMode, responseNodeMode])]),
   chatOptions({ ...PUBLIC_MODES, '@version': [1.2] }, [...commonOptions, responseModeParam([lastNodeMode, responseNodeMode, streamingMode])]),
-  chatOptions({ public: [false], '@version': [{ _cnd: { gte: 1.3 } }] }, [allowFileUploadsParam, allowedFilesMimeTypesParam, responseModeParam([lastNodeMode])]),
+  chatOptions({ public: [false], '@version': [{ _cnd: { gte: 1.3 } }] }, [allowFileUploadsParam, allowedFilesMimeTypesParam, responseModeParam([lastNodeMode, responseNodesMode])]),
   chatOptions({ ...PUBLIC_MODES, '@version': [{ _cnd: { gte: 1.3 } }] }, [
     ...commonOptions,
     responseModeParam([lastNodeMode, streamingMode, responseNodeMode], { '/mode': ['webhook'] }),
-    responseModeParam([lastNodeMode, streamingMode], { '/mode': ['hostedChat'] }),
+    responseModeParam([lastNodeMode, streamingMode, responseNodesMode], { '/mode': ['hostedChat'] }),
   ]),
 ];
 
@@ -391,10 +393,6 @@ export const chatTriggerNode: NodeType = {
   credentialTypes: (node) => (node.parameters.public === true && node.parameters.authentication === 'basicAuth' ? ['httpBasicAuth'] : []),
   validate(node) {
     const issues: NodeIssue[] = [];
-    const options = (node.parameters.options ?? {}) as ChatOptions;
-    if (options.responseMode === 'responseNodes') {
-      issues.push({ code: 'node.unsupportedParameter', message: 'Chat Trigger: responseMode "responseNodes" (Knoten \'Respond to Chat\') gibt es in filuflow noch nicht', path: 'parameters.options.responseMode' });
-    }
     if (node.parameters.authentication === 'n8nUserAuth') {
       issues.push({ code: 'node.unsupportedParameter', message: 'Chat Trigger: "n8n User Auth" gibt es in filuflow nicht; bitte Basic Auth verwenden', path: 'parameters.authentication' });
     }

@@ -10,6 +10,8 @@ import type { ParamSchema } from './params.js';
 import type { Item } from '../types.js';
 import { NodeOperationError } from '../errors.js';
 import { jsonParse } from './shared/utils.js';
+import { findChatTrigger, usesResponseNodes } from './chat.js';
+import { WAIT_INDEFINITELY } from '../engine/executor.js';
 
 const WEBHOOK_NODE_TYPES = [
   'n8n-nodes-base.webhook',
@@ -321,6 +323,20 @@ export const respondToWebhookNode: NodeType = {
         statusCode = (options.responseCode as number) ?? 307;
       } else if (respondWith !== 'noData') {
         throw new NodeOperationError(ctx.node.name, `The Response Data option "${respondWith}" is not supported!`);
+      }
+
+      // Chat Trigger mit responseMode "responseNodes": die Antwort geht als Nachricht an die Chat-Seite
+      // (RespondToWebhook.node.ts: sendMessage aus output, text oder message, sonst JSON) und die Ausführung wartet
+      const chatTrigger = findChatTrigger(ctx);
+      if (chatTrigger && usesResponseNodes(chatTrigger) && ctx.canWait) {
+        let message = '';
+        if (body && typeof body === 'object' && !Array.isArray(body) && !Buffer.isBuffer(body)) {
+          const o = body as Record<string, unknown>;
+          message = ((o.output ?? o.text ?? o.message) as string | undefined) ?? '';
+          if (message === '' && Object.keys(o).length > 0) message = JSON.stringify(o, null, 2);
+        }
+        ctx.putExecutionToWait(WAIT_INDEFINITELY);
+        return [[{ json: {}, sendMessage: message }]];
       }
 
       response = { body, headers, statusCode, ...(binary ? { binary } : {}) };

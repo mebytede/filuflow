@@ -59,6 +59,14 @@ export class BufferWindowMemory {
     return history.map((m) => ({ ...m }));
   }
 
+  /**
+   * chatHistory.addAIMessage / addUserMessage (Respond to Chat). n8n ruft das über memory.chatHistory, das logWrapper
+   * nicht umhüllt; daher ohne eigenen Lauf im Protokoll.
+   */
+  addMessage(role: 'human' | 'ai', content: string): void {
+    this.entry().messages.push({ role, content });
+  }
+
   /** saveContext: Eingabe und Antwort anhängen */
   async save(input: string, output: string): Promise<void> {
     const { index } = this.ctx.addInputData('ai_memory', [[{ json: { action: 'saveContext', input: { input }, output: { output } } }]]);

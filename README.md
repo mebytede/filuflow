@@ -280,6 +280,10 @@ Antwort Wort für Wort in die laufende HTTP-Antwort, die Chat-Seite zeigt sie so
 JSON-Zeilen (`{"type":"begin|item|end|error","content":…,"metadata":{…}}`); Respond to Webhook ab v1.5 schreibt dort
 ebenfalls hinein.
 
+**Nachfragen im Chat:** Mit dem Antwortmodus "Über Antwortknoten" schicken Knoten "Respond to Chat" Nachrichten an die
+Chat-Seite und warten auf die Antwort der Person, etwa für Rückfragen oder Freigaben (Human in the Loop). Die Seite hält
+dafür einen Kanal zur laufenden Ausführung offen; die Ausführung wartet dauerhaft und übersteht auch einen Neustart.
+
 ## Mehrere Benutzer und Mandanten
 
 Für Teams und für den Betrieb bei mehreren Kunden gibt es zwei weitere Betriebsarten. Der Einzelbetrieb mit `filuflow serve`

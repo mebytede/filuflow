@@ -14,9 +14,9 @@ export interface ChatViewOptions {
   initial?: ChatMessage[];
   /**
    * Nachricht senden; liefert die Antwort als Text. Bei einer gestreamten Antwort schreibt send die Teile über `stream`
-   * und liefert null.
+   * und liefert null; undefined heißt, Antworten kommen später (Chat mit Antwortknoten, über add()).
    */
-  send(text: string, stream: StreamSink): Promise<string | null>;
+  send(text: string, stream: StreamSink): Promise<string | null | undefined>;
   /** Kopfzeile mit Knöpfen (Editor: Neue Sitzung, Schließen) */
   actions?: HTMLElement[];
 }
@@ -121,6 +121,18 @@ export class ChatView {
     for (const m of o.initial ?? []) this.add(m);
   }
 
+  private typingRow?: HTMLElement;
+
+  /** Platzhalter, solange eine Antwort aussteht (Chat mit Antwortknoten) */
+  typing(on: boolean): void {
+    this.typingRow?.remove();
+    this.typingRow = undefined;
+    if (on) {
+      this.typingRow = this.add({ from: 'bot', text: '…' });
+      this.typingRow.classList.add('chat-pending');
+    }
+  }
+
   focus(): void {
     this.input.focus();
   }
@@ -175,6 +187,7 @@ export class ChatView {
       const reply = await this.o.send(text, sink);
       pending.remove();
       for (const b of bubbles.values()) b.classList.remove('chat-streaming');
+      if (reply === undefined) return;
       if (reply !== null) this.add({ from: 'bot', text: reply || '(keine Antwort)' });
       else if (!bubbles.size && !this.list.querySelector('.chat-error:last-child')) this.add({ from: 'bot', text: '(keine Antwort)' });
     } catch (error) {

@@ -27,6 +27,9 @@ Trotzdem gilt:
 - Merge per SQL (alasql) kann keine Dateien lesen oder schreiben: die Datei-Funktionen und -Quellen von alasql sind gesperrt
   (wie n8n).
 - `$env` liefert nur freigegebene Umgebungsvariablen (`FILUFLOW_ENV_ALLOW`, Default: Präfix `FL_`).
+- Chat mit Antwortknoten: Kanal (`/chat/<id>/events`) und Antworten (`POST /chat/<id>`) sind wie die Chat-Seite ohne
+  Anmeldung erreichbar, aber nur mit der sessionId, mit der die Ausführung gestartet wurde. Wer Ausführungs-ID und
+  sessionId kennt, kann mitlesen und antworten; die sessionId erzeugt die Chat-Seite zufällig im Browser.
 - Variablen (`$vars`) sind keine Geheimnisse: Die Oberfläche zeigt ihre Werte im Klartext, sie liegen unverschlüsselt in
   SQLite. Logs nennen nur die Schlüssel. Geheimnisse gehören in Credentials.
 - "Auf Test-Aufruf warten" führt beim nächsten Aufruf der Test-URL einen Stand aus dem Editor aus. Das darf nur, wer den

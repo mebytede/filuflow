@@ -187,6 +187,11 @@ export interface NodeType {
   /** Beschreibung der Parameter für das Formular im Editor (M19), über alle unterstützten Versionen */
   parameters?: ParamSchema[];
   /**
+   * Antwort aus dem Chat für einen wartenden Node (n8n INodeType.onMessage): liefert seine Ausgabe beim Fortsetzen,
+   * undefined gibt die Eingangsdaten weiter
+   */
+  onMessage?(ctx: ExecContext, data: Item): Promise<Item[][] | undefined>;
+  /**
    * Ausführen. `null` bedeutet: Node lief erfolgreich, aber der Zweig endet
    * (n8n-Semantik: nodeSuccessData === null).
    */

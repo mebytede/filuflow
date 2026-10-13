@@ -753,6 +753,11 @@ export class WebhookService {
       return errorResponse(new Error('Workflow Webhook Error: Workflow could not be started!'));
     }
     if (result.directResponse) return { ...result.directResponse, raw: true };
+    if (options.responseMode === 'responseNodes') {
+      // handleHostedChatResponse: Start bestätigen, Nachrichten kommen über den Chat-Kanal (chatSessions.ts)
+      const entry = this.startExecution({ workflow, mode: test ? 'manual' : 'webhook', startNodeName: node.name, triggerOutputs: result.workflowData, usePinData: test });
+      return expressResponse(200, {}, { executionStarted: true, executionId: entry.id }, true);
+    }
     const responseMode = options.responseMode === 'responseNode' ? 'responseNode' : options.responseMode === 'streaming' ? 'streaming' : 'lastNode';
     const opts: WebhookResponseOptions = { responseMode, responseCode: 200, responseData: 'firstEntryJson', responseBinaryPropertyName: 'data', responseHeaders: new Map() };
     return this.respondWith(opts, {}, (hooks) =>

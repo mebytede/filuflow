@@ -249,3 +249,9 @@ Ergebnis genau wie ohne Streaming entstehen. Der V2-Agent gibt als Ergebnis die 
 (n8n setzt dort den gesamten gestreamten Text zusammen; bei Tool-Aufrufen ohne Begleittext ist das dasselbe). Das
 Chat-Fenster im Editor nutzt weiter Testläufe ohne Streaming.
 
+## Chat mit Antwortknoten (M22a)
+n8n verbindet die Chat-Seite über eine WebSocket (`/chat`, Paket ws) mit der wartenden Ausführung. filuflow nutzt
+Server-Sent Events für den Weg zur Seite und POST für Antworten: gleicher Ablauf (Nachricht, "continue", Ende, Prüfung im
+Abstand von 500 ms statt 3 s), aber ohne neue Abhängigkeit und mit dem fastify-Server allein. Das eingebettete Chat-Widget von
+n8n (`@n8n/chat`) spricht diesen Kanal nicht; die gehostete Chat-Seite von filuflow schon.
+

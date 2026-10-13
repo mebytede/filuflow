@@ -134,6 +134,11 @@ export interface ResumeData {
   runData: RunData;
   /** Daten für den wartenden Node (Webhook-Request); ohne gibt der Node seine Eingangsdaten weiter */
   webhookData?: Array<Item[] | null>;
+  /**
+   * Antwort aus dem Chat (n8n chat-execution-manager.ts runNode): der wartende Node bildet daraus mit onMessage seine
+   * Ausgabe, ohne onMessage ist das Item selbst die Ausgabe
+   */
+  chatMessage?: Item;
 }
 
 /** n8n WAIT_INDEFINITELY */
@@ -344,6 +349,27 @@ export class WorkflowExecutor {
     if (last && this.runData[last]?.length) this.runData[last].pop();
   }
 
+  /** Ausgabe des wartenden Nodes aus einer Chat-Antwort (onMessage mit Kontext des Nodes) */
+  private async applyChatMessage(message: Item): Promise<void> {
+    const top = this.stack[0];
+    const original = this.graph.getNode(top.node.name)!;
+    const nodeType = this.registry.getVersioned(original.type, original.typeVersion);
+    let data: Item[][] | undefined = [[message]];
+    if (nodeType?.onMessage) {
+      const inputs = top.data.main.map((i) => i ?? []);
+      const ctx = new NodeExecutionContext({
+        executor: this,
+        node: original,
+        executeData: { ...top, node: original } as ExecuteData,
+        inputs: inputs.length ? inputs : [[]],
+        connectionInputData: top.data.main[0] ?? [],
+        runIndex: this.runData[original.name]?.length ?? 0,
+      });
+      data = await nodeType.onMessage(ctx, message);
+    }
+    if (data) this.stack[0] = { ...top, data: { main: data } };
+  }
+
   getNodeContext(nodeName: string): Record<string, unknown> {
     return (this.nodeContexts[nodeName] ??= {});
   }
@@ -514,6 +540,7 @@ export class WorkflowExecutor {
     this.checkSupported();
     if (this.options.resume) {
       this.restore(this.options.resume);
+      if (this.options.resume.chatMessage) await this.applyChatMessage(this.options.resume.chatMessage);
     } else {
       const start = findStartNode(this.graph, this.registry, this.options.startNodeName);
       this.stack = [

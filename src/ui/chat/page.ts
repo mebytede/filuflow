@@ -12,6 +12,8 @@ interface Config {
   inputPlaceholder?: string;
   /** responseMode "streaming": Antwort als JSON-Zeilen */
   enableStreaming?: boolean;
+  /** responseMode "responseNodes": Antworten kommen über den Chat-Kanal der Ausführung */
+  responseNodes?: boolean;
 }
 
 const config = JSON.parse(document.getElementById('chat-config')?.textContent ?? '{}') as Config;
@@ -64,15 +66,70 @@ const initial: ChatMessage[] = (config.initialMessages ?? '')
   .filter(Boolean)
   .map((text) => ({ from: 'bot' as const, text }));
 
+/**
+ * Chat mit Antwortknoten (n8n: WebSocket /chat): Die erste Nachricht startet die Ausführung, danach liefert
+ * /chat/<id>/events die Nachrichten der Knoten, Antworten gehen als POST an /chat/<id>.
+ */
+let channel: { executionId: string; source: EventSource; waiting: boolean } | undefined;
+
+function closeChannel(): void {
+  channel?.source.close();
+  channel = undefined;
+}
+
+function openChannel(executionId: string): void {
+  closeChannel();
+  const source = new EventSource(`/chat/${encodeURIComponent(executionId)}/events?sessionId=${encodeURIComponent(session)}`);
+  const current = { executionId, source, waiting: false };
+  channel = current;
+  view.typing(true);
+  source.addEventListener('message', (e) => {
+    const { text } = JSON.parse((e as MessageEvent<string>).data) as { text: string };
+    view.typing(false);
+    view.add({ from: 'bot', text });
+    current.waiting = true;
+  });
+  // Keine Eingabe nötig: die Ausführung läuft weiter
+  source.addEventListener('continue', () => {
+    current.waiting = false;
+    view.typing(true);
+  });
+  source.addEventListener('end', () => {
+    view.typing(false);
+    closeChannel();
+  });
+  source.addEventListener('error', (e) => {
+    const data = (e as MessageEvent<string>).data;
+    view.typing(false);
+    if (data) view.add({ from: 'bot', text: (JSON.parse(data) as { message?: string }).message ?? 'Fehler', error: true });
+    if (source.readyState === EventSource.CLOSED || data) closeChannel();
+  });
+}
+
+async function sendResponseNodes(chatInput: string): Promise<undefined> {
+  if (channel?.waiting) {
+    const res = await fetch(`/chat/${encodeURIComponent(channel.executionId)}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sessionId: session, chatInput }) });
+    if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { message?: string }).message ?? `HTTP ${res.status}`);
+    channel.waiting = false;
+    view.typing(true);
+    return undefined;
+  }
+  const started = (await post({ action: 'sendMessage', sessionId: session, chatInput })) as { executionId?: string };
+  if (started?.executionId) openChannel(started.executionId);
+  return undefined;
+}
+
 const view = new ChatView({
   title: config.title ?? 'Chat',
   subtitle: config.subtitle,
   placeholder: config.inputPlaceholder ?? 'Nachricht eingeben',
   initial,
   send: async (chatInput, sink) =>
-    config.enableStreaming
-      ? postStreaming({ action: 'sendMessage', sessionId: session, chatInput }, sink)
-      : replyText(await post({ action: 'sendMessage', sessionId: session, chatInput })),
+    config.responseNodes
+      ? sendResponseNodes(chatInput)
+      : config.enableStreaming
+        ? postStreaming({ action: 'sendMessage', sessionId: session, chatInput }, sink)
+        : replyText(await post({ action: 'sendMessage', sessionId: session, chatInput })),
 });
 document.getElementById('chat')?.append(view.el);
 view.focus();

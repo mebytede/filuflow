@@ -21,6 +21,7 @@ import { registerEditorApi } from './editorApi.js';
 import { registerChatAssets, registerUi } from './ui.js';
 import { registerWorkerApi } from './workerApi.js';
 import { VariableStore, registerVariablesApi } from './variablesApi.js';
+import { ChatSessionError, ChatSessions } from './chatSessions.js';
 import { registerOverview, triggersOf } from './overview.js';
 import type { LayeredCredentialProvider } from '../credentials/managed.js';
 import { CREDENTIAL_TYPES } from '../credentials/types.js';
@@ -227,6 +228,31 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
       return reply.code(400).send(oauthCallbackPage(false, (error as Error).message));
     }
   });
+  // Chat mit Antwortknoten (Human in the Loop): Kanal zur Chat-Seite und Antworten, abgesichert über die sessionId
+  const chatSessions = new ChatSessions({ manager, store, logger });
+  const chatError = (reply: FastifyReply, error: unknown) =>
+    error instanceof ChatSessionError ? reply.code(error.statusCode).send({ message: error.message }) : reply.code(500).send({ message: (error as Error).message });
+  app.get('/chat/:executionId/events', async (request, reply) => {
+    const { executionId } = request.params as { executionId: string };
+    const sessionId = String((request.query as { sessionId?: unknown }).sessionId ?? '');
+    try {
+      const stream = chatSessions.open(executionId, sessionId);
+      return sendHttp(reply, { statusCode: 200, headers: { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-cache', connection: 'keep-alive' }, raw: true, stream });
+    } catch (error) {
+      return chatError(reply, error);
+    }
+  });
+  app.post('/chat/:executionId', async (request, reply) => {
+    const { executionId } = request.params as { executionId: string };
+    const body = (request.body ?? {}) as { sessionId?: unknown; chatInput?: unknown };
+    try {
+      chatSessions.reply(executionId, String(body.sessionId ?? ''), String(body.chatInput ?? ''));
+      return { ok: true };
+    } catch (error) {
+      return chatError(reply, error);
+    }
+  });
+
   if (options.uiDir !== false) registerUi(app, options.uiDir);
   else registerChatAssets(app);
 
@@ -416,6 +442,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
     scheduler,
     async close() {
       clearInterval(pruneTimer);
+      chatSessions.closeAll();
       manager.stopWaitTracker();
       setOAuth2TokenStore(undefined);
       workflows!.close();

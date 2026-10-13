@@ -124,7 +124,7 @@ export class ExecutionManager {
    * Wartende Execution fortsetzen (Zeitpunkt erreicht oder Webhook). webhookData wird die Ausgabe des wartenden
    * Nodes; ohne gibt er seine Eingangsdaten weiter. Fehler wie n8n waiting-webhooks.ts (404, 409).
    */
-  resume(id: string, o: { webhookData?: Item[][]; hooks?: RunHooks } = {}): ActiveExecution {
+  resume(id: string, o: { webhookData?: Item[][]; chatMessage?: Item; hooks?: RunHooks } = {}): ActiveExecution {
     if (this.active.has(id)) throw new ResumeError(`The execution "${id}" is running already.`, 409);
     const stored = this.options.store.get(id, false);
     if (!stored) throw new ResumeError(`The execution "${id}" does not exist.`, 404);
@@ -141,7 +141,10 @@ export class ExecutionManager {
       workflow: record.workflow,
       mode: stored.mode,
       hooks: o.hooks,
-      resume: { executionId: id, data: { state: record.state, runData: record.runData, ...(o.webhookData ? { webhookData: o.webhookData } : {}) } },
+      resume: {
+        executionId: id,
+        data: { state: record.state, runData: record.runData, ...(o.webhookData ? { webhookData: o.webhookData } : {}), ...(o.chatMessage ? { chatMessage: o.chatMessage } : {}) },
+      },
     });
   }
 
