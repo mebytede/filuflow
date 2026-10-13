@@ -1,8 +1,10 @@
-// OAuth2 (nur Grant "client_credentials"), Credential-Typ oAuth2Api.
+// OAuth2, Credential-Typ oAuth2Api: Grants "clientCredentials", "authorizationCode" und "pkce".
 // Nachgebaut nach n8n 1.123.0:
 //   packages/core/.../utils/request-helper-functions.ts (createOAuth2Client, requestOAuth2)
-//   packages/@n8n/client-oauth2/src (credentials-flow.ts, client-oauth2.ts accessTokenRequest,
-//   client-oauth2-token.ts sign, utils.ts auth, constants.ts DEFAULT_HEADERS)
+//   packages/@n8n/client-oauth2/src (credentials-flow.ts, code-flow.ts getUri/getToken, client-oauth2.ts
+//   accessTokenRequest, client-oauth2-token.ts sign/refresh, utils.ts auth/getRequestOptions, constants.ts)
+//   packages/cli/src/controllers/oauth/oauth2-credential.controller.ts (Autorisierungs-URL, PKCE, Callback,
+//   oauthTokenData zusammenführen)
 // Feldnamen wie packages/nodes-base/credentials/OAuth2Api.credentials.ts:
 //   grantType, accessTokenUrl, clientId, clientSecret, scope, authentication ("header" | "body"),
 //   additionalBodyProperties
@@ -10,9 +12,11 @@
 // neues Token und wiederholt den Request einmal. filuflow hält das Token im Speicher und im Server zusätzlich in der
 // Datenbank (setOAuth2TokenStore), damit es einen Neustart übersteht.
 import { createHash } from 'node:crypto';
+import qs from 'qs';
+import { credentialRefOf } from './store.js';
 import { stringify as qsStringify, parse as qsParse } from 'node:querystring';
 import type { ExecContext } from '../nodes/types.js';
-import type { HttpRequest } from '../http.js';
+import type { HttpClient, HttpRequest } from '../http.js';
 import { NodeOperationError } from '../errors.js';
 
 export interface OAuth2Token {
@@ -26,8 +30,18 @@ const cache = new Map<string, OAuth2Token>();
 
 /** Dauerhafte Ablage der Tokens (Server: SQLite, verschlüsselt mit FILUFLOW_ENCRYPTION_KEY); n8n speichert sie im Credential */
 export interface OAuth2TokenStore {
-  get(key: string): OAuth2Token | undefined;
-  set(key: string, token: OAuth2Token): void;
+  get<T = unknown>(key: string): T | undefined;
+  set(key: string, value: unknown): void;
+  delete?(key: string): void;
+}
+
+/** Schlüssel der Token-Daten eines verbundenen Credentials (authorizationCode, pkce) */
+export function oauth2TokenKey(ref: { name: string; id?: string }): string {
+  return `oauth2-cred:${ref.id ?? ref.name}`;
+}
+
+export function getOAuth2TokenStore(): OAuth2TokenStore | undefined {
+  return tokenStore;
 }
 let tokenStore: OAuth2TokenStore | undefined;
 
@@ -66,47 +80,34 @@ function parseBody(contentType: string, body: string, status: number): Record<st
   throw new Error(`Unsupported content type: ${contentType} (HTTP ${status})`);
 }
 
-/** CredentialsFlow.getToken */
-async function fetchToken(ctx: ExecContext, cred: Record<string, unknown>): Promise<OAuth2Token> {
-  const clientId = String(cred.clientId ?? '');
-  const clientSecret = String(cred.clientSecret ?? '');
-  const tokenUrl = String(cred.accessTokenUrl ?? '');
-  if (!clientId || !clientSecret || !tokenUrl) {
-    const missing = !clientId ? 'clientId' : !clientSecret ? 'clientSecret' : 'accessTokenUri';
-    throw new NodeOperationError(ctx.node.name, `Expected "${missing}" to exist`);
+class OAuth2RequestError extends Error {
+  constructor(
+    message: string,
+    readonly body: string,
+  ) {
+    super(message);
   }
-  const headers: Record<string, string> = {
-    Accept: 'application/json, application/x-www-form-urlencoded',
-    'Content-Type': 'application/x-www-form-urlencoded',
-  };
-  let additional: Record<string, unknown> = {};
-  if (typeof cred.additionalBodyProperties === 'string' && cred.additionalBodyProperties) {
-    try {
-      additional = JSON.parse(cred.additionalBodyProperties) as Record<string, unknown>;
-    } catch {
-      additional = {};
-    }
-  }
-  const body: Record<string, unknown> = { grant_type: 'client_credentials', ...additional };
-  // n8n: scopes = (scope ?? '').split(' '), daher ist "scope" immer gesetzt (ggf. leer)
-  body.scope = String(cred.scope ?? '').split(' ').join(' ');
-  if ((cred.authentication ?? 'header') === 'body') {
-    body.client_id = clientId;
-    body.client_secret = clientSecret;
-  } else {
-    headers.Authorization = `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`;
-  }
-  const res = await ctx.helpers.http.request({
+}
+
+/** ClientOAuth2.accessTokenRequest: POST an die Token-URL, Fehler nach RFC 6749 */
+async function accessTokenRequest(
+  http: HttpClient,
+  url: string,
+  headers: Record<string, string>,
+  body: Record<string, unknown>,
+  signal?: AbortSignal,
+): Promise<Record<string, unknown>> {
+  const res = await http.request({
     method: 'POST',
-    url: tokenUrl,
-    headers,
+    url,
+    headers: { Accept: 'application/json, application/x-www-form-urlencoded', 'Content-Type': 'application/x-www-form-urlencoded', ...headers },
     body: qsStringify(body as Record<string, string>),
-    signal: ctx.signal,
+    signal,
     timeout: 300_000,
   });
   const contentType = String(res.headers['content-type'] ?? '');
   const text = res.body.toString('utf8');
-  if (res.statusCode >= 500 || res.statusCode >= 300) {
+  if (res.statusCode >= 300) {
     let message = `HTTP status ${res.statusCode}`;
     if (res.statusCode >= 400 && res.statusCode < 500) {
       try {
@@ -116,14 +117,30 @@ async function fetchToken(ctx: ExecContext, cred: Record<string, unknown>): Prom
         // Antwort nicht lesbar: Statusmeldung bleibt
       }
     }
-    throw new NodeOperationError(ctx.node.name, message, { description: text });
+    throw new OAuth2RequestError(message, text);
   }
-  let data: Record<string, unknown>;
   try {
-    data = parseBody(contentType, text, res.statusCode);
+    return parseBody(contentType, text, res.statusCode);
   } catch (error) {
-    throw new NodeOperationError(ctx.node.name, (error as Error).message, { description: text });
+    throw new OAuth2RequestError((error as Error).message, text);
   }
+}
+
+/** Zusätzliche Body-Felder (additionalBodyProperties, JSON) */
+function additionalBody(cred: Record<string, unknown>): Record<string, unknown> {
+  if (typeof cred.additionalBodyProperties === 'string' && cred.additionalBodyProperties) {
+    try {
+      return JSON.parse(cred.additionalBodyProperties) as Record<string, unknown>;
+    } catch {
+      return {};
+    }
+  }
+  return {};
+}
+
+const basicAuth = (id: string, secret: string) => `Basic ${Buffer.from(`${id}:${secret}`).toString('base64')}`;
+
+function toToken(data: Record<string, unknown>): OAuth2Token {
   return {
     accessToken: String(data.access_token ?? ''),
     tokenType: typeof data.token_type === 'string' ? data.token_type.toLowerCase() : 'bearer',
@@ -131,15 +148,155 @@ async function fetchToken(ctx: ExecContext, cred: Record<string, unknown>): Prom
   };
 }
 
+/** CredentialsFlow.getToken */
+async function fetchToken(ctx: ExecContext, cred: Record<string, unknown>): Promise<OAuth2Token> {
+  const clientId = String(cred.clientId ?? '');
+  const clientSecret = String(cred.clientSecret ?? '');
+  const tokenUrl = String(cred.accessTokenUrl ?? '');
+  if (!clientId || !clientSecret || !tokenUrl) {
+    const missing = !clientId ? 'clientId' : !clientSecret ? 'clientSecret' : 'accessTokenUri';
+    throw new NodeOperationError(ctx.node.name, `Expected "${missing}" to exist`);
+  }
+  const headers: Record<string, string> = {};
+  const body: Record<string, unknown> = { grant_type: 'client_credentials', ...additionalBody(cred) };
+  // n8n: scopes = (scope ?? '').split(' '), daher ist "scope" immer gesetzt (ggf. leer)
+  body.scope = String(cred.scope ?? '').split(' ').join(' ');
+  if ((cred.authentication ?? 'header') === 'body') {
+    body.client_id = clientId;
+    body.client_secret = clientSecret;
+  } else {
+    headers.Authorization = basicAuth(clientId, clientSecret);
+  }
+  try {
+    return toToken(await accessTokenRequest(ctx.helpers.http, tokenUrl, headers, body, ctx.signal));
+  } catch (error) {
+    if (error instanceof OAuth2RequestError) throw new NodeOperationError(ctx.node.name, error.message, { description: error.body });
+    throw error;
+  }
+}
+
+/** Redirect-URI wie n8n: <Basis>/rest/oauth2-credential/callback */
+export const OAUTH2_CALLBACK_PATH = 'rest/oauth2-credential/callback';
+
+/** CodeFlow.getUri mit den Optionen aus oauth2-credential.controller.ts (Scope Default "openid", authQueryParameters, PKCE) */
+export function authorizationUrl(cred: Record<string, unknown>, o: { redirectUri: string; state: string; codeChallenge?: string }): string {
+  const clientId = String(cred.clientId ?? '');
+  const authUrl = String(cred.authUrl ?? '');
+  if (!clientId) throw new Error('Expected "clientId" to exist');
+  if (!authUrl) throw new Error('Expected "authorizationUri" to exist');
+  const scope = typeof cred.scope === 'string' ? cred.scope : 'openid';
+  const separator = scope.includes(',') ? ',' : ' ';
+  const query: Record<string, unknown> = {
+    ...(typeof cred.authQueryParameters === 'string' && cred.authQueryParameters ? qs.parse(cred.authQueryParameters) : {}),
+    ...(o.codeChallenge ? { code_challenge: o.codeChallenge, code_challenge_method: 'S256' } : {}),
+    client_id: clientId,
+    redirect_uri: o.redirectUri,
+    response_type: 'code',
+    state: o.state,
+    scope: scope.split(',').join(separator),
+  };
+  const url = new URL(authUrl);
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== null && value !== undefined) url.searchParams.append(key, String(value));
+  }
+  return url.toString();
+}
+
+/**
+ * Code gegen Token tauschen (CodeFlow.getToken mit den Optionen des Controllers): PKCE schickt code_verifier,
+ * "body" schickt client_id und client_secret im Body, sonst Basic-Auth. Liefert die Token-Daten.
+ */
+export async function exchangeAuthorizationCode(
+  http: HttpClient,
+  cred: Record<string, unknown>,
+  o: { code: string; redirectUri: string; codeVerifier?: string },
+): Promise<Record<string, unknown>> {
+  const clientId = String(cred.clientId ?? '');
+  let clientSecret = String(cred.clientSecret ?? '');
+  const tokenUrl = String(cred.accessTokenUrl ?? '');
+  if (!clientId) throw new Error('Expected "clientId" to exist');
+  if (!tokenUrl) throw new Error('Expected "accessTokenUri" to exist');
+  let extra: Record<string, unknown> = additionalBody(cred);
+  if (cred.grantType === 'pkce') {
+    extra = { code_verifier: o.codeVerifier };
+  } else if (cred.authentication === 'body') {
+    extra = { ...extra, client_id: clientId, client_secret: clientSecret };
+    clientSecret = '';
+  }
+  const headers: Record<string, string> = {};
+  const body: Record<string, unknown> = { code: o.code, grant_type: 'authorization_code', redirect_uri: o.redirectUri };
+  if (clientSecret) headers.Authorization = basicAuth(clientId, clientSecret);
+  else body.client_id = clientId;
+  return accessTokenRequest(http, tokenUrl, headers, { ...body, ...extra });
+}
+
+/** ClientOAuth2Token.refresh: neue Token-Daten, zusammengeführt mit den alten (refresh_token bleibt, wenn keiner kommt) */
+export async function refreshOAuth2Token(http: HttpClient, cred: Record<string, unknown>, data: Record<string, unknown>, signal?: AbortSignal): Promise<Record<string, unknown>> {
+  const refreshToken = data.refresh_token;
+  if (typeof refreshToken !== 'string' || !refreshToken) throw new Error('refreshToken is required');
+  const clientId = String(cred.clientId ?? '');
+  const clientSecret = String(cred.clientSecret ?? '');
+  const headers: Record<string, string> = {};
+  const body: Record<string, unknown> = { refresh_token: refreshToken, grant_type: 'refresh_token' };
+  if (clientSecret) {
+    if (cred.authentication === 'body') {
+      body.client_id = clientId;
+      body.client_secret = clientSecret;
+    } else {
+      headers.Authorization = basicAuth(clientId, clientSecret);
+    }
+  } else {
+    body.client_id = clientId;
+  }
+  const fresh = await accessTokenRequest(http, String(cred.accessTokenUrl ?? ''), headers, { ...body, ...additionalBody(cred) }, signal);
+  return { ...data, ...fresh };
+}
+
+/** Token-Daten eines verbundenen Credentials: gespeichert (Server) oder aus dem Credential (n8n-Export) */
+export function connectedTokenData(cred: Record<string, unknown>, ref?: { name: string; id?: string }): Record<string, unknown> | undefined {
+  const stored = ref ? tokenStore?.get<Record<string, unknown>>(oauth2TokenKey(ref)) : undefined;
+  if (stored && Object.keys(stored).length) return stored;
+  const own = cred.oauthTokenData;
+  if (own && typeof own === 'object' && Object.keys(own).length) return own as Record<string, unknown>;
+  if (typeof own === 'string' && own) {
+    try {
+      return JSON.parse(own) as Record<string, unknown>;
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
+}
+
 /** Token aus dem Cache oder neu holen; force = nach 401 neu holen */
 export async function getOAuth2Token(ctx: ExecContext, cred: Record<string, unknown>, force = false): Promise<OAuth2Token> {
   const grantType = String(cred.grantType ?? 'authorizationCode');
+  if (grantType === 'authorizationCode' || grantType === 'pkce') {
+    // requestOAuth2: Token aus oauthTokenData, nach 401 mit dem refresh_token erneuern und speichern
+    const ref = credentialRefOf(cred);
+    const data = connectedTokenData(cred, ref);
+    if (!data) {
+      throw new NodeOperationError(ctx.node.name, 'OAuth credentials not connected', {
+        description: 'Das Credential ist noch nicht verbunden: in der Oberfläche unter Credentials auf "Verbinden" klicken.',
+      });
+    }
+    if (!force) return toToken(data);
+    let fresh: Record<string, unknown>;
+    try {
+      fresh = await refreshOAuth2Token(ctx.helpers.http, cred, data, ctx.signal);
+    } catch (error) {
+      if (error instanceof OAuth2RequestError) throw new NodeOperationError(ctx.node.name, error.message, { description: error.body });
+      throw new NodeOperationError(ctx.node.name, (error as Error).message);
+    }
+    if (ref) tokenStore?.set(oauth2TokenKey(ref), fresh);
+    return toToken(fresh);
+  }
   if (grantType !== 'clientCredentials') {
-    throw new NodeOperationError(ctx.node.name, `OAuth2: Grant-Typ "${grantType}" wird nicht unterstützt (nur clientCredentials)`);
+    throw new NodeOperationError(ctx.node.name, `OAuth2: Grant-Typ "${grantType}" wird nicht unterstützt`);
   }
   const key = cacheKey(cred);
   if (!force) {
-    const cached = cache.get(key) ?? tokenStore?.get(`oauth2:${key}`);
+    const cached = cache.get(key) ?? tokenStore?.get<OAuth2Token>(`oauth2:${key}`);
     if (cached) {
       cache.set(key, cached);
       return cached;

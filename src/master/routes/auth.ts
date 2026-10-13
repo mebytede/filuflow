@@ -1,6 +1,7 @@
 // Anmeldung, Einrichtung des ersten Admins, eigenes Profil (Passwort, TOTP, API-Tokens).
 import type { FastifyInstance } from 'fastify';
 import { CREDENTIAL_TYPES } from '../../credentials/types.js';
+import { OAUTH2_CALLBACK_PATH } from '../../credentials/oauth2.js';
 import type { MasterContext } from '../app.js';
 import type { UserRow } from '../db.js';
 import {
@@ -132,7 +133,7 @@ export function registerAuthRoutes(api: FastifyInstance, ctx: MasterContext): vo
 
   api.get('/api/me', async (request) => ({ user: userView(request.auth!.user) }));
   // Beschreibung der Credential-Typen für das Formular (keine Werte)
-  api.get('/api/credential-types', async () => ({ data: CREDENTIAL_TYPES }));
+  api.get('/api/credential-types', async () => ({ data: CREDENTIAL_TYPES, oauthCallbackUrl: `${ctx.publicUrl}/${OAUTH2_CALLBACK_PATH}` }));
 
   api.put('/api/me', async (request, reply) => {
     const name = str((request.body as Record<string, unknown> | null)?.name).trim();

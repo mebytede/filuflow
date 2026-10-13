@@ -2,6 +2,8 @@
 // Ausgeführt wird auf den Workern in den Umgebungen der Mandanten (siehe workers.ts); der Master selbst führt
 // keine Workflows aus und hält keine Credentials oder Ausführungsdaten.
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
+import { OAUTH2_CALLBACK_PATH } from '../credentials/oauth2.js';
+import { oauthCallbackPage } from '../server/credentialsApi.js';
 import type { Logger } from '../logger.js';
 import { getLogger } from '../logger.js';
 import { registerUi } from '../server/ui.js';
@@ -58,6 +60,8 @@ export interface MasterContext {
   oidc?: OidcClient;
   publicUrl: string;
   secureCookies: boolean;
+  /** Offene OAuth2-Verbindungen beim Worker (state -> Worker) */
+  oauthPending: Map<string, { workerId: string; userId: string; at: number }>;
   loginLimiter: RateLimiter;
   getSetupToken(): string | undefined;
   clearSetupToken(): void;
@@ -80,6 +84,8 @@ export async function createMasterServer(options: MasterOptions): Promise<Master
   const sessions = new Sessions(db, { idleHours: options.sessionIdleHours ?? 12, maxDays: options.sessionMaxDays ?? 7, secureCookies });
   let setupToken: string | undefined = db.countUsers() === 0 ? randomToken() : undefined;
   const hub = new WorkerHub({ db, secrets, logger });
+  /** Offene OAuth2-Verbindungen: state des Workers -> Worker (10 Minuten) */
+  const oauthPending = new Map<string, { workerId: string; userId: string; at: number }>();
   const oidc = options.oidc ? new OidcClient(options.oidc) : undefined;
 
   const app = Fastify({ logger: false, bodyLimit: 16 * 1024 * 1024, exposeHeadRoutes: false, trustProxy: options.trustProxy ?? false });
@@ -93,6 +99,7 @@ export async function createMasterServer(options: MasterOptions): Promise<Master
     oidc,
     publicUrl: options.publicUrl.replace(/\/+$/, ''),
     secureCookies,
+    oauthPending,
     loginLimiter: new RateLimiter(20, 15 * 60_000),
     getSetupToken: () => setupToken,
     clearSetupToken: () => {
@@ -121,6 +128,22 @@ export async function createMasterServer(options: MasterOptions): Promise<Master
   };
 
   app.get('/healthz', async () => ({ status: 'ok', mode: 'master' }));
+  // OAuth2-Rückleitung: der Master reicht Code und state an den Worker weiter, der das Credential hält (M14)
+  app.get(`/${OAUTH2_CALLBACK_PATH}`, async (request, reply) => {
+    reply.header('content-type', 'text/html; charset=utf-8').header('content-security-policy', "default-src 'none'; style-src 'unsafe-inline'");
+    const query = (request.query ?? {}) as Record<string, unknown>;
+    const pending = typeof query.state === 'string' ? oauthPending.get(query.state) : undefined;
+    if (typeof query.state === 'string') oauthPending.delete(query.state);
+    const worker = pending && Date.now() - pending.at < 10 * 60_000 ? db.getWorker(pending.workerId) : undefined;
+    if (!worker) return reply.code(400).send(oauthCallbackPage(false, 'The OAuth callback state is invalid!'));
+    try {
+      const result = (await hub.call(worker, 'POST', '/api/worker/credentials/oauth2/callback', query, 60_000)) as { credential: string };
+      db.audit({ userId: pending!.userId, email: null, action: 'worker.credential_oauth_connected', target: worker.id, details: { name: result.credential } });
+      return reply.send(oauthCallbackPage(true, `Das Credential "${result.credential}" ist beim Worker verbunden. Sie können dieses Fenster schließen.`));
+    } catch (error) {
+      return reply.code(400).send(oauthCallbackPage(false, (error as Error).message));
+    }
+  });
   if (options.uiDir !== false) registerUi(app, options.uiDir);
 
   await app.register(async (api) => {

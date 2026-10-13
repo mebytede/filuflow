@@ -2,10 +2,10 @@
 // freie Felder. Geheime Werte kommen nie vom Server zurück: ein leeres Feld behält den gespeicherten Wert.
 import { dialog, h, toast } from '../dom.js';
 import { iconButton } from '../shell.js';
-import type { CredentialDetail, CredentialField, CredentialInfo, CredentialSaveBody, CredentialTypeSchema } from '../types.js';
+import type { CredentialDetail, CredentialField, CredentialInfo, CredentialSaveBody, CredentialTypeCatalog, CredentialTypeSchema } from '../types.js';
 
 export interface CredentialFormBackend {
-  types(): Promise<CredentialTypeSchema[]>;
+  types(): Promise<CredentialTypeCatalog>;
   get(name: string): Promise<CredentialDetail>;
   save(name: string, body: CredentialSaveBody): Promise<CredentialInfo>;
 }
@@ -40,7 +40,8 @@ function fieldBox(label: string, input: HTMLElement, hint?: string, required?: b
 
 /** Öffnet das Formular; liefert das gespeicherte Credential oder null bei Abbruch */
 export async function credentialFormDialog(backend: CredentialFormBackend, o: CredentialFormOptions = {}): Promise<CredentialInfo | null> {
-  const [types, detail] = await Promise.all([backend.types(), o.name ? backend.get(o.name) : Promise.resolve(undefined)]);
+  const [catalog, detail] = await Promise.all([backend.types(), o.name ? backend.get(o.name) : Promise.resolve(undefined)]);
+  const types = catalog.data;
   const secretsSet = new Set(detail?.secretsSet ?? []);
   const originalType = detail?.type ?? o.type;
 
@@ -74,7 +75,7 @@ export async function credentialFormDialog(backend: CredentialFormBackend, o: Cr
   const renderKnown = (schema: CredentialTypeSchema) => {
     const inputs = new Map<string, HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>();
     const boxes = new Map<string, HTMLElement>();
-    const refresh = () => {
+    let refresh = () => {
       for (const f of schema.fields) boxes.get(f.name)!.hidden = !visible(schema, f, values);
     };
     fieldsBox.replaceChildren();
@@ -122,6 +123,25 @@ export async function credentialFormDialog(backend: CredentialFormBackend, o: Cr
       boxes.set(f.name, box);
       fieldsBox.append(box);
     }
+    // OAuth2 mit Authorization Code / PKCE: Redirect-URL zum Eintragen beim Anbieter
+    if (schema.name === 'oAuth2Api' && catalog.oauthCallbackUrl) {
+      const box = h(
+        'div',
+        { class: 'field' },
+        h('span', null, 'Redirect-URL'),
+        h('code', { class: 'mono', style: { wordBreak: 'break-all' } }, catalog.oauthCallbackUrl),
+        h('span', { class: 'muted small' }, 'Beim Anbieter als Redirect-URL eintragen. Nach dem Speichern verbinden Sie das Credential in der Liste mit "Verbinden".'),
+      );
+      boxes.set('__redirect', box);
+      fieldsBox.append(box);
+    }
+    const baseRefresh = refresh;
+    refresh = () => {
+      baseRefresh();
+      const box = boxes.get('__redirect');
+      const grant = values.grantType ?? 'authorizationCode';
+      if (box) box.hidden = grant === 'clientCredentials';
+    };
     refresh();
     collect = () => {
       const data: Record<string, unknown> = {};

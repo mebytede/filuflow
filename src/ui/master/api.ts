@@ -1,6 +1,6 @@
 // REST-Client für den Master. Anmeldung über das Sitzungs-Cookie (HttpOnly), ändernde Requests mit CSRF-Header.
 import { request } from '../api.js';
-import type { CredentialDetail, CredentialInfo, CredentialList, CredentialSaveBody, CredentialTypeSchema, Execution, InspectResult, NodeTypeInfo, Overview as WorkerOverview, Workflow } from '../types.js';
+import type { CredentialDetail, CredentialInfo, CredentialList, CredentialSaveBody, CredentialTypeCatalog, Execution, InspectResult, NodeTypeInfo, Overview as WorkerOverview, Workflow } from '../types.js';
 import type {
   ApiToken,
   AuditEntry,
@@ -65,7 +65,9 @@ export const mapi = {
   workerCredentials: (id: string) => request<CredentialList>('GET', `/api/admin/workers/${e(id)}/credentials`),
   workerCredential: (id: string, name: string) => request<CredentialDetail>('GET', `/api/admin/workers/${e(id)}/credentials/${e(name)}`),
   setWorkerCredential: (id: string, name: string, body: CredentialSaveBody) => request<CredentialInfo>('PUT', `/api/admin/workers/${e(id)}/credentials/${e(name)}`, body),
-  credentialTypes: () => request<{ data: CredentialTypeSchema[] }>('GET', '/api/credential-types').then((r) => r.data),
+  credentialTypes: () => request<CredentialTypeCatalog>('GET', '/api/credential-types'),
+  workerOauthConnect: (id: string, name: string) => request<{ url: string }>('POST', `/api/admin/workers/${e(id)}/credentials/${e(name)}/oauth2/auth`, {}),
+  workerOauthDisconnect: (id: string, name: string) => request<void>('DELETE', `/api/admin/workers/${e(id)}/credentials/${e(name)}/oauth2`),
   deleteWorkerCredential: (id: string, name: string) => request<void>('DELETE', `/api/admin/workers/${e(id)}/credentials/${e(name)}`),
 
   // Projekte

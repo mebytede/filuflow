@@ -192,6 +192,12 @@ für andere Typen geben Sie die Felder frei an. Geheime Felder (Passwörter, Tok
 angezeigt: Ein leeres Feld beim Bearbeiten behält den gespeicherten Wert. Die Oberfläche zeigt außerdem, welche Workflows ein
 Credential verwenden.
 
+**OAuth2 mit Anmeldung beim Anbieter** (Grant Type "Authorization Code" oder "PKCE", z. B. Google, Microsoft 365, Slack):
+tragen Sie beim Anbieter die Redirect-URL `<FILUFLOW_WEBHOOK_URL>rest/oauth2-credential/callback` ein (dieselbe wie bei
+n8n, das Formular zeigt sie an), legen Sie das Credential an und klicken Sie in der Liste auf **Verbinden**. Das Token liegt
+verschlüsselt in der Datenbank und wird bei abgelaufenem Zugriff mit dem Refresh-Token erneuert. Im Master läuft die
+Anmeldung über die Adresse des Masters, das Token liegt beim Worker.
+
 In der Oberfläche angelegte Credentials landen in `credentials.managed.json` (Dateirechte 0600, mit `FILUFLOW_ENCRYPTION_KEY`
 verschlüsselt; Pfad über `FILUFLOW_MANAGED_CREDENTIALS`). Ohne Schlüssel weist die Oberfläche darauf hin.
 

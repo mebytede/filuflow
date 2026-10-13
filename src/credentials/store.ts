@@ -10,6 +10,13 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:
 import { join, basename } from 'node:path';
 import { isSecretField, PUBLIC_KEY, SECRET_KEY } from './types.js';
 
+/** Name und ID des Credentials an aufgelösten Daten (executor.getCredentials), z. B. für OAuth2-Tokens */
+export const CREDENTIAL_REF = Symbol('filuflow.credentialRef');
+
+export function credentialRefOf(data: Record<string, unknown>): { name: string; id?: string; type: string } | undefined {
+  return (data as Record<symbol, { name: string; id?: string; type: string } | undefined>)[CREDENTIAL_REF];
+}
+
 export interface CredentialEntry {
   name: string;
   id?: string;

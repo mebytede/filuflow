@@ -4,9 +4,9 @@ import { confirmDialog, dialog, formatDate, h, toast } from '../dom.js';
 import { mapi } from './api.js';
 import { pageHead } from '../shell.js';
 import type { AuditEntry, OverviewWorker, Tenant, User, WorkerInfo } from './types.js';
-import type { CredentialTypeSchema } from '../types.js';
+import type { CredentialTypeCatalog } from '../types.js';
 import { credentialFormDialog, type CredentialFormBackend } from '../views/credentialForm.js';
-import { credentialTable } from '../views/credentials.js';
+import { connectOAuth, credentialTable } from '../views/credentials.js';
 
 const e = encodeURIComponent;
 
@@ -300,7 +300,7 @@ export async function tenantsPage(): Promise<HTMLElement> {
   return root;
 }
 
-let credentialTypes: Promise<CredentialTypeSchema[]> | undefined;
+let credentialTypes: Promise<CredentialTypeCatalog> | undefined;
 
 /** Formular-Anbindung für die Credentials eines Workers: Werte gehen nur zum Worker, der Master speichert sie nicht */
 export function workerCredentialBackend(workerId: string): CredentialFormBackend {
@@ -433,7 +433,8 @@ export async function workerPage(id: string): Promise<HTMLElement> {
   const credBackend = workerCredentialBackend(id);
   const loadCredentials = () =>
     Promise.all([mapi.workerCredentials(id), credBackend.types()])
-      .then(([list, types]) => {
+      .then(([list, catalog]) => {
+        const types = catalog.data;
         const edit = async (name?: string) => {
           const saved = await credentialFormDialog(credBackend, { name, note: WORKER_CREDENTIAL_NOTE, confirm: 'Beim Worker speichern' });
           if (!saved) return;
@@ -469,6 +470,12 @@ export async function workerPage(id: string): Promise<HTMLElement> {
                 edit: (n) => void edit(n),
                 remove: (n, u) => void remove(n, u),
                 fileHint: 'In der Credential-Datei des Workers gepflegt',
+                connect: (n) => void connectOAuth(() => mapi.workerOauthConnect(id, n), () => void loadCredentials()),
+                disconnect: async (n) => {
+                  if (!(await confirmDialog('Verbindung trennen', `Das gespeicherte Token von "${n}" wird beim Worker gelöscht.`, 'Trennen'))) return;
+                  await mapi.workerOauthDisconnect(id, n);
+                  void loadCredentials();
+                },
               })
             : h('p', { class: 'muted' }, 'Keine Credentials.'),
         );

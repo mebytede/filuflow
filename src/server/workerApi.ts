@@ -5,7 +5,7 @@ import type { Workflow } from '../types.js';
 import type { WorkflowManager } from './workflows.js';
 import type { LayeredCredentialProvider } from '../credentials/managed.js';
 import { asWorkflow } from './editorApi.js';
-import { registerCredentialsApi } from './credentialsApi.js';
+import { registerCredentialsApi, type OAuthSupport } from './credentialsApi.js';
 import type { Logger } from '../logger.js';
 
 export const MASTER_MARKER = 'filuflowMaster';
@@ -19,6 +19,7 @@ export interface WorkerApiOptions {
   credentials?: LayeredCredentialProvider;
   startedAt: Date;
   logger?: Logger;
+  oauth?: OAuthSupport;
 }
 
 function masterVersion(wf: Workflow): number | undefined {
@@ -77,5 +78,5 @@ export async function registerWorkerApi(api: FastifyInstance, o: WorkerApiOption
   });
 
   // Credentials: dieselben Routen wie im Einzelbetrieb, Werte nur schreiben
-  await registerCredentialsApi(api, { prefix: '/api/worker/credentials', credentials: o.credentials, workflows: o.workflows, logger: o.logger });
+  await registerCredentialsApi(api, { prefix: '/api/worker/credentials', credentials: o.credentials, workflows: o.workflows, logger: o.logger, oauth: o.oauth });
 }

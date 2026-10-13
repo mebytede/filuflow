@@ -34,7 +34,7 @@ import {
 import { getLogger, type Logger } from '../logger.js';
 import { UndiciHttpClient, type HttpClient } from '../http.js';
 import { FileBinaryStore, type BinaryStore } from '../binary.js';
-import type { CredentialProvider } from '../credentials/store.js';
+import { CREDENTIAL_REF, type CredentialProvider } from '../credentials/store.js';
 import {
   ExecutionCancelledError,
   FiluflowError,
@@ -335,7 +335,10 @@ export class WorkflowExecutor {
     if (!provider || !entry) {
       throw new NodeOperationError(node.name, `Credentials "${ref.name}" for type "${type}" not found`, { itemIndex });
     }
-    return provider.resolve(entry);
+    const data = provider.resolve(entry);
+    // Identität für dauerhaft gespeicherte OAuth2-Tokens (nicht aufzählbar, erscheint nicht in Daten oder Logs)
+    Object.defineProperty(data, CREDENTIAL_REF, { value: { name: entry.name, ...(entry.id ? { id: entry.id } : {}), type }, enumerable: false });
+    return data;
   }
 
   async executeSubWorkflow(node: WorkflowNode, request: ExecuteWorkflowRequest): Promise<ExecuteWorkflowResult> {

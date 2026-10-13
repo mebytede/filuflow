@@ -3,10 +3,10 @@
 import { api } from '../api.js';
 import { confirmDialog, h, toast } from '../dom.js';
 import { button, iconButton, pageHead } from '../shell.js';
-import type { CredentialInfo, CredentialList, CredentialTypeSchema } from '../types.js';
+import type { CredentialInfo, CredentialList, CredentialTypeCatalog, CredentialTypeSchema } from '../types.js';
 import { credentialFormDialog, type CredentialFormBackend } from './credentialForm.js';
 
-let typeCache: Promise<CredentialTypeSchema[]> | undefined;
+let typeCache: Promise<CredentialTypeCatalog> | undefined;
 
 /** Formular-Anbindung im Einzelbetrieb */
 export const standaloneCredentialBackend: CredentialFormBackend = {
@@ -20,10 +20,40 @@ export function createCredential(type?: string): Promise<CredentialInfo | null> 
   return credentialFormDialog(standaloneCredentialBackend, { type });
 }
 
+/**
+ * OAuth2 verbinden: Fenster sofort öffnen (sonst blockt der Browser), dann zur Autorisierungs-URL leiten und warten,
+ * bis es geschlossen wird. Die Callback-Seite des Servers sagt, ob es geklappt hat.
+ */
+export async function connectOAuth(getUrl: () => Promise<{ url: string }>, onDone: () => void): Promise<void> {
+  const popup = window.open('about:blank', 'filuflow-oauth2', 'width=640,height=760');
+  try {
+    const { url } = await getUrl();
+    if (popup) popup.location.href = url;
+    else window.location.href = url;
+  } catch (error) {
+    popup?.close();
+    toast((error as Error).message, 'error');
+    return;
+  }
+  if (!popup) return;
+  const timer = window.setInterval(() => {
+    if (popup.closed) {
+      window.clearInterval(timer);
+      onDone();
+    }
+  }, 500);
+}
+
 export function credentialTable(
   list: CredentialList,
   types: CredentialTypeSchema[],
-  o: { edit(name: string): void; remove(name: string, usedBy: string[]): void; fileHint: string },
+  o: {
+    edit(name: string): void;
+    remove(name: string, usedBy: string[]): void;
+    fileHint: string;
+    connect?(name: string): void;
+    disconnect?(name: string): void;
+  },
 ): HTMLElement {
   const typeLabel = (t?: string) => types.find((x) => x.name === t)?.label ?? t ?? '';
   return h(
@@ -42,13 +72,20 @@ export function credentialTable(
           return h(
             'tr',
             null,
-            h('td', null, editable ? h('a', { class: 'cell-name', href: '#', onclick: (e: Event) => (e.preventDefault(), o.edit(c.name)) }, c.name) : h('span', { class: 'cell-name' }, c.name)),
+            h(
+              'td',
+              null,
+              editable ? h('a', { class: 'cell-name', href: '#', onclick: (e: Event) => (e.preventDefault(), o.edit(c.name)) }, c.name) : h('span', { class: 'cell-name' }, c.name),
+              c.oauth ? h('div', { class: `cell-sub ${c.oauth.connected ? 'status-success' : 'status-warning'}` }, c.oauth.connected ? 'Verbunden' : 'Nicht verbunden') : null,
+            ),
             h('td', null, typeLabel(c.type), c.type && typeLabel(c.type) !== c.type ? h('span', { class: 'mono muted small' }, ` ${c.type}`) : null),
             h('td', { title: used.join(', ') }, used.length ? (used.length === 1 ? used[0] : `${used.length} Workflows`) : h('span', { class: 'muted' }, 'nicht verwendet')),
             h('td', { class: 'muted', title: c.managed ? '' : o.fileHint }, c.managed ? 'Oberfläche' : 'Datei'),
             h(
               'td',
               { class: 'actions' },
+              c.oauth && o.connect ? button(c.oauth.connected ? 'Neu verbinden' : 'Verbinden', { icon: 'link', onclick: () => o.connect!(c.name) }) : null,
+              c.oauth?.connected && o.disconnect ? iconButton('x', `${c.name} trennen`, () => o.disconnect!(c.name)) : null,
               editable ? iconButton('pencil', `${c.name} bearbeiten`, () => o.edit(c.name)) : null,
               editable ? iconButton('trash-2', `${c.name} löschen`, () => o.remove(c.name, used)) : null,
             ),
@@ -60,7 +97,8 @@ export function credentialTable(
 }
 
 export async function credentialsView(): Promise<HTMLElement> {
-  const [list, types] = await Promise.all([api.credentialList(), standaloneCredentialBackend.types()]);
+  const [list, catalog] = await Promise.all([api.credentialList(), standaloneCredentialBackend.types()]);
+  const types = catalog.data;
   const reload = async () => root.replaceWith(await credentialsView());
   const edit = async (name?: string) => {
     const saved = await credentialFormDialog(standaloneCredentialBackend, { name });
@@ -100,7 +138,17 @@ export async function credentialsView(): Promise<HTMLElement> {
         : 'Credentials stehen in credentials.json (bzw. FILUFLOW_CREDENTIALS) auf dem Server. Die Oberfläche zeigt nur Namen und Typen.',
     ),
     list.data.length
-      ? credentialTable(list, types, { edit: (n) => void edit(n), remove: (n, u) => void remove(n, u), fileHint: 'In credentials.json gepflegt, hier nicht änderbar' })
+      ? credentialTable(list, types, {
+          edit: (n) => void edit(n),
+          remove: (n, u) => void remove(n, u),
+          fileHint: 'In credentials.json gepflegt, hier nicht änderbar',
+          connect: (n) => void connectOAuth(() => api.oauthConnect(n), () => void reload()),
+          disconnect: async (n) => {
+            if (!(await confirmDialog('Verbindung trennen', `Das gespeicherte Token von "${n}" wird gelöscht. Workflows können das Credential erst nach erneutem Verbinden nutzen.`, 'Trennen'))) return;
+            await api.oauthDisconnect(n);
+            await reload();
+          },
+        })
       : h('div', { class: 'empty' }, h('p', null, 'Noch keine Credentials.'), list.writable ? button('Credential hinzufügen', { icon: 'plus', onclick: () => void edit() }) : null),
   );
   return root;

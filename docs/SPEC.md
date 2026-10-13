@@ -296,6 +296,7 @@ Engine-Reihenfolge, Expressions (inkl. Rohwert vs. String), jeder Node, Filter-O
 | M11 | Credentials in der Oberfläche | Anlegen, Bearbeiten, Umbenennen, Löschen mit Formularen je Typ, im Einzelbetrieb und im Master; geheime Werte nie lesbar |
 | M12 | Python im Code-Node | Pyodide und lokaler Interpreter, Zeitlimit, Sperren wie n8n, Code Tool mit Python |
 | M13 | Wartende Ausführungen | Wait mit Fortsetzen per Webhook und zum Zeitpunkt, Zustand in SQLite, statische Daten und OAuth2-Tokens dauerhaft |
+| M14 | OAuth2 mit Anmeldung | Authorization Code und PKCE mit Rückleitung, Refresh, Einzelbetrieb und Master |
 
 Nach jedem Meilenstein: `docs/STATUS.md` aktualisieren (was geht, was fehlt) und einen Commit mit aussagekräftiger Nachricht.
 
@@ -322,7 +323,6 @@ Offene Funktionen, ungefähr nach Nutzen geordnet. Jede wird wie ein Meilenstein
 - Eigene Knoten als Erweiterungen (Plugin-Schnittstelle, Community-Nodes)
 
 ### 11.3 Credentials
-- OAuth2 mit Authorization Code und PKCE inklusive Rückleitung in der Oberfläche
 - Teilen von Credentials zwischen Projekten im Master (Anlegen und Bearbeiten in der Oberfläche: M11)
 - Import verschlüsselter n8n-Exporte
 

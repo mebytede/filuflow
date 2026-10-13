@@ -1,6 +1,7 @@
 // Mandanten und Worker (nur globale Admins): anlegen, prüfen, abgleichen, Credentials beim Worker setzen
 // (Werte werden nur geschrieben, nie gelesen). Übersicht für das Dashboard.
 import type { FastifyInstance, FastifyReply } from 'fastify';
+import { OAUTH2_CALLBACK_PATH } from '../../credentials/oauth2.js';
 import type { MasterContext } from '../app.js';
 import type { WorkerRow } from '../db.js';
 import { WorkerError } from '../workers.js';
@@ -250,6 +251,41 @@ export function registerWorkerRoutes(api: FastifyInstance, ctx: MasterContext): 
       // Werte nie ins Audit-Log
       ctx.audit(request, 'worker.credential_set', worker.id, { name, type: body.type, ...(typeof body.rename === 'string' && body.rename !== name ? { rename: body.rename } : {}) });
       return result;
+    } catch (error) {
+      return sendWorkerError(reply, error);
+    }
+  });
+
+  // OAuth2 verbinden: Autorisierungs-URL vom Worker, Rückleitung an den Master (/rest/oauth2-credential/callback)
+  api.post('/api/admin/workers/:id/credentials/:name/oauth2/auth', async (request, reply) => {
+    const auth = ctx.requireAdmin(request, reply);
+    if (!auth) return;
+    const { id, name } = request.params as { id: string; name: string };
+    const worker = db.getWorker(id);
+    if (!worker) return reply.code(404).send({ message: 'Worker nicht gefunden' });
+    try {
+      const result = (await hub.call(worker, 'POST', `/api/worker/credentials/${encodeURIComponent(name)}/oauth2/auth`, { redirectUri: `${ctx.publicUrl}/${OAUTH2_CALLBACK_PATH}` }, 15_000)) as {
+        url: string;
+        state: string;
+      };
+      const now = Date.now();
+      for (const [k, v] of ctx.oauthPending) if (now - v.at > 10 * 60_000) ctx.oauthPending.delete(k);
+      ctx.oauthPending.set(result.state, { workerId: worker.id, userId: auth.user.id, at: now });
+      return { url: result.url };
+    } catch (error) {
+      return sendWorkerError(reply, error);
+    }
+  });
+
+  api.delete('/api/admin/workers/:id/credentials/:name/oauth2', async (request, reply) => {
+    if (!ctx.requireAdmin(request, reply)) return;
+    const { id, name } = request.params as { id: string; name: string };
+    const worker = db.getWorker(id);
+    if (!worker) return reply.code(404).send({ message: 'Worker nicht gefunden' });
+    try {
+      await hub.call(worker, 'DELETE', `/api/worker/credentials/${encodeURIComponent(name)}/oauth2`, undefined, 15_000);
+      ctx.audit(request, 'worker.credential_oauth_disconnected', worker.id, { name });
+      return reply.code(204).send();
     } catch (error) {
       return sendWorkerError(reply, error);
     }

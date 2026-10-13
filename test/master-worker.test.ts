@@ -390,6 +390,50 @@ describe('Credentials beim Worker', () => {
   });
 });
 
+describe('OAuth2 über den Master', () => {
+  it('holt die Autorisierungs-URL vom Worker, leitet den Callback an ihn weiter', async () => {
+    const tokens: string[] = [];
+    const provider = (await import('node:http')).createServer((req, res) => {
+      let raw = '';
+      req.on('data', (c: Buffer) => (raw += c.toString()));
+      req.on('end', () => {
+        tokens.push(raw);
+        res.setHeader('content-type', 'application/json');
+        res.end(JSON.stringify({ access_token: 'master-at', refresh_token: 'master-rt', token_type: 'bearer' }));
+      });
+    });
+    await new Promise<void>((r) => provider.listen(0, '127.0.0.1', r));
+    try {
+      const w = await startWorker('w1');
+      const wk = await registerWorker(w);
+      const tokenUrl = `http://127.0.0.1:${(provider.address() as AddressInfo).port}/token`;
+      const set = await admin.put(`/api/admin/workers/${wk.id}/credentials/Mail`, {
+        type: 'oAuth2Api',
+        data: { grantType: 'authorizationCode', authUrl: 'https://login.example/auth', accessTokenUrl: tokenUrl, clientId: 'id', clientSecret: 'secret', scope: 'mail' },
+      });
+      expect(set.statusCode).toBe(200);
+      expect((await admin.get('/api/credential-types')).json().oauthCallbackUrl).toBe('http://localhost:5679/rest/oauth2-credential/callback');
+      const auth = await admin.post(`/api/admin/workers/${wk.id}/credentials/Mail/oauth2/auth`, {});
+      expect(auth.statusCode).toBe(200);
+      const url = new URL(auth.json().url as string);
+      expect(url.searchParams.get('redirect_uri')).toBe('http://localhost:5679/rest/oauth2-credential/callback');
+      const cb = await master.app.inject({ method: 'GET', url: `/rest/oauth2-credential/callback?code=abc&state=${url.searchParams.get('state')}` });
+      expect(cb.statusCode).toBe(200);
+      expect(cb.body).toContain('beim Worker verbunden');
+      expect(new URLSearchParams(tokens[0]).get('redirect_uri')).toBe('http://localhost:5679/rest/oauth2-credential/callback');
+      const list = (await admin.get(`/api/admin/workers/${wk.id}/credentials`)).json();
+      expect(list.data.find((c: { name: string }) => c.name === 'Mail').oauth).toEqual({ grantType: 'authorizationCode', connected: true });
+      expect(JSON.stringify((await admin.get('/api/admin/audit')).json())).toContain('worker.credential_oauth_connected');
+      // Unbekannter state
+      expect((await master.app.inject({ method: 'GET', url: '/rest/oauth2-credential/callback?code=abc&state=nein' })).statusCode).toBe(400);
+      expect((await admin.del(`/api/admin/workers/${wk.id}/credentials/Mail/oauth2`)).statusCode).toBe(204);
+      expect((await admin.get(`/api/admin/workers/${wk.id}/credentials`)).json().data[0].oauth.connected).toBe(false);
+    } finally {
+      await new Promise((r) => provider.close(r));
+    }
+  });
+});
+
 describe('Worker nicht erreichbar', () => {
   it('speichert trotzdem, meldet den Fehler und holt beim Abgleich nach', async () => {
     const w = await startWorker('w1');

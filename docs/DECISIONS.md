@@ -91,6 +91,16 @@ Neben dem Stack aus CLAUDE.md (luxon, better-sqlite3, fastify, croner, pino):
   dann nach ID. Umbenennen behält die ID, damit Workflows mit gespeicherter ID das Credential weiter finden.
 - Keine neue Abhängigkeit.
 
+## OAuth2 mit Authorization Code (M14)
+- **Tokens in der Datenbank, nicht im Credential:** n8n schreibt `oauthTokenData` ins Credential. filuflow legt die Tokens
+  (verschlüsselt) in die Schlüssel-Wert-Tabelle, Schlüssel ist die ID des Credentials. So lassen sich auch Credentials aus der
+  von Hand gepflegten Datei verbinden, und Bearbeiten im Formular überschreibt keine Tokens. `oauthTokenData` aus einem
+  n8n-Export wird weiter gelesen.
+- **Redirect-URI wie n8n** (`/rest/oauth2-credential/callback`), damit bestehende App-Registrierungen weiter passen.
+- **Master:** Der Worker baut die Autorisierungs-URL mit der Redirect-URI des Masters und merkt sich `state` und
+  `code_verifier`; der Master merkt sich nur, zu welchem Worker der `state` gehört, und reicht den Callback weiter.
+- **Kein Skript auf der Callback-Seite** (strenge CSP); die Oberfläche merkt am geschlossenen Fenster, dass sie neu laden soll.
+
 ## Wartende Ausführungen (M13)
 - **Wie n8n:** Der Wait-Knoten ruft `putExecutionToWait`, die Engine legt ihn zurück auf den Stack und beendet den Lauf mit
   Status "waiting". Beim Fortsetzen wird er deaktiviert (gibt seine Eingangsdaten bzw. die Daten des Webhooks weiter) und sein

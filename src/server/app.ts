@@ -23,9 +23,10 @@ import { registerWorkerApi } from './workerApi.js';
 import { registerOverview, triggersOf } from './overview.js';
 import type { LayeredCredentialProvider } from '../credentials/managed.js';
 import { CREDENTIAL_TYPES } from '../credentials/types.js';
-import { registerCredentialsApi } from './credentialsApi.js';
+import { completeOAuth, oauthCallbackPage, registerCredentialsApi, type OAuthSupport } from './credentialsApi.js';
 import { warmUpPython } from '../python/pyodide.js';
-import { setOAuth2TokenStore } from '../credentials/oauth2.js';
+import { OAUTH2_CALLBACK_PATH, setOAuth2TokenStore } from '../credentials/oauth2.js';
+import { UndiciHttpClient } from '../http.js';
 
 export interface ServerOptions {
   dir: string;
@@ -135,7 +136,10 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
       logger.error({ err: (error as Error).message, workflow: wf.name }, 'Statische Daten konnten nicht gespeichert werden');
     }
   };
-  setOAuth2TokenStore({ get: (key) => store.getValue(key), set: (key, token) => store.setValue(key, token) });
+  const kvStore = { get: <T>(key: string) => store.getValue<T>(key), set: (key: string, value: unknown) => store.setValue(key, value), delete: (key: string) => store.deleteValue(key) };
+  setOAuth2TokenStore(kvStore);
+  // OAuth2 mit Authorization Code: Redirect-URI wie n8n unter der öffentlichen Basis-URL
+  const oauth: OAuthSupport = { store: kvStore, http: options.http ?? new UndiciHttpClient(), redirectUri: `${options.webhookBaseUrl}${OAUTH2_CALLBACK_PATH}` };
 
   // Zirkuläre Abhängigkeiten (Runner <-> Manager <-> Workflows): erst deklarieren, dann zuweisen
   // eslint-disable-next-line prefer-const
@@ -196,6 +200,18 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
   });
 
   app.get('/healthz', async () => ({ status: 'ok' }));
+  // Rückleitung des OAuth2-Anbieters (ohne API-Key; abgesichert über den einmaligen state)
+  app.get(`/${OAUTH2_CALLBACK_PATH}`, async (request, reply) => {
+    reply.header('content-type', 'text/html; charset=utf-8').header('content-security-policy', "default-src 'none'; style-src 'unsafe-inline'");
+    try {
+      const result = await completeOAuth(oauth, credentials, (request.query ?? {}) as Record<string, unknown>);
+      logger.info({ credential: result.credential }, 'OAuth2-Credential verbunden');
+      return reply.send(oauthCallbackPage(true, `Das Credential "${result.credential}" ist verbunden. Sie können dieses Fenster schließen.`));
+    } catch (error) {
+      logger.warn({ err: (error as Error).message }, 'OAuth2-Callback fehlgeschlagen');
+      return reply.code(400).send(oauthCallbackPage(false, (error as Error).message));
+    }
+  });
   if (options.uiDir !== false) registerUi(app, options.uiDir);
 
   // Webhooks: Body roh lesen (gzip/deflate wie n8n rawBodyReader), Auswertung im Webhook-Node
@@ -311,8 +327,8 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
       return executionView(store.get(execution.id) as unknown as Execution, true);
     });
 
-    api.get('/api/credential-types', async () => ({ data: CREDENTIAL_TYPES }));
-    await registerCredentialsApi(api, { prefix: '/api/credentials', credentials, workflows: () => workflows!, logger });
+    api.get('/api/credential-types', async () => ({ data: CREDENTIAL_TYPES, oauthCallbackUrl: oauth.redirectUri }));
+    await registerCredentialsApi(api, { prefix: '/api/credentials', credentials, workflows: () => workflows!, logger, oauth });
     await registerEditorApi(api, { registry, credentials, runner, manager, store, workflows: () => workflows!, webhookBaseUrl: options.webhookBaseUrl });
     if (options.worker) {
       await registerWorkerApi(api, {
@@ -322,6 +338,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
         credentials: options.worker.credentials,
         startedAt: new Date(),
         logger,
+        oauth,
       });
     }
 
