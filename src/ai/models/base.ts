@@ -17,6 +17,8 @@ export interface ModelCallOptions {
   signal?: AbortSignal;
   /** Index der Generierung für das Tracing (Agent: Quelle im Eltern-Lauf) */
   sourceRunIndex?: number;
+  /** Streaming: Text-Teile, sobald das Modell sie liefert (n8n streamEvents, on_chat_model_stream) */
+  onToken?: (text: string) => void;
 }
 
 export interface TokenUsage {
@@ -109,6 +111,47 @@ export abstract class ChatModel {
     } catch {
       throw new LlmHttpError(`Ungültige Antwort von ${url}`, res.statusCode, text);
     }
+  }
+
+  /**
+   * HTTP-POST mit Server-Sent Events: onEvent je Ereignis (data-Zeilen zusammengefügt). Liefert ein HTTP-Client keine
+   * Teilantworten, werden die Ereignisse am Ende aus dem vollständigen Body gelesen.
+   */
+  protected async postStream(url: string, headers: Record<string, string>, body: unknown, signal: AbortSignal | undefined, onEvent: (data: string, event?: string) => void): Promise<void> {
+    let buffer = '';
+    let delivered = false;
+    const flush = (final: boolean) => {
+      const blocks = buffer.split(/\r?\n\r?\n/);
+      buffer = final ? '' : (blocks.pop() ?? '');
+      for (const block of blocks) {
+        let event: string | undefined;
+        const data: string[] = [];
+        for (const line of block.split(/\r?\n/)) {
+          if (line.startsWith('event:')) event = line.slice(6).trim();
+          else if (line.startsWith('data:')) data.push(line.slice(5).replace(/^ /, ''));
+        }
+        if (data.length) {
+          delivered = true;
+          onEvent(data.join('\n'), event);
+        }
+      }
+    };
+    const res = await this.ctx.helpers.http.request({
+      method: 'POST',
+      url,
+      headers,
+      body: JSON.stringify(body),
+      signal,
+      timeout: 600_000,
+      onChunk: (chunk) => {
+        buffer += chunk.toString('utf8');
+        flush(false);
+      },
+    });
+    const text = res.body.toString('utf8');
+    if (res.statusCode >= 400) throw new LlmHttpError(this.errorMessage(url, res.statusCode, res.statusMessage, text), res.statusCode, text);
+    if (!delivered) buffer = text;
+    flush(true);
   }
 
   protected errorMessage(_url: string, status: number, statusText: string, body: string): string {

@@ -502,8 +502,8 @@ export async function handleWebhookRequest(ctx: WebhookHandleContext): Promise<W
 
 // Parameter wie n8n Webhook.node.ts (properties) mit description.ts (httpMethodsProperty, authenticationProperty,
 // responseModeProperty, responseCodeProperty, responseDataProperty, responseBinaryPropertyNameProperty,
-// optionsProperty, responseCodeOption). responseMode "streaming" (ab v2.1) fehlt, filuflow unterstützt es nicht;
-// damit sind beide responseMode-Varianten gleich und hier eine Definition. Optionen in der n8n-Reihenfolge.
+// optionsProperty, responseCodeOption). responseMode gibt es zweimal: bis v2 ohne, ab v2.1 mit "streaming"
+// (responseModePropertyStreaming). Optionen in der n8n-Reihenfolge.
 const HTTP_METHODS = ['DELETE', 'GET', 'HEAD', 'PATCH', 'POST', 'PUT'].map((m) => ({ value: m, label: m }));
 const webhookParameters: ParamSchema[] = [
   {
@@ -555,6 +555,28 @@ const webhookParameters: ParamSchema[] = [
       { value: 'lastNode', label: 'Wenn der letzte Knoten fertig ist', description: 'Antwortet mit Daten des zuletzt ausgeführten Knotens' },
       { value: 'responseNode', label: "Über Knoten 'Respond to Webhook'", description: 'Die Antwort legt jener Knoten fest' },
     ],
+    show: { '@version': [1, 1.1, 2] },
+  },
+  {
+    name: 'responseMode',
+    label: 'Antworten',
+    type: 'options',
+    default: 'onReceived',
+    description: 'Wann und wie der Webhook antwortet',
+    options: [
+      { value: 'onReceived', label: 'Sofort', description: 'Sobald dieser Knoten ausgeführt wird' },
+      { value: 'lastNode', label: 'Wenn der letzte Knoten fertig ist', description: 'Antwortet mit Daten des zuletzt ausgeführten Knotens' },
+      { value: 'responseNode', label: "Über Knoten 'Respond to Webhook'", description: 'Die Antwort legt jener Knoten fest' },
+      { value: 'streaming', label: 'Streaming', description: 'Daten von Knoten mit Streaming (z. B. AI Agent) laufend senden' },
+    ],
+    hide: { '@version': [1, 1.1, 2] },
+  },
+  {
+    name: 'streamingNotice',
+    label: "Einen Knoten mit Streaming einfügen (z. B. 'AI Agent') und dort Streaming einschalten; er schreibt dann direkt in die Antwort.",
+    type: 'notice',
+    default: '',
+    show: { responseMode: ['streaming'] },
   },
   {
     name: 'webhookNotice',
@@ -783,9 +805,6 @@ export const webhookNode: NodeType = {
     // die Zahl der Ausgänge muss aber ohne Auswertung feststehen
     if (isExpr(node.parameters.multipleMethods)) {
       issues.push({ code: 'webhook.expression', message: 'Expressions im Parameter "multipleMethods" werden nicht unterstützt', path: 'parameters.multipleMethods' });
-    }
-    if (node.parameters.responseMode === 'streaming') {
-      issues.push({ code: 'webhook.streaming', message: 'responseMode "streaming" wird nicht unterstützt', path: 'parameters.responseMode' });
     }
     return issues;
   },

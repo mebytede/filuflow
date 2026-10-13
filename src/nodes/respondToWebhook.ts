@@ -1,7 +1,8 @@
 // Respond to Webhook, n8n-nodes-base.respondToWebhook (typeVersion 1 bis 1.5)
 // Nachgebaut nach n8n 1.123.0 packages/nodes-base/nodes/RespondToWebhook/RespondToWebhook.node.ts,
 // utils/binary.ts, utils/outputs.ts. Die Antwort geht über ctx.sendWebhookResponse an den Server
-// (n8n: sendResponse-Hook, nur die erste Antwort zählt). Streaming (v1.5) wird nicht unterstützt.
+// (n8n: sendResponse-Hook, nur die erste Antwort zählt). Ab v1.5 zusätzlich Teile einer gestreamten Antwort
+// (begin/item/end), wenn der Webhook mit responseMode "streaming" läuft.
 import { createHmac, createPrivateKey, sign as cryptoSign } from 'node:crypto';
 import lodash from 'lodash';
 import type { NodeType, WebhookResponse } from './types.js';
@@ -211,7 +212,7 @@ const parameters: ParamSchema[] = [
         label: 'Streaming',
         type: 'boolean',
         default: true,
-        description: 'Ob die Antwort gestreamt wird; in filuflow ohne Wirkung',
+        description: 'Ob die Antwort in eine gestreamte Webhook-Antwort geschrieben wird',
         show: { '/respondWith': ['allIncomingItems', 'firstIncomingItem', 'text', 'json', 'jwt'], '@version': [{ _cnd: { gte: 1.5 } }] },
       },
     ],
@@ -230,6 +231,12 @@ export const respondToWebhookNode: NodeType = {
     const version = ctx.node.typeVersion;
     let response: WebhookResponse;
     const options = ctx.getParam<Record<string, unknown>>('options', 0, {});
+    const shouldStream = version >= 1.5 && ctx.isStreaming() && options.enableStreaming !== false;
+    const stream = (index: number, content: unknown) => {
+      ctx.sendChunk('begin', index);
+      ctx.sendChunk('item', index, content);
+      ctx.sendChunk('end', index);
+    };
     try {
       if (version >= 1.1) {
         const parents = ctx.workflow.getParentNodes(ctx.node.name).map((n) => ctx.workflow.getNode(n));
@@ -264,6 +271,7 @@ export const respondToWebhookNode: NodeType = {
             }
           }
         }
+        if (shouldStream) stream(0, body);
       } else if (respondWith === 'jwt') {
         try {
           const creds = await ctx.getCredentials('jwtAuth', 0);
@@ -271,16 +279,20 @@ export const respondToWebhookNode: NodeType = {
           let payload = ctx.getParam<unknown>('payload', 0, {});
           if (typeof payload === 'string') payload = jsonParse(payload);
           body = { token: signJwt(payload as Record<string, unknown>, key, String(creds.algorithm ?? 'HS256')) };
+          if (shouldStream) stream(0, body);
         } catch (error) {
           throw new NodeOperationError(ctx.node.name, 'Error signing JWT token', { cause: error });
         }
       } else if (respondWith === 'allIncomingItems') {
-        const all = items.map((i) => i.json);
+        // n8n sendet hier ohne Prüfung von shouldStream (ohne Streaming wirkungslos)
+        const all = items.map((i, index) => (stream(index, i.json), i.json));
         body = options.responseKey ? lodash.set({}, options.responseKey as string, all) : all;
       } else if (respondWith === 'firstIncomingItem') {
         body = options.responseKey ? lodash.set({}, options.responseKey as string, items[0].json) : items[0].json;
+        if (shouldStream) stream(0, items[0].json);
       } else if (respondWith === 'text') {
         body = ctx.getParam<string>('responseBody', 0, '');
+        if (shouldStream) stream(0, body);
       } else if (respondWith === 'binary') {
         const item = items[0];
         if (item.binary === undefined) throw new NodeOperationError(ctx.node.name, 'No binary data exists on the first item!');

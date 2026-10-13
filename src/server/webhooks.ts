@@ -54,7 +54,42 @@ export interface HttpResponse {
   body?: string | Buffer;
   /** Direkt schreiben (n8n res.writeHead/res.end): keine Standard-Header wie Content-Type ergänzen */
   raw?: boolean;
+  /** Gestreamte Antwort: Teile werden geschrieben, sobald sie kommen (raw) */
+  stream?: AsyncIterable<string>;
 }
+
+/** Einfache Warteschlange als AsyncIterable für gestreamte Antworten */
+export class ChunkStream implements AsyncIterable<string> {
+  private readonly queue: string[] = [];
+  private waiting?: () => void;
+  private done = false;
+
+  push(text: string): void {
+    if (this.done) return;
+    this.queue.push(text);
+    this.waiting?.();
+  }
+
+  end(): void {
+    this.done = true;
+    this.waiting?.();
+  }
+
+  async *[Symbol.asyncIterator](): AsyncIterator<string> {
+    for (;;) {
+      if (this.queue.length) {
+        yield this.queue.shift()!;
+        continue;
+      }
+      if (this.done) return;
+      await new Promise<void>((resolve) => (this.waiting = resolve));
+      this.waiting = undefined;
+    }
+  }
+}
+
+/** Kopfzeilen einer gestreamten Antwort wie n8n (Webhook.node.ts, ChatTrigger.node.ts) */
+const STREAM_HEADERS = { 'content-type': 'application/json; charset=utf-8', 'transfer-encoding': 'chunked', 'cache-control': 'no-cache', connection: 'keep-alive' };
 
 const WEBHOOK_SANDBOX_CSP =
   'sandbox allow-downloads allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-presentation allow-scripts allow-top-navigation allow-top-navigation-by-user-activation allow-top-navigation-to-custom-protocols';
@@ -375,7 +410,7 @@ export class WebhookService {
     }
     const graph = new WorkflowGraph(workflow);
     const opts = responseOptions(node);
-    if (!['onReceived', 'lastNode', 'responseNode'].includes(opts.responseMode)) {
+    if (!['onReceived', 'lastNode', 'responseNode', 'streaming'].includes(opts.responseMode)) {
       return errorResponse(new Error(`The response mode '${opts.responseMode}' is not valid!`));
     }
 
@@ -718,7 +753,7 @@ export class WebhookService {
       return errorResponse(new Error('Workflow Webhook Error: Workflow could not be started!'));
     }
     if (result.directResponse) return { ...result.directResponse, raw: true };
-    const responseMode = options.responseMode === 'responseNode' ? 'responseNode' : 'lastNode';
+    const responseMode = options.responseMode === 'responseNode' ? 'responseNode' : options.responseMode === 'streaming' ? 'streaming' : 'lastNode';
     const opts: WebhookResponseOptions = { responseMode, responseCode: 200, responseData: 'firstEntryJson', responseBinaryPropertyName: 'data', responseHeaders: new Map() };
     return this.respondWith(opts, {}, (hooks) =>
       this.startExecution({ workflow, mode: test ? 'manual' : 'webhook', startNodeName: node.name, triggerOutputs: result.workflowData, usePinData: test, hooks }),
@@ -752,7 +787,7 @@ export class WebhookService {
     }
     const graph = new WorkflowGraph(workflow);
     const opts = responseOptions(node);
-    if (!['onReceived', 'lastNode', 'responseNode'].includes(opts.responseMode)) {
+    if (!['onReceived', 'lastNode', 'responseNode', 'streaming'].includes(opts.responseMode)) {
       return errorResponse(new Error(`The response mode '${opts.responseMode}' is not valid!`));
     }
     let result;
@@ -809,6 +844,20 @@ export class WebhookService {
       if (resolveEarly) resolveEarly(r);
       else respondEarly ??= r;
     };
+    if (opts.responseMode === 'streaming') {
+      // Antwort sofort mit Kopfzeilen, dann je Teil eine JSON-Zeile (n8n workflow-runner.ts: sendChunk-Handler);
+      // die Antwort endet mit der Ausführung (active-executions.ts finalizeExecution)
+      const stream = new ChunkStream();
+      const entry = start({ sendChunk: (chunk) => stream.push(`${JSON.stringify(chunk)}\n`) });
+      entry.promise.then(
+        () => stream.end(),
+        (error: unknown) => {
+          this.options.logger.error({ err: (error as Error).message }, 'Webhook-Execution fehlgeschlagen');
+          stream.end();
+        },
+      );
+      return Promise.resolve({ statusCode: 200, headers: { ...STREAM_HEADERS }, raw: true, stream });
+    }
     // start() wirft bei Konflikten synchron (Fortsetzen); dann gibt es keine Antwort aus der Execution
     const entry: ActiveExecution = start({ sendResponse });
     return new Promise<HttpResponse>((resolve) => {

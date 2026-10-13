@@ -104,6 +104,10 @@ export interface ExecContext {
   executeWorkflow(request: ExecuteWorkflowRequest): Promise<ExecuteWorkflowResult>;
   /** Antwort für responseMode=responseNode */
   sendWebhookResponse(response: WebhookResponse): void;
+  /** Wird die Antwort gestreamt (Webhook/Chat Trigger mit responseMode "streaming")? */
+  isStreaming(): boolean;
+  /** Teil einer gestreamten Antwort senden (n8n sendChunk); ohne Streaming ohne Wirkung */
+  sendChunk(type: 'begin' | 'item' | 'end' | 'error', itemIndex: number, content?: unknown): void;
   /** Trigger-Daten (Webhook-Request, Schedule-Zeit, CLI-Input) */
   readonly triggerData?: Item[];
   /** Ausgabe von Sub-Nodes (KI) */

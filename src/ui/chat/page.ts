@@ -1,7 +1,7 @@
 // Gehostete Chat-Seite des Chat Triggers (öffentlich, Modus "Hosted Chat"). Die Einstellungen kommen als JSON aus der
 // Seite (#chat-config). Nachrichten gehen wie beim Chat-Widget von n8n als JSON an die Nachrichten-URL:
 // { action: "sendMessage", sessionId, chatInput }; frühere Nachrichten mit { action: "loadPreviousSession", sessionId }.
-import { ChatView, replyText, type ChatMessage } from './view.js';
+import { ChatView, readChunks, replyText, type ChatMessage, type StreamSink } from './view.js';
 
 interface Config {
   webhookUrl: string;
@@ -10,6 +10,8 @@ interface Config {
   title?: string;
   subtitle?: string;
   inputPlaceholder?: string;
+  /** responseMode "streaming": Antwort als JSON-Zeilen */
+  enableStreaming?: boolean;
 }
 
 const config = JSON.parse(document.getElementById('chat-config')?.textContent ?? '{}') as Config;
@@ -29,10 +31,22 @@ function sessionId(): string {
 
 const session = sessionId();
 
-async function post(body: Record<string, unknown>): Promise<unknown> {
+async function request(body: Record<string, unknown>): Promise<Response> {
   // Relative Adresse, damit die Seite auch hinter einem Proxy funktioniert
   const url = new URL(config.webhookUrl);
-  const res = await fetch(url.pathname + url.search, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  return fetch(url.pathname + url.search, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+}
+
+/** Gestreamte Antwort lesen (n8n @n8n/chat sendMessageStreaming) */
+async function postStreaming(body: Record<string, unknown>, sink: StreamSink): Promise<null> {
+  const res = await request(body);
+  if (!res.ok || !res.body) throw new Error(`Fehler beim Senden der Nachricht: ${await res.text()}`);
+  await readChunks(res.body, sink);
+  return null;
+}
+
+async function post(body: Record<string, unknown>): Promise<unknown> {
+  const res = await request(body);
   const text = await res.text();
   let data: unknown = text;
   try {
@@ -55,7 +69,10 @@ const view = new ChatView({
   subtitle: config.subtitle,
   placeholder: config.inputPlaceholder ?? 'Nachricht eingeben',
   initial,
-  send: async (chatInput) => replyText(await post({ action: 'sendMessage', sessionId: session, chatInput })),
+  send: async (chatInput, sink) =>
+    config.enableStreaming
+      ? postStreaming({ action: 'sendMessage', sessionId: session, chatInput }, sink)
+      : replyText(await post({ action: 'sendMessage', sessionId: session, chatInput })),
 });
 document.getElementById('chat')?.append(view.el);
 view.focus();

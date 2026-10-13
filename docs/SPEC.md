@@ -303,6 +303,7 @@ Engine-Reihenfolge, Expressions (inkl. Rohwert vs. String), jeder Node, Filter-O
 | M18 | Testdaten, Variablen, Teilausführung | pinData per Klick, Variablen-Seite, "Bis hier ausführen", "Auf Test-Aufruf warten", Expressions in Webhook-Parametern |
 | M19 | Parameterformulare je Knotentyp | Formular aus der Beschreibung je Knotentyp neben Baum und JSON, Sichtbarkeit und Defaults wie n8n |
 | M20 | Knoten-Ausbau | Merge per SQL, Execute Workflow aus Datei und URL, require mit Freigabeliste, Execution-Order v0 |
+| M21 | Streaming | Webhook, Respond to Webhook, Chat Trigger und AI Agent mit gestreamten Antworten wie n8n |
 
 Nach jedem Meilenstein: `docs/STATUS.md` aktualisieren (was geht, was fehlt) und einen Commit mit aussagekräftiger Nachricht.
 
@@ -312,14 +313,13 @@ Nach jedem Meilenstein: `docs/STATUS.md` aktualisieren (was geht, was fehlt) und
 Offene Funktionen, ungefähr nach Nutzen geordnet. Jede wird wie ein Meilenstein umgesetzt (Tests, `docs/STATUS.md`, Commit).
 
 ### 11.1 Ausführung und Server
-(Expressions in Webhook-Parametern, Teilausführung bis zu einem Knoten, "Auf Test-Aufruf warten": M18; Execution-Order v0: M20)
-- Streaming-Antworten (Webhook `responseMode: streaming`, Respond to Webhook mit Streaming, Agent-Streaming)
+(Expressions in Webhook-Parametern, Teilausführung bis zu einem Knoten, "Auf Test-Aufruf warten": M18; Execution-Order v0: M20; Streaming: M21)
 - Skalierung über mehrere Prozesse (Warteschlange, z. B. Redis) für hohe Last
 
 ### 11.2 Knoten
 - Vollständige `helpers` im Code-Node (Python im Code-Node: M12, `require` mit Freigabeliste: M20)
 - HTTP Request: vordefinierte Credential-Typen, OAuth1 (Pagination, Digest-Auth, Client-Zertifikate: M15)
-- Chat-Knoten (Human in the Loop), Streaming im Chat (Chat Trigger mit Chat-Ansicht: M16)
+- Chat-Knoten (Human in the Loop) mit Antwortmodus "responseNodes" (Chat Trigger mit Chat-Ansicht: M16, Streaming: M21)
 - KI: OpenAI Responses API, Agent-Varianten aus typeVersion 1.x, weitere Modelle, Tools und Vektorspeicher
 - Dienst-Knoten mit eigenen OAuth-Flows (Gmail, Slack, Microsoft 365 usw.) und weitere Integrationen
 - Eigene Knoten als Erweiterungen (Plugin-Schnittstelle, Community-Nodes)

@@ -53,6 +53,48 @@ export class OpenAiChatModel extends ChatModel {
     });
   }
 
+  /**
+   * Chat Completions mit stream: true (ChatOpenAI streaming mit streamUsage: stream_options.include_usage) und aus den
+   * Teilen eine Antwort wie ohne Streaming zusammensetzen
+   */
+  private async streamCompletion(url: string, headers: Record<string, string>, body: Record<string, unknown>, signal: AbortSignal | undefined, onToken: (text: string) => void): Promise<Record<string, unknown>> {
+    let id: unknown;
+    let model: unknown;
+    let content = '';
+    let finishReason: unknown = null;
+    let usage: unknown;
+    const toolCalls: Array<{ id: string; type: 'function'; function: { name: string; arguments: string } }> = [];
+    await this.postStream(url, headers, { ...body, stream: true, stream_options: { include_usage: true } }, signal, (data) => {
+      if (data === '[DONE]') return;
+      let chunk: { id?: unknown; model?: unknown; usage?: unknown; choices?: Array<{ delta?: { content?: string | null; tool_calls?: Array<{ index: number; id?: string; function?: { name?: string; arguments?: string } }> }; finish_reason?: unknown }> };
+      try {
+        chunk = JSON.parse(data) as typeof chunk;
+      } catch {
+        return;
+      }
+      id ??= chunk.id;
+      model ??= chunk.model;
+      if (chunk.usage) usage = chunk.usage;
+      const choice = chunk.choices?.[0];
+      if (!choice) return;
+      if (choice.finish_reason) finishReason = choice.finish_reason;
+      const delta = choice.delta ?? {};
+      if (delta.content) {
+        content += delta.content;
+        onToken(delta.content);
+      }
+      for (const tc of delta.tool_calls ?? []) {
+        const entry = (toolCalls[tc.index] ??= { id: '', type: 'function', function: { name: '', arguments: '' } });
+        if (tc.id) entry.id = tc.id;
+        if (tc.function?.name) entry.function.name += tc.function.name;
+        if (tc.function?.arguments) entry.function.arguments += tc.function.arguments;
+      }
+    });
+    const message: Record<string, unknown> = { role: 'assistant', content: content || (toolCalls.length ? null : '') };
+    if (toolCalls.length) message.tool_calls = toolCalls.filter(Boolean);
+    return { id, model, choices: [{ index: 0, message, finish_reason: finishReason }], usage };
+  }
+
   protected async call(messages: ChatMessage[], options: ModelCallOptions): Promise<ChatResult> {
     const o = this.opts;
     const body: Record<string, unknown> = {
@@ -72,12 +114,10 @@ export class OpenAiChatModel extends ChatModel {
     else body.max_tokens = o.maxTokens === -1 ? undefined : o.maxTokens;
     body.messages = this.toMessages(messages);
     const base = (o.baseURL || 'https://api.openai.com/v1').replace(/\/+$/, '');
-    const res = await this.postJson(
-      `${base}/chat/completions`,
-      { Authorization: `Bearer ${o.apiKey}`, 'Content-Type': 'application/json', ...(o.headers ?? {}) },
-      body,
-      options.signal,
-    );
+    const headers = { Authorization: `Bearer ${o.apiKey}`, 'Content-Type': 'application/json', ...(o.headers ?? {}) };
+    const res = options.onToken
+      ? await this.streamCompletion(`${base}/chat/completions`, headers, body, options.signal, options.onToken)
+      : await this.postJson(`${base}/chat/completions`, headers, body, options.signal);
     const choice = (res.choices as Array<Record<string, unknown>> | undefined)?.[0] ?? {};
     const message = (choice.message ?? {}) as { content?: string | null; tool_calls?: Array<{ id: string; function: { name: string; arguments: string } }> };
     const toolCalls: ToolCall[] = (message.tool_calls ?? []).map((tc) => {

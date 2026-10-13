@@ -275,6 +275,11 @@ Kopfzeile ein Chat-Fenster, jede Nachricht ist ein Testlauf mit dem aktuellen St
 den Endpunkt zum Einbetten. Die Antwort ist das erste Item des letzten Knotens (`output` bzw. `text`) oder kommt von einem
 Respond-to-Webhook-Knoten.
 
+**Streaming:** Mit dem Antwortmodus "Streaming" (Webhook ab v2.1, Chat Trigger ab v1.2) schreibt der AI Agent seine
+Antwort Wort für Wort in die laufende HTTP-Antwort, die Chat-Seite zeigt sie sofort an. Die Antwort besteht wie bei n8n aus
+JSON-Zeilen (`{"type":"begin|item|end|error","content":…,"metadata":{…}}`); Respond to Webhook ab v1.5 schreibt dort
+ebenfalls hinein.
+
 ## Mehrere Benutzer und Mandanten
 
 Für Teams und für den Betrieb bei mehreren Kunden gibt es zwei weitere Betriebsarten. Der Einzelbetrieb mit `filuflow serve`

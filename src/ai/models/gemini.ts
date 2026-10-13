@@ -126,13 +126,13 @@ export class GeminiChatModel extends ChatModel {
       contents,
     };
     const host = this.opts.host || 'https://generativelanguage.googleapis.com';
+    const headers = { 'Content-Type': 'application/json', 'x-goog-api-client': 'genai-js/0.24.1', 'x-goog-api-key': this.opts.apiKey };
+    if (options.onToken) {
+      // generateContentStream: streamGenerateContent?alt=sse, Teile werden zu einer Antwort zusammengeführt
+      return this.mapResult(await this.streamContent(`${host}/v1beta/models/${this.model}:streamGenerateContent?alt=sse`, headers, body, options.signal, options.onToken));
+    }
     const url = `${host}/v1beta/models/${this.model}:generateContent`;
-    const res = await this.postJson(
-      url,
-      { 'Content-Type': 'application/json', 'x-goog-api-client': 'genai-js/0.24.1', 'x-goog-api-key': this.opts.apiKey },
-      body,
-      options.signal,
-    );
+    const res = await this.postJson(url, headers, body, options.signal);
     return this.mapResult(res);
   }
 
@@ -145,6 +145,38 @@ export class GeminiChatModel extends ChatModel {
       // Rohtext
     }
     return `[GoogleGenerativeAI Error]: Error fetching from ${url}: [${status} ${statusText}] ${message}`;
+  }
+
+  /** Gestreamte Antworten zusammenführen (aufeinanderfolgende Text-Teile verbunden, Funktionsaufrufe einzeln) */
+  private async streamContent(url: string, headers: Record<string, string>, body: Record<string, unknown>, signal: AbortSignal | undefined, onToken: (text: string) => void): Promise<Record<string, unknown>> {
+    const parts: Array<Record<string, unknown>> = [];
+    let last: Record<string, unknown> = {};
+    let candidate: Record<string, unknown> = {};
+    await this.postStream(url, headers, body, signal, (data) => {
+      let chunk: Record<string, unknown>;
+      try {
+        chunk = JSON.parse(data) as Record<string, unknown>;
+      } catch {
+        return;
+      }
+      last = chunk;
+      const c = (chunk.candidates as Array<Record<string, unknown>> | undefined)?.[0];
+      if (!c) return;
+      const { content, ...rest } = c as { content?: { parts?: Array<Record<string, unknown>> } };
+      candidate = { ...candidate, ...rest };
+      for (const part of content?.parts ?? []) {
+        const prev = parts[parts.length - 1];
+        if (typeof part.text === 'string' && !part.thought) {
+          onToken(part.text);
+          if (prev && typeof prev.text === 'string' && !prev.thought) {
+            prev.text = String(prev.text) + part.text;
+            continue;
+          }
+        }
+        parts.push({ ...part });
+      }
+    });
+    return { ...last, candidates: [{ ...candidate, content: { role: 'model', parts } }] };
   }
 
   /** mapGenerateContentResultToChatResult */

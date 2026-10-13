@@ -19,6 +19,11 @@ export interface HttpRequest {
   signal?: AbortSignal;
   /** Eigene TLS-Daten (HTTP Request "SSL Certificates", n8n agentOptions): CA ersetzt die Standard-CAs */
   tls?: { ca?: string; cert?: string; key?: string; passphrase?: string };
+  /**
+   * Teilantworten beim Lesen des Bodys (Streaming, z. B. Server-Sent Events der KI-Modelle). Der vollständige Body steht
+   * trotzdem in der Antwort; Clients ohne Streaming dürfen die Option ignorieren.
+   */
+  onChunk?: (chunk: Buffer) => void;
 }
 
 export interface HttpResponse {
@@ -109,7 +114,16 @@ export class UndiciHttpClient implements HttpClient {
         dispatcher: getDispatcher(req),
         signal,
       });
-      const buf = Buffer.from(await res.body.arrayBuffer());
+      let buf: Buffer;
+      if (req.onChunk && !(REDIRECT_CODES.has(res.statusCode) && res.headers.location)) {
+        const parts: Buffer[] = [];
+        for await (const part of res.body) {
+          const chunk = Buffer.isBuffer(part) ? part : Buffer.from(part as Uint8Array);
+          parts.push(chunk);
+          if (res.statusCode < 400) req.onChunk(chunk);
+        }
+        buf = Buffer.concat(parts);
+      } else buf = Buffer.from(await res.body.arrayBuffer());
       const location = res.headers.location;
       if (REDIRECT_CODES.has(res.statusCode) && location && redirects < maxRedirects) {
         url = new URL(Array.isArray(location) ? location[0] : location, url).toString();

@@ -188,6 +188,19 @@ export class NodeExecutionContext implements ExecContext {
     this.executor.sendWebhookResponse(response);
   }
 
+  isStreaming(): boolean {
+    return this.executor.isStreaming();
+  }
+
+  /** n8n ExecuteContext.sendChunk: Inhalt als Text (Objekte als JSON) mit Metadaten des Knotens */
+  sendChunk(type: 'begin' | 'item' | 'end' | 'error', itemIndex: number, content?: unknown): void {
+    this.executor.sendChunk({
+      type,
+      content: content === undefined ? undefined : typeof content === 'string' ? content : JSON.stringify(content),
+      metadata: { nodeId: this.node.id ?? '', nodeName: this.node.name, itemIndex, runIndex: this.runIndex, timestamp: Date.now() },
+    });
+  }
+
   getSubNodes(type: string): WorkflowNode[] {
     return this.workflow.getSubNodes(this.node.name, type);
   }

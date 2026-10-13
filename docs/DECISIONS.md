@@ -240,3 +240,12 @@ Relative Pfade gelten wie in n8n ab dem Arbeitsverzeichnis des Prozesses. n8n li
 zusätzlich `FILUFLOW_RESTRICT_FILE_ACCESS_TO` (Name wie `N8N_RESTRICT_FILE_ACCESS_TO`). Externe Module für `require` kommen
 aus der Installation von filuflow, wie bei n8n aus der des Task-Runners.
 
+## Streaming (M21)
+Wie n8n: Ein Run-Hook `sendChunk` gibt es nur, wenn die Antwort gestreamt wird; `isStreaming()` prüft ihn und den Modus
+(manual, webhook, integrated). Knoten schreiben `begin`/`item`/`end`, die Engine bei Fehlern `error`. Der Server schreibt jede
+Zeile sofort (chunked) und beendet die Antwort mit der Ausführung. Die Modelle streamen über Server-Sent Events; der
+HTTP-Client liefert dafür Teilantworten (`onChunk`), behält aber den vollständigen Body, sodass Tracing, Token-Zählung und
+Ergebnis genau wie ohne Streaming entstehen. Der V2-Agent gibt als Ergebnis die Antwort des letzten Modellaufrufs zurück
+(n8n setzt dort den gesamten gestreamten Text zusammen; bei Tool-Aufrufen ohne Begleittext ist das dasselbe). Das
+Chat-Fenster im Editor nutzt weiter Testläufe ohne Streaming.
+

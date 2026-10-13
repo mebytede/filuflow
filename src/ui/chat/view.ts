@@ -12,10 +12,55 @@ export interface ChatViewOptions {
   subtitle?: string;
   placeholder?: string;
   initial?: ChatMessage[];
-  /** Nachricht senden; liefert die Antwort als Text */
-  send(text: string): Promise<string>;
+  /**
+   * Nachricht senden; liefert die Antwort als Text. Bei einer gestreamten Antwort schreibt send die Teile über `stream`
+   * und liefert null.
+   */
+  send(text: string, stream: StreamSink): Promise<string | null>;
   /** Kopfzeile mit Knöpfen (Editor: Neue Sitzung, Schließen) */
   actions?: HTMLElement[];
+}
+
+/** Ziel für gestreamte Antworten: je Knoten und Lauf eine eigene Nachricht (wie @n8n/chat) */
+export interface StreamSink {
+  begin(key: string): void;
+  chunk(key: string, text: string): void;
+  end(key: string): void;
+  error(text: string): void;
+}
+
+/** Liest JSON-Zeilen (n8n StructuredChunk) aus einer gestreamten Antwort */
+export async function readChunks(body: ReadableStream<Uint8Array>, sink: StreamSink): Promise<boolean> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let received = false;
+  const handle = (line: string) => {
+    if (!line.trim()) return;
+    let chunk: { type?: string; content?: string; metadata?: { nodeId?: string; runIndex?: number } };
+    try {
+      chunk = JSON.parse(line) as typeof chunk;
+    } catch {
+      // Zeilen ohne JSON gelten wie im n8n-Widget als Text
+      chunk = { type: 'item', content: line };
+    }
+    const key = `${chunk.metadata?.nodeId ?? ''}:${chunk.metadata?.runIndex ?? 0}`;
+    received = true;
+    if (chunk.type === 'begin') sink.begin(key);
+    else if (chunk.type === 'item') sink.chunk(key, chunk.content ?? '');
+    else if (chunk.type === 'end') sink.end(key);
+    else if (chunk.type === 'error') sink.error(chunk.content ?? 'Fehler im Workflow');
+  };
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? '';
+    lines.forEach(handle);
+  }
+  handle(buffer + decoder.decode());
+  return received;
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] {
@@ -102,10 +147,36 @@ export class ChatView {
     this.add({ from: 'user', text });
     const pending = this.add({ from: 'bot', text: '…' });
     pending.classList.add('chat-pending');
+    const bubbles = new Map<string, HTMLElement>();
+    const bubble = (key: string) => {
+      let b = bubbles.get(key);
+      if (!b) {
+        pending.remove();
+        b = this.add({ from: 'bot', text: '' });
+        b.classList.add('chat-streaming');
+        bubbles.set(key, b);
+      }
+      return b;
+    };
+    const sink: StreamSink = {
+      begin: (key) => void bubble(key),
+      chunk: (key, part) => {
+        const b = bubble(key).querySelector('.chat-bubble')!;
+        b.textContent = (b.textContent ?? '') + part;
+        this.list.scrollTop = this.list.scrollHeight;
+      },
+      end: (key) => bubbles.get(key)?.classList.remove('chat-streaming'),
+      error: (message) => {
+        pending.remove();
+        this.add({ from: 'bot', text: message, error: true });
+      },
+    };
     try {
-      const reply = await this.o.send(text);
+      const reply = await this.o.send(text, sink);
       pending.remove();
-      this.add({ from: 'bot', text: reply || '(keine Antwort)' });
+      for (const b of bubbles.values()) b.classList.remove('chat-streaming');
+      if (reply !== null) this.add({ from: 'bot', text: reply || '(keine Antwort)' });
+      else if (!bubbles.size && !this.list.querySelector('.chat-error:last-child')) this.add({ from: 'bot', text: '(keine Antwort)' });
     } catch (error) {
       pending.remove();
       this.add({ from: 'bot', text: (error as Error).message, error: true });

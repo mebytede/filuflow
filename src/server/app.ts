@@ -82,6 +82,19 @@ function checkApiKey(expected: string | undefined, request: FastifyRequest): boo
 }
 
 function sendHttp(reply: FastifyReply, response: HttpResponse): FastifyReply {
+  if (response.stream) {
+    reply.hijack();
+    reply.raw.writeHead(response.statusCode, response.headers);
+    reply.raw.flushHeaders();
+    void (async () => {
+      try {
+        for await (const part of response.stream!) reply.raw.write(part);
+      } finally {
+        reply.raw.end();
+      }
+    })();
+    return reply;
+  }
   if (response.raw) {
     reply.hijack();
     reply.raw.writeHead(response.statusCode, response.headers);

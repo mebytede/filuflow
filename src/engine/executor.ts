@@ -59,6 +59,19 @@ export interface RunHooks {
   nodeExecuteAfter?(nodeName: string, taskData: TaskData): void;
   /** responseMode=responseNode: Antwort sofort senden */
   sendResponse?(response: WebhookResponse): void;
+  /**
+   * Streaming (n8n Hook sendChunk): nur gesetzt, wenn die Antwort gestreamt wird (Webhook oder Chat Trigger mit
+   * responseMode "streaming")
+   */
+  sendChunk?(chunk: StructuredChunk): void;
+}
+
+export type ChunkType = 'begin' | 'item' | 'end' | 'error';
+/** n8n StructuredChunk (packages/workflow/src/interfaces.ts), als JSON-Zeile in die Antwort geschrieben */
+export interface StructuredChunk {
+  type: ChunkType;
+  content?: string;
+  metadata: { nodeId: string; nodeName: string; runIndex: number; itemIndex: number; timestamp?: number };
 }
 
 export interface SubWorkflowRunner {
@@ -375,6 +388,15 @@ export class WorkflowExecutor {
     });
   }
 
+  /** n8n ExecuteContext.isStreaming: Hook vorhanden und Modus erlaubt Streaming */
+  isStreaming(): boolean {
+    return !!this.options.hooks?.sendChunk && ['manual', 'webhook', 'integrated'].includes(this.mode);
+  }
+
+  sendChunk(chunk: StructuredChunk): void {
+    this.options.hooks?.sendChunk?.(chunk);
+  }
+
   sendWebhookResponse(response: WebhookResponse): void {
     if (this.webhookResponseSent) return;
     this.webhookResponseSent = true;
@@ -672,6 +694,12 @@ export class WorkflowExecutor {
       if (executionError !== undefined) {
         taskData.error = executionError;
         taskData.executionStatus = 'error';
+        // Fehler auch in eine gestreamte Antwort schreiben (n8n workflow-execute.ts: sendChunk "error")
+        this.options.hooks?.sendChunk?.({
+          type: 'error',
+          content: executionError.description === undefined || executionError.description === null ? undefined : String(executionError.description),
+          metadata: { nodeId: node.id ?? '', nodeName: node.name, runIndex, itemIndex: 0 },
+        });
         if (
           node.continueOnFail === true ||
           node.onError === 'continueRegularOutput' ||
