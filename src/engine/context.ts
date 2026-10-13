@@ -212,6 +212,14 @@ export class NodeExecutionContext implements ExecContext {
     this.executor.recordSubNodeTask('output', this.node, this.parent, connectionType, data, index, sourceRunIndex);
   }
 
+  putExecutionToWait(waitTill: Date): void {
+    this.executor.putExecutionToWait(waitTill);
+  }
+
+  get canWait(): boolean {
+    return this.executor.canWait;
+  }
+
   logOutput(level: 'log' | 'info' | 'warn' | 'error' | 'debug', args: unknown[]): void {
     this.executor.addLog(this.node.name, level, args);
   }

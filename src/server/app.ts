@@ -25,6 +25,7 @@ import type { LayeredCredentialProvider } from '../credentials/managed.js';
 import { CREDENTIAL_TYPES } from '../credentials/types.js';
 import { registerCredentialsApi } from './credentialsApi.js';
 import { warmUpPython } from '../python/pyodide.js';
+import { setOAuth2TokenStore } from '../credentials/oauth2.js';
 
 export interface ServerOptions {
   dir: string;
@@ -106,13 +107,35 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
   const crashed = store.markCrashed();
   if (crashed) logger.warn({ count: crashed }, 'Unvollständige Executions als abgestürzt markiert');
 
+  // Statische Workflow-Daten ($getWorkflowStaticData): im Speicher, nach jeder Execution in SQLite (M13)
   const staticData = new Map<string, Record<string, Record<string, unknown>>>();
+  const staticSaved = new Map<string, string>();
   const staticFor = (wf: { id?: string; name: string }) => {
     const key = wf.id ?? wf.name;
     let data = staticData.get(key);
-    if (!data) staticData.set(key, (data = {}));
+    if (!data) {
+      data = store.getStaticData(key) ?? {};
+      staticData.set(key, data);
+      staticSaved.set(key, JSON.stringify(data));
+    }
     return data;
   };
+  // n8n speichert statische Daten nach Ausführungen außerhalb des manuellen Modus (saveStaticData)
+  const saveStaticData = (wf: { id?: string; name: string }, mode: string) => {
+    if (mode === 'manual') return;
+    const key = wf.id ?? wf.name;
+    const data = staticData.get(key);
+    if (!data) return;
+    const json = JSON.stringify(data);
+    if (staticSaved.get(key) === json) return;
+    try {
+      store.setStaticData(key, data);
+      staticSaved.set(key, json);
+    } catch (error) {
+      logger.error({ err: (error as Error).message, workflow: wf.name }, 'Statische Daten konnten nicht gespeichert werden');
+    }
+  };
+  setOAuth2TokenStore({ get: (key) => store.getValue(key), set: (key, token) => store.setValue(key, token) });
 
   // Zirkuläre Abhängigkeiten (Runner <-> Manager <-> Workflows): erst deklarieren, dann zuweisen
   // eslint-disable-next-line prefer-const
@@ -138,8 +161,9 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
     findWorkflow: (id) => workflows?.findSync(id),
     baseUrl: options.webhookBaseUrl,
     staticData: staticFor,
+    saveStaticData,
   });
-  const webhooks = new WebhookService({ manager, credentials, binary, logger, webhookBaseUrl: options.webhookBaseUrl });
+  const webhooks = new WebhookService({ manager, credentials, binary, logger, webhookBaseUrl: options.webhookBaseUrl, store });
   const scheduler = new Scheduler(manager, logger, staticFor);
   workflows = new WorkflowManager({ dir: options.dir, registry, credentials, webhooks, scheduler, logger });
   await workflows.reload();
@@ -159,6 +183,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
     }
   };
   prune();
+  manager.startWaitTracker();
   const pruneTimer = setInterval(prune, 60 * 60 * 1000).unref();
 
   const bodyLimit = (options.payloadSizeMaxMb ?? 16) * 1024 * 1024;
@@ -206,6 +231,19 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
     };
     scope.all('/webhook/*', handler(false));
     scope.all('/webhook-test/*', handler(true));
+    // Fortsetzen wartender Executions: /webhook-waiting/<executionId>[/<webhookSuffix>]
+    scope.all('/webhook-waiting/*', async (request: FastifyRequest, reply: FastifyReply) => {
+      const [executionId, ...rest] = ((request.params as { '*': string })['*'] ?? '').split('/');
+      const response = await webhooks.handleWaiting(executionId ?? '', rest.join('/').replace(/\/+$/, ''), {
+        method: request.method.toUpperCase(),
+        headers: request.headers,
+        query: (request.query ?? {}) as Record<string, unknown>,
+        rawBody: Buffer.isBuffer(request.body) ? request.body : Buffer.alloc(0),
+        ip: request.ip,
+        ips: [],
+      });
+      return sendHttp(reply, response);
+    });
   });
 
   // REST-API mit X-API-Key
@@ -322,6 +360,8 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
     scheduler,
     async close() {
       clearInterval(pruneTimer);
+      manager.stopWaitTracker();
+      setOAuth2TokenStore(undefined);
       workflows!.close();
       scheduler.stopAll();
       await app.close();

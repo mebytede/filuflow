@@ -24,7 +24,10 @@ import type { WebhookResponse } from '../nodes/types.js';
 import { WorkflowGraph } from '../engine/graph.js';
 import type { BinaryStore } from '../binary.js';
 import type { CredentialProvider } from '../credentials/store.js';
-import type { ExecutionManager } from './executions.js';
+import { ResumeError, type ActiveExecution, type ExecutionManager } from './executions.js';
+import type { ExecutionStore } from './store.js';
+import type { RunHooks } from '../engine/executor.js';
+import { WAIT_NODE_TYPE } from '../nodes/wait.js';
 import type { Logger } from '../logger.js';
 
 export interface RegisteredWebhook extends WebhookDescription {
@@ -226,6 +229,8 @@ export interface WebhookServiceOptions {
   logger: Logger;
   /** z. B. http://localhost:5678/ */
   webhookBaseUrl: string;
+  /** Für wartende Executions (/webhook-waiting/) */
+  store?: ExecutionStore;
 }
 
 /** Letzte Ausführung des zuletzt ausgeführten Nodes (WorkflowHelpers.getDataLastExecutedNodeData) */
@@ -299,7 +304,104 @@ export class WebhookService {
 
     if (result.directResponse) return { ...result.directResponse, raw: true };
 
+    return this.respondWith(opts, result, (hooks) =>
+      this.options.manager.start({
+        workflow,
+        mode: test ? 'manual' : 'webhook',
+        startNodeName: node.name,
+        triggerOutputs: result.workflowData,
+        usePinData: test,
+        hooks,
+      }),
+    );
+  }
+
+  /**
+   * Fortsetzen einer wartenden Execution über $execution.resumeUrl (n8n waiting-webhooks.ts): Der zuletzt
+   * ausgeführte Node muss ein Wait-Node mit resume "webhook", passender Methode und passendem webhookSuffix sein.
+   */
+  async handleWaiting(executionId: string, suffix: string, request: Omit<IncomingWebhookRequest, 'params'>): Promise<HttpResponse> {
+    const method = request.method.toUpperCase();
+    const store = this.options.store;
+    const stored = store?.get(executionId, false);
+    if (!store || !stored) return errorResponse(Object.assign(new Error(`The execution "${executionId}" does not exist.`), { statusCode: 404 }));
+    if (stored.status === 'running' || stored.status === 'new') {
+      return errorResponse(Object.assign(new Error(`The execution "${executionId}" is running already.`), { statusCode: 409 }));
+    }
+    if (stored.error) return errorResponse(Object.assign(new Error(`The execution "${executionId}" has finished with error.`), { statusCode: 409 }));
+    if (stored.status !== 'waiting') return errorResponse(Object.assign(new Error(`The execution "${executionId} has finished already.`), { statusCode: 409 }));
+    const record = store.loadResume(executionId);
+    const workflow = record?.workflow;
+    const node = workflow?.nodes.find((n) => n.name === stored.lastNodeExecuted);
+    const params = (node?.parameters ?? {}) as Record<string, unknown>;
+    const nodeSuffix = String((params.options as { webhookSuffix?: unknown } | undefined)?.webhookSuffix ?? '').replace(/^\/+/, '');
+    const methods = Array.isArray(params.httpMethod) ? (params.httpMethod as string[]) : [String(params.httpMethod ?? 'GET')];
+    if (!workflow || !node || node.type !== WAIT_NODE_TYPE || (params.resume ?? 'timeInterval') !== 'webhook' || !methods.includes(method) || nodeSuffix !== suffix) {
+      return errorResponse(
+        Object.assign(new Error(`The workflow for execution "${executionId}" does not contain a waiting webhook with a matching path/method.`), { statusCode: 404 }),
+      );
+    }
+    const graph = new WorkflowGraph(workflow);
+    const opts = responseOptions(node);
+    if (!['onReceived', 'lastNode', 'responseNode'].includes(opts.responseMode)) {
+      return errorResponse(new Error(`The response mode '${opts.responseMode}' is not valid!`));
+    }
+    let result;
+    try {
+      result = await handleWebhookRequest({
+        node,
+        request: { ...request, params: {} },
+        executionMode: stored.mode === 'manual' ? 'test' : 'production',
+        webhookUrl: this.waitWebhookUrl(workflow, node, nodeSuffix),
+        binary: this.options.binary,
+        childNodeTypes: graph.getChildNodes(node.name).map((n) => graph.getNode(n)?.type ?? ''),
+        authProperty: 'incomingAuthentication',
+        getCredentials: async (type) => {
+          const ref = node.credentials?.[type];
+          const entry = ref ? this.options.credentials.find(ref, type) : undefined;
+          return entry ? this.options.credentials.resolve(entry) : undefined;
+        },
+      });
+    } catch (error) {
+      if (error instanceof UnprocessableRequestError) {
+        return errorResponse(Object.assign(new Error(error.message), { statusCode: 422, hint: error.hint }));
+      }
+      this.options.logger.error({ err: (error as Error).message, workflow: workflow.name }, 'Webhook-Fehler beim Fortsetzen');
+      return errorResponse(new Error(error instanceof WebhookConfigurationError ? (error as Error).message : 'Workflow Webhook Error: Workflow could not be started!'));
+    }
+    if (result.directResponse) return { ...result.directResponse, raw: true };
+    try {
+      // Vorab prüfen, damit ein Konflikt (läuft gerade) als 409 statt als Fehler der Execution ankommt
+      return await this.respondWith(opts, result, (hooks) => this.options.manager.resume(executionId, { webhookData: result.workflowData, hooks }));
+    } catch (error) {
+      if (error instanceof ResumeError) return errorResponse(Object.assign(new Error(error.message), { statusCode: error.statusCode }));
+      throw error;
+    }
+  }
+
+  /** getNodeWebhookUrl für den Wait-Node: Basis /webhook/, dann webhookId (oder Workflow-ID und Node-Name) und Suffix */
+  private waitWebhookUrl(workflow: Workflow, node: WorkflowNode, suffix: string): string {
+    const path = node.webhookId ? `${node.webhookId}/${suffix}` : `${workflow.id ?? ''}/${encodeURIComponent(node.name.toLowerCase())}/${suffix}`;
+    return `${this.options.webhookBaseUrl}webhook/${path}`;
+  }
+
+  /** Antwort je nach responseMode; `start` startet bzw. setzt die Execution fort */
+  private respondWith(opts: WebhookResponseOptions, result: { webhookResponse?: string }, start: (hooks: RunHooks) => ActiveExecution): Promise<HttpResponse> {
     const baseHeaders = Object.fromEntries(opts.responseHeaders);
+    let respondEarly: HttpResponse | undefined;
+    let resolveEarly: ((r: HttpResponse) => void) | undefined;
+    const sendResponse = (response: WebhookResponse) => {
+      if (opts.responseMode !== 'responseNode') return;
+      const headers = { ...baseHeaders, ...lowerKeys(response.headers) };
+      // setupResponseNodePromise: res.header(...) + res.end(buffer)
+      const r: HttpResponse = Buffer.isBuffer(response.body)
+        ? { statusCode: response.statusCode, headers, body: response.body, raw: true }
+        : expressResponse(response.statusCode, headers, response.body, true);
+      if (resolveEarly) resolveEarly(r);
+      else respondEarly ??= r;
+    };
+    // start() wirft bei Konflikten synchron (Fortsetzen); dann gibt es keine Antwort aus der Execution
+    const entry: ActiveExecution = start({ sendResponse });
     return new Promise<HttpResponse>((resolve) => {
       let responded = false;
       const respond = (r: HttpResponse) => {
@@ -307,6 +409,8 @@ export class WebhookService {
         responded = true;
         resolve(r);
       };
+      resolveEarly = respond;
+      if (respondEarly) respond(respondEarly);
 
       if (opts.responseMode === 'onReceived') {
         let body: unknown;
@@ -316,26 +420,6 @@ export class WebhookService {
         else body = { message: 'Workflow was started' };
         respond(expressResponse(opts.responseCode, baseHeaders, body, true));
       }
-
-      const sendResponse = (response: WebhookResponse) => {
-        if (opts.responseMode !== 'responseNode') return;
-        const headers = { ...baseHeaders, ...lowerKeys(response.headers) };
-        if (Buffer.isBuffer(response.body)) {
-          // setupResponseNodePromise: res.header(...) + res.end(buffer)
-          respond({ statusCode: response.statusCode, headers, body: response.body, raw: true });
-          return;
-        }
-        respond(expressResponse(response.statusCode, headers, response.body, true));
-      };
-
-      const entry = this.options.manager.start({
-        workflow,
-        mode: test ? 'manual' : 'webhook',
-        startNodeName: node.name,
-        triggerOutputs: result.workflowData,
-        usePinData: test,
-        hooks: { sendResponse },
-      });
 
       entry.promise
         .then((execution) => {

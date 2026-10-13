@@ -175,6 +175,8 @@ export interface Execution {
   error?: { message: string; description?: string | null; node?: string };
   runData?: Record<string, TaskData[]>;
   workflow?: Workflow;
+  /** Status "waiting": Fortsetzen spätestens dann; 3000-01-01 = bis zum Aufruf des Webhooks */
+  waitTill?: string;
 }
 
 export interface WorkflowSummary {

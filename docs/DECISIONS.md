@@ -91,6 +91,16 @@ Neben dem Stack aus CLAUDE.md (luxon, better-sqlite3, fastify, croner, pino):
   dann nach ID. Umbenennen behält die ID, damit Workflows mit gespeicherter ID das Credential weiter finden.
 - Keine neue Abhängigkeit.
 
+## Wartende Ausführungen (M13)
+- **Wie n8n:** Der Wait-Knoten ruft `putExecutionToWait`, die Engine legt ihn zurück auf den Stack und beendet den Lauf mit
+  Status "waiting". Beim Fortsetzen wird er deaktiviert (gibt seine Eingangsdaten bzw. die Daten des Webhooks weiter) und sein
+  letzter Lauf entfernt. Unter 65 s wartet der Prozess selbst; der Wait-Tracker holt alle 60 s die in den nächsten 70 s fälligen.
+- **Zustand:** Stack, wartende Eingänge, Kontexte der Knoten und runData werden als JSON in `execution_resume` gespeichert
+  (gzip, mit Schlüssel verschlüsselt). Fortgesetzt wird mit dem Workflow-Stand vom Start der Ausführung, wie n8n.
+- **Nicht in Unter-Workflows und der CLI:** Dort gibt es keinen Ort zum Speichern; Zeiten werden im Prozess abgewartet,
+  Warten auf einen Webhook meldet einen klaren Fehler.
+- **Wait v1:** Defaults wie in der n8n-Beschreibung (v1: 1 Stunde, v1.1: 5 Sekunden); vorher waren sie vertauscht.
+
 ## Python im Code-Node (M12)
 - **Zwei Wege wie n8n:** "Python" läuft mit Pyodide im Serverprozess (Kontext mit `_` statt `$`, wie n8n `PythonSandbox`),
   "Python (Native)" mit einem echten Interpreter in einem eigenen Prozess (wie der Python-Task-Runner von n8n). n8n verlangt für

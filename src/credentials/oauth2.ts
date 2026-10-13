@@ -7,7 +7,8 @@
 //   grantType, accessTokenUrl, clientId, clientSecret, scope, authentication ("header" | "body"),
 //   additionalBodyProperties
 // n8n speichert das Token im Credential und nutzt es, bis die API mit 401 antwortet; dann holt es ein
-// neues Token und wiederholt den Request einmal. filuflow hält das Token im Speicher des Prozesses.
+// neues Token und wiederholt den Request einmal. filuflow hält das Token im Speicher und im Server zusätzlich in der
+// Datenbank (setOAuth2TokenStore), damit es einen Neustart übersteht.
 import { createHash } from 'node:crypto';
 import { stringify as qsStringify, parse as qsParse } from 'node:querystring';
 import type { ExecContext } from '../nodes/types.js';
@@ -22,6 +23,17 @@ export interface OAuth2Token {
 }
 
 const cache = new Map<string, OAuth2Token>();
+
+/** Dauerhafte Ablage der Tokens (Server: SQLite, verschlüsselt mit FILUFLOW_ENCRYPTION_KEY); n8n speichert sie im Credential */
+export interface OAuth2TokenStore {
+  get(key: string): OAuth2Token | undefined;
+  set(key: string, token: OAuth2Token): void;
+}
+let tokenStore: OAuth2TokenStore | undefined;
+
+export function setOAuth2TokenStore(store: OAuth2TokenStore | undefined): void {
+  tokenStore = store;
+}
 
 /** client-oauth2 ERROR_RESPONSES (RFC 6749 4.1.2.1) */
 const ERROR_RESPONSES: Record<string, string> = {
@@ -126,10 +138,16 @@ export async function getOAuth2Token(ctx: ExecContext, cred: Record<string, unkn
     throw new NodeOperationError(ctx.node.name, `OAuth2: Grant-Typ "${grantType}" wird nicht unterstützt (nur clientCredentials)`);
   }
   const key = cacheKey(cred);
-  const cached = cache.get(key);
-  if (cached && !force) return cached;
+  if (!force) {
+    const cached = cache.get(key) ?? tokenStore?.get(`oauth2:${key}`);
+    if (cached) {
+      cache.set(key, cached);
+      return cached;
+    }
+  }
   const token = await fetchToken(ctx, cred);
   cache.set(key, token);
+  tokenStore?.set(`oauth2:${key}`, token);
   return token;
 }
 

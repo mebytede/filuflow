@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Execution, ExecutionMode, Item, Workflow } from './types.js';
-import { executeWorkflow, findStartNode, WorkflowExecutor, type ExecutorOptions, type RunHooks } from './engine/executor.js';
+import { executeWorkflow, findStartNode, WorkflowExecutor, type ExecutorOptions, type ResumeData, type RunHooks } from './engine/executor.js';
 import { WorkflowGraph } from './engine/graph.js';
 import type { NodeRegistry } from './nodes/registry.js';
 import { getDefaultRegistry } from './nodes/index.js';
@@ -83,6 +83,10 @@ export interface RunOptions {
   staticData?: Record<string, Record<string, unknown>>;
   /** Callback, sobald der Executor existiert (z. B. für Abbruch) */
   onStart?: (executor: WorkflowExecutor) => void;
+  /** Execution darf dauerhaft warten (nur Server); Unter-Workflows nie */
+  canWait?: boolean;
+  /** Wartende Execution fortsetzen */
+  resume?: ResumeData;
 }
 
 /** Start-Node für Unter-Workflows (n8n findSubworkflowStart): executeWorkflowTrigger, sonst ein Start-Typ */
@@ -129,6 +133,8 @@ export class Runner {
       timezone: this.options.timezone,
       staticData: run.staticData,
       webhookWaitingBaseUrl: this.options.webhookWaitingBaseUrl,
+      canWait: depth === 0 && run.canWait === true,
+      resume: run.resume,
       runSubWorkflow: (req) => this.runSubWorkflow(req, depth + 1),
     };
   }

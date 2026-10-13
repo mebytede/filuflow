@@ -106,6 +106,10 @@ FILUFLOW_API_KEY=geheim filuflow serve --dir ./workflows --port 5678 --db ./filu
 - Ungültige Workflows (zum Beispiel mit unbekannten Knoten) werden nicht aktiviert. Der Grund steht im Log, in der Übersicht und
   in `GET /api/workflows`.
 - Ausführungen landen in SQLite, standardmäßig 14 Tage lang; höchstens 5 laufen gleichzeitig, weitere warten.
+- **Warten:** Der Wait-Knoten hält eine Ausführung an, bis eine Zeit erreicht ist oder ein Webhook kommt
+  (`$execution.resumeUrl`, also `/webhook-waiting/<ausführung>`, optional mit Suffix und Authentifizierung). Wartende
+  Ausführungen liegen in der Datenbank und überstehen einen Neustart; in der Liste steht, worauf sie warten, und sie lassen
+  sich abbrechen. Statische Daten (`$getWorkflowStaticData`) und OAuth2-Tokens bleiben ebenfalls über Neustarts erhalten.
 
 <details>
 <summary>REST-API (Header <code>X-API-Key</code>)</summary>
@@ -117,7 +121,8 @@ FILUFLOW_API_KEY=geheim filuflow serve --dir ./workflows --port 5678 --db ./filu
 | `POST /api/workflows/:id/run` | ausführen; Body = Start-Items, `?wait=false` für asynchron |
 | `GET /api/executions?workflow=&status=&limit=` | Ausführungen |
 | `GET /api/executions/:id` | eine Ausführung mit Daten je Knoten |
-| `POST /api/executions/:id/cancel` | laufende Ausführung abbrechen |
+| `POST /api/executions/:id/cancel` | laufende oder wartende Ausführung abbrechen |
+| `ANY /webhook-waiting/:id[/suffix]` | wartende Ausführung fortsetzen (Wait "On Webhook Call") |
 | `GET /api/overview` | Kennzahlen der letzten 14 Tage, letzte Ausführung je Workflow |
 | `GET /healthz` | Lebenszeichen (ohne API-Key) |
 

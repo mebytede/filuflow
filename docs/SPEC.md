@@ -295,6 +295,7 @@ Engine-Reihenfolge, Expressions (inkl. Rohwert vs. String), jeder Node, Filter-O
 | M10 | Name filuflow und Design | Oberfläche nach dem Design-Handoff, alte Namen gelten weiter |
 | M11 | Credentials in der Oberfläche | Anlegen, Bearbeiten, Umbenennen, Löschen mit Formularen je Typ, im Einzelbetrieb und im Master; geheime Werte nie lesbar |
 | M12 | Python im Code-Node | Pyodide und lokaler Interpreter, Zeitlimit, Sperren wie n8n, Code Tool mit Python |
+| M13 | Wartende Ausführungen | Wait mit Fortsetzen per Webhook und zum Zeitpunkt, Zustand in SQLite, statische Daten und OAuth2-Tokens dauerhaft |
 
 Nach jedem Meilenstein: `docs/STATUS.md` aktualisieren (was geht, was fehlt) und einen Commit mit aussagekräftiger Nachricht.
 
@@ -304,9 +305,7 @@ Nach jedem Meilenstein: `docs/STATUS.md` aktualisieren (was geht, was fehlt) und
 Offene Funktionen, ungefähr nach Nutzen geordnet. Jede wird wie ein Meilenstein umgesetzt (Tests, `docs/STATUS.md`, Commit).
 
 ### 11.1 Ausführung und Server
-- Wartende Ausführungen: Wait mit Fortsetzen per Webhook (`/webhook-waiting/`) und Formular, lange Wartezeiten im Zustand
-  "waiting" in der Datenbank statt im Prozess
-- Statische Workflow-Daten (`$getWorkflowStaticData`) und OAuth2-Tokens dauerhaft speichern
+- Formulare: Form Trigger, Form-Knoten und Wait "On Form Submitted" (Warten per Webhook und Zeit, dauerhafte statische Daten: M13)
 - Streaming-Antworten (Webhook `responseMode: streaming`, Respond to Webhook mit Streaming, Agent-Streaming)
 - Expressions in Webhook-Parametern (`path`, `httpMethod`, `responseMode`, `responseData`)
 - Teilausführung ab einem Knoten und "Auf Test-Event warten" für Test-Webhooks

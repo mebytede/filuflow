@@ -6,6 +6,12 @@ import { Editor, type EditorBackend } from '../editor/editor.js';
 import { button, duration, pageHead, shortTime, statusWord } from '../shell.js';
 
 /** Herkunft der Ausführungen: Server im Einzelbetrieb oder Worker eines Projekts (über den Master) */
+/** Wartende Ausführung: bis wann (n8n WAIT_INDEFINITELY = 3000-01-01 heißt: bis der Webhook kommt) */
+function waitText(waitTill: string | undefined): string {
+  if (!waitTill || waitTill.startsWith('3000-')) return 'wartet auf Aufruf';
+  return `wartet bis ${new Date(waitTill).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })}`;
+}
+
 export interface ExecutionSource {
   title: string;
   /** Hash der Liste, z. B. #/executions */
@@ -108,11 +114,17 @@ export async function executionsView(params: URLSearchParams, source: ExecutionS
               h('td', { class: 'mono' }, MODES[e.mode] ?? e.mode),
               h('td', { class: 'mono', title: new Date(e.startedAt).toLocaleString('de-DE') }, shortTime(e.startedAt)),
               h('td', { class: 'num' }, duration(runMs(e))),
-              h('td', { class: 'mono' }, h('div', { class: 'ellipsis status-error', style: { maxWidth: '360px' }, title: e.error?.message ?? '' }, e.error?.message ?? '')),
+              h(
+                'td',
+                { class: 'mono' },
+                e.status === 'waiting'
+                  ? h('div', { class: 'muted' }, waitText(e.waitTill))
+                  : h('div', { class: 'ellipsis status-error', style: { maxWidth: '360px' }, title: e.error?.message ?? '' }, e.error?.message ?? ''),
+              ),
               h(
                 'td',
                 { class: 'actions' },
-                source.cancel && (e.status === 'running' || e.status === 'new')
+                source.cancel && (e.status === 'running' || e.status === 'new' || e.status === 'waiting')
                   ? button('Abbrechen', {
                       onclick: async () => {
                         try {

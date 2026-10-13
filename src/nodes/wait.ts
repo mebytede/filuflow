@@ -1,42 +1,99 @@
 // Wait, n8n-nodes-base.wait (typeVersion 1, 1.1)
-// Nachgebaut nach n8n 1.123.0 packages/nodes-base/nodes/Wait/Wait.node.ts
-// Umgesetzt: resume = timeInterval / specificTime; filuflow wartet im Prozess (n8n legt Executions ab 65 s in den
-// Wartezustand). Fortsetzen per Webhook und Formular sowie dauerhaftes Warten: Ausbau (SPEC 11.1).
-import type { NodeType } from './types.js';
+// Nachgebaut nach n8n 1.123.0 packages/nodes-base/nodes/Wait/Wait.node.ts (execute, configureAndPutToWait, putToWait)
+// und packages/cli/src/webhooks/waiting-webhooks.ts (Fortsetzen per Webhook).
+// - timeInterval / specificTime: unter 65 s wartet der Prozess, sonst geht die Execution in den Zustand "waiting"
+//   und der Server setzt sie zum Zeitpunkt fort (auch nach einem Neustart).
+// - webhook: Execution wartet, bis $execution.resumeUrl (/webhook-waiting/<id>[/<webhookSuffix>]) aufgerufen wird;
+//   optional begrenzt (limitWaitTime). Der Request wird wie beim Webhook-Node ausgewertet (incomingAuthentication).
+// - form: Ausbau (Formulare).
+// Ohne Server (CLI, Unter-Workflows) kann eine Execution nicht warten: Zeiten werden im Prozess abgewartet,
+// "webhook" meldet einen Fehler.
+import type { ExecContext, NodeIssue, NodeType } from './types.js';
+import type { Item } from '../types.js';
 import { NodeOperationError } from '../errors.js';
 import { tryToParseDateTime } from './shared/utils.js';
+import { WAIT_INDEFINITELY } from '../engine/executor.js';
+
+export const WAIT_NODE_TYPE = 'n8n-nodes-base.wait';
+
+const UNIT_SECONDS: Record<string, number> = { seconds: 1, minutes: 60, hours: 3600, days: 86400 };
+
+function sleepInProcess(ctx: ExecContext, ms: number): Promise<Item[][]> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => resolve([ctx.items]), ms);
+    ctx.signal.addEventListener(
+      'abort',
+      () => {
+        clearTimeout(timer);
+        reject(new Error('The execution was canceled'));
+      },
+      { once: true },
+    );
+  });
+}
+
+/** configureAndPutToWait: unbegrenzt oder bis limitWaitTime */
+function webhookWaitTill(ctx: ExecContext): Date {
+  if (ctx.getParam<boolean>('limitWaitTime', 0, false) !== true) return WAIT_INDEFINITELY;
+  const limitType = ctx.getParam<string>('limitType', 0, 'afterTimeInterval');
+  if (limitType === 'afterTimeInterval') {
+    const amount = ctx.getParam<number>('resumeAmount', 0, 1);
+    const unit = ctx.getParam<string>('resumeUnit', 0, 'hours');
+    return new Date(Date.now() + amount * (UNIT_SECONDS[unit] ?? 1) * 1000);
+  }
+  return new Date(ctx.getParam<string>('maxDateAndTime', 0, ''));
+}
 
 export const waitNode: NodeType = {
-  type: 'n8n-nodes-base.wait',
+  type: WAIT_NODE_TYPE,
   displayName: 'Wait',
   versions: [1, 1.1],
   outputs: () => 1,
+  credentialTypes(node) {
+    if ((node.parameters.resume ?? 'timeInterval') !== 'webhook') return [];
+    const map: Record<string, string> = { basicAuth: 'httpBasicAuth', headerAuth: 'httpHeaderAuth', jwtAuth: 'jwtAuth' };
+    const t = map[String(node.parameters.incomingAuthentication ?? 'none')];
+    return t ? [t] : [];
+  },
   validate(node) {
+    const issues: NodeIssue[] = [];
     const resume = (node.parameters.resume as string | undefined) ?? 'timeInterval';
-    if (resume === 'webhook' || resume === 'form') {
-      return [{ code: 'node.unsupportedParameter', message: `Wait: resume "${resume}" wird noch nicht unterstützt`, path: 'parameters.resume' }];
+    if (resume === 'form') {
+      issues.push({ code: 'node.unsupportedParameter', message: 'Wait: resume "form" wird noch nicht unterstützt', path: 'parameters.resume' });
     }
-    return [];
+    if (resume === 'webhook' && node.parameters.responseMode === 'streaming') {
+      issues.push({ code: 'webhook.streaming', message: 'responseMode "streaming" wird nicht unterstützt', path: 'parameters.responseMode' });
+    }
+    return issues;
   },
   async execute(ctx) {
     const node = ctx.node;
     const resume = ctx.getParam<string>('resume', 0, 'timeInterval');
+    if (resume === 'webhook') {
+      if (!ctx.canWait) {
+        throw new NodeOperationError(
+          node.name,
+          'Wait "On Webhook Call" braucht den Server (filuflow serve): in der CLI und in Unter-Workflows kann eine Ausführung nicht warten',
+        );
+      }
+      ctx.putExecutionToWait(webhookWaitTill(ctx));
+      return [ctx.items];
+    }
+    if (resume === 'form') throw new NodeOperationError(node.name, 'Wait: resume "form" wird noch nicht unterstützt');
+
     let waitTill: Date;
     if (resume === 'timeInterval') {
       const v1 = node.typeVersion === 1;
-      const unit = ctx.getParam<unknown>('unit', 0, v1 ? 'seconds' : 'hours');
-      if (typeof unit !== 'string' || !['seconds', 'minutes', 'hours', 'days'].includes(unit)) {
+      const unit = ctx.getParam<unknown>('unit', 0, v1 ? 'hours' : 'seconds');
+      if (typeof unit !== 'string' || !(unit in UNIT_SECONDS)) {
         throw new NodeOperationError(node.name, "Invalid wait unit. Valid units are 'seconds', 'minutes', 'hours', or 'days'.");
       }
-      let amount = ctx.getParam<unknown>('amount', 0, v1 ? 5 : 1);
+      const amount = ctx.getParam<unknown>('amount', 0, v1 ? 1 : 5);
       if (typeof amount !== 'number' || amount < 0) {
         throw new NodeOperationError(node.name, 'Invalid wait amount. Please enter a number that is 0 or greater.');
       }
-      if (unit === 'minutes') amount *= 60;
-      if (unit === 'hours') amount *= 3600;
-      if (unit === 'days') amount *= 86400;
-      waitTill = new Date(Date.now() + amount * 1000);
-    } else if (resume === 'specificTime') {
+      waitTill = new Date(Date.now() + amount * UNIT_SECONDS[unit] * 1000);
+    } else {
       try {
         waitTill = tryToParseDateTime(ctx.getParam('dateTime', 0, ''), ctx.timezone).toUTC().toJSDate();
       } catch {
@@ -45,21 +102,11 @@ export const waitNode: NodeType = {
           'Cannot put execution to wait because `dateTime` parameter is not a valid date. Please pick a specific date and time to wait until.',
         );
       }
-    } else {
-      throw new NodeOperationError(node.name, `Wait: resume "${resume}" wird nicht unterstützt`);
     }
     const ms = Math.max(waitTill.getTime() - Date.now(), 0);
-    await new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(resolve, ms);
-      ctx.signal.addEventListener(
-        'abort',
-        () => {
-          clearTimeout(timer);
-          reject(new Error('The execution was canceled'));
-        },
-        { once: true },
-      );
-    });
+    // n8n: unter 65 s im Prozess warten (die Datenbank wird nur alle 60 s geprüft)
+    if (ms < 65_000 || !ctx.canWait) return sleepInProcess(ctx, ms);
+    ctx.putExecutionToWait(waitTill);
     return [ctx.items];
   },
 };

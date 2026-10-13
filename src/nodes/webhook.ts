@@ -61,6 +61,8 @@ export interface WebhookHandleContext {
   getCredentials(type: string): Promise<Record<string, unknown> | undefined>;
   /** Kinder des Webhook-Nodes (für checkResponseModeConfiguration) */
   childNodeTypes: string[];
+  /** Parameter der Authentifizierung (Webhook: authentication, Wait: incomingAuthentication) */
+  authProperty?: string;
 }
 
 export interface WebhookHandleResult {
@@ -318,7 +320,7 @@ export function verifyJwt(token: string, secretOrPublicKey: string, algorithm: s
 
 /** validateWebhookAuthentication (utils.ts) */
 async function validateAuth(ctx: WebhookHandleContext): Promise<Record<string, unknown> | undefined> {
-  const authentication = ((ctx.node.parameters as Params).authentication ?? 'none') as string;
+  const authentication = ((ctx.node.parameters as Params)[ctx.authProperty ?? 'authentication'] ?? 'none') as string;
   if (authentication === 'none') return undefined;
   const req = ctx.request;
   const get = async (type: string) => {

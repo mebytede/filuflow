@@ -45,6 +45,10 @@ Trotzdem gilt:
   über Workflows (Code-Node, HTTP Request an eigene Server) auch die Werte bestehender Credentials verwenden; die Trennung
   schützt vor versehentlicher Anzeige, nicht vor einem Angreifer mit API-Key.
 - Ergebnisse von Ausführungen sind wie im Execution-Log maskiert.
+- Wartende Ausführungen: Zum Fortsetzen speichert filuflow den Zustand unmaskiert (die Daten fließen in spätere Knoten), in
+  einer eigenen Tabelle, mit `FILUFLOW_ENCRYPTION_KEY` verschlüsselt, und löscht ihn beim Fortsetzen oder Abbrechen. OAuth2-Tokens
+  liegen ebenso verschlüsselt in der Datenbank. Wer `$execution.resumeUrl` kennt, kann die Ausführung fortsetzen; für Freigaben
+  sollte der Wait-Knoten eine Authentifizierung nutzen (`incomingAuthentication`), die URL enthält nur die Ausführungs-ID.
 - Die Seiten senden eine Content-Security-Policy (`script-src 'self'`, kein `eval`, keine fremden Quellen), `X-Content-Type-Options`
   und `frame-ancestors 'none'`. Statische Pfade außerhalb von `dist/ui` werden abgewiesen.
 

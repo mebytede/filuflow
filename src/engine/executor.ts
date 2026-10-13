@@ -93,7 +93,33 @@ export interface ExecutorOptions {
   webhookWaitingBaseUrl?: string;
   /** Wartezeit-Funktion (Tests) */
   sleep?: (ms: number) => Promise<void>;
+  /** Execution darf dauerhaft warten (Server); sonst warten Wait-Nodes im Prozess oder melden einen Fehler */
+  canWait?: boolean;
+  /** Fortsetzen einer wartenden Execution (n8n WorkflowExecute mit runExecutionData) */
+  resume?: ResumeData;
 }
+
+/** Gespeicherter Zustand einer wartenden Execution (n8n runExecutionData.executionData, JSON-fähig) */
+export interface ExecutorState {
+  version: 1;
+  startedAt: string;
+  executionIndex: number;
+  lastNodeExecuted?: string;
+  stack: Array<{ node: string; disabled?: boolean; data: StackItem['data']; source: StackItem['source']; runIndex?: number; metadata?: StackMetadata }>;
+  waiting: Record<string, Record<number, WaitingEntry>>;
+  waitingSource: Record<string, Record<number, WaitingSource>>;
+  nodeContexts: Record<string, Record<string, unknown>>;
+}
+
+export interface ResumeData {
+  state: ExecutorState;
+  runData: RunData;
+  /** Daten für den wartenden Node (Webhook-Request); ohne gibt der Node seine Eingangsdaten weiter */
+  webhookData?: Array<Item[] | null>;
+}
+
+/** n8n WAIT_INDEFINITELY */
+export const WAIT_INDEFINITELY = new Date('3000-01-01T00:00:00.000Z');
 
 /** n8n ITaskMetadata (nur die Felder für Engine-Requests) */
 interface StackMetadata {
@@ -154,12 +180,14 @@ export class WorkflowExecutor {
   readonly env: Record<string, string | undefined>;
   readonly expressionTimeout: number;
   readonly triggerItems?: Item[];
-  readonly runData: RunData = {};
+  runData: RunData = {};
   readonly logs: ExecutionLogEntry[] = [];
+  readonly canWait: boolean;
 
   private readonly options: ExecutorOptions;
   private readonly abort = new AbortController();
-  private readonly nodeContexts: Record<string, Record<string, unknown>> = {};
+  private nodeContexts: Record<string, Record<string, unknown>> = {};
+  private waitTill?: Date;
   private readonly staticData: Record<string, Record<string, unknown>>;
   private readonly pinData: Workflow['pinData'];
   private readonly sleep: (ms: number) => Promise<void>;
@@ -192,6 +220,7 @@ export class WorkflowExecutor {
     this.staticData = options.staticData ?? {};
     this.pinData = options.usePinData === false ? undefined : options.workflow.pinData;
     this.sleep = options.sleep ?? defaultSleep;
+    this.canWait = options.canWait === true;
     if (options.signal) {
       if (options.signal.aborted) this.cancel();
       else options.signal.addEventListener('abort', () => this.cancel(), { once: true });
@@ -226,6 +255,58 @@ export class WorkflowExecutor {
       $vars: this.options.vars ?? {},
       $resumeWebhookUrl: resumeUrl,
     };
+  }
+
+  putExecutionToWait(waitTill: Date): void {
+    if (!this.canWait) throw new FiluflowError('Diese Ausführung kann nicht warten (nur im Server, nicht in Unter-Workflows oder der CLI)');
+    this.waitTill = waitTill;
+  }
+
+  /** Zustand zum Speichern einer wartenden Execution */
+  getState(): ExecutorState {
+    return {
+      version: 1,
+      startedAt: this.startedAt.toISOString(),
+      executionIndex: this.executionIndex,
+      lastNodeExecuted: this.lastNodeExecuted,
+      stack: this.stack.map((s) => ({
+        node: s.node.name,
+        ...(s.node.disabled ? { disabled: true } : {}),
+        data: s.data,
+        source: s.source,
+        ...(s.runIndex !== undefined ? { runIndex: s.runIndex } : {}),
+        ...(s.metadata ? { metadata: s.metadata } : {}),
+      })),
+      waiting: this.waiting,
+      waitingSource: this.waitingSource,
+      nodeContexts: this.nodeContexts,
+    };
+  }
+
+  /**
+   * Zustand übernehmen und den wartenden Node fortsetzen (n8n handleWaitingState und WaitingWebhooks):
+   * Der Node oben auf dem Stack wird deaktiviert (gibt seine Eingangsdaten weiter, bei einem Webhook dessen Daten),
+   * sein letzter Lauf wird entfernt, damit er nicht doppelt erscheint.
+   */
+  private restore(resume: ResumeData): void {
+    const { state } = resume;
+    this.startedAt = new Date(state.startedAt);
+    this.executionIndex = state.executionIndex;
+    this.lastNodeExecuted = state.lastNodeExecuted;
+    this.runData = resume.runData;
+    this.waiting = state.waiting ?? {};
+    this.waitingSource = state.waitingSource ?? {};
+    this.nodeContexts = state.nodeContexts ?? {};
+    this.stack = state.stack.map((s) => {
+      const node = this.graph.getNode(s.node);
+      if (!node) throw new FiluflowError(`Node "${s.node}" der wartenden Ausführung fehlt im Workflow`);
+      return { node: s.disabled ? { ...node, disabled: true } : node, data: s.data, source: s.source, runIndex: s.runIndex, metadata: s.metadata };
+    });
+    if (!this.stack.length) throw new FiluflowError('Wartende Ausführung ohne fortzusetzenden Node');
+    this.stack[0] = { ...this.stack[0], node: { ...this.stack[0].node, disabled: true } };
+    if (resume.webhookData) this.stack[0].data = { main: resume.webhookData };
+    const last = this.lastNodeExecuted;
+    if (last && this.runData[last]?.length) this.runData[last].pop();
   }
 
   getNodeContext(nodeName: string): Record<string, unknown> {
@@ -385,14 +466,18 @@ export class WorkflowExecutor {
   async run(): Promise<Execution> {
     this.startedAt = new Date();
     this.checkSupported();
-    const start = findStartNode(this.graph, this.registry, this.options.startNodeName);
-    this.stack = [
-      {
-        node: start,
-        data: { main: this.options.triggerOutputs ?? [this.options.triggerItems ?? [{ json: {} }]] },
-        source: null,
-      },
-    ];
+    if (this.options.resume) {
+      this.restore(this.options.resume);
+    } else {
+      const start = findStartNode(this.graph, this.registry, this.options.startNodeName);
+      this.stack = [
+        {
+          node: start,
+          data: { main: this.options.triggerOutputs ?? [this.options.triggerItems ?? [{ json: {} }]] },
+          source: null,
+        },
+      ];
+    }
     let executionError: SerializedError | undefined;
     try {
       executionError = await this.processStack();
@@ -408,6 +493,9 @@ export class WorkflowExecutor {
     } else if (executionError) {
       this.status = 'error';
       this.error = executionError;
+      this.waitTill = undefined;
+    } else if (this.waitTill) {
+      this.status = 'waiting';
     } else {
       this.status = 'success';
     }
@@ -426,6 +514,7 @@ export class WorkflowExecutor {
       runData: this.runData,
       lastNodeExecuted: this.lastNodeExecuted,
       ...(this.error ? { error: this.error } : {}),
+      ...(this.status === 'waiting' && this.waitTill ? { waitTill: this.waitTill.toISOString() } : {}),
     };
   }
 
@@ -519,7 +608,7 @@ export class WorkflowExecutor {
             }
           }
 
-          if (nodeSuccessData === null) {
+          if (nodeSuccessData === null && !this.waitTill) {
             // Node lief, lieferte aber nichts: Zweig endet, kein runData-Eintrag (wie n8n)
             continue executionLoop;
           }
@@ -541,7 +630,7 @@ export class WorkflowExecutor {
         startTime: taskStartTime,
         executionIndex: taskExecutionIndex,
         executionTime: Date.now() - taskStartTime,
-        executionStatus: 'success',
+        executionStatus: this.waitTill ? 'waiting' : 'success',
         data: { main: [] },
         source: taskSource,
       };
@@ -585,6 +674,12 @@ export class WorkflowExecutor {
       if (list[runIndex]) Object.assign(list[runIndex], taskData);
       else list.push(taskData);
       this.options.hooks?.nodeExecuteAfter?.(node.name, list[runIndex] ?? taskData);
+
+      if (this.waitTill) {
+        // Node zurück auf den Stack, damit die Execution beim Fortsetzen hier weiterläuft (n8n workflow-execute.ts)
+        this.stack.unshift(executionData);
+        break;
+      }
 
       // Kinder auf den Stack legen
       const outputs = this.graph.bySource[node.name]?.main;
