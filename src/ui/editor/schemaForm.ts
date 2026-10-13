@@ -515,6 +515,11 @@ function fieldFor(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext, root: L
 
 function fieldRow(def: ParamSchema, level: Level, ctx: SchemaFormContext, root: Level, path: string, removable?: () => void): HTMLElement {
   if (def.type === 'notice') return h('div', { class: 'info-box param-notice' }, def.label);
+  // Startcode (n8n setzt ihn im Editor, der Parameter-Default ist leer): sichtbaren Code auch speichern, sonst liefe
+  // ein leeres Feld
+  if (def.type === 'code' && level.values[def.name] === undefined && typeof def.default === 'string' && def.default && !ctx.readonly) {
+    level.values[def.name] = def.default;
+  }
   const io: FieldIo = {
     key: `${path}.${def.name}`,
     get: () => valueOf(def.name, level, ctx.version),

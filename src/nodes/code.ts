@@ -6,6 +6,7 @@
 // Sandbox ohne `require` und mit Timeout (Default 60 s, FILUFLOW_CODE_TIMEOUT_MS). Python: src/python/.
 import vm from 'node:vm';
 import type { ExecContext, NodeType } from './types.js';
+import type { ParamSchema } from './params.js';
 import type { Item } from '../types.js';
 import { NodeOperationError } from '../errors.js';
 import { runPython } from '../python/pyodide.js';
@@ -419,10 +420,126 @@ async function executePython(ctx: ExecContext, language: 'python' | 'pythonNativ
   return [out];
 }
 
+// Parameter wie Code.node.ts (mode, language) sowie descriptions/JavascriptCodeDescription.ts und
+// descriptions/PythonCodeDescription.ts. In n8n ist der Default von jsCode/pythonCode leer; den Startcode setzt der
+// Editor aus CODE_PLACEHOLDERS (packages/frontend/editor-ui/src/features/shared/editors/components/CodeNodeEditor/
+// constants.ts) je Sprache und Modus. Hier steht dieser Startcode als Default. Deshalb ist pythonCode, anders als in
+// n8n, getrennt für python und pythonNative beschrieben (gleiche Sichtbarkeit, anderer Startcode).
+const JS_ALL_ITEMS = `// Loop over input items and add a new field called 'myNewField' to the JSON of each one
+for (const item of $input.all()) {
+  item.json.myNewField = 1;
+}
+
+return $input.all();`;
+const JS_EACH_ITEM = `// Add a new field called 'myNewField' to the JSON of the item
+$input.item.json.myNewField = 1;
+
+return $input.item;`;
+const PY_ALL_ITEMS = `# Loop over input items and add a new field called 'myNewField' to the JSON of each one
+for item in _input.all():
+  item.json.myNewField = 1
+return _input.all()`;
+const PY_EACH_ITEM = `# Add a new field called 'myNewField' to the JSON of the item
+_input.item.json.myNewField = 1
+return _input.item`;
+const PY_NATIVE_ALL_ITEMS = `# Loop over input items and add a new field called 'my_new_field' to the JSON of each one
+for item in _items:
+  item["json"]["my_new_field"] = 1
+return _items`;
+const PY_NATIVE_EACH_ITEM = `# Add a new field called 'my_new_field' to the JSON of the item
+_item["json"]["my_new_field"] = 1
+return _item`;
+
+function jsCode(show: ParamSchema['show'], def: string): ParamSchema {
+  return {
+    name: 'jsCode',
+    label: 'JavaScript',
+    type: 'code',
+    language: 'javaScript',
+    default: def,
+    noExpression: true,
+    description: 'Auszuführender JavaScript-Code, z. B. mit $today für Datumswerte und $jmespath für JSON-Abfragen',
+    show,
+  };
+}
+
+function pythonCode(language: string, mode: string, def: string): ParamSchema {
+  return {
+    name: 'pythonCode',
+    label: 'Python',
+    type: 'code',
+    language: 'python',
+    default: def,
+    noExpression: true,
+    description: 'Auszuführender Python-Code',
+    show: { language: [language], mode: [mode] },
+  };
+}
+
+const parameters: ParamSchema[] = [
+  {
+    name: 'mode',
+    label: 'Modus',
+    type: 'options',
+    default: 'runOnceForAllItems',
+    noExpression: true,
+    options: [
+      { value: 'runOnceForAllItems', label: 'Einmal für alle Items', description: 'Code nur einmal ausführen, egal wie viele Items eingehen' },
+      { value: 'runOnceForEachItem', label: 'Einmal je Item', description: 'Code für jedes eingehende Item einmal ausführen' },
+    ],
+  },
+  {
+    name: 'language',
+    label: 'Sprache',
+    type: 'options',
+    default: 'javaScript',
+    noExpression: true,
+    show: { '@version': [2] },
+    options: [
+      { value: 'javaScript', label: 'JavaScript' },
+      { value: 'python', label: 'Python (Pyodide)' },
+      { value: 'pythonNative', label: 'Python (nativ)' },
+    ],
+  },
+  { name: 'language', label: 'Sprache', type: 'hidden', default: 'javaScript', show: { '@version': [1] } },
+
+  jsCode({ '@version': [1], mode: ['runOnceForAllItems'] }, JS_ALL_ITEMS),
+  jsCode({ '@version': [1], mode: ['runOnceForEachItem'] }, JS_EACH_ITEM),
+  jsCode({ '@version': [2], language: ['javaScript'], mode: ['runOnceForAllItems'] }, JS_ALL_ITEMS),
+  jsCode({ '@version': [2], language: ['javaScript'], mode: ['runOnceForEachItem'] }, JS_EACH_ITEM),
+  {
+    name: 'notice',
+    label: 'Mit $ erhalten Sie eine Liste der besonderen Variablen und Methoden. Ausgaben von console.log() erscheinen in der Browser-Konsole.',
+    type: 'notice',
+    default: '',
+    show: { language: ['javaScript'] },
+  },
+
+  pythonCode('python', 'runOnceForAllItems', PY_ALL_ITEMS),
+  pythonCode('python', 'runOnceForEachItem', PY_EACH_ITEM),
+  pythonCode('pythonNative', 'runOnceForAllItems', PY_NATIVE_ALL_ITEMS),
+  pythonCode('pythonNative', 'runOnceForEachItem', PY_NATIVE_EACH_ITEM),
+  {
+    name: 'notice',
+    label: 'Ausgaben von print() erscheinen in der Browser-Konsole.',
+    type: 'notice',
+    default: '',
+    show: { language: ['python'] },
+  },
+  {
+    name: 'notice',
+    label: 'Ausgaben von print() erscheinen in der Browser-Konsole. Natives Python kennt keine _-Helfer außer _items (alle Items) und _item (je Item).',
+    type: 'notice',
+    default: '',
+    show: { language: ['pythonNative'] },
+  },
+];
+
 export const codeNode: NodeType = {
   type: 'n8n-nodes-base.code',
   displayName: 'Code',
   versions: [1, 2],
+  parameters,
   outputs: () => 1,
   validate(node) {
     const language = (node.parameters.language as string | undefined) ?? 'javaScript';

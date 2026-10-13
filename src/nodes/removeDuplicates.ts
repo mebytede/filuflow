@@ -3,6 +3,7 @@
 // v2: nur Operation "removeDuplicateInputItems"; Deduplizierung über frühere Executions wird nicht unterstützt.
 import lodash from 'lodash';
 import type { ExecContext, NodeType } from './types.js';
+import type { DisplayRule, ParamSchema } from './params.js';
 import type { Item, WorkflowNode } from '../types.js';
 import { NodeOperationError } from '../errors.js';
 import { compareItems, flattenKeys } from './shared/compare.js';
@@ -72,10 +73,119 @@ export function removeDuplicateInputItems(ctx: ExecContext, items: Item[]): Item
   return [updated];
 }
 
+// Parameter wie v1/RemoveDuplicatesV1.node.ts (typeVersion 1, 1.1) und v2/RemoveDuplicatesV2.description.ts
+// (typeVersion 2). Von v2 fehlen bewusst die Operationen "removeItemsSeenInPreviousExecutions" und
+// "clearDeduplicationHistory" samt ihrer Parameter (logic, dedupeValue, incrementalDedupeValue, dateDedupeValue, mode,
+// options.scope, options.historySize), weil validate() sie als nicht unterstützt meldet.
+const V1: DisplayRule = { '@version': [1, 1.1] };
+const V2 = { _cnd: { gte: 2 } };
+
+const compareOptions: ParamSchema['options'] = [
+  { value: 'allFields', label: 'Alle Felder' },
+  { value: 'allFieldsExcept', label: 'Alle Felder außer' },
+  { value: 'selectedFields', label: 'Ausgewählte Felder' },
+];
+
+const fieldParams: ParamSchema[] = [
+  {
+    name: 'fieldsToExclude',
+    label: 'Auszuschließende Felder',
+    type: 'string',
+    default: '',
+    placeholder: 'z. B. email, name',
+    description: 'Felder der Eingabe, die nicht verglichen werden',
+    show: { compare: ['allFieldsExcept'] },
+  },
+  {
+    name: 'fieldsToCompare',
+    label: 'Zu vergleichende Felder',
+    type: 'string',
+    default: '',
+    placeholder: 'z. B. email, name',
+    description: 'Felder der Eingabe, die verglichen werden',
+    show: { compare: ['selectedFields'] },
+  },
+];
+
+const disableDotNotation: ParamSchema = {
+  name: 'disableDotNotation',
+  label: 'Punktnotation deaktivieren',
+  type: 'boolean',
+  default: false,
+  description: 'Ob Unterfelder per "parent.child" nicht angesprochen werden können',
+};
+
+const removeOtherFields: ParamSchema = {
+  name: 'removeOtherFields',
+  label: 'Andere Felder entfernen',
+  type: 'boolean',
+  default: false,
+  description: 'Ob nicht verglichene Felder entfallen, sonst bleiben die Werte des ersten Duplikats',
+};
+
+const parameters: ParamSchema[] = [
+  {
+    name: 'operation',
+    label: 'Operation',
+    type: 'options',
+    default: 'removeDuplicateInputItems',
+    noExpression: true,
+    show: { '@version': [V2] },
+    options: [
+      {
+        value: 'removeDuplicateInputItems',
+        label: 'In der aktuellen Eingabe wiederholte Items entfernen',
+        description: 'Duplikate aus den eingehenden Items entfernen',
+      },
+    ],
+  },
+  {
+    name: 'compare',
+    label: 'Vergleichen',
+    type: 'options',
+    default: 'allFields',
+    description: 'Welche Felder der Eingabe-Items verglichen werden',
+    show: V1,
+    options: compareOptions,
+  },
+  {
+    name: 'compare',
+    label: 'Vergleichen',
+    type: 'options',
+    default: 'allFields',
+    description: 'Welche Felder der Eingabe-Items verglichen werden',
+    show: { '@version': [V2], operation: ['removeDuplicateInputItems'] },
+    options: compareOptions,
+  },
+  ...fieldParams,
+  {
+    name: 'options',
+    label: 'Optionen',
+    type: 'collection',
+    default: {},
+    addLabel: 'Option hinzufügen',
+    show: { ...V1, compare: ['allFieldsExcept', 'selectedFields'] },
+    children: [disableDotNotation, removeOtherFields],
+  },
+  {
+    name: 'options',
+    label: 'Optionen',
+    type: 'collection',
+    default: {},
+    addLabel: 'Option hinzufügen',
+    show: { '@version': [V2], operation: ['removeDuplicateInputItems'] },
+    children: [
+      { ...disableDotNotation, show: { '/operation': ['removeDuplicateInputItems'] }, hide: { '/compare': ['allFields'] } },
+      { ...removeOtherFields, show: { '/operation': ['removeDuplicateInputItems'] }, hide: { '/compare': ['allFields'] } },
+    ],
+  },
+];
+
 export const removeDuplicatesNode: NodeType = {
   type: 'n8n-nodes-base.removeDuplicates',
   displayName: 'Remove Duplicates',
   versions: [1, 1.1, 2],
+  parameters,
   outputs: () => 1,
   validate(node) {
     const op = node.parameters.operation ?? 'removeDuplicateInputItems';

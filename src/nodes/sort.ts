@@ -4,6 +4,7 @@ import vm from 'node:vm';
 import { randomInt } from 'node:crypto';
 import lodash from 'lodash';
 import type { NodeType } from './types.js';
+import type { ParamSchema } from './params.js';
 import type { Item } from '../types.js';
 import { NodeOperationError } from '../errors.js';
 
@@ -14,10 +15,93 @@ function shuffleArray<T>(array: T[]): void {
   }
 }
 
+// Parameter wie Sort.node.ts (properties); der Code-Default ist wörtlich übernommen (mit den Tabs aus n8n)
+const parameters: ParamSchema[] = [
+  {
+    name: 'type',
+    label: 'Art',
+    type: 'options',
+    default: 'simple',
+    description: 'Art der Sortierung',
+    options: [
+      { value: 'simple', label: 'Einfach' },
+      { value: 'random', label: 'Zufällig' },
+      { value: 'code', label: 'Code' },
+    ],
+  },
+  {
+    name: 'sortFieldsUi',
+    label: 'Sortieren nach Feldern',
+    type: 'fixedCollection',
+    default: {},
+    multiple: true,
+    addLabel: 'Feld hinzufügen',
+    description: 'Felder der Eingabe-Items, nach denen sortiert wird',
+    show: { type: ['simple'] },
+    groups: [
+      {
+        name: 'sortField',
+        label: '',
+        children: [
+          {
+            name: 'fieldName',
+            label: 'Feldname',
+            type: 'string',
+            default: '',
+            required: true,
+            placeholder: 'z. B. id',
+            description: 'Feld, nach dem sortiert wird',
+          },
+          {
+            name: 'order',
+            label: 'Reihenfolge',
+            type: 'options',
+            default: 'ascending',
+            description: 'Sortierrichtung',
+            options: [
+              { value: 'ascending', label: 'Aufsteigend' },
+              { value: 'descending', label: 'Absteigend' },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    name: 'code',
+    label: 'Code',
+    type: 'code',
+    language: 'javaScript',
+    rows: 10,
+    default:
+      "// The two items to compare are in the variables a and b\n\t// Access the fields in a.json and b.json\n\t// Return -1 if a should go before b\n\t// Return 1 if b should go before a\n\t// Return 0 if there's no difference\n\n\tfieldName = 'myField';\n\n\tif (a.json[fieldName] < b.json[fieldName]) {\n\treturn -1;\n\t}\n\tif (a.json[fieldName] > b.json[fieldName]) {\n\treturn 1;\n\t}\n\treturn 0;",
+    description: 'JavaScript-Code, der die Reihenfolge zweier Items bestimmt',
+    show: { type: ['code'] },
+  },
+  {
+    name: 'options',
+    label: 'Optionen',
+    type: 'collection',
+    default: {},
+    addLabel: 'Option hinzufügen',
+    show: { type: ['simple'] },
+    children: [
+      {
+        name: 'disableDotNotation',
+        label: 'Punktnotation deaktivieren',
+        type: 'boolean',
+        default: false,
+        description: 'Ob Unterfelder per "parent.child" nicht angesprochen werden können',
+      },
+    ],
+  },
+];
+
 export const sortNode: NodeType = {
   type: 'n8n-nodes-base.sort',
   displayName: 'Sort',
   versions: [1],
+  parameters,
   outputs: () => 1,
   async execute(ctx) {
     const items = ctx.items;

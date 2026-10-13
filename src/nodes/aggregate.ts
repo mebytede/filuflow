@@ -2,6 +2,7 @@
 // Nachgebaut nach n8n 1.123.0 packages/nodes-base/nodes/Transform/Aggregate (Aggregate.node.ts, utils.ts)
 import lodash from 'lodash';
 import type { NodeType } from './types.js';
+import type { ParamSchema } from './params.js';
 import type { Item, PairedItem } from '../types.js';
 import { NodeOperationError } from '../errors.js';
 import { prepareFieldsArray } from './shared/fields.js';
@@ -36,10 +37,149 @@ interface FieldToAggregate {
   outputFieldName?: string;
 }
 
+// Parameter wie Aggregate.node.ts (properties)
+const parameters: ParamSchema[] = [
+  {
+    name: 'aggregate',
+    label: 'Zusammenfassen',
+    type: 'options',
+    default: 'aggregateIndividualFields',
+    options: [
+      { value: 'aggregateIndividualFields', label: 'Einzelne Felder' },
+      { value: 'aggregateAllItemData', label: 'Alle Item-Daten (in eine Liste)' },
+    ],
+  },
+  {
+    name: 'fieldsToAggregate',
+    label: 'Zusammenzufassende Felder',
+    type: 'fixedCollection',
+    default: { fieldToAggregate: [{ fieldToAggregate: '', renameField: false }] },
+    multiple: true,
+    addLabel: 'Feld hinzufügen',
+    show: { aggregate: ['aggregateIndividualFields'] },
+    groups: [
+      {
+        name: 'fieldToAggregate',
+        label: '',
+        children: [
+          {
+            name: 'fieldToAggregate',
+            label: 'Name des Eingabefelds',
+            type: 'string',
+            default: '',
+            placeholder: 'z. B. id',
+            description: 'Feld der Eingabe-Items, dessen Werte gesammelt werden',
+          },
+          {
+            name: 'renameField',
+            label: 'Feld umbenennen',
+            type: 'boolean',
+            default: false,
+            description: 'Ob das Feld in der Ausgabe anders heißt',
+          },
+          {
+            name: 'outputFieldName',
+            label: 'Name des Ausgabefelds',
+            type: 'string',
+            default: '',
+            description: 'Feld für die gesammelten Daten, leer bedeutet Name des Eingabefelds',
+            show: { renameField: [true] },
+          },
+        ],
+      },
+    ],
+  },
+  {
+    name: 'destinationFieldName',
+    label: 'Ausgabe in Feld',
+    type: 'string',
+    default: 'data',
+    description: 'Name des Ausgabefelds für die Daten',
+    show: { aggregate: ['aggregateAllItemData'] },
+  },
+  {
+    name: 'include',
+    label: 'Aufnehmen',
+    type: 'options',
+    default: 'allFields',
+    show: { aggregate: ['aggregateAllItemData'] },
+    options: [
+      { value: 'allFields', label: 'Alle Felder' },
+      { value: 'specifiedFields', label: 'Angegebene Felder' },
+      { value: 'allFieldsExcept', label: 'Alle Felder außer' },
+    ],
+  },
+  {
+    name: 'fieldsToExclude',
+    label: 'Auszuschließende Felder',
+    type: 'string',
+    default: '',
+    placeholder: 'z. B. email, name',
+    show: { aggregate: ['aggregateAllItemData'], include: ['allFieldsExcept'] },
+  },
+  {
+    name: 'fieldsToInclude',
+    label: 'Aufzunehmende Felder',
+    type: 'string',
+    default: '',
+    placeholder: 'z. B. email, name',
+    show: { aggregate: ['aggregateAllItemData'], include: ['specifiedFields'] },
+  },
+  {
+    name: 'options',
+    label: 'Optionen',
+    type: 'collection',
+    default: {},
+    addLabel: 'Option hinzufügen',
+    children: [
+      {
+        name: 'disableDotNotation',
+        label: 'Punktnotation deaktivieren',
+        type: 'boolean',
+        default: false,
+        description: 'Ob Unterfelder per "parent.child" nicht angesprochen werden können',
+        hide: { '/aggregate': ['aggregateAllItemData'] },
+      },
+      {
+        name: 'mergeLists',
+        label: 'Listen zusammenführen',
+        type: 'boolean',
+        default: false,
+        description: 'Ob Listenwerte zu einer flachen Liste statt einer Liste von Listen werden',
+        hide: { '/aggregate': ['aggregateAllItemData'] },
+      },
+      {
+        name: 'includeBinaries',
+        label: 'Binärdaten übernehmen',
+        type: 'boolean',
+        default: false,
+        description: 'Ob die Binärdaten in das neue Item kommen',
+      },
+      {
+        name: 'keepOnlyUnique',
+        label: 'Nur eindeutige Binärdaten',
+        type: 'boolean',
+        default: false,
+        description: 'Ob doppelte Binärdaten (gleicher MIME-Typ, Dateityp, Größe, Endung) entfallen',
+        show: { includeBinaries: [true] },
+      },
+      {
+        name: 'keepMissing',
+        label: 'Fehlende und Null-Werte behalten',
+        type: 'boolean',
+        default: false,
+        description: 'Ob fehlende oder Null-Werte als null in der Liste landen',
+        hide: { '/aggregate': ['aggregateAllItemData'] },
+      },
+    ],
+  },
+];
+
 export const aggregateNode: NodeType = {
   type: 'n8n-nodes-base.aggregate',
   displayName: 'Aggregate',
   versions: [1],
+  parameters,
   outputs: () => 1,
   async execute(ctx) {
     let returnData: Item;
