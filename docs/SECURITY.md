@@ -19,6 +19,10 @@ Trotzdem gilt:
   oder `subprocess` hat der Code vollen Zugriff auf das System; das ist eine bewusste Entscheidung des Betreibers.
 - Im Sandbox-Kontext gibt es kein `require`, kein `process`, kein `import()`.
 - `$env` liefert nur freigegebene Umgebungsvariablen (`FILUFLOW_ENV_ALLOW`, Default: Präfix `FL_`).
+- Variablen (`$vars`) sind keine Geheimnisse: Die Oberfläche zeigt ihre Werte im Klartext, sie liegen unverschlüsselt in
+  SQLite. Logs nennen nur die Schlüssel. Geheimnisse gehören in Credentials.
+- "Auf Test-Aufruf warten" führt beim nächsten Aufruf der Test-URL einen Stand aus dem Editor aus. Das darf nur, wer den
+  API-Key hat (bzw. im Master Bearbeiten-Rechte im Projekt); die Test-URLs selbst sind wie in n8n ohne Anmeldung erreichbar.
 - Credential-Werte werden nie geloggt und im Execution-Log nicht gespeichert.
 - Die REST-API ist mit `FILUFLOW_API_KEY` geschützt. Ohne gesetzten Schlüssel ist die API gesperrt (außer `/healthz` und Webhooks).
 - Der Vergleich des API-Keys ist zeitkonstant. Webhooks sind ohne API-Key erreichbar; ihre Authentifizierung kommt aus dem Webhook-Node

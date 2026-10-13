@@ -304,4 +304,50 @@ export function registerWorkerRoutes(api: FastifyInstance, ctx: MasterContext): 
       return sendWorkerError(reply, error);
     }
   });
+  // Variablen beim Worker ($vars): lesen und pflegen; Einträge aus der vars.json des Workers sind nur lesbar
+  api.get('/api/admin/workers/:id/variables', async (request, reply) => {
+    if (!ctx.requireAdmin(request, reply)) return;
+    const worker = db.getWorker((request.params as { id: string }).id);
+    if (!worker) return reply.code(404).send({ message: 'Worker nicht gefunden' });
+    try {
+      return await hub.call(worker, 'GET', '/api/worker/variables', undefined, 15_000);
+    } catch (error) {
+      return sendWorkerError(reply, error);
+    }
+  });
+
+  api.put('/api/admin/workers/:id/variables/:key', async (request, reply) => {
+    if (!ctx.requireAdmin(request, reply)) return;
+    const { id, key } = request.params as { id: string; key: string };
+    const worker = db.getWorker(id);
+    if (!worker) return reply.code(404).send({ message: 'Worker nicht gefunden' });
+    const body = (request.body ?? {}) as { value?: unknown; rename?: unknown; create?: unknown };
+    try {
+      const result = await hub.call(
+        worker,
+        'PUT',
+        `/api/worker/variables/${encodeURIComponent(key)}`,
+        { value: body.value, ...(typeof body.rename === 'string' ? { rename: body.rename } : {}), ...(body.create === true ? { create: true } : {}) },
+        15_000,
+      );
+      ctx.audit(request, 'worker.variable_set', worker.id, { key, ...(typeof body.rename === 'string' && body.rename !== key ? { rename: body.rename } : {}) });
+      return result;
+    } catch (error) {
+      return sendWorkerError(reply, error);
+    }
+  });
+
+  api.delete('/api/admin/workers/:id/variables/:key', async (request, reply) => {
+    if (!ctx.requireAdmin(request, reply)) return;
+    const { id, key } = request.params as { id: string; key: string };
+    const worker = db.getWorker(id);
+    if (!worker) return reply.code(404).send({ message: 'Worker nicht gefunden' });
+    try {
+      await hub.call(worker, 'DELETE', `/api/worker/variables/${encodeURIComponent(key)}`, undefined, 15_000);
+      ctx.audit(request, 'worker.variable_deleted', worker.id, { key });
+      return reply.code(204).send();
+    } catch (error) {
+      return sendWorkerError(reply, error);
+    }
+  });
 }

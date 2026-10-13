@@ -14,6 +14,7 @@ import { toItems } from '../cli/run.js';
 import type { ExecutionManager } from './executions.js';
 import type { ExecutionStore } from './store.js';
 import { WorkflowConflictError, WorkflowNotFoundError, type WorkflowManager } from './workflows.js';
+import type { WebhookService } from './webhooks.js';
 
 export interface EditorApiOptions {
   registry: NodeRegistry;
@@ -24,6 +25,8 @@ export interface EditorApiOptions {
   workflows: () => WorkflowManager;
   /** Basis-URL der Webhooks (FILUFLOW_WEBHOOK_URL), für die Anzeige im Editor */
   webhookBaseUrl: string;
+  /** Für "Auf Test-Aufruf warten" */
+  webhooks?: WebhookService;
 }
 
 /** Ein- und Ausgänge eines Nodes für das Zeichnen im Editor */
@@ -139,7 +142,7 @@ export async function registerEditorApi(api: FastifyInstance, o: EditorApiOption
 
   // Ungespeicherten Workflow manuell ausführen (Modus "manual", mit pinData); wartet auf das Ende
   api.post('/api/editor/run', async (request, reply) => {
-    const body = (request.body ?? {}) as { workflow?: unknown; trigger?: string; input?: unknown };
+    const body = (request.body ?? {}) as { workflow?: unknown; trigger?: string; input?: unknown; destination?: unknown };
     const wf = asWorkflow(body);
     if (typeof wf === 'string') return reply.code(400).send({ message: wf });
     const result = validate(wf);
@@ -152,7 +155,36 @@ export async function registerEditorApi(api: FastifyInstance, o: EditorApiOption
       return reply.code(400).send({ message: (error as Error).message });
     }
     wf.id ??= 'editor';
-    const entry = o.manager.start({ workflow: wf, mode: 'manual', startNodeName: body.trigger || undefined, triggerItems, usePinData: true });
+    const destination = typeof body.destination === 'string' && body.destination ? body.destination : undefined;
+    if (destination && !wf.nodes.some((n) => n.name === destination)) return reply.code(400).send({ message: `Zielknoten "${destination}" existiert nicht` });
+    const entry = o.manager.start({ workflow: wf, mode: 'manual', startNodeName: body.trigger || undefined, triggerItems, usePinData: true, destinationNode: destination });
+    const execution = await entry.promise;
+    return o.store.get(execution.id);
+  });
+
+  // Auf den nächsten Aufruf einer Test-URL warten und dabei den übergebenen Stand ausführen (Long Polling).
+  // 204, wenn in der Wartezeit kein Aufruf kam oder der Editor die Anfrage abbricht.
+  api.post('/api/editor/listen', async (request, reply) => {
+    if (!o.webhooks) return reply.code(404).send({ message: 'Nicht verfügbar' });
+    const body = (request.body ?? {}) as { workflow?: unknown; timeout?: unknown };
+    const wf = asWorkflow(body);
+    if (typeof wf === 'string') return reply.code(400).send({ message: wf });
+    const result = validate(wf);
+    if (!result.valid) return reply.code(400).send({ message: 'Workflow ist ungültig', issues: result.issues });
+    wf.id ??= 'editor';
+    const seconds = Math.min(Math.max(Number(body.timeout) || 120, 1), 300);
+    let listening: ReturnType<WebhookService['listen']>;
+    try {
+      listening = o.webhooks.listen(wf, seconds * 1000);
+    } catch (error) {
+      return reply.code(400).send({ message: (error as Error).message });
+    }
+    const cancel = () => listening.cancel();
+    // ServerResponse: 'close' kommt, wenn der Editor die Verbindung trennt (IncomingMessage meldet 'close' schon nach dem Body)
+    reply.raw.on('close', cancel);
+    const entry = await listening.promise;
+    reply.raw.off('close', cancel);
+    if (!entry) return reply.code(204).send();
     const execution = await entry.promise;
     return o.store.get(execution.id);
   });

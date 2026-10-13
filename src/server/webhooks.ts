@@ -25,11 +25,12 @@ import type { WebhookResponse } from '../nodes/types.js';
 import { WorkflowGraph } from '../engine/graph.js';
 import type { BinaryStore } from '../binary.js';
 import type { CredentialProvider } from '../credentials/store.js';
-import { ResumeError, type ActiveExecution, type ExecutionManager } from './executions.js';
+import { ResumeError, type ActiveExecution, type ExecutionManager, type StartOptions } from './executions.js';
 import type { ExecutionStore } from './store.js';
 import type { RunHooks } from '../engine/executor.js';
 import { WAIT_NODE_TYPE } from '../nodes/wait.js';
 import { DEFAULT_TIMEZONE } from '../engine/executor.js';
+import { resolveWebhookNode } from './webhookParams.js';
 
 const BOT_UA = /bot|crawl|spider|slurp|scrape|facebookexternalhit|embedly|preview|curl\/|wget|python-requests|httpclient|headless|lighthouse|monitor/i;
 import { FORM_NODE_TYPE, FORM_TRIGGER_TYPE, FORM_CSP, formFieldsOf, formReturnItem, renderCompletionPage, renderFormPage, validateSubmission, type FormField } from '../nodes/shared/form.js';
@@ -85,6 +86,9 @@ export class WebhookRegistry {
   private readonly staticHooks = new Map<string, RegisteredWebhook>();
   private readonly dynamicHooks: RegisteredWebhook[] = [];
 
+  /** resolveNode: Expressions in den Parametern des Webhook-Knotens auswerten (Pfad, Methoden) */
+  constructor(private readonly resolveNode: (workflow: Workflow, node: WorkflowNode) => WorkflowNode = (_w, n) => n) {}
+
   private static key(method: string, path: string, form = false): string {
     return `${method} ${form ? 'form:' : ''}${path}`;
   }
@@ -110,7 +114,17 @@ export class WebhookRegistry {
         continue;
       }
       if (node.type !== WEBHOOK_NODE_TYPE) continue;
-      for (const d of describeWebhooks(node)) {
+      let resolved: WorkflowNode;
+      try {
+        resolved = this.resolveNode(workflow, node);
+      } catch (error) {
+        throw new WebhookConflictError(`Webhook "${node.name}": Pfad oder Methode lassen sich nicht auswerten: ${(error as Error).message}`);
+      }
+      // n8n getNodeWebhooks überspringt den Webhook, wenn der Pfad undefined ist; hier ein klarer Aktivierungsfehler
+      if (resolved.parameters.path === undefined || resolved.parameters.path === null) {
+        if (node.parameters.path !== undefined) throw new WebhookConflictError(`Webhook "${node.name}": Pfad oder Methode lassen sich nicht auswerten: die Pfad-Expression liefert keinen Wert`);
+      }
+      for (const d of describeWebhooks(resolved)) {
         const webhookPath = d.isDynamic ? d.path.split('/').slice(1).join('/') : d.path;
         const segments = webhookPath.split('/');
         hooks.push({
@@ -243,6 +257,13 @@ export function errorResponse(error: Error & { statusCode?: number; hint?: strin
 
 class OperationalError extends Error {}
 
+interface TestListener {
+  workflow: Workflow;
+  registry: WebhookRegistry;
+  finish(entry: ActiveExecution | undefined): void;
+  timer: ReturnType<typeof setTimeout>;
+}
+
 export interface WebhookServiceOptions {
   manager: ExecutionManager;
   credentials: CredentialProvider;
@@ -252,6 +273,8 @@ export interface WebhookServiceOptions {
   webhookBaseUrl: string;
   /** Für wartende Executions (/webhook-waiting/) */
   store?: ExecutionStore;
+  /** $vars für Expressions in Webhook-Parametern */
+  vars?: Record<string, unknown>;
 }
 
 /** Letzte Ausführung des zuletzt ausgeführten Nodes (WorkflowHelpers.getDataLastExecutedNodeData) */
@@ -268,10 +291,60 @@ function firstItem(task: TaskData): Item | undefined {
 }
 
 export class WebhookService {
-  readonly production = new WebhookRegistry();
-  readonly test = new WebhookRegistry();
+  readonly production: WebhookRegistry;
+  readonly test: WebhookRegistry;
+  private readonly resolveNode: (workflow: Workflow, node: WorkflowNode) => WorkflowNode;
+  /** "Auf Test-Aufruf warten": ungespeicherte Stände aus dem Editor, Vorrang vor den gespeicherten Test-Webhooks */
+  private readonly listeners = new Map<string, TestListener>();
 
-  constructor(private readonly options: WebhookServiceOptions) {}
+  constructor(private readonly options: WebhookServiceOptions) {
+    this.resolveNode = (workflow, node) => (node.type === WEBHOOK_NODE_TYPE ? resolveWebhookNode(workflow, node, options.vars) : node);
+    this.production = new WebhookRegistry(this.resolveNode);
+    this.test = new WebhookRegistry(this.resolveNode);
+  }
+
+  /**
+   * Wartet auf den nächsten Aufruf einer Test-URL des Workflows und führt dabei genau diesen (auch ungespeicherten)
+   * Stand aus, wie "Execute workflow" mit Test-Webhook im n8n-Editor. Ein neuer Aufruf für denselben Workflow ersetzt
+   * den alten. Liefert die gestartete Ausführung oder undefined (Zeit abgelaufen, abgebrochen, ersetzt).
+   */
+  listen(workflow: Workflow, timeoutMs: number): { promise: Promise<ActiveExecution | undefined>; cancel(): void } {
+    const key = workflow.id ?? workflow.name;
+    this.listeners.get(key)?.finish(undefined);
+    const registry = new WebhookRegistry(this.resolveNode);
+    const hooks = registry.add(workflow);
+    if (!hooks.length) throw new WebhookConflictError('Der Workflow hat keinen Webhook-, Formular- oder Chat-Trigger');
+    let finish!: (entry: ActiveExecution | undefined) => void;
+    const promise = new Promise<ActiveExecution | undefined>((resolve) => {
+      finish = (entry) => {
+        clearTimeout(listener.timer);
+        if (this.listeners.get(key) === listener) this.listeners.delete(key);
+        resolve(entry);
+      };
+    });
+    const listener: TestListener = { workflow, registry, finish: (e) => finish(e), timer: setTimeout(() => finish(undefined), timeoutMs) };
+    listener.timer.unref?.();
+    this.listeners.set(key, listener);
+    return { promise, cancel: () => finish(undefined) };
+  }
+
+  /** Test-URLs: zuerst wartende Editor-Stände, dann die gespeicherten Workflows */
+  private lookup(test: boolean, method: string, path: string, form = false): { registry: WebhookRegistry; found: ReturnType<WebhookRegistry['find']> } {
+    if (test) {
+      for (const l of this.listeners.values()) {
+        const found = l.registry.find(method, path, form);
+        if (found) return { registry: l.registry, found };
+      }
+    }
+    const registry = test ? this.test : this.production;
+    return { registry, found: registry.find(method, path, form) };
+  }
+
+  private startExecution(opts: StartOptions): ActiveExecution {
+    const entry = this.options.manager.start(opts);
+    for (const l of this.listeners.values()) if (l.workflow === opts.workflow) l.finish(entry);
+    return entry;
+  }
 
   /** webhookUrl im Item: getNodeWebhookUrl, Test-Modus mit /webhook-test/ */
   private webhookUrl(node: WorkflowNode, test: boolean): string {
@@ -283,17 +356,23 @@ export class WebhookService {
   }
 
   async handle(test: boolean, path: string, request: Omit<IncomingWebhookRequest, 'params'>): Promise<HttpResponse> {
-    const registry = test ? this.test : this.production;
     const method = request.method.toUpperCase();
-    const found = registry.find(method, path);
+    const { registry, found } = this.lookup(test, method, path);
     if (!found) {
       const clean = path.endsWith('/') ? path.slice(0, -1) : path;
       return errorResponse(new WebhookNotFoundError(clean, method, registry.methodsFor(clean), test));
     }
     const { hook, params } = found;
     const workflow = hook.workflow;
-    const node = workflow.nodes.find((n) => n.name === hook.node)!;
-    if (node.type === CHAT_TRIGGER_TYPE) return this.handleChat(test, workflow, node, { ...request, params });
+    const original = workflow.nodes.find((n) => n.name === hook.node)!;
+    if (original.type === CHAT_TRIGGER_TYPE) return this.handleChat(test, workflow, original, { ...request, params });
+    // Expressions in den Parametern je Aufruf auswerten (n8n executeWebhook, ohne Items)
+    let node: WorkflowNode;
+    try {
+      node = resolveWebhookNode(workflow, original, this.options.vars);
+    } catch (error) {
+      return errorResponse(error as Error);
+    }
     const graph = new WorkflowGraph(workflow);
     const opts = responseOptions(node);
     if (!['onReceived', 'lastNode', 'responseNode'].includes(opts.responseMode)) {
@@ -327,7 +406,7 @@ export class WebhookService {
     if (result.directResponse) return { ...result.directResponse, raw: true };
 
     return this.respondWith(opts, result, (hooks) =>
-      this.options.manager.start({
+      this.startExecution({
         workflow,
         mode: test ? 'manual' : 'webhook',
         startNodeName: node.name,
@@ -434,10 +513,9 @@ export class WebhookService {
 
   /** Form Trigger: /form/<Pfad> und /form-test/<Pfad> (formWebhook) */
   async handleForm(test: boolean, path: string, request: Omit<IncomingWebhookRequest, 'params'>): Promise<HttpResponse> {
-    const registry = test ? this.test : this.production;
     const method = request.method.toUpperCase();
     const clean = path.replace(/\/+$/, '');
-    const found = registry.find(method, clean, true);
+    const { registry, found } = this.lookup(test, method, clean, true);
     if (!found) return errorResponse(new WebhookNotFoundError(clean, method, registry.methodsFor(clean, true), test));
     const workflow = found.hook.workflow;
     const node = workflow.nodes.find((n) => n.name === found.hook.node)!;
@@ -497,7 +575,7 @@ export class WebhookService {
     const item = await formReturnItem({ fields, form, mode: test ? 'test' : 'production', timezone: this.formTimezone(workflow, useWorkflowTimezone), binary: this.options.binary, query: request.query });
     return this.formFlow(
       hasNextPage ? 'next' : responseMode,
-      (hooks) => this.options.manager.start({ workflow, mode: test ? 'manual' : 'webhook', startNodeName: node.name, triggerOutputs: [[item]], usePinData: test, hooks }),
+      (hooks) => this.startExecution({ workflow, mode: test ? 'manual' : 'webhook', startNodeName: node.name, triggerOutputs: [[item]], usePinData: test, hooks }),
       { title, submittedText, redirectUrl: hasNextPage ? undefined : redirectUrl, customCss: options.customCss },
     );
   }
@@ -643,7 +721,7 @@ export class WebhookService {
     const responseMode = options.responseMode === 'responseNode' ? 'responseNode' : 'lastNode';
     const opts: WebhookResponseOptions = { responseMode, responseCode: 200, responseData: 'firstEntryJson', responseBinaryPropertyName: 'data', responseHeaders: new Map() };
     return this.respondWith(opts, {}, (hooks) =>
-      this.options.manager.start({ workflow, mode: test ? 'manual' : 'webhook', startNodeName: node.name, triggerOutputs: result.workflowData, usePinData: test, hooks }),
+      this.startExecution({ workflow, mode: test ? 'manual' : 'webhook', startNodeName: node.name, triggerOutputs: result.workflowData, usePinData: test, hooks }),
     );
   }
 

@@ -25,6 +25,8 @@ export interface StartOptions {
   hooks?: RunHooks;
   /** Fortsetzen einer wartenden Execution (bestehende ID) */
   resume?: { executionId: string; data: ResumeData };
+  /** Nur bis zu diesem Knoten ausführen (Editor) */
+  destinationNode?: string;
 }
 
 /** Fehler beim Fortsetzen mit HTTP-Status (404, 409) */
@@ -246,6 +248,7 @@ export class ExecutionManager {
         staticData: this.options.staticData(opts.workflow),
         canWait: true,
         ...(opts.resume ? { resume: opts.resume.data } : {}),
+        ...(opts.destinationNode ? { destinationNode: opts.destinationNode } : {}),
         onStart: (executor) => {
           entry.executor = executor;
           if (entry.canceled) executor.cancel();

@@ -12,6 +12,7 @@ import { palette } from './palette.js';
 import { templateFor } from './templates.js';
 import {
   addEdge,
+  ancestors,
   cloneWorkflow,
   edgeKey,
   extractSnippet,
@@ -31,7 +32,9 @@ export interface EditorBackend {
   inspect(workflow: Workflow): Promise<InspectResult>;
   /** Ohne id: neu anlegen. Liefert null, wenn das Speichern abgebrochen wurde (z. B. Konfliktdialog). */
   save(id: string | undefined, workflow: Workflow): Promise<(Partial<WorkflowStatus> & { id: string; saveWarning?: string }) | null>;
-  run(workflow: Workflow, trigger?: string, input?: unknown): Promise<Execution>;
+  run(workflow: Workflow, trigger?: string, input?: unknown, destination?: string): Promise<Execution>;
+  /** Auf den nächsten Aufruf einer Test-URL warten und dabei diesen Stand ausführen; undefined nach Ablauf der Zeit */
+  listen?(workflow: Workflow, signal: AbortSignal): Promise<Execution | undefined>;
   /** Letzte Ausführung des Workflows (für den Bereich "Letzter Lauf") */
   lastExecution?(id: string): Promise<Execution | undefined>;
 }
@@ -39,7 +42,8 @@ export interface EditorBackend {
 export const standaloneBackend: EditorBackend = {
   inspect: (workflow) => api.inspect(workflow),
   save: (id, workflow) => (id ? api.save(id, workflow) : api.create(workflow)),
-  run: (workflow, trigger, input) => api.run(workflow, trigger, input),
+  run: (workflow, trigger, input, destination) => api.run(workflow, trigger, input, destination),
+  listen: (workflow, signal) => api.listen(workflow, signal),
   async lastExecution(id) {
     const [last] = await api.executions({ workflow: id, limit: 1 });
     return last ? api.execution(last.id) : undefined;
@@ -187,6 +191,8 @@ export class Editor {
       update: (fn, key) => this.update(fn, key),
       rename: (o, n) => this.rename(o, n),
       close: () => this.select([], false),
+      ...(opts.readonly ? {} : { runTo: (name: string) => void this.run(name) }),
+      ...(!opts.readonly && this.backend.listen ? { listen: () => void this.listen(), listening: () => !!this.listening } : {}),
     });
 
     this.runPanel = new RunPanel({
@@ -535,9 +541,21 @@ export class Editor {
     await this.save();
   }
 
-  async run(): Promise<void> {
+  /**
+   * Testlauf. Mit destination nur bis zu diesem Knoten (n8n "Execute step"): es laufen der Knoten und seine Vorgänger,
+   * Start ist ein Trigger unter den Vorgängern.
+   */
+  async run(destination?: string): Promise<void> {
     if (this.running) return;
-    const triggers = this.wf.nodes.filter((n) => !n.disabled && this.model.ports[n.name]?.isTrigger);
+    let triggers = this.wf.nodes.filter((n) => !n.disabled && this.model.ports[n.name]?.isTrigger);
+    if (destination) {
+      const before = ancestors(this.wf, destination);
+      triggers = triggers.filter((t) => t.name === destination || before.has(t.name));
+      if (!triggers.length) {
+        toast(`Vor "${destination}" liegt kein Trigger, von dem aus der Lauf starten kann.`, 'error');
+        return;
+      }
+    }
     const triggerSel = h(
       'select',
       { class: 'param-input', 'aria-label': 'Start-Node' },
@@ -553,9 +571,10 @@ export class Editor {
         { class: 'form' },
         triggers.length > 1 && h('label', { class: 'field' }, h('span', null, 'Start-Node'), triggerSel),
         h('label', { class: 'field' }, h('span', null, 'Eingabedaten für den Start-Node (optional, JSON-Objekt oder -Array)'), input),
-        h('p', { class: 'muted small' }, 'Der Workflow läuft im Modus "manual" mit dem aktuellen, auch ungespeicherten Stand. pinData wird verwendet.'),
+        h('p', { class: 'muted small' }, 'Der Workflow läuft im Modus "manual" mit dem aktuellen, auch ungespeicherten Stand. Festgehaltene Testdaten werden verwendet.'),
+        destination && h('p', { class: 'muted small' }, `Ausgeführt werden nur "${destination}" und die Knoten davor.`),
       );
-      const ok = await dialog<boolean>('Workflow ausführen', body, {
+      const ok = await dialog<boolean>(destination ? `Bis "${destination}" ausführen` : 'Workflow ausführen', body, {
         confirm: 'Ausführen',
         onConfirm: () => {
           if (input.value.trim()) {
@@ -579,7 +598,7 @@ export class Editor {
     this.refresh();
     this.renderToolbar();
     try {
-      const execution = await this.backend.run(this.wf, trigger, payload);
+      const execution = await this.backend.run(this.wf, trigger, payload, destination);
       this.showExecution(execution);
       if (execution.status === 'success') toast('Ausführung erfolgreich', 'success');
       else toast(`Ausführung: ${execution.status}${execution.error ? ` (${execution.error.message})` : ''}`, 'error');
@@ -596,6 +615,47 @@ export class Editor {
       if (!this.execution) this.model.runData = undefined;
       this.refresh();
       this.renderToolbar();
+    }
+  }
+
+  /** Laufendes "Auf Test-Aufruf warten" */
+  private listening?: AbortController;
+
+  /**
+   * Auf den nächsten Aufruf einer Test-URL warten (n8n "Listen for test event"): der Server führt dabei genau diesen,
+   * auch ungespeicherten Stand aus; das Ergebnis erscheint wie nach einem Testlauf. Erneuter Aufruf beendet das Warten.
+   */
+  async listen(): Promise<void> {
+    if (this.listening) {
+      this.listening.abort();
+      return;
+    }
+    if (this.running || !this.backend.listen) return;
+    const ctrl = new AbortController();
+    this.listening = ctrl;
+    this.renderToolbar();
+    this.panel.render();
+    toast('Warte auf einen Aufruf der Test-URL (höchstens 5 Minuten)', 'info');
+    try {
+      const execution = await this.backend.listen(cloneWorkflow(this.wf), ctrl.signal);
+      if (!execution) {
+        if (!ctrl.signal.aborted) toast('Kein Aufruf der Test-URL in der Wartezeit', 'info');
+        return;
+      }
+      this.showExecution(execution);
+      if (execution.status === 'success') toast('Test-Aufruf ausgeführt', 'success');
+      else toast(`Test-Aufruf: ${execution.status}${execution.error ? ` (${execution.error.message})` : ''}`, 'error');
+    } catch (error) {
+      if (ctrl.signal.aborted) return;
+      if (error instanceof ApiError && error.issues?.length) {
+        this.model.issues = error.issues;
+        this.refresh();
+      }
+      toast(`Warten fehlgeschlagen: ${(error as Error).message}`, 'error');
+    } finally {
+      this.listening = undefined;
+      this.renderToolbar();
+      this.panel.render();
     }
   }
 
@@ -815,7 +875,9 @@ export class Editor {
         ),
         ...extras,
         this.chatTrigger() ? iconButton('message-square', 'Chat mit dem Workflow testen', () => this.toggleChat()) : null,
-        button(this.running ? 'Läuft' : 'Testlauf', { icon: 'play', title: 'Workflow ausführen (Strg+Enter)', disabled: this.running, onclick: () => void this.run() }),
+        this.listening
+          ? button('Warten beenden', { icon: 'square', title: 'Nicht mehr auf einen Aufruf der Test-URL warten', onclick: () => void this.listen() })
+          : button(this.running ? 'Läuft' : 'Testlauf', { icon: 'play', title: 'Workflow ausführen (Strg+Enter)', disabled: this.running, onclick: () => void this.run() }),
         button('Speichern', { variant: 'primary', title: 'Speichern (Strg+S)', disabled: !this.dirty && !!this.id, onclick: () => void this.save() }),
       );
     }

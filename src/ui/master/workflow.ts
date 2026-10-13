@@ -60,7 +60,7 @@ export async function masterWorkflowView(id: string, types: NodeTypeInfo[], user
         }
       }
     },
-    run: (workflow, trigger, input) => mapi.run(id, workflow, trigger, input),
+    run: (workflow, trigger, input, destination) => mapi.run(id, workflow, trigger, input, destination),
     async lastExecution(wid) {
       if (!project.worker) return undefined;
       const [last] = await mapi.executions(project.id, { workflow: wid });

@@ -11,6 +11,7 @@ import type {
   Overview,
   NodeTypeInfo,
   ValidationIssue,
+  VariableEntry,
   Workflow,
   WorkflowStatus,
   WorkflowSummary,
@@ -63,7 +64,7 @@ export function setUnauthorizedHandler(fn: () => void): void {
 }
 
 /** Request an die API; im Master-Modus gilt das Sitzungs-Cookie, der CSRF-Header ist dort Pflicht */
-export async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+export async function request<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   const key = getApiKey() ?? memoryKey;
   const res = await fetch(path, {
     method,
@@ -73,6 +74,7 @@ export async function request<T>(method: string, path: string, body?: unknown): 
       ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
+    signal,
   });
   if (res.status === 204) return undefined as T;
   const text = await res.text();
@@ -98,7 +100,10 @@ export const api = {
   save: (id: string, workflow: Workflow) => request<WorkflowStatus>('PUT', `/api/workflows/${encodeURIComponent(id)}`, workflow),
   remove: (id: string) => request<void>('DELETE', `/api/workflows/${encodeURIComponent(id)}`),
   inspect: (workflow: Workflow) => request<InspectResult>('POST', '/api/editor/inspect', { workflow }),
-  run: (workflow: Workflow, trigger?: string, input?: unknown) => request<Execution>('POST', '/api/editor/run', { workflow, trigger, input }),
+  /** Auf den nächsten Aufruf einer Test-URL warten (undefined: Zeit abgelaufen) */
+  listen: (workflow: Workflow, signal?: AbortSignal) => request<Execution | undefined>('POST', '/api/editor/listen', { workflow, timeout: 300 }, signal),
+  run: (workflow: Workflow, trigger?: string, input?: unknown, destination?: string) =>
+    request<Execution>('POST', '/api/editor/run', { workflow, trigger, input, ...(destination ? { destination } : {}) }),
   info: () => request<InstanceInfo>('GET', '/api/editor/info'),
   overview: () => request<Overview>('GET', '/api/overview'),
   nodeTypes: () => request<{ data: NodeTypeInfo[] }>('GET', '/api/editor/node-types').then((r) => r.data),
@@ -110,6 +115,9 @@ export const api = {
   credential: (name: string) => request<CredentialDetail>('GET', `/api/credentials/${encodeURIComponent(name)}`),
   saveCredential: (name: string, body: CredentialSaveBody) => request<CredentialInfo>('PUT', `/api/credentials/${encodeURIComponent(name)}`, body),
   removeCredential: (name: string) => request<void>('DELETE', `/api/credentials/${encodeURIComponent(name)}`),
+  variables: () => request<{ data: VariableEntry[] }>('GET', '/api/variables').then((r) => r.data),
+  saveVariable: (key: string, body: { value: string; rename?: string; create?: boolean }) => request<VariableEntry>('PUT', `/api/variables/${encodeURIComponent(key)}`, body),
+  removeVariable: (key: string) => request<void>('DELETE', `/api/variables/${encodeURIComponent(key)}`),
   executions: (filter: { workflow?: string; status?: string; limit?: number } = {}) => {
     const q = new URLSearchParams();
     if (filter.workflow) q.set('workflow', filter.workflow);

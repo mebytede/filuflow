@@ -1,5 +1,5 @@
 // Seitenleiste mit den Details des ausgewählten Nodes: Parameter, Credentials, Einstellungen, Ergebnis.
-import { h } from '../dom.js';
+import { h, toast } from '../dom.js';
 import { iconButton } from '../shell.js';
 import type { CredentialInfo, Item, NodePorts, NodeTypeInfo, TaskData, ValidationIssue, Workflow, WorkflowNode } from '../types.js';
 import { codeTemplate } from './templates.js';
@@ -21,6 +21,11 @@ export interface PanelHost {
   update(fn: (wf: Workflow) => void, coalesceKey?: string): void;
   rename(oldName: string, newName: string): string | undefined;
   close(): void;
+  /** Testlauf bis zu diesem Knoten; fehlt in Nur-Lesen-Ansichten */
+  runTo?(name: string): void;
+  /** Auf einen Aufruf der Test-URL warten bzw. das Warten beenden; fehlt, wenn das Backend es nicht kann */
+  listen?(): void;
+  listening?(): boolean;
 }
 
 type Tab = 'params' | 'settings' | 'output';
@@ -39,6 +44,8 @@ export class Panel {
   private outputIndex = 0;
   private dataMode: 'table' | 'json' = 'table';
   private issuesBox?: HTMLElement;
+  /** Knoten, dessen Testdaten gerade bearbeitet werden */
+  private editingPin?: string;
 
   constructor(private readonly host: PanelHost) {
     this.el = h('aside', { class: 'panel', 'aria-label': 'Node-Details' });
@@ -73,7 +80,12 @@ export class Panel {
     if (!node) return;
     const info = this.host.types().get(node.type);
     const hasRun = !!this.host.runData()?.[node.name];
-    if (this.tab === 'output' && !hasRun) this.tab = 'params';
+    const ports = this.host.ports(node.name);
+    // Testdaten lassen sich nur für Knoten mit main-Ausgang festhalten (keine Sub-Nodes)
+    const canPin = !this.host.readonly && !ports?.isSubNode;
+    const pinned = this.host.workflow().pinData?.[node.name] !== undefined;
+    const showOutput = hasRun || pinned || canPin;
+    if (this.tab === 'output' && !showOutput) this.tab = 'params';
 
     const nameInput = h('input', { type: 'text', class: 'panel-name', value: node.name, disabled: this.host.readonly, 'aria-label': 'Node-Name' });
     nameInput.addEventListener('change', () => {
@@ -105,7 +117,7 @@ export class Panel {
       { class: 'tabs', role: 'tablist' },
       this.tabButton('params', 'Parameter'),
       this.tabButton('settings', 'Einstellungen'),
-      hasRun && this.tabButton('output', 'Ergebnis'),
+      showOutput && this.tabButton('output', 'Ergebnis'),
     );
 
     this.issuesBox = this.issueList(node.name);
@@ -118,12 +130,30 @@ export class Panel {
       h(
         'div',
         { class: 'panel-head' },
-        h('div', { class: 'panel-title-row' }, nameInput, iconButton('x', 'Panel schließen (Esc)', () => this.host.close())),
+        h(
+          'div',
+          { class: 'panel-title-row' },
+          nameInput,
+          this.host.runTo && !ports?.isSubNode && iconButton('step-forward', 'Bis hier ausführen', () => this.host.runTo!(node.name)),
+          iconButton('x', 'Panel schließen (Esc)', () => this.host.close()),
+        ),
         h('div', { class: 'panel-type' }, h('span', { title: node.type }, info?.displayName ?? node.type), versionSel),
       ),
       tabs,
       this.issuesBox,
       h('div', { class: 'panel-content' }, content),
+    );
+  }
+
+  /** "Auf Test-Aufruf warten": nächster Aufruf der Test-URL führt den aktuellen Stand aus */
+  private listenButton(): HTMLElement | null {
+    if (!this.host.listen) return null;
+    const active = this.host.listening?.() === true;
+    return h(
+      'div',
+      { class: 'listen-row' },
+      h('button', { type: 'button', class: 'btn', onclick: () => this.host.listen!() }, active ? 'Warten beenden' : 'Auf Test-Aufruf warten'),
+      h('span', { class: 'muted small' }, active ? ' Wartet auf Aufruf der Test-URL' : ' Der nächste Aufruf der Test-URL führt den aktuellen, auch ungespeicherten Stand aus.'),
     );
   }
 
@@ -156,7 +186,9 @@ export class Panel {
     const ports = this.host.ports(node.name);
 
     // Webhook-Adressen
-    if (node.type === 'n8n-nodes-base.webhook' && typeof node.parameters.path === 'string') {
+    if (node.type === 'n8n-nodes-base.webhook' && typeof node.parameters.path === 'string' && node.parameters.path.startsWith('=')) {
+      box.append(h('div', { class: 'info-box' }, h('div', { class: 'muted' }, 'Der Pfad ist eine Expression. Der Server wertet sie beim Aktivieren aus (ohne Items, mit $vars und $env).')));
+    } else if (node.type === 'n8n-nodes-base.webhook' && typeof node.parameters.path === 'string') {
       const path = String(node.parameters.path).replace(/^\//, '');
       const base = this.host.webhookBaseUrl();
       box.append(
@@ -166,6 +198,7 @@ export class Panel {
           h('div', null, h('strong', null, 'Produktiv: '), h('code', null, `${base}/webhook/${path}`)),
           h('div', null, h('strong', null, 'Test: '), h('code', null, `${base}/webhook-test/${path}`)),
           h('div', { class: 'muted' }, 'Produktiv-URL gilt nur für aktive, gespeicherte Workflows.'),
+          this.listenButton(),
         ),
       );
     }
@@ -187,6 +220,7 @@ export class Panel {
           h('div', null, h('strong', null, 'Produktiv: '), h('a', { href: prod, target: '_blank', rel: 'noopener' }, prod)),
           h('div', null, h('strong', null, 'Test: '), h('a', { href: test, target: '_blank', rel: 'noopener' }, test)),
           h('div', { class: 'muted' }, form ? 'Produktiv-URL gilt nur für aktive, gespeicherte Workflows.' : 'Die Chat-Seite gibt es nur, wenn der Chat öffentlich ist ("public").'),
+          form ? this.listenButton() : null,
         ),
       );
     }
@@ -361,7 +395,13 @@ export class Panel {
     const runIndex = this.outputRun < 0 || this.outputRun >= runs.length ? runs.length - 1 : this.outputRun;
     const run = runs[runIndex];
     const box = h('div', { class: 'panel-section' });
-    if (!run) return h('p', { class: 'muted' }, 'Kein Ergebnis');
+    const pinned = this.host.workflow().pinData?.[node.name] as Item[] | undefined;
+    if (!run) {
+      box.append(this.pinBar(node, undefined));
+      if (pinned) box.append(itemsView(pinned, this.dataMode));
+      else if (this.editingPin !== node.name) box.append(h('p', { class: 'muted' }, 'Noch kein Ergebnis. Starten Sie einen Testlauf oder geben Sie Testdaten ein.'));
+      return box;
+    }
     const controls = h('div', { class: 'output-controls' });
     if (runs.length > 1) {
       const sel = h(
@@ -395,7 +435,7 @@ export class Panel {
       h(
         'div',
         { class: 'run-meta' },
-        h('span', { class: `pill pill-${run.executionStatus === 'error' || run.error ? 'error' : 'success'}` }, run.error ? 'Fehler' : (run.executionStatus ?? 'ok')),
+        h('span', { class: `pill pill-${run.executionStatus === 'error' || run.error ? 'error' : 'success'}` }, run.error || run.executionStatus === 'error' ? 'Fehler' : run.executionStatus === 'waiting' ? 'Wartet' : 'Erfolgreich'),
         ` ${run.executionTime ?? 0} ms`,
         key !== 'main' ? h('span', { class: 'muted' }, ` (${key})`) : null,
       ),
@@ -412,7 +452,83 @@ export class Panel {
       );
     }
     const items: Item[] = (outputs[Math.min(this.outputIndex, Math.max(0, outputs.length - 1))] ?? []) as Item[];
+    box.append(this.pinBar(node, key === 'main' ? ((outputs[0] ?? []) as Item[]) : undefined));
     box.append(itemsView(items, this.dataMode));
     return box;
+  }
+
+  /**
+   * Testdaten festhalten (n8n pinData): die Items gelten beim Testlauf als Ausgabe 0 des Knotens, er selbst läuft nicht.
+   * Wie in n8n nur JSON, keine Binärdaten.
+   */
+  private pinBar(node: WorkflowNode, runItems: Item[] | undefined): HTMLElement {
+    const pinned = this.host.workflow().pinData?.[node.name] as Item[] | undefined;
+    const bar = h('div', { class: 'pin-bar' });
+    if (this.host.readonly || this.host.ports(node.name)?.isSubNode) {
+      if (pinned) bar.append(h('span', { class: 'pill' }, 'Festgehalten'));
+      return bar;
+    }
+    const setPin = (items: Item[] | undefined) => {
+      this.host.update((wf) => {
+        if (items) (wf.pinData ??= {})[node.name] = items;
+        else if (wf.pinData) {
+          delete wf.pinData[node.name];
+          if (!Object.keys(wf.pinData).length) delete wf.pinData;
+        }
+      });
+      this.editingPin = undefined;
+      this.render();
+    };
+    if (this.editingPin === node.name) {
+      const area = h('textarea', { class: 'param-input json-editor', rows: 10, spellcheck: false, 'aria-label': 'Testdaten (JSON)' });
+      area.value = JSON.stringify((pinned ?? runItems ?? [{ json: {} }]).map((i) => i.json), null, 2);
+      const apply = () => {
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(area.value);
+        } catch (error) {
+          toast(`Testdaten sind kein gültiges JSON: ${(error as Error).message}`, 'error');
+          return;
+        }
+        const list = Array.isArray(parsed) ? parsed : [parsed];
+        if (list.some((v) => !v || typeof v !== 'object' || Array.isArray(v))) {
+          toast('Testdaten müssen ein JSON-Objekt oder eine Liste von Objekten sein', 'error');
+          return;
+        }
+        setPin(list.map((json) => ({ json: json as Item['json'] })));
+      };
+      bar.append(
+        h('label', { class: 'field' }, h('span', null, 'Testdaten (JSON-Objekt oder Liste von Objekten)'), area),
+        h(
+          'div',
+          { class: 'pin-actions' },
+          h('button', { type: 'button', class: 'btn btn-primary', onclick: apply }, 'Festhalten'),
+          h('button', { type: 'button', class: 'btn', onclick: () => ((this.editingPin = undefined), this.render()) }, 'Abbrechen'),
+        ),
+      );
+      return bar;
+    }
+    if (pinned) {
+      bar.append(
+        h('span', { class: 'pill' }, 'Festgehalten'),
+        h('span', { class: 'muted small' }, ` ${pinned.length} ${pinned.length === 1 ? 'Item' : 'Items'}; beim Testlauf liefert der Knoten diese Daten, statt zu laufen.`),
+        h(
+          'div',
+          { class: 'pin-actions' },
+          h('button', { type: 'button', class: 'btn', onclick: () => ((this.editingPin = node.name), this.render()) }, 'Bearbeiten'),
+          h('button', { type: 'button', class: 'btn', onclick: () => setPin(undefined) }, 'Lösen'),
+        ),
+      );
+      return bar;
+    }
+    bar.append(
+      h(
+        'div',
+        { class: 'pin-actions' },
+        runItems && h('button', { type: 'button', class: 'btn', title: 'Ausgabe 0 als Testdaten festhalten', onclick: () => setPin(runItems.map((i) => ({ json: structuredClone(i.json) }))) }, 'Festhalten'),
+        h('button', { type: 'button', class: 'btn', onclick: () => ((this.editingPin = node.name), this.render()) }, runItems ? 'Testdaten bearbeiten' : 'Testdaten eingeben'),
+      ),
+    );
+    return bar;
   }
 }

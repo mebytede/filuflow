@@ -70,7 +70,13 @@ FILUFLOW_API_KEY=geheim docker compose up -d --build
   Ausgang auf Eingang ziehen verbindet, eine Verbindung anklicken und Entf löscht sie. Rechts stehen Parameter, Credentials,
   Einstellungen (deaktiviert, Fehlerverhalten, Wiederholen, Notizen) und nach dem Lauf das Ergebnis als Tabelle oder JSON.
 - **Speichern** schreibt die Datei ins Workflow-Verzeichnis, der Schalter **Aktiv** schaltet Webhooks und Zeitpläne an.
-  **Testlauf** führt den aktuellen, auch ungespeicherten Stand aus.
+  **Testlauf** führt den aktuellen, auch ungespeicherten Stand aus. **Bis hier ausführen** (Knopf oben im Panel) führt nur
+  den gewählten Knoten und die Knoten davor aus. Bei Webhook- und Formular-Triggern wartet **Auf Test-Aufruf warten** auf
+  den nächsten Aufruf der Test-URL und führt dabei den Stand im Editor aus.
+- **Testdaten:** Im Tab **Ergebnis** hält **Festhalten** die Ausgabe eines Knotens fest (`pinData`), **Testdaten eingeben**
+  setzt eigene Daten. Beim Testlauf liefert der Knoten dann diese Daten, statt zu laufen; am Knoten erscheint eine Nadel.
+- **Variablen:** Werte für `$vars` pflegen Sie unter **Variablen**; sie wirken sofort in allen Workflows. Einträge aus
+  `vars.json` bleiben in der Datei und haben Vorrang.
 - **Letzter Lauf** unter dem Canvas: Status, Typ, Ausgabe und Dauer je Knoten mit Zeitleiste; ein Klick wählt den Knoten.
 - **Ausführungen:** Liste mit Filter nach Workflow und Status, Detailansicht mit dem Workflow-Stand der Ausführung.
 - Farbschema dunkel (Standard) oder hell unter **Einstellungen**.

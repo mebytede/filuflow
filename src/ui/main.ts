@@ -13,6 +13,7 @@ import { emptyWorkflow } from './editor/model.js';
 import { workflowsView } from './views/workflows.js';
 import { executionDetailView, executionsView } from './views/executions.js';
 import { createCredential, credentialsView } from './views/credentials.js';
+import { variablesView } from './views/variables.js';
 
 const app = document.getElementById('app')!;
 let current: { editor?: Editor } = {};
@@ -34,6 +35,7 @@ const NAV: NavItem[] = [
   { key: 'workflows', label: 'Workflows', icon: 'share-2', href: '#/workflows' },
   { key: 'executions', label: 'Ausführungen', icon: 'list-checks', href: '#/executions' },
   { key: 'credentials', label: 'Credentials', icon: 'asterisk', href: '#/credentials' },
+  { key: 'variables', label: 'Variablen', icon: 'variable', href: '#/variables' },
 ];
 const NAV_BOTTOM: NavItem[] = [{ key: 'settings', label: 'Einstellungen', icon: 'settings', href: '#/settings' }];
 
@@ -160,6 +162,7 @@ async function route(): Promise<void> {
       const { el, editor } = await executionDetailView(parts[1], types, credentials);
       setPage('executions', el, editor, seq);
     } else if (parts[0] === 'credentials') setPage('credentials', await credentialsView(), undefined, seq);
+    else if (parts[0] === 'variables') setPage('variables', await variablesView(), undefined, seq);
     else if (parts[0] === 'settings') setPage('settings', settingsView(logout), undefined, seq);
     else setPage('workflows', h('section', { class: 'page' }, h('h1', null, 'Seite nicht gefunden'), h('a', { href: '#/workflows' }, 'Zu den Workflows')), undefined, seq);
   } catch (error) {

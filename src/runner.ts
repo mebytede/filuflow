@@ -87,6 +87,8 @@ export interface RunOptions {
   canWait?: boolean;
   /** Wartende Execution fortsetzen */
   resume?: ResumeData;
+  /** Nur bis zu diesem Knoten (Editor) */
+  destinationNode?: string;
 }
 
 /** Start-Node für Unter-Workflows (n8n findSubworkflowStart): executeWorkflowTrigger, sonst ein Start-Typ */
@@ -134,6 +136,7 @@ export class Runner {
       staticData: run.staticData,
       webhookWaitingBaseUrl: this.options.webhookWaitingBaseUrl,
       canWait: depth === 0 && run.canWait === true,
+      ...(depth === 0 && run.destinationNode ? { destinationNode: run.destinationNode } : {}),
       resume: run.resume,
       runSubWorkflow: (req) => this.runSubWorkflow(req, depth + 1),
     };

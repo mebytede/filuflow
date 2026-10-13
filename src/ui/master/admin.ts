@@ -4,9 +4,10 @@ import { confirmDialog, dialog, formatDate, h, toast } from '../dom.js';
 import { mapi } from './api.js';
 import { pageHead } from '../shell.js';
 import type { AuditEntry, OverviewWorker, Tenant, User, WorkerInfo } from './types.js';
-import type { CredentialTypeCatalog } from '../types.js';
+import type { CredentialTypeCatalog, VariableEntry } from '../types.js';
 import { credentialFormDialog, type CredentialFormBackend } from '../views/credentialForm.js';
 import { connectOAuth, credentialTable } from '../views/credentials.js';
+import { variableDialog, variableTable, type VariableBackend } from '../views/variables.js';
 
 const e = encodeURIComponent;
 
@@ -393,7 +394,8 @@ export async function workerPage(id: string): Promise<HTMLElement> {
   // Workflows und Credentials live vom Worker
   const wfBox = h('div', { class: 'card card-pad' }, h('h2', null, 'Workflows beim Worker'), h('p', { class: 'muted' }, 'Lade …'));
   const credBox = h('div', { class: 'card card-pad' }, h('h2', null, 'Credentials beim Worker'), h('p', { class: 'muted' }, 'Lade …'));
-  root.append(wfBox, credBox);
+  const varBox = h('div', { class: 'card card-pad' }, h('h2', null, 'Variablen beim Worker'), h('p', { class: 'muted' }, 'Lade …'));
+  root.append(wfBox, credBox, varBox);
 
   void mapi
     .workerWorkflows(id)
@@ -482,6 +484,40 @@ export async function workerPage(id: string): Promise<HTMLElement> {
       })
       .catch((err) => credBox.replaceChildren(h('h2', null, 'Credentials beim Worker'), h('p', { class: 'error-text' }, message(err))));
   loadCredentials();
+
+  const varBackend: VariableBackend = {
+    list: () => mapi.workerVariables(id),
+    save: (key, body) => mapi.setWorkerVariable(id, key, body),
+    remove: (key) => mapi.deleteWorkerVariable(id, key),
+  };
+  const loadVariables = (): Promise<void> =>
+    varBackend
+      .list()
+      .then((list) => {
+        const edit = async (entry?: VariableEntry) => {
+          if (!(await variableDialog(varBackend, entry, 'Beim Worker speichern'))) return;
+          toast('Beim Worker gespeichert', 'success');
+          void loadVariables();
+        };
+        const remove = async (key: string) => {
+          if (!(await confirmDialog('Variable löschen', `"${key}" wird beim Worker gelöscht.`))) return;
+          try {
+            await varBackend.remove(key);
+            void loadVariables();
+          } catch (err) {
+            toast(message(err), 'error');
+          }
+        };
+        varBox.replaceChildren(
+          h('div', { class: 'page-head' }, h('h2', null, 'Variablen beim Worker'), h('div', { class: 'spacer' }), action('Variable hinzufügen', () => edit())),
+          h('p', { class: 'muted small' }, 'Werte für $vars in allen Workflows des Workers. Einträge aus der vars.json des Workers sind geschützt und haben Vorrang.'),
+          list.length
+            ? variableTable(list, { edit: (v) => void edit(v), remove: (k) => void remove(k), fileHint: 'In der vars.json des Workers gepflegt' })
+            : h('p', { class: 'muted' }, 'Keine Variablen.'),
+        );
+      })
+      .catch((err) => varBox.replaceChildren(h('h2', null, 'Variablen beim Worker'), h('p', { class: 'error-text' }, message(err))));
+  void loadVariables();
   return root;
 }
 

@@ -30,6 +30,23 @@ export function listEdges(wf: Workflow): Edge[] {
   return out;
 }
 
+/** Alle Vorgänger eines Knotens über main-Verbindungen (für "Bis hier ausführen") */
+export function ancestors(wf: Workflow, name: string): Set<string> {
+  const parents = new Map<string, string[]>();
+  for (const e of listEdges(wf)) if (e.type === 'main') parents.set(e.to, [...(parents.get(e.to) ?? []), e.from]);
+  const seen = new Set<string>();
+  const queue = [name];
+  while (queue.length) {
+    for (const p of parents.get(queue.shift()!) ?? []) {
+      if (seen.has(p)) continue;
+      seen.add(p);
+      queue.push(p);
+    }
+  }
+  seen.delete(name);
+  return seen;
+}
+
 export function hasEdge(wf: Workflow, e: Edge): boolean {
   return listEdges(wf).some((x) => edgeKey(x) === edgeKey(e));
 }

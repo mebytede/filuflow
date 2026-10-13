@@ -513,10 +513,10 @@ export const webhookNode: NodeType = {
   },
   validate(node) {
     const issues: NodeIssue[] = [];
-    for (const key of ['path', 'httpMethod', 'responseMode', 'responseData', 'multipleMethods']) {
-      if (isExpr(node.parameters[key])) {
-        issues.push({ code: 'webhook.expression', message: `Expressions im Parameter "${key}" werden nicht unterstützt`, path: `parameters.${key}` });
-      }
+    // Expressions in path, httpMethod, responseMode und responseData wertet der Server aus (src/server/webhookParams.ts);
+    // die Zahl der Ausgänge muss aber ohne Auswertung feststehen
+    if (isExpr(node.parameters.multipleMethods)) {
+      issues.push({ code: 'webhook.expression', message: 'Expressions im Parameter "multipleMethods" werden nicht unterstützt', path: 'parameters.multipleMethods' });
     }
     if (node.parameters.responseMode === 'streaming') {
       issues.push({ code: 'webhook.streaming', message: 'responseMode "streaming" wird nicht unterstützt', path: 'parameters.responseMode' });

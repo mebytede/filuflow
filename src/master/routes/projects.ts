@@ -334,13 +334,19 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     if (!a) return;
     const worker = hub.workerForProject(a.project.id);
     if (!worker) return reply.code(409).send({ message: 'Projekt hat keinen Worker' });
-    const body = (request.body ?? {}) as { workflow?: unknown; trigger?: string; input?: unknown };
+    const body = (request.body ?? {}) as { workflow?: unknown; trigger?: string; input?: unknown; destination?: unknown };
     const wf = body.workflow !== undefined ? asWorkflow(body.workflow) : (JSON.parse(a.row.data) as Workflow);
     if (typeof wf === 'string') return reply.code(400).send({ message: wf });
     wf.id = a.row.id;
     ctx.audit(request, 'workflow.run', a.row.id);
     try {
-      return await hub.call(worker, 'POST', '/api/editor/run', { workflow: wf, trigger: body.trigger, input: body.input }, 10 * 60_000);
+      return await hub.call(
+        worker,
+        'POST',
+        '/api/editor/run',
+        { workflow: wf, trigger: body.trigger, input: body.input, ...(typeof body.destination === 'string' ? { destination: body.destination } : {}) },
+        10 * 60_000,
+      );
     } catch (error) {
       return workerError(reply, error);
     }

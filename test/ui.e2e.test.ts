@@ -240,4 +240,74 @@ describe('Weboberfläche', () => {
     expect(errors).toEqual([]);
     await page.close();
   }, 120_000);
+  it('Testdaten festhalten, bis zu einem Knoten ausführen, Variablen pflegen', async (ctx) => {
+    if (!browser) ctx.skip();
+    const page = await browser!.newPage({ viewport: { width: 1400, height: 860 } });
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+    page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+    const setNode = (name: string, x: number, value: string) => ({
+      id: name,
+      name,
+      type: 'n8n-nodes-base.set',
+      typeVersion: 3.4,
+      position: [x, 0] as [number, number],
+      parameters: { assignments: { assignments: [{ id: name, name: 'wert', value, type: 'string' }] }, options: {} },
+    });
+    await server!.workflows.upsert('pinwf', {
+      id: 'pinwf',
+      name: 'Testdaten',
+      settings: { executionOrder: 'v1' },
+      nodes: [
+        { id: 's', name: 'Start', type: 'n8n-nodes-base.manualTrigger', typeVersion: 1, position: [0, 0], parameters: {} },
+        setNode('Quelle', 260, 'echt'),
+        setNode('Ziel', 520, '={{ $json.wert }} {{ $vars.GRUSS }}'),
+        setNode('Danach', 780, 'nie'),
+      ],
+      connections: {
+        Start: { main: [[{ node: 'Quelle', type: 'main', index: 0 }]] },
+        Quelle: { main: [[{ node: 'Ziel', type: 'main', index: 0 }]] },
+        Ziel: { main: [[{ node: 'Danach', type: 'main', index: 0 }]] },
+      },
+    });
+
+    // Variable anlegen
+    await page.goto(`${base}/#/variables`);
+    await page.fill('input[type=password]', KEY);
+    await page.click('button[type=submit]');
+    await page.waitForSelector('.page-head:has-text("Variablen")');
+    await page.click('button:has-text("Variable hinzufügen") >> nth=0');
+    await page.fill('.modal input[aria-label="Schlüssel"]', 'GRUSS');
+    await page.fill('.modal textarea[aria-label="Wert"]', 'Welt');
+    await page.click('.modal .btn-primary');
+    await page.waitForSelector('.list-table td:has-text("GRUSS")');
+
+    // Testdaten für "Quelle" eingeben und festhalten
+    await page.goto(`${base}/#/workflow/pinwf`);
+    await page.waitForSelector('.node[data-node="Quelle"]');
+    await page.click('.node[data-node="Quelle"]');
+    await page.click('.tab:has-text("Ergebnis")');
+    await page.click('.pin-bar button:has-text("Testdaten eingeben")');
+    await page.fill('.pin-bar textarea', '{ "wert": "fest" }');
+    await page.click('.pin-bar button:has-text("Festhalten")');
+    await page.waitForSelector('.node[data-node="Quelle"].pinned');
+    await page.waitForSelector('.pin-bar .pill:has-text("Festgehalten")');
+
+    // Bis "Ziel" ausführen: "Danach" läuft nicht
+    await page.click('.node[data-node="Ziel"]');
+    await page.click('.panel button[aria-label="Bis hier ausführen"]');
+    await page.waitForSelector('.node[data-node="Ziel"].status-success');
+    expect(await page.locator('.node[data-node="Danach"].skipped').count()).toBe(1);
+    await page.click('.tab:has-text("Ergebnis")');
+    expect((await page.locator('.panel .data-table').innerText()).replace(/\s+/g, ' ')).toContain('fest Welt');
+
+    // Lösen
+    await page.click('.node[data-node="Quelle"]');
+    await page.click('.tab:has-text("Ergebnis")');
+    await page.click('.pin-bar button:has-text("Lösen")');
+    await page.waitForSelector('.node[data-node="Quelle"]:not(.pinned)');
+
+    expect(errors).toEqual([]);
+    await page.close();
+  }, 120_000);
 });

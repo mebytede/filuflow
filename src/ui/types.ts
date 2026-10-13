@@ -133,6 +133,13 @@ export interface CredentialListEntry extends CredentialInfo {
   oauth?: { grantType: string; connected: boolean };
 }
 
+/** Variable für $vars (GET /api/variables) */
+export interface VariableEntry {
+  key: string;
+  value: string;
+  source: 'file' | 'managed';
+}
+
 export interface CredentialList {
   writable: boolean;
   encrypted: boolean;

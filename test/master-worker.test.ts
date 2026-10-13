@@ -390,6 +390,23 @@ describe('Credentials beim Worker', () => {
   });
 });
 
+describe('Variablen beim Worker über den Master', () => {
+  it('liest, setzt und löscht Variablen beim Worker, nur für globale Admins', async () => {
+    const w = await startWorker('w1');
+    const wk = await registerWorker(w);
+    expect((await admin.get(`/api/admin/workers/${wk.id}/variables`)).json()).toEqual({ data: [] });
+    expect((await admin.put(`/api/admin/workers/${wk.id}/variables/REGION`, { value: 'eu', create: true })).json()).toEqual({ key: 'REGION', value: 'eu', source: 'managed' });
+    expect((await admin.put(`/api/admin/workers/${wk.id}/variables/REGION`, { value: 'x', create: true })).statusCode).toBe(409);
+    expect((await admin.put(`/api/admin/workers/${wk.id}/variables/mit-strich`, { value: 'x' })).statusCode).toBe(400);
+    expect((await admin.get(`/api/admin/workers/${wk.id}/variables`)).json().data).toEqual([{ key: 'REGION', value: 'eu', source: 'managed' }]);
+    expect(JSON.stringify((await admin.get('/api/admin/audit')).json())).toContain('worker.variable_set');
+    const member = await addUser(master, admin, 'mia@example.org');
+    expect((await member.client.get(`/api/admin/workers/${wk.id}/variables`)).statusCode).toBe(403);
+    expect((await admin.del(`/api/admin/workers/${wk.id}/variables/REGION`)).statusCode).toBe(204);
+    expect((await admin.get(`/api/admin/workers/${wk.id}/variables`)).json()).toEqual({ data: [] });
+  });
+});
+
 describe('OAuth2 über den Master', () => {
   it('holt die Autorisierungs-URL vom Worker, leitet den Callback an ihn weiter', async () => {
     const tokens: string[] = [];

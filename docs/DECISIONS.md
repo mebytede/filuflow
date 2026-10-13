@@ -190,3 +190,20 @@ Bibliotheken, deren Verhalten in Ausgaben sichtbar wird, sind exakt auf die Vers
 luxon 3.4.4, lodash 4.17.21, cheerio 1.0.0-rc.6, html-to-text 9.0.5, xml2js 0.6.2, qs 6.11.0, jsonrepair 3.13.1, jmespath 0.16.0,
 title-case 3.0.3 und transliteration 2.3.5 (Erweiterungsfunktionen `toTitleCase()`, `replaceSpecialChars()`).
 `html-to-text` wird vom HTML-Node (v1.2, Rückgabe "text") genutzt.
+
+## Variablen (M18)
+In der Oberfläche gepflegte Variablen liegen in der SQLite-Tabelle `kv` (Schlüssel `variables`), nicht in `vars.json`: Die
+Datei bleibt von Hand gepflegt und hat Vorrang, wie bei Credentials. Das Objekt für `$vars` wird beim Speichern an Ort und
+Stelle geändert, damit neue Ausführungen die Werte ohne Neustart sehen. Regeln für Schlüssel und Werte wie n8n
+(`packages/@n8n/api-types/src/dto/variables/base.dto.ts`).
+
+## Expressions in Webhook-Parametern (M18)
+Pfad und Methoden werden bei der Aktivierung ausgewertet (n8n `getNodeWebhooks`), alle übrigen Parameter des Webhook-Knotens
+bei jedem Aufruf (n8n `executeWebhook`), jeweils ohne Items. Ändert sich eine Variable, die im Pfad steckt, gilt der neue Pfad
+erst nach dem nächsten Laden des Workflows (Speichern, Aktivieren, Neustart). Liefert die Pfad-Expression keinen Wert,
+überspringt n8n den Webhook stillschweigend; filuflow meldet einen Aktivierungsfehler.
+
+## Auf Test-Aufruf warten (M18)
+Test-URLs sind in filuflow für alle gespeicherten Workflows immer registriert. "Auf Test-Aufruf warten" legt für den
+übergebenen Editor-Stand eine eigene Registry an, die bei Test-URLs Vorrang hat und nach dem ersten Aufruf, nach Ablauf der
+Wartezeit (höchstens 5 Minuten) oder beim Abbruch der Anfrage entfernt wird. Im Master gibt es das noch nicht.

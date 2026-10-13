@@ -300,6 +300,7 @@ Engine-Reihenfolge, Expressions (inkl. Rohwert vs. String), jeder Node, Filter-O
 | M15 | HTTP Request erweitert | Pagination in allen Modi wie n8n, Digest-Auth, Client-Zertifikate |
 | M16 | Chat Trigger | Webhooks wie n8n, gehostete Chat-Seite, Chat-Fenster im Editor, Basic Auth, frühere Nachrichten aus dem Memory |
 | M17 | Formulare | Form Trigger, Form-Knoten mit Folgeseiten und Abschluss, Wait per Formular |
+| M18 | Testdaten, Variablen, Teilausführung | pinData per Klick, Variablen-Seite, "Bis hier ausführen", "Auf Test-Aufruf warten", Expressions in Webhook-Parametern |
 
 Nach jedem Meilenstein: `docs/STATUS.md` aktualisieren (was geht, was fehlt) und einen Commit mit aussagekräftiger Nachricht.
 
@@ -309,9 +310,8 @@ Nach jedem Meilenstein: `docs/STATUS.md` aktualisieren (was geht, was fehlt) und
 Offene Funktionen, ungefähr nach Nutzen geordnet. Jede wird wie ein Meilenstein umgesetzt (Tests, `docs/STATUS.md`, Commit).
 
 ### 11.1 Ausführung und Server
+(Expressions in Webhook-Parametern, Teilausführung bis zu einem Knoten, "Auf Test-Aufruf warten": M18)
 - Streaming-Antworten (Webhook `responseMode: streaming`, Respond to Webhook mit Streaming, Agent-Streaming)
-- Expressions in Webhook-Parametern (`path`, `httpMethod`, `responseMode`, `responseData`)
-- Teilausführung ab einem Knoten und "Auf Test-Event warten" für Test-Webhooks
 - Skalierung über mehrere Prozesse (Warteschlange, z. B. Redis) für hohe Last
 - Execution-Order v0 für ältere Workflows
 
@@ -329,6 +329,6 @@ Offene Funktionen, ungefähr nach Nutzen geordnet. Jede wird wie ein Meilenstein
 - Import verschlüsselter n8n-Exporte
 
 ### 11.4 Oberfläche und Master
+(Testdaten per Klick, Variablen-Seite: M18; Chat-Ansicht: M16)
 - Parameterformulare je Knotentyp (Felder, Auswahllisten, Hilfetexte) zusätzlich zum Baum- und JSON-Editor
-- Testdaten (pinData) per Klick festhalten, Variablen-Seite, Chat-Ansicht
 - Eigene Rollen und Rechte je Workflow, Ausführungen mehrerer Worker zentral durchsuchen

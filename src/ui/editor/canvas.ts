@@ -391,6 +391,7 @@ export class Canvas {
       const run = this.nodeStatus(node.name);
       const skipped = hasRun && !run.status && !model.running;
       const selected = model.selection.has(node.name);
+      const pinned = wf.pinData?.[node.name] !== undefined && !node.disabled;
       const classes = [
         'node',
         `node-${g.kind}`,
@@ -401,6 +402,7 @@ export class Canvas {
         hasError && 'invalid',
         run.status && `status-${run.status}`,
         skipped && 'skipped',
+        pinned && 'pinned',
       ].filter(Boolean);
       const el = s('g', { class: classes.join(' '), 'data-node': node.name, transform: `translate(${g.x},${g.y})` });
       if (selected) el.append(s('rect', { class: 'node-focus', x: -3, y: -3, width: g.w + 6, height: g.h + 6 }));
@@ -416,6 +418,12 @@ export class Canvas {
         s('text', { class: 'node-type', x: 36, y: 25 }, truncate(look.label.toUpperCase(), chars)),
         s('text', { class: 'node-name', x: 12, y: 48 }, truncate(node.name, Math.floor((g.w - 24) / 7.6))),
       );
+      if (pinned) {
+        const pin = icon('pin', 14, 'node-pin');
+        pin.setAttribute('x', String(g.w - 24));
+        pin.setAttribute('y', '12');
+        el.append(pin);
+      }
 
       // Fuß: Status-Wort und Dauer (Sub-Nodes ohne Fuß)
       if (g.kind !== 'sub') {
@@ -428,6 +436,8 @@ export class Canvas {
           footClass = run.status === 'error' ? 'st-error' : run.status === 'success' ? 'st-success' : '';
         } else if (model.running) {
           footText = 'Läuft';
+        } else if (pinned) {
+          footText = 'Festgehalten';
         } else if (skipped) {
           footText = 'Nicht ausgeführt';
         } else if (ports && !ports.known) {
@@ -443,7 +453,7 @@ export class Canvas {
         el.append(s('text', { class: `node-foot ${footClass}`, x: 12, y: g.h - 13 }, footText));
         if (run.status) el.append(s('text', { class: 'node-foot', x: g.w - 12, y: g.h - 13, 'text-anchor': 'end' }, duration(run.ms)));
       }
-      el.append(s('title', null, `${node.name}\n${node.type} v${node.typeVersion}${node.disabled ? '\nDeaktiviert' : ''}${issues.map((i) => `\n${i.severity === 'error' ? 'Fehler' : 'Hinweis'}: ${i.message}`).join('')}`));
+      el.append(s('title', null, `${node.name}\n${node.type} v${node.typeVersion}${node.disabled ? '\nDeaktiviert' : ''}${pinned ? '\nTestdaten festgehalten' : ''}${issues.map((i) => `\n${i.severity === 'error' ? 'Fehler' : 'Hinweis'}: ${i.message}`).join('')}`));
 
       // Ports: Quadrate 8 x 8 mittig auf der Kante; durchlaufen gefüllt
       const port = (cx: number, cy: number, data: string, done: boolean, cls: string) => {

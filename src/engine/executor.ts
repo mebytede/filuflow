@@ -97,6 +97,11 @@ export interface ExecutorOptions {
   canWait?: boolean;
   /** Fortsetzen einer wartenden Execution (n8n WorkflowExecute mit runExecutionData) */
   resume?: ResumeData;
+  /**
+   * Nur bis zu diesem Knoten ausführen (Editor "Bis hier ausführen", n8n destinationNode): es laufen nur der Knoten und
+   * seine Vorgänger, Kinder außerhalb davon werden nicht eingeplant.
+   */
+  destinationNode?: string;
 }
 
 /** Gespeicherter Zustand einer wartenden Execution (n8n runExecutionData.executionData, JSON-fähig) */
@@ -188,6 +193,8 @@ export class WorkflowExecutor {
   private readonly abort = new AbortController();
   private nodeContexts: Record<string, Record<string, unknown>> = {};
   private waitTill?: Date;
+  /** destinationNode: der Zielknoten und seine Vorgänger */
+  private readonly allowedNodes?: Set<string>;
   private readonly staticData: Record<string, Record<string, unknown>>;
   private readonly pinData: Workflow['pinData'];
   private readonly sleep: (ms: number) => Promise<void>;
@@ -221,6 +228,14 @@ export class WorkflowExecutor {
     this.pinData = options.usePinData === false ? undefined : options.workflow.pinData;
     this.sleep = options.sleep ?? defaultSleep;
     this.canWait = options.canWait === true;
+    if (options.destinationNode) {
+      if (!this.graph.getNode(options.destinationNode)) {
+        throw new WorkflowValidationError(`Zielknoten "${options.destinationNode}" existiert nicht`, [
+          { severity: 'error', code: 'trigger.unknown', message: `Zielknoten "${options.destinationNode}" existiert nicht` },
+        ]);
+      }
+      this.allowedNodes = new Set([options.destinationNode, ...this.graph.getParentNodes(options.destinationNode)]);
+    }
     if (options.signal) {
       if (options.signal.aborted) this.cancel();
       else options.signal.addEventListener('abort', () => this.cancel(), { once: true });
@@ -709,6 +724,7 @@ export class WorkflowExecutor {
           return 0;
         });
         for (const n of nodesToAdd) {
+          if (this.allowedNodes && !this.allowedNodes.has(n.connection.node)) continue;
           this.addNodeToBeExecuted(n.connection, n.outputIndex, node.name, nodeSuccessData!, runIndex);
         }
       }

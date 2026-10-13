@@ -1,6 +1,6 @@
 // REST-Client für den Master. Anmeldung über das Sitzungs-Cookie (HttpOnly), ändernde Requests mit CSRF-Header.
 import { request } from '../api.js';
-import type { CredentialDetail, CredentialInfo, CredentialList, CredentialSaveBody, CredentialTypeCatalog, Execution, InspectResult, NodeTypeInfo, Overview as WorkerOverview, Workflow } from '../types.js';
+import type { CredentialDetail, CredentialInfo, CredentialList, CredentialSaveBody, CredentialTypeCatalog, Execution, InspectResult, NodeTypeInfo, Overview as WorkerOverview, VariableEntry, Workflow } from '../types.js';
 import type {
   ApiToken,
   AuditEntry,
@@ -69,6 +69,9 @@ export const mapi = {
   workerOauthConnect: (id: string, name: string) => request<{ url: string }>('POST', `/api/admin/workers/${e(id)}/credentials/${e(name)}/oauth2/auth`, {}),
   workerOauthDisconnect: (id: string, name: string) => request<void>('DELETE', `/api/admin/workers/${e(id)}/credentials/${e(name)}/oauth2`),
   deleteWorkerCredential: (id: string, name: string) => request<void>('DELETE', `/api/admin/workers/${e(id)}/credentials/${e(name)}`),
+  workerVariables: (id: string) => request<{ data: VariableEntry[] }>('GET', `/api/admin/workers/${e(id)}/variables`).then((r) => r.data),
+  setWorkerVariable: (id: string, key: string, body: { value: string; rename?: string; create?: boolean }) => request<VariableEntry>('PUT', `/api/admin/workers/${e(id)}/variables/${e(key)}`, body),
+  deleteWorkerVariable: (id: string, key: string) => request<void>('DELETE', `/api/admin/workers/${e(id)}/variables/${e(key)}`),
 
   // Projekte
   projects: () => request<{ data: Project[] }>('GET', '/api/projects').then((r) => r.data),
@@ -95,7 +98,8 @@ export const mapi = {
   // Editor und Ausführungen (beim Worker des Projekts)
   nodeTypes: () => request<{ data: NodeTypeInfo[] }>('GET', '/api/editor/node-types').then((r) => r.data),
   inspect: (projectId: string, workflow: Workflow) => request<InspectResult & { worker: string }>('POST', `/api/projects/${e(projectId)}/inspect`, workflow),
-  run: (id: string, workflow: Workflow, trigger?: string, input?: unknown) => request<Execution>('POST', `/api/workflows/${e(id)}/run`, { workflow, trigger, input }),
+  run: (id: string, workflow: Workflow, trigger?: string, input?: unknown, destination?: string) =>
+    request<Execution>('POST', `/api/workflows/${e(id)}/run`, { workflow, trigger, input, ...(destination ? { destination } : {}) }),
   credentials: (projectId: string) => request<{ data: CredentialInfo[] }>('GET', `/api/projects/${e(projectId)}/credentials`).then((r) => r.data),
   executions: (projectId: string, filter: { workflow?: string; status?: string } = {}) => {
     const q = new URLSearchParams();

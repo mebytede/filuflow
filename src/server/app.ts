@@ -20,6 +20,7 @@ import { toItems } from '../cli/run.js';
 import { registerEditorApi } from './editorApi.js';
 import { registerChatAssets, registerUi } from './ui.js';
 import { registerWorkerApi } from './workerApi.js';
+import { VariableStore, registerVariablesApi } from './variablesApi.js';
 import { registerOverview, triggersOf } from './overview.js';
 import type { LayeredCredentialProvider } from '../credentials/managed.js';
 import { CREDENTIAL_TYPES } from '../credentials/types.js';
@@ -138,6 +139,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
   };
   const kvStore = { get: <T>(key: string) => store.getValue<T>(key), set: (key: string, value: unknown) => store.setValue(key, value), delete: (key: string) => store.deleteValue(key) };
   setOAuth2TokenStore(kvStore);
+  const variables = new VariableStore(kvStore, options.vars);
   // OAuth2 mit Authorization Code: Redirect-URI wie n8n unter der öffentlichen Basis-URL
   const oauth: OAuthSupport = { store: kvStore, http: options.http ?? new UndiciHttpClient(), redirectUri: `${options.webhookBaseUrl}${OAUTH2_CALLBACK_PATH}` };
 
@@ -149,7 +151,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
   const runner = new Runner({
     registry,
     credentials,
-    vars: options.vars,
+    vars: variables.vars,
     binary,
     http: options.http,
     logger,
@@ -167,7 +169,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
     staticData: staticFor,
     saveStaticData,
   });
-  const webhooks = new WebhookService({ manager, credentials, binary, logger, webhookBaseUrl: options.webhookBaseUrl, store });
+  const webhooks = new WebhookService({ manager, credentials, binary, logger, webhookBaseUrl: options.webhookBaseUrl, store, vars: variables.vars });
   const scheduler = new Scheduler(manager, logger, staticFor);
   workflows = new WorkflowManager({ dir: options.dir, registry, credentials, webhooks, scheduler, logger });
   await workflows.reload();
@@ -351,7 +353,9 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
 
     api.get('/api/credential-types', async () => ({ data: CREDENTIAL_TYPES, oauthCallbackUrl: oauth.redirectUri }));
     await registerCredentialsApi(api, { prefix: '/api/credentials', credentials, workflows: () => workflows!, logger, oauth });
-    await registerEditorApi(api, { registry, credentials, runner, manager, store, workflows: () => workflows!, webhookBaseUrl: options.webhookBaseUrl });
+    await registerVariablesApi(api, { prefix: '/api/variables', variables, logger });
+    if (options.worker) await registerVariablesApi(api, { prefix: '/api/worker/variables', variables, logger });
+    await registerEditorApi(api, { registry, credentials, runner, manager, store, workflows: () => workflows!, webhookBaseUrl: options.webhookBaseUrl, webhooks });
     if (options.worker) {
       await registerWorkerApi(api, {
         version: options.worker.version,
