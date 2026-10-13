@@ -215,10 +215,31 @@ export function registerWorkerRoutes(api: FastifyInstance, ctx: MasterContext): 
     const worker = db.getWorker((request.params as { id: string }).id);
     if (!worker) return reply.code(404).send({ message: 'Worker nicht gefunden' });
     try {
-      return await hub.call(worker, 'GET', '/api/worker/credentials', undefined, 15_000);
+      // Freigaben aus dem Master ergänzen (projects: null = alle Projekte des Workers)
+      const list = await hub.call<{ data: Array<{ name: string }> }>(worker, 'GET', '/api/worker/credentials', undefined, 15_000);
+      const access = db.credentialAccess(worker.id);
+      return { ...list, data: list.data.map((c) => ({ ...c, projects: access.get(c.name) ?? null })) };
     } catch (error) {
       return sendWorkerError(reply, error);
     }
+  });
+
+  // Freigabe eines Credentials für Projekte (null: alle Projekte des Workers)
+  api.put('/api/admin/workers/:id/credentials/:name/access', async (request, reply) => {
+    if (!ctx.requireAdmin(request, reply)) return;
+    const { id, name } = request.params as { id: string; name: string };
+    const worker = db.getWorker(id);
+    if (!worker) return reply.code(404).send({ message: 'Worker nicht gefunden' });
+    const body = (request.body ?? {}) as { projects?: unknown };
+    let projects: string[] | null = null;
+    if (body.projects !== null && body.projects !== undefined) {
+      if (!Array.isArray(body.projects) || body.projects.some((p) => typeof p !== 'string' || !db.getProject(p))) return reply.code(400).send({ message: 'Unbekanntes Projekt' });
+      projects = body.projects as string[];
+      if (!projects.length) return reply.code(400).send({ message: 'Mindestens ein Projekt wählen oder für alle freigeben' });
+    }
+    db.setCredentialAccess(worker.id, name, projects);
+    ctx.audit(request, 'worker.credential_access', worker.id, { name, projects });
+    return { name, projects };
   });
 
   // Einzelansicht: öffentliche Felder und die Namen gesetzter geheimer Felder (der Worker gibt keine Geheimnisse heraus)
@@ -239,7 +260,7 @@ export function registerWorkerRoutes(api: FastifyInstance, ctx: MasterContext): 
     const { id, name } = request.params as { id: string; name: string };
     const worker = db.getWorker(id);
     if (!worker) return reply.code(404).send({ message: 'Worker nicht gefunden' });
-    const body = (request.body ?? {}) as { type?: unknown; data?: unknown; keep?: unknown; rename?: unknown; create?: unknown };
+    const body = (request.body ?? {}) as { type?: unknown; data?: unknown; keep?: unknown; rename?: unknown; create?: unknown; project?: unknown };
     try {
       const result = await hub.call(
         worker,
@@ -248,8 +269,29 @@ export function registerWorkerRoutes(api: FastifyInstance, ctx: MasterContext): 
         { type: body.type, data: body.data, ...(Array.isArray(body.keep) ? { keep: body.keep } : {}), ...(typeof body.rename === 'string' ? { rename: body.rename } : {}), ...(body.create === true ? { create: true } : {}) },
         30_000,
       );
+      // Freigaben folgen einer Umbenennung; im Projekt-Editor angelegte Credentials gehören zunächst nur diesem Projekt
+      if (typeof body.rename === 'string' && body.rename !== name) db.renameCredentialAccess(worker.id, name, body.rename);
+      if (body.create === true && typeof body.project === 'string' && db.getProject(body.project)) db.setCredentialAccess(worker.id, name, [body.project]);
       // Werte nie ins Audit-Log
       ctx.audit(request, 'worker.credential_set', worker.id, { name, type: body.type, ...(typeof body.rename === 'string' && body.rename !== name ? { rename: body.rename } : {}) });
+      return result;
+    } catch (error) {
+      return sendWorkerError(reply, error);
+    }
+  });
+
+  // Import eines n8n-Exports beim Worker (Werte gehen nur durch, der Master speichert nichts)
+  api.post('/api/admin/workers/:id/credentials/import', async (request, reply) => {
+    if (!ctx.requireAdmin(request, reply)) return;
+    const worker = db.getWorker((request.params as { id: string }).id);
+    if (!worker) return reply.code(404).send({ message: 'Worker nicht gefunden' });
+    const body = (request.body ?? {}) as { credentials?: unknown; n8nKey?: unknown; overwrite?: unknown };
+    try {
+      const result = (await hub.call(worker, 'POST', '/api/worker/credentials/import', { credentials: body.credentials, n8nKey: body.n8nKey, overwrite: body.overwrite === true }, 60_000)) as {
+        imported: string[];
+        skipped: unknown[];
+      };
+      ctx.audit(request, 'worker.credentials_imported', worker.id, { imported: result.imported });
       return result;
     } catch (error) {
       return sendWorkerError(reply, error);
@@ -298,6 +340,7 @@ export function registerWorkerRoutes(api: FastifyInstance, ctx: MasterContext): 
     if (!worker) return reply.code(404).send({ message: 'Worker nicht gefunden' });
     try {
       await hub.call(worker, 'DELETE', `/api/worker/credentials/${encodeURIComponent(name)}`, undefined, 30_000);
+      db.setCredentialAccess(worker.id, name, null);
       ctx.audit(request, 'worker.credential_deleted', worker.id, { name });
       return reply.code(204).send();
     } catch (error) {

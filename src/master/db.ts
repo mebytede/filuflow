@@ -215,6 +215,12 @@ CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS credential_access (
+  worker_id TEXT NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
+  credential TEXT NOT NULL,
+  project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  PRIMARY KEY (worker_id, credential, project_id)
+);
 `;
 
 export function newId(bytes = 8): string {
@@ -410,6 +416,36 @@ export class MasterDb {
 
   deleteWorker(id: string): void {
     this.db.prepare('DELETE FROM workers WHERE id = ?').run(id);
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // Freigabe von Credentials beim Worker für Projekte. Ohne Einträge darf jedes Projekt des Workers ein Credential
+  // nutzen; mit Einträgen nur die genannten Projekte.
+
+  credentialAccess(workerId: string): Map<string, string[]> {
+    const rows = this.db.prepare('SELECT credential, project_id FROM credential_access WHERE worker_id = ? ORDER BY credential, project_id').all(workerId) as Array<{ credential: string; project_id: string }>;
+    const out = new Map<string, string[]>();
+    for (const r of rows) out.set(r.credential, [...(out.get(r.credential) ?? []), r.project_id]);
+    return out;
+  }
+
+  /** projects null: für alle Projekte des Workers freigeben */
+  setCredentialAccess(workerId: string, credential: string, projects: string[] | null): void {
+    const tx = this.db.transaction(() => {
+      this.db.prepare('DELETE FROM credential_access WHERE worker_id = ? AND credential = ?').run(workerId, credential);
+      const insert = this.db.prepare('INSERT INTO credential_access (worker_id, credential, project_id) VALUES (?, ?, ?)');
+      for (const p of new Set(projects ?? [])) insert.run(workerId, credential, p);
+    });
+    tx();
+  }
+
+  renameCredentialAccess(workerId: string, from: string, to: string): void {
+    this.db.prepare('UPDATE credential_access SET credential = ? WHERE worker_id = ? AND credential = ?').run(to, workerId, from);
+  }
+
+  credentialAllowed(workerId: string, credential: string, projectId: string): boolean {
+    const projects = this.credentialAccess(workerId).get(credential);
+    return !projects || projects.includes(projectId);
   }
 
   // ---------------------------------------------------------------------------------------------

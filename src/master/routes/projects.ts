@@ -207,6 +207,23 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
   // ---------------------------------------------------------------------------------------------
   // Workflows
 
+  /** Credentials, die der Workflow nutzt, die für das Projekt beim Worker aber nicht freigegeben sind */
+  const blockedCredentials = (projectId: string, wf: Workflow): Array<{ node: string; name: string }> => {
+    const workerId = db.getProject(projectId)?.worker_id;
+    if (!workerId) return [];
+    const access = db.credentialAccess(workerId);
+    const out: Array<{ node: string; name: string }> = [];
+    for (const node of Array.isArray(wf.nodes) ? wf.nodes : []) {
+      for (const ref of Object.values(node?.credentials ?? {})) {
+        const allowed = ref?.name ? access.get(ref.name) : undefined;
+        if (allowed && !allowed.includes(projectId)) out.push({ node: node.name, name: ref.name });
+      }
+    }
+    return out;
+  };
+  const blockedMessage = (blocked: Array<{ name: string }>) =>
+    `Credential${blocked.length > 1 ? 's' : ''} ${[...new Set(blocked.map((b) => `"${b.name}"`))].join(', ')} ${blocked.length > 1 ? 'sind' : 'ist'} für dieses Projekt nicht freigegeben`;
+
   api.get('/api/projects/:pid/workflows', async (request, reply) => {
     const a = access(request, reply, (request.params as { pid: string }).pid, 'workflow.read');
     if (!a) return;
@@ -226,6 +243,8 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     } else {
       wf = emptyWorkflow(str(body.name, 200).trim() || 'Neuer Workflow');
     }
+    const blockedNew = blockedCredentials(a.project.id, wf);
+    if (blockedNew.length) return reply.code(403).send({ message: blockedMessage(blockedNew) });
     // Import: IDs aus n8n nicht übernehmen (könnten kollidieren), nie aktiv starten
     delete wf.id;
     wf.active = false;
@@ -257,6 +276,8 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     }
     const wasActive = a.row.active === 1;
     if ((parsed.active === true) !== wasActive && !allows(a.role, 'workflow.activate')) return reply.code(403).send({ message: 'Keine Berechtigung zum Aktivieren' });
+    const blocked = blockedCredentials(a.project.id, parsed);
+    if (blocked.length) return reply.code(403).send({ message: blockedMessage(blocked) });
     parsed.id = a.row.id;
     const row = db.saveWorkflow(a.project.id, parsed, request.auth!.user.id);
     ctx.audit(request, (parsed.active === true) !== wasActive ? (parsed.active ? 'workflow.activated' : 'workflow.deactivated') : 'workflow.saved', row.id, { version: row.version });
@@ -318,15 +339,19 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     const wf = asWorkflow(request.body);
     if (typeof wf === 'string') return reply.code(400).send({ message: wf });
     const worker = hub.workerForProject(a.project.id);
+    // Nicht freigegebene Credentials als Fehler im Editor
+    const shareIssues = blockedCredentials(a.project.id, wf).map((b) => ({ severity: 'error', code: 'credentials.notShared', node: b.node, message: `Credential "${b.name}" ist für dieses Projekt nicht freigegeben` }));
     if (worker) {
       try {
-        return { ...(await hub.call<Record<string, unknown>>(worker, 'POST', '/api/editor/inspect', { workflow: wf }, 15_000)), worker: 'online' };
+        const inspected = await hub.call<{ valid?: boolean; issues?: unknown[] }>(worker, 'POST', '/api/editor/inspect', { workflow: wf }, 15_000);
+        if (shareIssues.length) return { ...inspected, valid: false, issues: [...(inspected.issues ?? []), ...shareIssues], worker: 'online' };
+        return { ...inspected, worker: 'online' };
       } catch {
         // Worker nicht erreichbar: lokal prüfen (ohne Credentials, die liegen beim Worker)
       }
     }
     const result = validateWorkflow(wf, { registry, checkCredentials: false });
-    return { valid: result.valid, issues: result.issues, nodes: describeNodes(wf, registry), worker: worker ? 'offline' : 'none' };
+    return { valid: result.valid && !shareIssues.length, issues: [...result.issues, ...shareIssues], nodes: describeNodes(wf, registry), worker: worker ? 'offline' : 'none' };
   });
 
   api.post('/api/workflows/:id/run', async (request, reply) => {
@@ -337,6 +362,8 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     const body = (request.body ?? {}) as { workflow?: unknown; trigger?: string; input?: unknown; destination?: unknown };
     const wf = body.workflow !== undefined ? asWorkflow(body.workflow) : (JSON.parse(a.row.data) as Workflow);
     if (typeof wf === 'string') return reply.code(400).send({ message: wf });
+    const blockedRun = blockedCredentials(a.project.id, wf);
+    if (blockedRun.length) return reply.code(403).send({ message: blockedMessage(blockedRun) });
     wf.id = a.row.id;
     ctx.audit(request, 'workflow.run', a.row.id);
     try {
@@ -358,7 +385,10 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     const worker = hub.workerForProject(a.project.id);
     if (!worker) return { data: [] };
     try {
-      return await hub.call(worker, 'GET', '/api/editor/credentials', undefined, 10_000);
+      // Nur Credentials, die für das Projekt freigegeben sind (ohne Freigabe-Einträge: alle)
+      const list = await hub.call<{ data: Array<{ name: string }> }>(worker, 'GET', '/api/editor/credentials', undefined, 10_000);
+      const access = db.credentialAccess(worker.id);
+      return { ...list, data: list.data.filter((c) => !access.get(c.name) || access.get(c.name)!.includes(a.project.id)) };
     } catch (error) {
       return workerError(reply, error);
     }

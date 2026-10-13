@@ -6,7 +6,7 @@ import { pageHead } from '../shell.js';
 import type { AuditEntry, OverviewWorker, Tenant, User, WorkerInfo } from './types.js';
 import type { CredentialTypeCatalog, VariableEntry } from '../types.js';
 import { credentialFormDialog, type CredentialFormBackend } from '../views/credentialForm.js';
-import { connectOAuth, credentialTable } from '../views/credentials.js';
+import { connectOAuth, credentialTable, importCredentialsDialog } from '../views/credentials.js';
 import { variableDialog, variableTable, type VariableBackend } from '../views/variables.js';
 
 const e = encodeURIComponent;
@@ -433,6 +433,41 @@ export async function workerPage(id: string): Promise<HTMLElement> {
     .catch((err) => wfBox.replaceChildren(h('h2', null, 'Workflows beim Worker'), h('p', { class: 'error-text' }, message(err))));
 
   const credBackend = workerCredentialBackend(id);
+  const projectNames = new Map((ov?.projects ?? []).map((p) => [p.id, p.name]));
+  /** Freigabe eines Credentials: alle Projekte des Workers oder nur ausgewählte */
+  const editAccess = async (name: string, current: string[] | null) => {
+    const all = h('input', { type: 'radio', name: 'access', checked: !current });
+    const some = h('input', { type: 'radio', name: 'access', checked: !!current });
+    const boxes = (ov?.projects ?? []).map((p) => ({ id: p.id, input: h('input', { type: 'checkbox', checked: !!current?.includes(p.id), 'aria-label': p.name }), name: p.name }));
+    const body = h(
+      'div',
+      { class: 'form' },
+      h('label', { class: 'check' }, all, h('span', null, 'Alle Projekte dieses Workers')),
+      h('label', { class: 'check' }, some, h('span', null, 'Nur ausgewählte Projekte')),
+      h('div', { class: 'access-projects' }, boxes.length ? boxes.map((b) => h('label', { class: 'check' }, b.input, h('span', null, b.name))) : h('p', { class: 'muted small' }, 'Diesem Worker sind keine Projekte zugeordnet.')),
+      h('p', { class: 'muted small' }, 'Workflows anderer Projekte können das Credential dann weder speichern noch ausführen; im Editor erscheint es dort nicht.'),
+    );
+    const projects = await dialog<string[] | 'all'>(`Freigabe von "${name}"`, body, {
+      confirm: 'Speichern',
+      onConfirm: () => {
+        if (all.checked) return 'all';
+        const chosen = boxes.filter((b) => b.input.checked).map((b) => b.id);
+        if (!chosen.length) {
+          toast('Mindestens ein Projekt wählen oder für alle freigeben', 'error');
+          return undefined;
+        }
+        return chosen;
+      },
+    });
+    if (!projects) return;
+    try {
+      await mapi.setWorkerCredentialAccess(id, name, projects === 'all' ? null : projects);
+      toast('Freigabe gespeichert', 'success');
+      void loadCredentials();
+    } catch (err) {
+      toast(message(err), 'error');
+    }
+  };
   const loadCredentials = () =>
     Promise.all([mapi.workerCredentials(id), credBackend.types()])
       .then(([list, catalog]) => {
@@ -459,6 +494,9 @@ export async function workerPage(id: string): Promise<HTMLElement> {
             { class: 'page-head' },
             h('h2', null, 'Credentials beim Worker'),
             h('div', { class: 'spacer' }),
+            list.writable === false ? null : action('Aus n8n übernehmen', async () => {
+              if (await importCredentialsDialog((b) => mapi.importWorkerCredentials(id, b))) void loadCredentials();
+            }),
             list.writable === false ? null : action('Credential hinzufügen', () => edit()),
           ),
           h(
@@ -472,6 +510,10 @@ export async function workerPage(id: string): Promise<HTMLElement> {
                 edit: (n) => void edit(n),
                 remove: (n, u) => void remove(n, u),
                 fileHint: 'In der Credential-Datei des Workers gepflegt',
+                access: {
+                  label: (projects) => (projects ? projects.map((p) => projectNames.get(p) ?? 'anderes Projekt').join(', ') : 'alle Projekte'),
+                  edit: (n) => void editAccess(n, list.data.find((c) => c.name === n)?.projects ?? null),
+                },
                 connect: (n) => void connectOAuth(() => mapi.workerOauthConnect(id, n), () => void loadCredentials()),
                 disconnect: async (n) => {
                   if (!(await confirmDialog('Verbindung trennen', `Das gespeicherte Token von "${n}" wird beim Worker gelöscht.`, 'Trennen'))) return;

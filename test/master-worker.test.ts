@@ -407,6 +407,58 @@ describe('Variablen beim Worker über den Master', () => {
   });
 });
 
+describe('Freigabe von Credentials für Projekte', () => {
+  it('beschränkt ein Credential auf Projekte: Liste, Speichern, Prüfen und Ausführen', async () => {
+    const w = await startWorker('w1', { Gemeinsam: { type: 'httpHeaderAuth', data: { name: 'X', value: 'a' } } });
+    const wk = await registerWorker(w);
+    const pa = await project('Projekt A', wk.id);
+    const pb = await project('Projekt B', wk.id);
+    // Im Projekt-Editor angelegt: zunächst nur für dieses Projekt
+    expect((await admin.put(`/api/admin/workers/${wk.id}/credentials/Nur%20A`, { type: 'httpHeaderAuth', data: { name: 'X', value: 'b' }, create: true, project: pa })).statusCode).toBe(200);
+    const list = (await admin.get(`/api/admin/workers/${wk.id}/credentials`)).json().data as Array<{ name: string; projects: string[] | null }>;
+    expect(list.find((c) => c.name === 'Nur A')?.projects).toEqual([pa]);
+    expect(list.find((c) => c.name === 'Gemeinsam')?.projects).toBeNull();
+    const names = async (pid: string) => ((await admin.get(`/api/projects/${pid}/credentials`)).json().data as Array<{ name: string }>).map((c) => c.name).sort();
+    expect(await names(pa)).toEqual(['Gemeinsam', 'Nur A']);
+    expect(await names(pb)).toEqual(['Gemeinsam']);
+
+    const wf = (name: string): Workflow => ({
+      name: `Mit ${name}`,
+      settings: { executionOrder: 'v1' },
+      nodes: [
+        { id: 's', name: 'Start', type: 'n8n-nodes-base.manualTrigger', typeVersion: 1, position: [0, 0], parameters: {} },
+        { id: 'h', name: 'HTTP', type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position: [200, 0], parameters: { url: 'https://example.com', authentication: 'genericCredentialType', genericAuthType: 'httpHeaderAuth', options: {} }, credentials: { httpHeaderAuth: { id: null, name } } },
+      ],
+      connections: { Start: { main: [[{ node: 'HTTP', type: 'main', index: 0 }]] } },
+    });
+    // Projekt B darf "Nur A" weder anlegen noch speichern noch ausführen; Prüfen meldet es
+    const denied = await admin.post(`/api/projects/${pb}/workflows`, { workflow: wf('Nur A') });
+    expect(denied.statusCode).toBe(403);
+    expect(denied.json().message).toContain('"Nur A" ist für dieses Projekt nicht freigegeben');
+    const inB = await createWorkflow(pb, wf('Gemeinsam'));
+    expect((await admin.put(`/api/workflows/${inB.id}`, { workflow: wf('Nur A') })).statusCode).toBe(403);
+    expect((await admin.post(`/api/workflows/${inB.id}/run`, { workflow: wf('Nur A') })).statusCode).toBe(403);
+    const inspect = (await admin.post(`/api/projects/${pb}/inspect`, wf('Nur A'))).json();
+    expect(inspect.valid).toBe(false);
+    expect(inspect.issues).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'credentials.notShared', node: 'HTTP' })]));
+    // Projekt A darf
+    await createWorkflow(pa, wf('Nur A'));
+
+    // Für B freigeben, dann wieder für alle
+    expect((await admin.put(`/api/admin/workers/${wk.id}/credentials/Nur%20A/access`, { projects: [pa, pb] })).json()).toEqual({ name: 'Nur A', projects: [pa, pb] });
+    expect((await admin.put(`/api/workflows/${inB.id}`, { workflow: wf('Nur A') })).statusCode).toBe(200);
+    expect((await admin.put(`/api/admin/workers/${wk.id}/credentials/Nur%20A/access`, { projects: [] })).statusCode).toBe(400);
+    expect((await admin.put(`/api/admin/workers/${wk.id}/credentials/Nur%20A/access`, { projects: null })).statusCode).toBe(200);
+    // Umbenennen nimmt die Freigabe mit
+    await admin.put(`/api/admin/workers/${wk.id}/credentials/Nur%20A/access`, { projects: [pa] });
+    await admin.put(`/api/admin/workers/${wk.id}/credentials/Nur%20A`, { type: 'httpHeaderAuth', data: { name: 'X' }, keep: ['value'], rename: 'Nur A neu' });
+    expect(((await admin.get(`/api/admin/workers/${wk.id}/credentials`)).json().data as Array<{ name: string; projects: string[] | null }>).find((c) => c.name === 'Nur A neu')?.projects).toEqual([pa]);
+    // Nur globale Admins
+    const member = await addUser(master, admin, 'mia@example.org');
+    expect((await member.client.put(`/api/admin/workers/${wk.id}/credentials/Gemeinsam/access`, { projects: null })).statusCode).toBe(403);
+  });
+});
+
 describe('OAuth2 über den Master', () => {
   it('holt die Autorisierungs-URL vom Worker, leitet den Callback an ihn weiter', async () => {
     const tokens: string[] = [];

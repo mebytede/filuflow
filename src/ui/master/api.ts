@@ -1,6 +1,6 @@
 // REST-Client für den Master. Anmeldung über das Sitzungs-Cookie (HttpOnly), ändernde Requests mit CSRF-Header.
 import { request } from '../api.js';
-import type { CredentialDetail, CredentialInfo, CredentialList, CredentialSaveBody, CredentialTypeCatalog, Execution, InspectResult, NodeTypeInfo, Overview as WorkerOverview, VariableEntry, Workflow } from '../types.js';
+import type { CredentialDetail, CredentialImportResult, CredentialInfo, CredentialList, CredentialSaveBody, CredentialTypeCatalog, Execution, InspectResult, NodeTypeInfo, Overview as WorkerOverview, VariableEntry, Workflow } from '../types.js';
 import type {
   ApiToken,
   AuditEntry,
@@ -69,6 +69,10 @@ export const mapi = {
   workerOauthConnect: (id: string, name: string) => request<{ url: string }>('POST', `/api/admin/workers/${e(id)}/credentials/${e(name)}/oauth2/auth`, {}),
   workerOauthDisconnect: (id: string, name: string) => request<void>('DELETE', `/api/admin/workers/${e(id)}/credentials/${e(name)}/oauth2`),
   deleteWorkerCredential: (id: string, name: string) => request<void>('DELETE', `/api/admin/workers/${e(id)}/credentials/${e(name)}`),
+  setWorkerCredentialAccess: (id: string, name: string, projects: string[] | null) =>
+    request<{ name: string; projects: string[] | null }>('PUT', `/api/admin/workers/${e(id)}/credentials/${e(name)}/access`, { projects }),
+  importWorkerCredentials: (id: string, body: { credentials: unknown; n8nKey?: string; overwrite?: boolean }) =>
+    request<CredentialImportResult>('POST', `/api/admin/workers/${e(id)}/credentials/import`, body),
   workerVariables: (id: string) => request<{ data: VariableEntry[] }>('GET', `/api/admin/workers/${e(id)}/variables`).then((r) => r.data),
   setWorkerVariable: (id: string, key: string, body: { value: string; rename?: string; create?: boolean }) => request<VariableEntry>('PUT', `/api/admin/workers/${e(id)}/variables/${e(key)}`, body),
   deleteWorkerVariable: (id: string, key: string) => request<void>('DELETE', `/api/admin/workers/${e(id)}/variables/${e(key)}`),

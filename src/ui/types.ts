@@ -192,6 +192,8 @@ export interface CredentialListEntry extends CredentialInfo {
   usedBy?: string[];
   /** OAuth2 mit Authorization Code / PKCE: verbunden? */
   oauth?: { grantType: string; connected: boolean };
+  /** Master: freigegebene Projekte beim Worker (null: alle Projekte des Workers) */
+  projects?: string[] | null;
 }
 
 /** Variable für $vars (GET /api/variables) */
@@ -199,6 +201,12 @@ export interface VariableEntry {
   key: string;
   value: string;
   source: 'file' | 'managed';
+}
+
+/** Ergebnis von POST /api/credentials/import */
+export interface CredentialImportResult {
+  imported: string[];
+  skipped: Array<{ name: string; reason: string }>;
 }
 
 export interface CredentialList {
@@ -228,6 +236,8 @@ export interface CredentialSaveBody {
   rename?: string;
   /** nur anlegen: vorhandenes Credential gleichen Namens nicht ersetzen */
   create?: boolean;
+  /** Master: beim Anlegen im Projekt-Editor nur für dieses Projekt freigeben */
+  project?: string;
 }
 
 export interface TaskData {

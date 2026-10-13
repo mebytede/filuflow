@@ -9,6 +9,7 @@ import { readFile, readdir, stat } from 'node:fs/promises';
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { join, basename } from 'node:path';
 import { isSecretField, PUBLIC_KEY, SECRET_KEY } from './types.js';
+import { decryptN8nCredential, n8nKeyFromEnv } from './n8nCipher.js';
 
 /** Name und ID des Credentials an aufgelösten Daten (executor.getCredentials), z. B. für OAuth2-Tokens */
 export const CREDENTIAL_REF = Symbol('filuflow.credentialRef');
@@ -144,7 +145,16 @@ function toEntry(name: string, raw: unknown, where: string): CredentialEntry {
   }
   const obj = value as Record<string, unknown>;
   if (typeof obj.data === 'string' && obj.type) {
-    throw new Error(`${where}: Credential "${name}" ist mit dem n8n-Schlüssel verschlüsselt; bitte mit "n8n export:credentials --decrypted" exportieren`);
+    // n8n-Export ohne --decrypted: mit N8N_ENCRYPTION_KEY entschlüsseln (n8nCipher.ts)
+    const n8nKey = n8nKeyFromEnv();
+    if (!n8nKey) {
+      throw new Error(`${where}: Credential "${name}" ist mit dem n8n-Schlüssel verschlüsselt; N8N_ENCRYPTION_KEY setzen oder mit "n8n export:credentials --decrypted" exportieren`);
+    }
+    try {
+      obj.data = decryptN8nCredential(obj.data, n8nKey);
+    } catch (error) {
+      throw new Error(`${where}: Credential "${name}": ${(error as Error).message}`, { cause: error });
+    }
   }
   if (obj.data && typeof obj.data === 'object') {
     return {

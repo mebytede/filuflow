@@ -133,7 +133,13 @@ export async function masterWorkflowView(id: string, types: NodeTypeInfo[], user
     credentials,
     // Credentials beim Worker anlegen dürfen nur globale Administratoren
     ...(user?.role === 'admin' && project.worker
-      ? { createCredential: (type: string) => credentialFormDialog(workerCredentialBackend(project.worker!.id), { type, note: WORKER_CREDENTIAL_NOTE, confirm: 'Beim Worker speichern' }) }
+      ? {
+          // Im Projekt angelegt: zunächst nur für dieses Projekt freigegeben
+          createCredential: (type: string) => {
+            const backend = workerCredentialBackend(project.worker!.id);
+            return credentialFormDialog({ ...backend, save: (name, body) => backend.save(name, { ...body, project: project.id }) }, { type, note: WORKER_CREDENTIAL_NOTE, confirm: 'Beim Worker speichern' });
+          },
+        }
       : {}),
     webhookBaseUrl: project.worker?.webhookBaseUrl ?? '<Worker-Adresse>/',
     readonly: !can(detail, 'workflow.edit'),

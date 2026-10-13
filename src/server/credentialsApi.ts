@@ -18,6 +18,7 @@ import {
   type OAuth2TokenStore,
 } from '../credentials/oauth2.js';
 import { createHash, randomBytes } from 'node:crypto';
+import { readN8nExport } from '../credentials/n8nCipher.js';
 
 export interface CredentialsApiOptions {
   prefix: string;
@@ -242,6 +243,42 @@ export async function registerCredentialsApi(api: FastifyInstance, o: Credential
     // Workflows mit diesem Credential neu prüfen und aktivieren
     await o.workflows().revalidate();
     return { name: saved.name, id: saved.id, type: saved.type };
+  });
+
+  // Import eines n8n-Exports (n8n export:credentials, auch verschlüsselt mit dem n8n-Schlüssel); IDs bleiben, damit
+  // importierte Workflows ihre Credentials über { id, name } finden. Vorhandene Namen werden nur mit overwrite ersetzt.
+  api.post(`${o.prefix}/import`, async (request, reply) => {
+    if (!layered) return reply.code(409).send({ message: 'Credentials dieser Instanz sind nicht beschreibbar' });
+    const body = (request.body ?? {}) as { credentials?: unknown; n8nKey?: unknown; overwrite?: unknown };
+    let entries;
+    try {
+      entries = readN8nExport(body.credentials, typeof body.n8nKey === 'string' && body.n8nKey ? body.n8nKey : undefined);
+    } catch (error) {
+      return reply.code(400).send({ message: (error as Error).message });
+    }
+    const imported: string[] = [];
+    const skipped: Array<{ name: string; reason: string }> = [];
+    for (const e of entries) {
+      if (!NAME_OK(e.name)) {
+        skipped.push({ name: e.name, reason: 'Ungültiger Name' });
+        continue;
+      }
+      const existing = layered.get(e.name);
+      if (existing && (!existing.managed || body.overwrite !== true)) {
+        skipped.push({ name: e.name, reason: existing.managed ? 'existiert bereits' : 'in der Credential-Datei gepflegt' });
+        continue;
+      }
+      try {
+        await layered.set(e.name, { type: e.type, data: e.data, ...(e.id ? { id: e.id } : {}) });
+        imported.push(e.name);
+      } catch (error) {
+        skipped.push({ name: e.name, reason: (error as Error).message });
+      }
+    }
+    // Namen und Typen loggen, nie Werte
+    o.logger?.info({ imported: imported.length, skipped: skipped.length }, 'Credentials aus n8n übernommen');
+    if (imported.length) await o.workflows().revalidate();
+    return { imported, skipped };
   });
 
   api.delete(`${o.prefix}/:name`, async (request, reply) => {

@@ -413,6 +413,7 @@ a.cell-name:hover { color: var(--ff-text); text-decoration: underline; }
 .param-assign-type { flex: 0 0 110px; }
 .param-assignments > .btn, .param-filter > .btn { align-self: flex-start; }
 .param-notice { word-break: normal; font-family: var(--ff-font-sans); }
+.access-projects { display: flex; flex-direction: column; gap: 4px; padding-left: 24px; }
 
 /* Daten */
 .data-table { border-collapse: collapse; font: 400 13px/20px var(--ff-font-mono); width: max-content; min-width: 100%; }
