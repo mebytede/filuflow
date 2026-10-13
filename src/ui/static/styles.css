@@ -390,6 +390,29 @@ a.cell-name:hover { color: var(--ff-text); text-decoration: underline; }
 .param-null { color: var(--ff-text-secondary); font-size: 13px; }
 .param-add { display: flex; gap: 6px; align-items: center; margin-top: 2px; }
 .param-add .param-new-key { flex: 1; min-height: 28px; padding: 2px 8px; font-size: 13px; }
+/* Formular aus der Parameterbeschreibung (M19) */
+.schema-form { display: flex; flex-direction: column; gap: 14px; }
+.sf-row { display: flex; flex-direction: column; gap: 6px; }
+.sf-label { display: flex; align-items: center; gap: 4px; min-height: 20px; }
+.sf-name { font: 500 13px/18px var(--ff-font-sans); color: var(--ff-text); }
+.sf-remove { margin-left: auto; width: 24px; height: 24px; }
+.param-hint { line-height: 18px; }
+.param-input.mono, textarea.param-input.mono { font-family: var(--ff-font-mono); font-size: 13px; }
+.param-bool { align-items: center; }
+.param-multi { display: flex; flex-direction: column; gap: 4px; }
+.param-color { width: 36px; height: 36px; padding: 2px; border: 1px solid var(--ff-field-line); background: var(--ff-field-bg); border-radius: var(--ff-radius-field); }
+.param-rl-mode { flex: 0 0 110px; }
+.sf-collection, .sf-fixed, .param-assignments, .param-filter { display: flex; flex-direction: column; gap: 10px; padding-left: 12px; border-left: 1px solid var(--ff-line-strong); }
+.sf-entry { display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; border: 1px solid var(--ff-line); background: var(--ff-bg); }
+.sf-entry-head { display: flex; align-items: center; justify-content: space-between; }
+.sf-entry-head .icon-btn { width: 24px; height: 24px; }
+.sf-add { max-width: 260px; }
+.param-assign, .param-cond { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border: 1px solid var(--ff-line); background: var(--ff-bg); }
+.param-assign-head, .param-cond-head { display: flex; gap: 6px; align-items: center; }
+.param-assign-head .param-input:first-child, .param-cond-head .param-input { flex: 1; }
+.param-assign-type { flex: 0 0 110px; }
+.param-assignments > .btn, .param-filter > .btn { align-self: flex-start; }
+.param-notice { word-break: normal; font-family: var(--ff-font-sans); }
 
 /* Daten */
 .data-table { border-collapse: collapse; font: 400 13px/20px var(--ff-font-mono); width: max-content; min-width: 100%; }

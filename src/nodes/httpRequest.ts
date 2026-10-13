@@ -17,6 +17,7 @@ import { jsonParse } from './shared/utils.js';
 import { getOAuth2Token, signRequest } from '../credentials/oauth2.js';
 import { digestAuthorization, parseDigestChallenge } from '../credentials/digest.js';
 import { createHash } from 'node:crypto';
+import { httpRequestParameters } from './shared/httpRequestParams.js';
 
 const BINARY_CONTENT_TYPES = [
   'image/', 'audio/', 'video/', 'application/octet-stream', 'application/gzip', 'application/zip', 'application/vnd.rar',
@@ -633,6 +634,8 @@ export const httpRequestNode: NodeType = {
   type: 'n8n-nodes-base.httpRequest',
   displayName: 'HTTP Request',
   versions: [3, 4, 4.1, 4.2, 4.3],
+  // Parameter wie n8n V3/Description.ts (mainProperties), siehe shared/httpRequestParams.ts
+  parameters: httpRequestParameters,
   outputs: () => 1,
   credentialTypes: credentialTypesFor,
   validate(node) {

@@ -4,6 +4,7 @@ import type { WorkflowGraph } from '../engine/graph.js';
 import type { Logger } from '../logger.js';
 import type { HttpClient } from '../http.js';
 import type { BinaryStore } from '../binary.js';
+import type { ParamSchema } from './params.js';
 
 export interface NodeIssue {
   code: string;
@@ -179,6 +180,8 @@ export interface NodeType {
   credentialTypes?(node: WorkflowNode): string[];
   /** Nicht unterstützte Parameterwerte melden */
   validate?(node: WorkflowNode): NodeIssue[];
+  /** Beschreibung der Parameter für das Formular im Editor (M19), über alle unterstützten Versionen */
+  parameters?: ParamSchema[];
   /**
    * Ausführen. `null` bedeutet: Node lief erfolgreich, aber der Zweig endet
    * (n8n-Semantik: nodeSuccessData === null).

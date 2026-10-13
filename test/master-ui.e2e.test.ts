@@ -131,7 +131,7 @@ describe('Master-Oberfläche', () => {
     await page.fill('.palette-search', 'Edit Fields');
     await page.press('.palette-search', 'Enter');
     await page.waitForSelector('.node[data-node="Edit Fields (Set)"]');
-    await page.locator('.panel input[aria-label="value"]').first().fill('={{ 40 + 2 }}');
+    await page.locator('.panel textarea[aria-label="Feld 1: Wert"]').fill('={{ 40 + 2 }}');
     await page.fill('.wf-name', 'Rechnungen');
     await page.press('.wf-name', 'Enter');
     await page.keyboard.press('Control+s');

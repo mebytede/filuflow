@@ -5,6 +5,9 @@ import type { NodeIssue, NodeType } from './types.js';
 import { NodeOperationError } from '../errors.js';
 import { generateSchemaFromExample, type JsonSchema } from '../ai/schema.js';
 import { StructuredOutputParserInstance } from '../ai/parserInstance.js';
+import { NAIVE_FIX_TEMPLATE } from '../ai/langchainParser.js';
+import type { ParamSchema } from './params.js';
+import { inputSchemaParam, jsonSchemaExampleNoticeParam, jsonSchemaExampleParam, schemaTypeParam } from './shared/aiParams.js';
 
 const DEFAULT_EXAMPLE = `{
 \t"state": "California",
@@ -39,10 +42,55 @@ const DEFAULT_JSON_SCHEMA = `{
   }
 }`;
 
+// Parameter wie output_parser/OutputParserStructured/OutputParserStructured.node.ts (properties), gemeinsame Felder aus
+// utils/descriptions.ts, Default von "prompt" wie NAIVE_FIX_PROMPT in prompt.ts. Der Verbindungshinweis
+// (getConnectionHintNoticeField) fehlt.
+const parameters: ParamSchema[] = [
+  { ...schemaTypeParam, show: { '@version': [{ _cnd: { gte: 1.2 } }] } },
+  jsonSchemaExampleParam(DEFAULT_EXAMPLE),
+  jsonSchemaExampleNoticeParam({ '@version': [{ _cnd: { gte: 1.3 } }] }),
+  inputSchemaParam(DEFAULT_INPUT_SCHEMA),
+  {
+    name: 'jsonSchema',
+    label: 'JSON Schema',
+    type: 'json',
+    default: DEFAULT_JSON_SCHEMA,
+    rows: 10,
+    required: true,
+    description: 'JSON Schema, nach dem die Ausgabe aufgebaut und geprüft wird',
+    show: { '@version': [{ _cnd: { lte: 1.1 } }] },
+  },
+  {
+    name: 'autoFix',
+    label: 'Format automatisch korrigieren',
+    type: 'boolean',
+    default: false,
+    description: 'Ob eine Ausgabe im falschen Format mit einem weiteren LLM-Aufruf korrigiert wird',
+  },
+  {
+    name: 'customizeRetryPrompt',
+    label: 'Prompt für den neuen Versuch anpassen',
+    type: 'boolean',
+    default: false,
+    description: 'Ob ein eigener Prompt für die Korrektur genutzt wird',
+    show: { autoFix: [true] },
+  },
+  {
+    name: 'prompt',
+    label: 'Eigener Prompt',
+    type: 'string',
+    default: NAIVE_FIX_TEMPLATE,
+    rows: 10,
+    description: 'Vorlage mit den Platzhaltern {instructions}, {completion} und {error}',
+    show: { autoFix: [true], customizeRetryPrompt: [true] },
+  },
+];
+
 export const outputParserStructuredNode: NodeType = {
   type: '@n8n/n8n-nodes-langchain.outputParserStructured',
   displayName: 'Structured Output Parser',
   versions: [1, 1.1, 1.2, 1.3],
+  parameters,
   isSubNode: true,
   aiOutput: 'ai_outputParser',
   inputs: () => 0,

@@ -8,10 +8,73 @@ import type { ChatModel } from '../ai/models/base.js';
 import type { ZType } from '../ai/schema.js';
 import { LangChainStructuredParser } from '../ai/langchainParser.js';
 import { runStructuredPrompt } from '../ai/classifier.js';
+import type { ParamSchema } from './params.js';
+import { batchingParam } from './shared/aiParams.js';
 
 const DEFAULT_SYSTEM_PROMPT_TEMPLATE =
   'You are highly intelligent and accurate sentiment analyzer. Analyze the sentiment of the provided text. Categorize it into one of the following: {categories}. Use the provided formatting instructions. Only output the JSON.';
 const DEFAULT_CATEGORIES = 'Positive, Neutral, Negative';
+
+// Parameter wie chains/SentimentAnalysis/SentimentAnalysis.node.ts (properties), Batching aus utils/sharedFields.ts
+const parameters: ParamSchema[] = [
+  {
+    name: 'inputText',
+    label: 'Zu analysierender Text',
+    type: 'string',
+    required: true,
+    default: '',
+    rows: 2,
+    description: 'Expression auf Daten vorheriger Knoten oder fester Text',
+  },
+  {
+    name: 'detailedResultsNotice',
+    label: 'Die Werte sind Schätzungen des LLM, keine statistisch belastbaren Messungen, und nur als grobe Hinweise geeignet',
+    type: 'notice',
+    default: '',
+    show: { '/options.includeDetailedResults': [true] },
+  },
+  {
+    name: 'options',
+    label: 'Optionen',
+    type: 'collection',
+    default: {},
+    addLabel: 'Option hinzufügen',
+    children: [
+      {
+        name: 'categories',
+        label: 'Stimmungskategorien',
+        type: 'string',
+        default: DEFAULT_CATEGORIES,
+        noExpression: true,
+        rows: 2,
+        description: 'Kommagetrennte Liste der Kategorien',
+      },
+      {
+        name: 'systemPromptTemplate',
+        label: 'Vorlage für den System-Prompt',
+        type: 'string',
+        default: DEFAULT_SYSTEM_PROMPT_TEMPLATE,
+        rows: 6,
+        description: 'Wird direkt als Vorlage für den System-Prompt genutzt',
+      },
+      {
+        name: 'includeDetailedResults',
+        label: 'Ausführliche Ergebnisse',
+        type: 'boolean',
+        default: false,
+        description: 'Ob Stärke und Konfidenz der Stimmung mit ausgegeben werden',
+      },
+      {
+        name: 'enableAutoFixing',
+        label: 'Automatische Korrektur',
+        type: 'boolean',
+        default: true,
+        description: 'Ob fehlerhafte Ausgaben korrigiert werden, ggf. mit einem weiteren LLM-Aufruf',
+      },
+      batchingParam({ '@version': [{ _cnd: { gte: 1.1 } }] }),
+    ],
+  },
+];
 
 function categoriesOf(value: string): string[] {
   return value
@@ -74,6 +137,7 @@ export const sentimentAnalysisNode: NodeType = {
   type: '@n8n/n8n-nodes-langchain.sentimentAnalysis',
   displayName: 'Sentiment Analysis',
   versions: [1, 1.1],
+  parameters,
   outputs: outputCount,
   aiInputs: () => [{ type: 'ai_languageModel', index: 0, label: 'Chat Model' }],
   async execute(ctx) {

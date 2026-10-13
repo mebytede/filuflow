@@ -8,10 +8,99 @@ import type { ChatModel } from '../ai/models/base.js';
 import { generateSchemaFromExample, jsonSchemaToZod, type ZType } from '../ai/schema.js';
 import { LangChainStructuredParser } from '../ai/langchainParser.js';
 import { runStructuredPrompt } from '../ai/classifier.js';
+import type { ParamSchema } from './params.js';
+import {
+  batchingParam,
+  inputSchemaParam,
+  jsonSchemaExampleNoticeParam,
+  jsonSchemaExampleParam,
+  schemaTypeOptions,
+  schemaTypeParam,
+  STATE_CITIES_EXAMPLE,
+  STATE_CITIES_INPUT_SCHEMA,
+} from './shared/aiParams.js';
 
 export const SYSTEM_PROMPT_TEMPLATE = `You are an expert extraction algorithm.
 Only extract relevant information from the text.
 If you do not know the value of an attribute asked to extract, you may omit the attribute's value.`;
+
+// Parameter wie chains/InformationExtractor/InformationExtractor.node.ts (properties), gemeinsame Felder aus
+// utils/descriptions.ts und utils/sharedFields.ts
+const parameters: ParamSchema[] = [
+  { name: 'text', label: 'Text', type: 'string', default: '', rows: 2, description: 'Text, aus dem Informationen gelesen werden' },
+  {
+    ...schemaTypeParam,
+    default: 'fromAttributes',
+    description: 'Wie das Schema der gewünschten Ausgabe angegeben wird',
+    options: [
+      { value: 'fromAttributes', label: 'Aus Attributbeschreibungen', description: 'Bestimmte Attribute anhand von Typ und Beschreibung lesen' },
+      ...schemaTypeOptions,
+    ],
+  },
+  jsonSchemaExampleParam(STATE_CITIES_EXAMPLE),
+  jsonSchemaExampleNoticeParam({ '@version': [{ _cnd: { gte: 1.2 } }] }),
+  inputSchemaParam(STATE_CITIES_INPUT_SCHEMA),
+  {
+    name: 'attributes',
+    label: 'Attribute',
+    type: 'fixedCollection',
+    default: {},
+    multiple: true,
+    addLabel: 'Attribut hinzufügen',
+    show: { schemaType: ['fromAttributes'] },
+    groups: [
+      {
+        name: 'attributes',
+        label: 'Attributliste',
+        children: [
+          { name: 'name', label: 'Name', type: 'string', default: '', required: true, placeholder: 'z. B. company_name', description: 'Zu lesendes Attribut' },
+          {
+            name: 'type',
+            label: 'Typ',
+            type: 'options',
+            default: 'string',
+            required: true,
+            description: 'Datentyp des Attributs',
+            options: [
+              { value: 'boolean', label: 'Boolean' },
+              { value: 'date', label: 'Datum' },
+              { value: 'number', label: 'Zahl' },
+              { value: 'string', label: 'String' },
+            ],
+          },
+          {
+            name: 'description',
+            label: 'Beschreibung',
+            type: 'string',
+            default: '',
+            required: true,
+            placeholder: 'Beschreibung des Attributs',
+            description: 'Beschreibt das Attribut',
+          },
+          { name: 'required', label: 'Pflicht', type: 'boolean', default: false, required: true, description: 'Ob das Attribut Pflicht ist' },
+        ],
+      },
+    ],
+  },
+  {
+    name: 'options',
+    label: 'Optionen',
+    type: 'collection',
+    default: {},
+    addLabel: 'Option hinzufügen',
+    children: [
+      {
+        name: 'systemPromptTemplate',
+        label: 'Vorlage für den System-Prompt',
+        type: 'string',
+        default: SYSTEM_PROMPT_TEMPLATE,
+        rows: 6,
+        description: 'Wird direkt als Vorlage für den System-Prompt genutzt',
+      },
+      batchingParam({ '@version': [{ _cnd: { gte: 1.1 } }] }),
+    ],
+  },
+];
 
 interface AttributeDefinition {
   name: string;
@@ -39,6 +128,7 @@ export const informationExtractorNode: NodeType = {
   type: '@n8n/n8n-nodes-langchain.informationExtractor',
   displayName: 'Information Extractor',
   versions: [1, 1.1, 1.2],
+  parameters,
   outputs: () => 1,
   aiInputs: () => [{ type: 'ai_languageModel', index: 0, label: 'Chat Model' }],
   async execute(ctx) {

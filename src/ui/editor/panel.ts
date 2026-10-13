@@ -228,7 +228,9 @@ export class Panel {
     // Sprache von Code-Node und Code Tool: beim Wechsel Startcode einsetzen, wenn das Feld noch leer ist
     const isCode = node.type === 'n8n-nodes-base.code' && node.typeVersion >= 2;
     const isToolCode = node.type === '@n8n/n8n-nodes-langchain.toolCode';
-    if (isCode || isToolCode) {
+    // Mit Formular aus der Typbeschreibung steht die Sprache dort; Startcode setzt onChange unten
+    const schema = this.host.types().get(node.type)?.parameters;
+    if ((isCode || isToolCode) && !schema) {
       const languages: Array<[string, string]> = isCode
         ? [
             ['javaScript', 'JavaScript'],
@@ -318,7 +320,22 @@ export class Panel {
     box.append(
       paramEditor(node.parameters ?? (node.parameters = {}), {
         readonly: this.host.readonly,
-        onChange: (key) => this.mutateNode(node.name, () => undefined, `${node.name}:${key}`),
+        schema,
+        nodeType: node.type,
+        version: node.typeVersion,
+        onChange: (key) =>
+          this.mutateNode(
+            node.name,
+            (n) => {
+              // Sprachwechsel im Formular: Startcode einsetzen, wenn das Feld der neuen Sprache noch leer ist
+              if (key === 'parameters.language' && (isCode || isToolCode)) {
+                const lang = String(n.parameters.language ?? 'javaScript');
+                const codeKey = lang === 'javaScript' ? 'jsCode' : 'pythonCode';
+                if (!n.parameters[codeKey]) n.parameters[codeKey] = codeTemplate(n.type, lang, String(n.parameters.mode ?? 'runOnceForAllItems'));
+              }
+            },
+            `${node.name}:${key}`,
+          ),
         onReplace: (p) => this.mutateNode(node.name, (n) => (n.parameters = p), `${node.name}:json`),
       }),
     );

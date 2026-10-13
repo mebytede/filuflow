@@ -107,6 +107,7 @@ export function nodeTypeList(registry: NodeRegistry) {
         isSubNode: !!t.isSubNode,
         ...(t.aiOutput ? { aiOutput: t.aiOutput } : {}),
         outputs,
+        ...(t.parameters ? { parameters: t.parameters } : {}),
         group: t.type === STICKY_NOTE_TYPE ? 'Sonstiges' : group(t.type, !!t.isTrigger, !!t.isSubNode),
       };
     });

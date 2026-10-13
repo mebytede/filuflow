@@ -4,6 +4,8 @@
 import { h } from '../dom.js';
 import { icon } from '../icons.js';
 import { newId } from './model.js';
+import type { ParamSchema } from '../types.js';
+import { schemaForm, syncFilterOptions } from './schemaForm.js';
 
 export type ParamChange = (coalesceKey: string) => void;
 
@@ -226,18 +228,41 @@ function structuredBlank(value: unknown): unknown {
   return emptyOf(kindOf(value));
 }
 
-/** Parameterformular mit Umschalter auf JSON */
-export function paramEditor(params: Record<string, unknown>, opts: { readonly: boolean; onChange: ParamChange; onReplace: (p: Record<string, unknown>) => void }): HTMLElement {
-  let mode: 'form' | 'json' = 'form';
+/** Zuletzt gewählte Ansicht (gilt für alle Knoten) */
+let preferredMode: 'schema' | 'form' | 'json' = 'schema';
+
+/** Parameterformular: Formular aus der Beschreibung des Knotentyps (falls vorhanden), Baum oder JSON */
+export function paramEditor(
+  params: Record<string, unknown>,
+  opts: { readonly: boolean; onChange: ParamChange; onReplace: (p: Record<string, unknown>) => void; schema?: ParamSchema[]; nodeType?: string; version?: number },
+): HTMLElement {
+  const hasSchema = !!opts.schema;
+  let mode: 'schema' | 'form' | 'json' = preferredMode === 'schema' && !hasSchema ? 'form' : preferredMode;
   const body = h('div', { class: 'param-body' });
   const tabs = h('div', { class: 'segmented', role: 'tablist' });
   const ctx: Ctx = { readonly: opts.readonly, onChange: opts.onChange };
+  const tab = (m: typeof mode, label: string) =>
+    h('button', { type: 'button', role: 'tab', class: mode === m ? 'on' : '', 'aria-selected': String(mode === m), onclick: () => ((mode = m), (preferredMode = m), renderBody()) }, label);
   const renderBody = () => {
     body.replaceChildren();
-    tabs.replaceChildren(
-      h('button', { type: 'button', role: 'tab', class: mode === 'form' ? 'on' : '', 'aria-selected': String(mode === 'form'), onclick: () => ((mode = 'form'), renderBody()) }, 'Formular'),
-      h('button', { type: 'button', role: 'tab', class: mode === 'json' ? 'on' : '', 'aria-selected': String(mode === 'json'), onclick: () => ((mode = 'json'), renderBody()) }, 'JSON'),
-    );
+    tabs.replaceChildren(...(hasSchema ? [tab('schema', 'Formular'), tab('form', 'Baum')] : [tab('form', 'Formular')]), tab('json', 'JSON'));
+    if (mode === 'schema' && opts.schema) {
+      const sync = () => syncFilterOptions(params, opts.schema!, opts.nodeType ?? '', opts.version ?? 1);
+      body.append(
+        schemaForm(params, opts.schema, {
+          readonly: opts.readonly,
+          nodeType: opts.nodeType ?? '',
+          version: opts.version ?? 1,
+          onChange: (key) => (sync(), opts.onChange(key)),
+          onStructure: (key) => {
+            sync();
+            opts.onChange(key);
+            renderBody();
+          },
+        }),
+      );
+      return;
+    }
     if (mode === 'form') {
       body.append(Object.keys(params).length || !opts.readonly ? tree(params, 'parameters', ctx) : h('p', { class: 'muted' }, 'Keine Parameter'));
       return;

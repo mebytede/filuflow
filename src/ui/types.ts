@@ -96,6 +96,67 @@ export interface NodeTypeInfo {
   aiOutput?: string;
   outputs: number;
   group: string;
+  /** Parameterbeschreibung für das Formular (src/nodes/params.ts) */
+  parameters?: ParamSchema[];
+}
+
+// Spiegel von src/nodes/params.ts (die Oberfläche wird getrennt übersetzt)
+export interface ParamCondition {
+  gte?: number;
+  gt?: number;
+  lte?: number;
+  lt?: number;
+  not?: unknown;
+  exists?: boolean;
+  startsWith?: string;
+  endsWith?: string;
+  includes?: string;
+}
+export type DisplayRule = Record<string, Array<string | number | boolean | null | { _cnd: ParamCondition }>>;
+export interface ParamOption {
+  value: string | number | boolean;
+  label: string;
+  description?: string;
+}
+export interface ParamSchema {
+  name: string;
+  label: string;
+  type:
+    | 'string'
+    | 'number'
+    | 'boolean'
+    | 'options'
+    | 'multiOptions'
+    | 'json'
+    | 'code'
+    | 'dateTime'
+    | 'color'
+    | 'collection'
+    | 'fixedCollection'
+    | 'assignments'
+    | 'filter'
+    | 'resourceLocator'
+    | 'notice'
+    | 'hidden';
+  default?: unknown;
+  description?: string;
+  placeholder?: string;
+  required?: boolean;
+  show?: DisplayRule;
+  hide?: DisplayRule;
+  options?: ParamOption[];
+  rows?: number;
+  password?: boolean;
+  language?: string;
+  min?: number;
+  max?: number;
+  precision?: number;
+  multiple?: boolean;
+  noExpression?: boolean;
+  children?: ParamSchema[];
+  groups?: Array<{ name: string; label: string; children: ParamSchema[] }>;
+  addLabel?: string;
+  modes?: Array<{ name: string; label: string; placeholder?: string }>;
 }
 
 export interface CredentialInfo {

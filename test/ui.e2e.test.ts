@@ -86,7 +86,7 @@ describe('Weboberfläche', () => {
     expect(await page.locator('.edge').count()).toBe(1);
 
     // Parameter und Name ändern
-    await page.locator('.panel input[aria-label="value"]').first().fill('={{ 20 + 22 }}');
+    await page.locator('.panel textarea[aria-label="Feld 1: Wert"]').fill('={{ 20 + 22 }}');
     await page.fill('.panel-name', 'Antwort');
     await page.press('.panel-name', 'Enter');
     await page.waitForSelector('.node[data-node="Antwort"]');
