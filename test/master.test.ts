@@ -424,6 +424,82 @@ describe('Projekte und Rechte', () => {
   });
 });
 
+describe('Eigene Rollen (M34)', () => {
+  it('legt Rollen mit Aktionen an, vergibt sie im Projekt und für einzelne Workflows, schützt vergebene Rollen', async () => {
+    const m = await start();
+    const admin = await setupAdmin(m);
+    const anna = await addUser(m, admin, 'anna@example.org');
+    const pa = (await admin.post('/api/projects', { name: 'Alpha' })).json() as { id: string };
+    const wf = (await admin.post(`/api/projects/${pa.id}/workflows`, { workflow: { ...sample } })).json() as { id: string; version: number };
+
+    // Nur globale Admins legen Rollen an; die Liste sehen alle
+    expect((await anna.client.post('/api/admin/roles', { name: 'Betrieb', permissions: [] })).statusCode).toBe(403);
+    expect((await admin.post('/api/admin/roles', { name: 'Lesen', permissions: [] })).statusCode).toBe(409);
+    expect((await admin.post('/api/admin/roles', { name: 'X', permissions: ['alles'] })).json().message).toBe('Unbekannte Aktionen: alles');
+    const created = await admin.post('/api/admin/roles', { name: 'Betrieb', description: 'Ausführen ohne Bearbeiten', permissions: ['workflow.read', 'workflow.run', 'workflow.activate', 'execution.read'] });
+    expect(created.statusCode).toBe(201);
+    const role = created.json() as { id: string; name: string; usage: number };
+    expect(role.id).toMatch(/^custom:/);
+    const list = (await anna.client.get('/api/roles')).json() as { data: Array<{ id: string; builtin: boolean }>; actions: string[] };
+    expect(list.data.map((r) => r.id)).toEqual(['admin', 'editor', 'viewer', role.id]);
+    expect(list.actions).toContain('workflow.share');
+
+    // Im Projekt vergeben: Rechte genau wie gewählt (plus Lesen des Projekts)
+    expect((await admin.put(`/api/projects/${pa.id}/members/${anna.id}`, { role: role.id })).statusCode).toBe(200);
+    const mine = (await anna.client.get('/api/projects')).json().data as Array<{ role: string; permissions: string[] }>;
+    expect(mine[0].role).toBe(role.id);
+    expect(mine[0].permissions.sort()).toEqual(['execution.read', 'project.read', 'workflow.activate', 'workflow.read', 'workflow.run']);
+    const got = (await anna.client.get(`/api/workflows/${wf.id}`)).json() as { workflow: Workflow };
+    expect((await anna.client.put(`/api/workflows/${wf.id}`, { workflow: got.workflow, baseVersion: wf.version })).statusCode).toBe(403);
+    expect((await anna.client.del(`/api/workflows/${wf.id}`)).statusCode).toBe(403);
+
+    // Rolle ändern wirkt sofort
+    await admin.put(`/api/admin/roles/${encodeURIComponent(role.id)}`, { name: 'Betrieb', permissions: ['workflow.read', 'workflow.edit'] });
+    expect((await anna.client.put(`/api/workflows/${wf.id}`, { workflow: got.workflow, baseVersion: wf.version })).statusCode).toBe(200);
+
+    // Vergebene Rolle lässt sich nicht löschen; auch als Rolle für einen Workflow nutzbar
+    expect((await admin.del(`/api/admin/roles/${encodeURIComponent(role.id)}`)).statusCode).toBe(409);
+    await admin.put(`/api/projects/${pa.id}/members/${anna.id}`, { role: 'viewer' });
+    expect((await admin.put(`/api/workflows/${wf.id}/members/${anna.id}`, { role: role.id })).statusCode).toBe(200);
+    expect(((await anna.client.get(`/api/workflows/${wf.id}`)).json() as { permissions: string[] }).permissions).toContain('workflow.edit');
+    await admin.del(`/api/workflows/${wf.id}/members/${anna.id}`);
+    expect((await admin.del(`/api/admin/roles/${encodeURIComponent(role.id)}`)).statusCode).toBe(204);
+    expect((await admin.put(`/api/projects/${pa.id}/members/${anna.id}`, { role: role.id })).statusCode).toBe(400);
+    expect(JSON.stringify((await admin.get('/api/admin/audit')).json())).toContain('role.created');
+  });
+});
+
+describe('Migration der Rollen', () => {
+  it('ersetzt den alten CHECK der Mitgliedertabellen und behält die Einträge', async () => {
+    const { mkdtempSync, rmSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const { tmpdir } = await import('node:os');
+    const Database = (await import('better-sqlite3')).default;
+    const { MasterDb } = await import('../src/master/db.js');
+    const dir = mkdtempSync(join(tmpdir(), 'filuflow-mig-'));
+    const file = join(dir, 'master.db');
+    try {
+      new MasterDb(file).close();
+      const raw = new Database(file);
+      raw.pragma('foreign_keys = OFF');
+      raw.exec(`DROP TABLE project_members; CREATE TABLE project_members (
+  project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role TEXT NOT NULL CHECK (role IN ('admin', 'editor', 'viewer')),
+  PRIMARY KEY (project_id, user_id)
+); INSERT INTO project_members VALUES ('p1', 'u1', 'editor');`);
+      raw.close();
+      const db = new MasterDb(file);
+      const sql = (db.db.prepare("SELECT sql FROM sqlite_master WHERE name = 'project_members'").get() as { sql: string }).sql;
+      expect(sql).toContain("custom:%");
+      expect(db.db.prepare('SELECT role FROM project_members').all()).toEqual([{ role: 'editor' }]);
+      db.close();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('Versionen und gleichzeitige Bearbeitung', () => {
   it('Konflikt bei veralteter Basisversion, Versionen abrufbar', async () => {
     const m = await start();

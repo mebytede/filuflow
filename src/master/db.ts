@@ -6,9 +6,12 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import type { Workflow } from '../types.js';
+import { setCustomRoles } from './permissions.js';
 
 export type GlobalRole = 'admin' | 'member';
-export type ProjectRole = 'admin' | 'editor' | 'viewer';
+/** Eingebaute Projektrollen; eigene Rollen (M34) heißen "custom:<id>" */
+export type BuiltinProjectRole = 'admin' | 'editor' | 'viewer';
+export type ProjectRole = BuiltinProjectRole | `custom:${string}`;
 /** Rolle für einen einzelnen Workflow; 'none' sperrt den Workflow für ein Projektmitglied */
 export type WorkflowRole = ProjectRole | 'none';
 
@@ -177,7 +180,7 @@ CREATE TABLE IF NOT EXISTS projects (
 CREATE TABLE IF NOT EXISTS project_members (
   project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  role TEXT NOT NULL CHECK (role IN ('admin', 'editor', 'viewer')),
+  role TEXT NOT NULL CHECK (role IN ('admin', 'editor', 'viewer') OR role LIKE 'custom:%'),
   PRIMARY KEY (project_id, user_id)
 );
 CREATE TABLE IF NOT EXISTS workflows (
@@ -220,7 +223,7 @@ CREATE TABLE IF NOT EXISTS settings (
 CREATE TABLE IF NOT EXISTS workflow_members (
   workflow_id TEXT NOT NULL REFERENCES workflows(id) ON DELETE CASCADE,
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  role TEXT NOT NULL CHECK (role IN ('admin', 'editor', 'viewer', 'none')),
+  role TEXT NOT NULL CHECK (role IN ('admin', 'editor', 'viewer', 'none') OR role LIKE 'custom:%'),
   PRIMARY KEY (workflow_id, user_id)
 );
 CREATE INDEX IF NOT EXISTS workflow_members_user ON workflow_members(user_id);
@@ -229,6 +232,15 @@ CREATE TABLE IF NOT EXISTS credential_access (
   credential TEXT NOT NULL,
   project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   PRIMARY KEY (worker_id, credential, project_id)
+);
+-- Eigene Rollen (M34): Name und Liste der erlaubten Aktionen
+CREATE TABLE IF NOT EXISTS custom_roles (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  description TEXT NOT NULL DEFAULT '',
+  permissions TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
 );
 -- Gemeinsame Credentials (M33): im Master verschlüsselt, an mehrere Worker verteilt
 CREATE TABLE IF NOT EXISTS shared_credentials (
@@ -256,6 +268,15 @@ CREATE TABLE IF NOT EXISTS shared_credential_removals (
   PRIMARY KEY (worker_id, name)
 );
 `;
+
+export interface CustomRoleRow {
+  id: string;
+  name: string;
+  description: string;
+  permissions: string[];
+  created_at: string;
+  updated_at: string;
+}
 
 export interface SharedCredentialRow {
   id: string;
@@ -292,6 +313,71 @@ export class MasterDb {
     this.db.pragma('journal_mode = WAL');
     this.db.pragma('foreign_keys = ON');
     this.db.exec(SCHEMA);
+    this.migrateRoleChecks();
+    setCustomRoles(this.listCustomRoles());
+  }
+
+  /** Ältere Datenbanken: CHECK der Rollen ohne eigene Rollen (M34) durch die neue Fassung ersetzen */
+  private migrateRoleChecks(): void {
+    const tables: Array<[string, string, string]> = [
+      ['project_members', "CHECK (role IN ('admin', 'editor', 'viewer'))", "CHECK (role IN ('admin', 'editor', 'viewer') OR role LIKE 'custom:%')"],
+      ['workflow_members', "CHECK (role IN ('admin', 'editor', 'viewer', 'none'))", "CHECK (role IN ('admin', 'editor', 'viewer', 'none') OR role LIKE 'custom:%')"],
+    ];
+    for (const [table, oldCheck, newCheck] of tables) {
+      const row = this.db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?").get(table) as { sql: string } | undefined;
+      if (!row || !row.sql.includes(oldCheck) || row.sql.includes('custom:%')) continue;
+      this.db.pragma('foreign_keys = OFF');
+      try {
+        this.db.transaction(() => {
+          this.db.exec(`ALTER TABLE ${table} RENAME TO ${table}_alt`);
+          this.db.exec(row.sql.replace(oldCheck, newCheck));
+          this.db.exec(`INSERT INTO ${table} SELECT * FROM ${table}_alt`);
+          this.db.exec(`DROP TABLE ${table}_alt`);
+        })();
+        if (table === 'workflow_members') this.db.exec('CREATE INDEX IF NOT EXISTS workflow_members_user ON workflow_members(user_id)');
+      } finally {
+        this.db.pragma('foreign_keys = ON');
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // Eigene Rollen (M34)
+
+  listCustomRoles(): CustomRoleRow[] {
+    return (this.db.prepare('SELECT * FROM custom_roles ORDER BY name').all() as Array<Omit<CustomRoleRow, 'permissions'> & { permissions: string }>).map((r) => ({
+      ...r,
+      permissions: JSON.parse(r.permissions) as string[],
+    }));
+  }
+
+  getCustomRole(id: string): CustomRoleRow | undefined {
+    return this.listCustomRoles().find((r) => r.id === id);
+  }
+
+  saveCustomRole(r: { id?: string; name: string; description: string; permissions: string[] }): CustomRoleRow {
+    const t = now();
+    if (r.id && this.getCustomRole(r.id)) {
+      this.db.prepare('UPDATE custom_roles SET name = ?, description = ?, permissions = ?, updated_at = ? WHERE id = ?').run(r.name, r.description, JSON.stringify(r.permissions), t, r.id);
+    } else {
+      r = { ...r, id: r.id ?? newId(8) };
+      this.db.prepare('INSERT INTO custom_roles (id, name, description, permissions, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').run(r.id, r.name, r.description, JSON.stringify(r.permissions), t, t);
+    }
+    setCustomRoles(this.listCustomRoles());
+    return this.getCustomRole(r.id!)!;
+  }
+
+  /** Wie oft die Rolle vergeben ist (Projektmitglieder und Rollen je Workflow) */
+  customRoleUsage(id: string): number {
+    const key = `custom:${id}`;
+    const a = (this.db.prepare('SELECT COUNT(*) AS n FROM project_members WHERE role = ?').get(key) as { n: number }).n;
+    const b = (this.db.prepare('SELECT COUNT(*) AS n FROM workflow_members WHERE role = ?').get(key) as { n: number }).n;
+    return a + b;
+  }
+
+  deleteCustomRole(id: string): void {
+    this.db.prepare('DELETE FROM custom_roles WHERE id = ?').run(id);
+    setCustomRoles(this.listCustomRoles());
   }
 
   close(): void {

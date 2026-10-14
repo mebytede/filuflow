@@ -196,6 +196,16 @@ describe('Master-Oberfläche', () => {
     await page.waitForSelector('td .pill:has-text("aktuell")');
     expect(await page.content()).not.toContain('gemeinsam-geheim-9');
     await waitForFile(join(dir, 'credentials.managed.json'), 'gemeinsam-geheim-9');
+    // Eigene Rolle anlegen (M34)
+    await page.goto(`${base}/#/admin/roles`);
+    await page.waitForSelector('td:has-text("Projekt-Admin")');
+    await page.click('button:has-text("Rolle anlegen")');
+    await page.locator('.modal [aria-label="Name der Rolle"]').fill('Betrieb');
+    await page.locator('.modal label.check:has-text("Workflows ausführen") input').check();
+    await page.click('.modal .btn-primary');
+    await page.waitForSelector('td:has-text("Betrieb")');
+    expect(await page.locator('tr:has-text("Betrieb") td.small').textContent()).toBe('Workflows ausführen');
+
     // Zurück zur Seite des Workers
     await page.goto(`${base}/#/admin/overview`);
     await page.click('a.strong:has-text("Produktion")');

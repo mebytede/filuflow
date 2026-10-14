@@ -394,7 +394,9 @@ bleibt davon unberührt.
 - **Mandant:** eine Gruppe von Workern, zum Beispiel Test und Produktion eines Kunden. **Projekt:** ein Ordner für Workflows mit
   Mitgliedern, genau einem Worker zugeordnet.
 - **Rollen:** global Administrator oder Mitglied. Im Projekt: Lesen, Bearbeiten (ändern, ausführen, aktivieren, löschen) oder
-  Projekt-Admin (zusätzlich Mitglieder).
+  Projekt-Admin (zusätzlich Mitglieder). Unter **Verwaltung, Rollen** legen Administratoren eigene Rollen mit genau
+  gewählten Rechten an (z. B. "Betrieb": ausführen und aktivieren, aber nicht bearbeiten); sie stehen im Projekt und für
+  einzelne Workflows zur Auswahl.
 - **Rollen je Workflow:** Über **Rollen** (Menü in der Workflow-Liste oder im Editor) bekommt eine Person für einen einzelnen
   Workflow eine andere Rolle als im Projekt: Bearbeiten für sonst Lesende, "Kein Zugriff" für einen vertraulichen Workflow oder
   "Verwalten" (darf selbst Rollen vergeben). Personen außerhalb des Projekts sehen das Projekt dann als Gast mit genau den für sie

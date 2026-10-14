@@ -2,7 +2,8 @@
 import type { Workflow } from '../types.js';
 
 export type GlobalRole = 'admin' | 'member';
-export type ProjectRole = 'admin' | 'editor' | 'viewer';
+/** Eingebaute Projektrollen; eigene Rollen (M34) heißen "custom:<id>" */
+export type ProjectRole = 'admin' | 'editor' | 'viewer' | `custom:${string}`;
 /** Rolle im Projekt aus Sicht des Benutzers; 'guest': nur über einzelne Workflows */
 export type AccessRole = ProjectRole | 'guest';
 /** Rolle für einen einzelnen Workflow; 'none' sperrt */
@@ -210,4 +211,14 @@ export interface SharedCredential {
   updatedAt: string;
   workers: Array<{ id: string; name: string; deployedVersion: number | null; upToDate: boolean; error: string | null }>;
   errors?: string[];
+}
+
+/** Rolle aus GET /api/roles (eingebaut oder eigene) */
+export interface RoleInfo {
+  id: ProjectRole;
+  name: string;
+  description: string;
+  permissions: ProjectAction[];
+  builtin: boolean;
+  usage?: number;
 }

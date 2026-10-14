@@ -9,9 +9,23 @@ import { mapi } from './api.js';
 import type { AccessRole, MasterWorkflow, Project, ProjectAction, ProjectRole, User, WorkerInfo, WorkflowRole } from './types.js';
 
 const e = encodeURIComponent;
-export const ROLE_LABEL: Record<AccessRole, string> = { admin: 'Projekt-Admin', editor: 'Bearbeiten', viewer: 'Lesen', guest: 'Gast' };
-const PROJECT_ROLES: ProjectRole[] = ['admin', 'editor', 'viewer'];
-const WORKFLOW_ROLE_LABEL: Record<WorkflowRole, string> = { admin: 'Verwalten', editor: 'Bearbeiten', viewer: 'Lesen', none: 'Kein Zugriff' };
+export const ROLE_LABEL: Record<string, string> = { admin: 'Projekt-Admin', editor: 'Bearbeiten', viewer: 'Lesen', guest: 'Gast' };
+const WORKFLOW_ROLE_LABEL: Record<string, string> = { admin: 'Verwalten', editor: 'Bearbeiten', viewer: 'Lesen', none: 'Kein Zugriff' };
+/** Eigene Rollen (M34), beim Öffnen der Seiten geladen */
+let customRoles: Array<{ id: ProjectRole; name: string }> = [];
+async function loadRoles(): Promise<void> {
+  try {
+    customRoles = (await mapi.roles()).data.filter((r) => !r.builtin).map((r) => ({ id: r.id, name: r.name }));
+  } catch {
+    customRoles = [];
+  }
+}
+export function roleLabel(role: AccessRole | WorkflowRole | string): string {
+  return ROLE_LABEL[role] ?? customRoles.find((r) => r.id === role)?.name ?? role;
+}
+const workflowRoleLabel = (role: string) => WORKFLOW_ROLE_LABEL[role] ?? roleLabel(role);
+const projectRoleOptions = (): ProjectRole[] => ['admin', 'editor', 'viewer', ...customRoles.map((r) => r.id)];
+const workflowRoleOptions = (withNone: boolean): WorkflowRole[] => ['viewer', 'editor', 'admin', ...customRoles.map((r) => r.id), ...(withNone ? (['none'] as WorkflowRole[]) : [])];
 
 export function can(p: { permissions: ProjectAction[] }, action: ProjectAction): boolean {
   return p.permissions.includes(action);
@@ -43,6 +57,7 @@ async function workerOptions(selected: string | null): Promise<HTMLSelectElement
 }
 
 export async function projectsPage(user: User): Promise<HTMLElement> {
+  await loadRoles();
   const projects = await mapi.projects();
   const root = h('section', { class: 'page' });
   const create = async () => {
@@ -86,7 +101,7 @@ export async function projectsPage(user: User): Promise<HTMLElement> {
         h(
           'a',
           { class: 'card project-card', href: `#/project/${e(p.id)}` },
-          h('div', { class: 'project-card-head' }, h('span', { class: 'strong' }, p.name), h('span', { class: 'muted small' }, ROLE_LABEL[p.role])),
+          h('div', { class: 'project-card-head' }, h('span', { class: 'strong' }, p.name), h('span', { class: 'muted small' }, roleLabel(p.role))),
           p.description ? h('p', { class: 'muted small' }, p.description) : null,
           h('div', { class: 'project-card-foot' }, workerBadge(p), h('span', { class: 'muted small' }, `${p.workflows} Workflow${p.workflows === 1 ? '' : 's'}`)),
         ),
@@ -107,7 +122,7 @@ export function projectHeader(p: Project, active: string): HTMLElement {
       h('div', null, h('a', { href: '#/projects', class: 'label label-accent', style: { textDecoration: 'none' } }, 'Projekt'), h('h1', null, p.name)),
       h('div', { class: 'spacer' }),
       workerBadge(p),
-      h('span', { class: 'pill' }, ROLE_LABEL[p.role]),
+      h('span', { class: 'pill' }, roleLabel(p.role)),
     ),
     h(
       'nav',
@@ -148,6 +163,7 @@ async function importDialog(): Promise<Workflow | null> {
 }
 
 export async function projectWorkflowsPage(projectId: string): Promise<HTMLElement> {
+  await loadRoles();
   const [p, list] = await Promise.all([mapi.project(projectId), mapi.workflows(projectId)]);
   const root = h('section', { class: 'page' }, projectHeader(p, 'workflows'));
   const reload = async () => root.replaceWith(await projectWorkflowsPage(projectId));
@@ -257,6 +273,7 @@ export async function projectWorkflowsPage(projectId: string): Promise<HTMLEleme
  * die nur über den Workflow Zugriff haben. Liefert true, wenn etwas geändert wurde.
  */
 export async function workflowAccessDialog(w: { id: string; name: string }): Promise<boolean> {
+  await loadRoles();
   let changed = false;
   const body = h('div', { class: 'form' });
   const render = async () => {
@@ -276,21 +293,21 @@ export async function workflowAccessDialog(w: { id: string; name: string }): Pro
       const select = h(
         'select',
         { class: 'param-input', disabled: fixed, 'aria-label': `Rolle von ${m.email}`, onchange: (ev: Event) => void apply(m.userId, (ev.target as HTMLSelectElement).value) },
-        m.projectRole ? h('option', { value: '', selected: !m.workflowRole }, `Wie im Projekt (${ROLE_LABEL[m.projectRole]})`) : null,
-        (Object.keys(WORKFLOW_ROLE_LABEL) as WorkflowRole[]).map((r) => h('option', { value: r, selected: m.workflowRole === r }, WORKFLOW_ROLE_LABEL[r])),
+        m.projectRole ? h('option', { value: '', selected: !m.workflowRole }, `Wie im Projekt (${roleLabel(m.projectRole)})`) : null,
+        workflowRoleOptions(true).map((r) => h('option', { value: r, selected: m.workflowRole === r }, workflowRoleLabel(r))),
       );
       return h(
         'tr',
         null,
         h('td', null, h('div', { class: 'strong' }, m.name), h('div', { class: 'cell-sub' }, m.email)),
-        h('td', { class: 'muted' }, m.projectRole ? ROLE_LABEL[m.projectRole] : 'kein Mitglied'),
+        h('td', { class: 'muted' }, m.projectRole ? roleLabel(m.projectRole) : 'kein Mitglied'),
         h('td', null, m.projectRole === 'admin' ? h('span', { class: 'muted' }, 'Immer voller Zugriff') : select),
         h('td', { class: 'actions' }, canShare && !m.projectRole ? h('button', { type: 'button', class: 'btn btn-small', onclick: () => void apply(m.userId, '') }, 'Entfernen') : null),
       );
     });
     const others = directory.filter((u) => !data.some((m) => m.userId === u.id) && !admins.includes(u.id));
     const userSel = h('select', { class: 'param-input', 'aria-label': 'Person' }, others.map((u) => h('option', { value: u.id }, `${u.name} (${u.email})`)));
-    const roleSel = h('select', { class: 'param-input', 'aria-label': 'Rolle für den Workflow' }, (['viewer', 'editor', 'admin'] as WorkflowRole[]).map((r) => h('option', { value: r }, WORKFLOW_ROLE_LABEL[r])));
+    const roleSel = h('select', { class: 'param-input', 'aria-label': 'Rolle für den Workflow' }, workflowRoleOptions(false).map((r) => h('option', { value: r }, workflowRoleLabel(r))));
     body.replaceChildren(
       h(
         'p',
@@ -375,6 +392,7 @@ export async function projectExecutionsPage(projectId: string, params: URLSearch
 }
 
 export async function projectMembersPage(projectId: string): Promise<HTMLElement> {
+  await loadRoles();
   const [p, members] = await Promise.all([mapi.project(projectId), mapi.members(projectId)]);
   const manage = can(p, 'project.manage');
   const root = h('section', { class: 'page' }, projectHeader(p, 'members'));
@@ -383,7 +401,7 @@ export async function projectMembersPage(projectId: string): Promise<HTMLElement
     h(
       'select',
       { class: 'param-input', disabled: !onchange, 'aria-label': 'Rolle', onchange: (ev: Event) => onchange?.((ev.target as HTMLSelectElement).value as ProjectRole) },
-      PROJECT_ROLES.map((r) => h('option', { value: r, selected: r === value }, ROLE_LABEL[r])),
+      projectRoleOptions().map((r) => h('option', { value: r, selected: r === value }, roleLabel(r))),
     );
   root.append(
     h('div', { class: 'page-head' }, h('h2', null, 'Mitglieder')),

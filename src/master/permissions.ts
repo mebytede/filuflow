@@ -4,6 +4,7 @@
 // Rollen je Workflow (M23) überschreiben die Projektrolle für einen Workflow: höher (z. B. Bearbeiten für einen Leser), niedriger
 // oder 'none' (gesperrt). Projekt-Admins und globale Admins behalten immer vollen Zugriff. Wer nur über einzelne Workflows
 // Zugriff hat, sieht das Projekt als Gast ('guest') mit genau diesen Workflows.
+// Eigene Rollen (M34) heißen "custom:<id>" und erlauben genau die gespeicherten Aktionen.
 import type { GlobalRole, ProjectRole, WorkflowRole } from './db.js';
 
 export type ProjectAction =
@@ -26,12 +27,41 @@ const VIEWER: ProjectAction[] = ['project.read', 'workflow.read', 'execution.rea
 const EDITOR: ProjectAction[] = [...VIEWER, 'workflow.edit', 'workflow.run', 'workflow.activate', 'workflow.delete', 'execution.cancel'];
 const ADMIN: ProjectAction[] = [...EDITOR, 'workflow.share', 'project.manage'];
 
-const BY_ROLE: Record<AccessRole, Set<ProjectAction>> = {
+const BY_ROLE: Record<'guest' | 'viewer' | 'editor' | 'admin', Set<ProjectAction>> = {
   guest: new Set(['project.read']),
   viewer: new Set(VIEWER),
   editor: new Set(EDITOR),
   admin: new Set(ADMIN),
 };
+
+/** Alle Aktionen in fester Reihenfolge (Formular für eigene Rollen) */
+export const ALL_ACTIONS: ProjectAction[] = ADMIN;
+
+/** Eingebaute Rollen mit ihren Aktionen (Anzeige in der Verwaltung) */
+export const BUILTIN_ROLE_ACTIONS: Record<'admin' | 'editor' | 'viewer', ProjectAction[]> = { admin: ADMIN, editor: EDITOR, viewer: VIEWER };
+
+/** Eigene Rollen: "custom:<id>" -> Aktionen (setzt die Datenbank beim Start und nach Änderungen) */
+const custom = new Map<string, Set<ProjectAction>>();
+
+export function setCustomRoles(roles: Array<{ id: string; permissions: string[] }>): void {
+  custom.clear();
+  // Lesen gehört immer dazu: wer eine Rolle im Projekt hat, sieht das Projekt
+  for (const r of roles) custom.set(`custom:${r.id}`, new Set(['project.read', ...r.permissions.filter((p): p is ProjectAction => (ALL_ACTIONS as string[]).includes(p))]));
+}
+
+/** Gibt es diese Projektrolle (eingebaut oder eigene)? */
+export function isProjectRole(role: string): role is ProjectRole {
+  return role === 'admin' || role === 'editor' || role === 'viewer' || custom.has(role);
+}
+
+/** Rolle für einen Workflow: Projektrolle oder 'none' */
+export function isWorkflowRole(role: string): role is WorkflowRole {
+  return role === 'none' || isProjectRole(role);
+}
+
+function actionsOf(role: AccessRole): Set<ProjectAction> {
+  return (BY_ROLE as Record<string, Set<ProjectAction>>)[role] ?? custom.get(role) ?? new Set();
+}
 
 /** Aktionen, die sich auf einen Workflow beziehen (Rechte in der Workflow-Ansicht) */
 const WORKFLOW_ACTIONS = new Set<ProjectAction>(['workflow.read', 'workflow.edit', 'workflow.run', 'workflow.activate', 'workflow.delete', 'workflow.share', 'execution.read', 'execution.cancel', 'credentials.read']);
@@ -52,11 +82,11 @@ export function effectiveWorkflowRole(projectRole: AccessRole | undefined, workf
 }
 
 export function allows(role: AccessRole | undefined, action: ProjectAction): boolean {
-  return !!role && BY_ROLE[role].has(action);
+  return !!role && actionsOf(role).has(action);
 }
 
 export function permissionsOf(role: AccessRole | undefined): ProjectAction[] {
-  return role ? [...BY_ROLE[role]] : [];
+  return role ? [...actionsOf(role)] : [];
 }
 
 /** Rechte für einen Workflow (ohne Projektverwaltung) */

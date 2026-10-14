@@ -415,3 +415,11 @@ den verteilten Namen und die Version; der Abgleich verteilt nur, was veraltet od
 Liste offener Entfernungen ab. Die ID aus dem Master wird mitgegeben, damit Workflows, die per ID verweisen, auf allen
 Workern dasselbe Credential finden. Von Hand beim Worker geänderte Kopien werden erst bei der nächsten Änderung im Master
 überschrieben; die Oberfläche kennzeichnet sie als "Master (gemeinsam)".
+
+## Eigene Rollen (M34)
+Eigene Rollen sind Listen der vorhandenen Aktionen (`project.manage`, `workflow.edit`, `workflow.run` …) und werden als
+"custom:<id>" dort gespeichert, wo bisher die eingebauten Rollen stehen (Projektmitglieder, Rollen je Workflow). So bleibt
+die Prüfung an jeder Route gleich (`allows(rolle, aktion)`), nur die Auflösung kennt jetzt auch eigene Rollen. Das Projekt
+sehen gehört immer dazu. Projekt-Admins und globale Administratoren behalten unabhängig davon vollen Zugriff, auch wenn eine
+eigene Rolle `project.manage` enthält. Vergebene Rollen lassen sich nicht löschen, Änderungen wirken sofort. Ältere
+Datenbanken bekommen beim Start eine neue Fassung der Mitgliedertabellen, weil SQLite einen CHECK nicht ändern kann.

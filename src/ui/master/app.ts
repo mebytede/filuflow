@@ -8,7 +8,7 @@ import { loginPage, profilePage, setupPage } from './auth.js';
 import { projectExecutionsPage, projectMembersPage, projectSettingsPage, projectsPage, projectWorkflowsPage } from './projects.js';
 import { masterExecutionView, masterWorkflowView } from './workflow.js';
 import { executionSearchPage } from './executions.js';
-import { auditPage, overviewPage, settingsPage, sharedCredentialsPage, tenantsPage, usersPage, workerPage } from './admin.js';
+import { auditPage, overviewPage, rolesPage, settingsPage, sharedCredentialsPage, tenantsPage, usersPage, workerPage } from './admin.js';
 import type { AuthStatus, User } from './types.js';
 import { icon } from '../icons.js';
 import { editorLayout, sidebarLayout, type NavItem } from '../shell.js';
@@ -153,6 +153,7 @@ export function startMaster(app: HTMLElement): void {
         else if (b === 'worker' && c) setPage('admin', await workerPage(c), undefined, seq);
         else if (b === 'users') setPage('admin', await usersPage(u), undefined, seq);
         else if (b === 'credentials') setPage('admin', await sharedCredentialsPage(), undefined, seq);
+        else if (b === 'roles') setPage('admin', await rolesPage(), undefined, seq);
         else if (b === 'settings') setPage('admin', await settingsPage(), undefined, seq);
         else if (b === 'audit') setPage('admin', await auditPage(params.get('before') ? Number(params.get('before')) : undefined), undefined, seq);
         else setPage('admin', notFound(), undefined, seq);

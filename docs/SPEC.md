@@ -317,6 +317,7 @@ Engine-Reihenfolge, Expressions (inkl. Rohwert vs. String), jeder Node, Filter-O
 | M31 | Poll- und Trigger-Knoten aus Paketen | Aktivierung mit Poll Times und emit wie n8n, manueller Lauf, Fehler-Workflow, Neustart nach Fehlern |
 | M32 | Webhook-Knoten aus Paketen | Pfade und Antwortmodi wie n8n, WebhookContext, Anmeldung beim Dienst (webhookMethods), Test-URL |
 | M33 | Gemeinsame Credentials | Ein Credential im Master, verteilt an mehrere Worker, mit Abgleich |
+| M34 | Eigene Rollen | Rollen mit frei gewählten Rechten für Projekte und einzelne Workflows |
 
 Nach jedem Meilenstein: `docs/STATUS.md` aktualisieren (was geht, was fehlt) und einen Commit mit aussagekräftiger Nachricht.
 
@@ -346,5 +347,4 @@ gemeinsame Credentials für mehrere Worker: M33)
 
 ### 11.4 Oberfläche und Master
 (Testdaten per Klick, Variablen-Seite: M18; Chat-Ansicht: M16; Parameterformulare: M19; Rollen je Workflow und zentrale
-Ausführungssuche: M23)
-- Frei definierbare Rollen mit einzelnen Rechten (heute feste Rollen Lesen, Bearbeiten, Verwalten/Projekt-Admin)
+Ausführungssuche: M23; frei definierbare Rollen: M34)

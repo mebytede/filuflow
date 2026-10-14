@@ -9,8 +9,8 @@ import {
   effectiveRole,
   effectiveWorkflowRole,
   permissionsOf,
-  PROJECT_ROLES,
-  WORKFLOW_ROLES,
+  isProjectRole,
+  isWorkflowRole,
   workflowPermissionsOf,
   type AccessRole,
   type ProjectAction,
@@ -239,7 +239,7 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     const a = access(request, reply, pid, 'project.manage');
     if (!a) return;
     const role = str((request.body as Record<string, unknown> | null)?.role) as ProjectRole;
-    if (!PROJECT_ROLES.includes(role)) return reply.code(400).send({ message: 'Rolle muss admin, editor oder viewer sein' });
+    if (!isProjectRole(role)) return reply.code(400).send({ message: 'Rolle muss admin, editor, viewer oder eine eigene Rolle sein' });
     const user = db.getUser(uid);
     if (!user) return reply.code(404).send({ message: 'Benutzer nicht gefunden' });
     db.setMember(pid, uid, role);
@@ -407,7 +407,7 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     const a = workflowAccess(request, reply, id, 'workflow.share');
     if (!a) return;
     const role = str((request.body as Record<string, unknown> | null)?.role) as WorkflowRole;
-    if (!WORKFLOW_ROLES.includes(role)) return reply.code(400).send({ message: 'Rolle muss admin, editor, viewer oder none sein' });
+    if (!isWorkflowRole(role)) return reply.code(400).send({ message: 'Rolle muss admin, editor, viewer, none oder eine eigene Rolle sein' });
     const user = db.getUser(uid);
     if (!user) return reply.code(404).send({ message: 'Benutzer nicht gefunden' });
     if (user.role === 'admin' || db.getMemberRole(a.project.id, uid) === 'admin') {

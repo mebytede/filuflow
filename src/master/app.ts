@@ -16,6 +16,7 @@ import { registerAdminRoutes } from './routes/admin.js';
 import { registerProjectRoutes } from './routes/projects.js';
 import { WorkerHub } from './workers.js';
 import { registerSharedCredentialRoutes } from './routes/sharedCredentials.js';
+import { registerRoleRoutes } from './routes/roles.js';
 import { registerWorkerRoutes } from './routes/workers.js';
 import { registerOidcRoutes } from './routes/oidc.js';
 import type { OidcConfig } from './oidc.js';
@@ -177,6 +178,7 @@ export async function createMasterServer(options: MasterOptions): Promise<Master
     registerProjectRoutes(api, ctx);
     registerWorkerRoutes(api, ctx);
     registerSharedCredentialRoutes(api, ctx);
+    registerRoleRoutes(api, ctx);
     registerOidcRoutes(api, ctx);
   });
 

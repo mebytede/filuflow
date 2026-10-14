@@ -3,7 +3,7 @@
 import { confirmDialog, dialog, formatDate, h, toast } from '../dom.js';
 import { mapi } from './api.js';
 import { pageHead } from '../shell.js';
-import type { AuditEntry, OverviewWorker, SharedCredential, Tenant, User, WorkerInfo } from './types.js';
+import type { AuditEntry, OverviewWorker, ProjectAction, RoleInfo, SharedCredential, Tenant, User, WorkerInfo } from './types.js';
 import type { CredentialTypeCatalog, VariableEntry } from '../types.js';
 import { credentialFormDialog, type CredentialFormBackend } from '../views/credentialForm.js';
 import { connectOAuth, credentialTable, importCredentialsDialog } from '../views/credentials.js';
@@ -26,7 +26,7 @@ function text(value = '', attrs: Record<string, unknown> = {}): HTMLInputElement
 
 export function adminTabs(active: string): HTMLElement {
   const tab = (key: string, label: string) => h('a', { class: `tab${active === key ? ' on' : ''}`, href: `#/admin/${key}` }, label);
-  return h('nav', { class: 'tabs page-tabs' }, tab('overview', 'Übersicht'), tab('tenants', 'Mandanten und Worker'), tab('credentials', 'Gemeinsame Credentials'), tab('users', 'Benutzer'), tab('settings', 'Einstellungen'), tab('audit', 'Audit-Log'));
+  return h('nav', { class: 'tabs page-tabs' }, tab('overview', 'Übersicht'), tab('tenants', 'Mandanten und Worker'), tab('credentials', 'Gemeinsame Credentials'), tab('roles', 'Rollen'), tab('users', 'Benutzer'), tab('settings', 'Einstellungen'), tab('audit', 'Audit-Log'));
 }
 
 function page(active: string, title: string): HTMLElement {
@@ -589,6 +589,107 @@ export async function workerPage(id: string): Promise<HTMLElement> {
       })
       .catch((err) => pkgBox.replaceChildren(h('h2', null, 'Pakete beim Worker'), h('p', { class: 'error-text' }, message(err))));
   void loadPackages();
+  return root;
+}
+
+// -----------------------------------------------------------------------------------------------
+// Rollen (M34)
+
+const ACTION_LABEL: Record<ProjectAction, string> = {
+  'project.read': 'Projekt sehen',
+  'project.manage': 'Mitglieder und Einstellungen verwalten',
+  'workflow.read': 'Workflows lesen',
+  'workflow.edit': 'Workflows anlegen und bearbeiten',
+  'workflow.run': 'Workflows ausführen',
+  'workflow.activate': 'Workflows aktivieren und deaktivieren',
+  'workflow.delete': 'Workflows löschen und verschieben',
+  'workflow.share': 'Rollen für einzelne Workflows vergeben',
+  'execution.read': 'Ausführungen ansehen',
+  'execution.cancel': 'Ausführungen abbrechen',
+  'credentials.read': 'Namen der Credentials sehen',
+};
+
+export async function rolesPage(): Promise<HTMLElement> {
+  const { data, actions } = await mapi.roles();
+  const root = page('roles', 'Rollen');
+  const reload = async () => root.replaceWith(await rolesPage());
+
+  const edit = async (role?: RoleInfo) => {
+    const name = text(role?.name ?? '', { 'aria-label': 'Name der Rolle', maxlength: 60 });
+    const description = text(role?.description ?? '', { 'aria-label': 'Beschreibung' });
+    const boxes = actions
+      .filter((a) => a !== 'project.read')
+      .map((a) => ({ action: a, input: h('input', { type: 'checkbox', checked: !!role?.permissions.includes(a) }) as HTMLInputElement }));
+    const body = h(
+      'div',
+      { class: 'form' },
+      field('Name', name),
+      field('Beschreibung', description),
+      h('div', { class: 'field' }, h('span', null, 'Erlaubt'), ...boxes.map((b) => h('label', { class: 'check' }, b.input, ` ${ACTION_LABEL[b.action]}`)), h('span', { class: 'muted small' }, 'Das Projekt sehen gehört immer dazu.')),
+    );
+    const saved = await dialog<RoleInfo>(role ? `Rolle "${role.name}" bearbeiten` : 'Rolle anlegen', body, {
+      confirm: 'Speichern',
+      onConfirm: async () => {
+        const payload = { name: name.value.trim(), description: description.value.trim(), permissions: boxes.filter((b) => b.input.checked).map((b) => b.action) };
+        try {
+          return role ? await mapi.updateRole(role.id, payload) : await mapi.createRole(payload);
+        } catch (err) {
+          toast(message(err), 'error');
+          return undefined;
+        }
+      },
+    });
+    if (!saved) return;
+    toast(`Rolle "${saved.name}" gespeichert`, 'success');
+    await reload();
+  };
+  const remove = async (role: RoleInfo) => {
+    if (!(await confirmDialog('Rolle löschen', `"${role.name}" wird gelöscht.`))) return;
+    try {
+      await mapi.deleteRole(role.id);
+      await reload();
+    } catch (err) {
+      toast(message(err), 'error');
+    }
+  };
+
+  root.append(
+    h(
+      'div',
+      { class: 'page-head' },
+      h('p', { class: 'muted', style: { maxWidth: '760px', margin: '0' } }, 'Eigene Rollen legen genau fest, was Mitglieder eines Projekts oder Personen mit Zugriff auf einzelne Workflows dürfen. Die eingebauten Rollen bleiben unverändert; Projekt-Admins und globale Administratoren haben immer vollen Zugriff.'),
+      h('div', { class: 'spacer' }),
+      h('button', { type: 'button', class: 'btn btn-primary', onclick: () => void edit() }, 'Rolle anlegen'),
+    ),
+    h(
+      'div',
+      { class: 'table-wrap' },
+      h(
+        'table',
+        { class: 'list-table' },
+        h('thead', null, h('tr', null, h('th', null, 'Rolle'), h('th', null, 'Erlaubt'), h('th', null, 'Vergeben'), h('th', { class: 'actions' }, ''))),
+        h(
+          'tbody',
+          null,
+          data.map((r) =>
+            h(
+              'tr',
+              null,
+              h('td', null, h('div', { class: 'strong' }, r.name), r.description ? h('div', { class: 'cell-sub' }, r.description) : null, r.builtin ? h('div', { class: 'cell-sub' }, 'eingebaut') : null),
+              h('td', { class: 'small' }, r.permissions.filter((a) => a !== 'project.read').map((a) => ACTION_LABEL[a]).join(', ') || h('span', { class: 'muted' }, 'nur sehen')),
+              h('td', { class: 'muted' }, r.builtin ? '' : String(r.usage ?? 0)),
+              h(
+                'td',
+                { class: 'actions' },
+                r.builtin ? null : h('button', { type: 'button', class: 'btn btn-ghost', onclick: () => void edit(r) }, 'Bearbeiten'),
+                r.builtin ? null : h('button', { type: 'button', class: 'btn btn-ghost', disabled: !!r.usage, title: r.usage ? 'Noch vergeben' : '', onclick: () => void remove(r) }, 'Löschen'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
   return root;
 }
 
