@@ -4,8 +4,8 @@
 // packages/core/src/execution-engine/node-execution-context/execute-context.ts, node-execution-context.ts und
 // utils/*): getInputData, getNodeParameter (mit Defaults wie getNodeParameters), getCredentials, continueOnFail,
 // helpers.httpRequest/request (mit und ohne Authentifizierung), returnJsonArray, constructExecutionMetaData und
-// Binärdaten. Deklarative Knoten (routing, ohne execute) führt src/plugins/routingNode.ts aus (M29). Trigger, Polling und
-// Webhooks meldet der Lader als nicht unterstützt.
+// Binärdaten. Deklarative Knoten (routing, ohne execute) führt src/plugins/routingNode.ts aus (M29), Poll- und
+// Trigger-Knoten src/plugins/triggerNode.ts (M31). Webhook-Knoten meldet der Lader als nicht unterstützt.
 import type { ExecContext, NodeIssue, NodeType } from '../nodes/types.js';
 import type { NodeOutput, WorkflowNode } from '../types.js';
 import { NodeOperationError, ApplicationError } from './n8nWorkflowShim.js';
@@ -14,13 +14,14 @@ import { withCredentialDefaults } from '../credentials/authenticate.js';
 import { executeHelpers } from '../nodes/shared/executeHelpers.js';
 import { getByPath } from '../expressions/resolve.js';
 import { isDeclarative, runRoutingNode, withRequestOptions } from './routingNode.js';
+import { activateTrigger, executeTrigger, withPollTimes, type N8nTriggerImpl } from './triggerNode.js';
 
 /** Ausschnitt aus INodeType */
 export interface N8nNodeInstance {
   description: N8nNodeDescription;
   execute?: (this: unknown) => Promise<unknown>;
-  trigger?: unknown;
-  poll?: unknown;
+  trigger?: N8nTriggerImpl['trigger'];
+  poll?: N8nTriggerImpl['poll'];
   webhook?: unknown;
   supplyData?: unknown;
   /** IVersionedNodeType */
@@ -33,7 +34,9 @@ export function unsupportedReason(node: N8nNodeInstance): string | undefined {
   const versions = node.nodeVersions ? Object.values(node.nodeVersions) : [node];
   for (const v of versions) {
     if (typeof v.execute === 'function' || isDeclarative(v)) continue;
-    if (v.trigger || v.poll || v.webhook || v.description.polling || v.description.webhooks?.length) return 'Trigger, Polling und Webhooks aus n8n-Paketen werden noch nicht unterstützt';
+    if (v.webhook || v.description.webhooks?.length) return 'Webhook-Knoten aus n8n-Paketen werden noch nicht unterstützt';
+    if (typeof v.poll === 'function' || typeof v.trigger === 'function') continue;
+    if (v.description.polling) return 'Poll-Knoten ohne poll-Methode';
     if (v.supplyData) return 'KI-Sub-Nodes aus n8n-Paketen werden noch nicht unterstützt';
     return 'der Knoten hat keine execute-Methode';
   }
@@ -123,7 +126,9 @@ export function n8nNodeType(packageName: string, instance: N8nNodeInstance): Nod
     : (Array.isArray(base.version) ? base.version : [base.version]).map(Number);
   const forVersion = (version: number): N8nNodeInstance => (instance.nodeVersions ? (instance.nodeVersions[version] ?? instance.nodeVersions[Math.max(...versions)]) : instance);
   // Deklarative Knoten bekommen wie in n8n die Einstellung "Request Options"
-  const describe = (impl: N8nNodeInstance) => (isDeclarative(impl) ? withRequestOptions(impl.description) : impl.description);
+  const describe = (impl: N8nNodeInstance) => (isDeclarative(impl) ? withRequestOptions(impl.description) : withPollTimes(impl.description));
+  const isTriggerImpl = (impl: N8nNodeInstance) => typeof impl.execute !== 'function' && (typeof impl.poll === 'function' || typeof impl.trigger === 'function');
+  const allVersions = instance.nodeVersions ? Object.values(instance.nodeVersions) : [instance];
   const latest = forVersion(Math.max(...versions));
   const description = (node: WorkflowNode) => describe(forVersion(node.typeVersion));
   return {
@@ -131,6 +136,7 @@ export function n8nNodeType(packageName: string, instance: N8nNodeInstance): Nod
     displayName: base.displayName,
     versions,
     group: 'Erweiterungen',
+    ...(allVersions.some(isTriggerImpl) ? { isTrigger: true } : {}),
     parameters: propertiesToSchema(describe(latest).properties),
     inputs: (node) => mainCount(description(node).inputs, 1),
     outputs: (node) => Math.max(1, mainCount(description(node).outputs, 1)),
@@ -140,9 +146,15 @@ export function n8nNodeType(packageName: string, instance: N8nNodeInstance): Nod
       const reason = unsupportedReason(forVersion(node.typeVersion));
       return reason ? [{ code: 'plugin.unsupported', message: reason, severity: 'error' }] : [];
     },
+    async activate(activation) {
+      const impl = forVersion(activation.ctx.node.typeVersion);
+      if (!isTriggerImpl(impl)) return {};
+      return activateTrigger(impl as N8nTriggerImpl, activation);
+    },
     async execute(ctx) {
       const impl = forVersion(ctx.node.typeVersion);
       if (typeof impl.execute !== 'function' && isDeclarative(impl)) return runRoutingNode(ctx, impl.description);
+      if (isTriggerImpl(impl)) return executeTrigger(impl as N8nTriggerImpl, ctx);
       if (typeof impl.execute !== 'function') throw new NodeOperationError(ctx.node, unsupportedReason(impl) ?? 'Knoten ohne execute');
       const result = await impl.execute.call(executeFunctions(ctx, impl.description));
       if (result === null || result === undefined) return null;

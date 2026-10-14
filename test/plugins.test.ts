@@ -74,7 +74,7 @@ describe('Laden', () => {
         kind: 'n8n-custom',
         nodes: ['CUSTOM.greeter'],
         credentials: ['demoApi'],
-        errors: ['Ticker.node.js: Trigger, Polling und Webhooks aus n8n-Paketen werden noch nicht unterstützt'],
+        errors: ['Hook.node.js: Webhook-Knoten aus n8n-Paketen werden noch nicht unterstützt'],
       },
       { kind: 'n8n-package', nodes: ['n8n-nodes-demo.splitter'], credentials: [], errors: [] },
       { kind: 'filuflow', nodes: [], credentials: [], errors: ['Pfad nicht gefunden'] },

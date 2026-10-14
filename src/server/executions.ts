@@ -11,6 +11,7 @@ import type { Runner, RunOptions } from '../runner.js';
 import type { WorkflowExecutor, RunHooks, ResumeData } from '../engine/executor.js';
 import type { ExecutionStore } from './store.js';
 import type { Logger } from '../logger.js';
+import type { ExecContext } from '../nodes/types.js';
 import { ExecutionCancelledError, serializeError } from '../errors.js';
 
 export const ERROR_TRIGGER_TYPE = 'n8n-nodes-base.errorTrigger';
@@ -320,6 +321,22 @@ export class ExecutionManager {
       },
       workflow: { id: workflowId, name: workflow.name },
     };
+    this.runErrorWorkflow(workflow, errorData, execution.mode);
+  }
+
+  /** Fehler eines Auslösers ohne Ausführung (M31): Fehlerdaten { trigger: { error, mode }, workflow } wie n8n */
+  executeTriggerErrorWorkflow(workflow: Workflow, error: Error, mode: ExecutionMode): void {
+    this.runErrorWorkflow(workflow, { trigger: { error: serializeError(error), mode }, workflow: { id: workflow.id, name: workflow.name } }, mode);
+  }
+
+  /** Kontext eines Knotens ohne Ausführung für aktivierte Auslöser (M31), mit den statischen Daten des Workflows */
+  activationContext(workflow: Workflow, nodeName: string): ExecContext {
+    return this.options.runner.activationContext({ workflow, mode: 'trigger', staticData: this.options.staticData(workflow) }, nodeName);
+  }
+
+  private runErrorWorkflow(workflow: Workflow, errorData: Record<string, unknown>, mode: ExecutionMode): void {
+    const workflowId = workflow.id;
+    const execution = { mode };
     const errorWorkflowId = workflow.settings?.errorWorkflow;
     let target: Workflow | undefined;
     if (errorWorkflowId && !(execution.mode === 'error' && workflowId && errorWorkflowId === workflowId)) {

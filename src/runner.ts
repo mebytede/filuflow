@@ -8,6 +8,7 @@ import type { Execution, ExecutionMode, Item, Workflow } from './types.js';
 import { executeWorkflow, findStartNode, WorkflowExecutor, type ExecutorOptions, type ResumeData, type RunHooks } from './engine/executor.js';
 import { WorkflowGraph } from './engine/graph.js';
 import type { NodeRegistry } from './nodes/registry.js';
+import type { ExecContext } from './nodes/types.js';
 import { getDefaultRegistry } from './nodes/index.js';
 import type { CredentialProvider } from './credentials/store.js';
 import { StaticCredentialProvider } from './credentials/store.js';
@@ -148,6 +149,11 @@ export class Runner {
     const execution = await executor.run();
     await this.options.onExecutionFinished?.(execution, run.workflow);
     return execution;
+  }
+
+  /** Kontext eines Knotens ohne Ausführung, z. B. für aktivierte Poll- und Trigger-Knoten (M31) */
+  activationContext(run: RunOptions, nodeName: string): ExecContext {
+    return new WorkflowExecutor(this.executorOptions(run, 0)).contextFor(nodeName);
   }
 
   /** Prüft vorab, ob ein Start-Node bestimmbar ist (für klare CLI-Fehler) */

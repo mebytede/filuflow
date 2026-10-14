@@ -379,3 +379,16 @@ eintragen; ein Paket ohne ladbare Knoten wird wieder entfernt. Abweichend von n8
 - Beim Aktualisieren und Entfernen nimmt filuflow Knoten- und Credential-Typen aus der Registry und leert den
   `require`-Cache des Pakets; ein Neustart ist nicht nötig. Es gibt keine Prüfung auf "verifizierte" Pakete und keine
   Prüfsummen, weil filuflow keine Liste geprüfter Pakete von n8n bezieht.
+
+## Poll- und Trigger-Knoten aus Paketen (M31)
+Knoten mit `poll()` oder `trigger()` bekommen eine allgemeine Aktivierung (`NodeType.activate`, `src/server/activations.ts`)
+statt eines eigenen Dienstes je Knotentyp. Maßstab ist n8n-core 1.122.0: `activatePolling` (Poll Times über
+`toCronExpression` mit zufälliger Sekunde, erster Abruf beim Aktivieren, Fehler dabei verhindern die Aktivierung, Abstand
+mindestens eine Minute), `runTrigger` und `executePollNode`/`executeTriggerNode` für den manuellen Lauf. Wie dort speichert
+`emit` die statischen Daten und startet eine Ausführung ab dem Knoten; Fehler starten den Fehler-Workflow mit den Daten
+`{ trigger: { error, mode }, workflow }`. Ein Trigger-Knoten, der `emitError` meldet, wird geschlossen und mit doppeltem
+Abstand ab einer Sekunde neu gestartet (höchstens 24 Stunden), wie n8n mit `addQueuedWorkflowActivation`.
+
+Der Kontext eines aktiven Auslösers ist derselbe wie bei einer Ausführung (`WorkflowExecutor.contextFor`), nur ohne
+Eingangsdaten; dadurch gelten Credentials, Expressions und statische Daten wie sonst. Die CLI führt Poll- und
+Trigger-Knoten wie den manuellen Lauf aus, wenn keine Eingabedaten übergeben werden.

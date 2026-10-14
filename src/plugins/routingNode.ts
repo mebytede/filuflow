@@ -165,7 +165,7 @@ export async function runRoutingNode(ctx: ExecContext, rawDescription: N8nNodeDe
   }
 
   /** getRequestOptionsFromParameters */
-  const optionsFrom = (thisArgs: Values, prop: N8nProperty & { value?: unknown }, itemIndex: number, path: string, keys: Values): ResultOptions | undefined => {
+  const optionsFrom = (thisArgs: Values, prop: Omit<N8nProperty, 'type'> & { type?: string; value?: unknown }, itemIndex: number, path: string, keys: Values): ResultOptions | undefined => {
     const out = emptyResult();
     let basePath = path ? `${path}.` : '';
     // n8n prüft die Sichtbarkeit immer gegen die Parameter der obersten Ebene

@@ -154,6 +154,27 @@ export interface AiInput {
   label: string;
 }
 
+/**
+ * Aktivierung eines Auslösers, den kein eingebauter Dienst (Webhooks, Zeitpläne) bedient (M31): Poll- und Trigger-Knoten
+ * aus n8n-Paketen. Der Server ruft activate beim Aktivieren des Workflows auf und close beim Deaktivieren.
+ */
+export interface Activation {
+  /** Kontext des Knotens ohne laufende Ausführung (Parameter, Credentials, statische Daten), Modus "trigger" */
+  ctx: ExecContext;
+  /** Ausführung mit diesen Daten je Ausgang des Knotens starten (n8n __emit / emit) */
+  emit(outputs: Item[][]): void;
+  /** Fehler melden (n8n __emitError / emitError); fatal: Auslöser neu starten wie n8n bei Trigger-Knoten */
+  emitError(error: Error, options?: { fatal?: boolean }): void;
+  /** Wiederkehrend ausführen (Cron mit Sekunden, Zeitzone des Workflows); endet mit close */
+  schedule(cronExpression: string, run: () => void | Promise<void>): void;
+  /** Statische Daten speichern (n8n: vor jedem emit) */
+  saveStaticData(): void;
+}
+
+export interface ActivationHandle {
+  close?(): Promise<void> | void;
+}
+
 export interface NodeType {
   /** z. B. "n8n-nodes-base.set" */
   type: string;
@@ -202,6 +223,8 @@ export interface NodeType {
    * (n8n-Semantik: nodeSuccessData === null).
    */
   execute(ctx: ExecContext): Promise<NodeOutput | null | EngineRequest>;
+  /** Auslöser im aktiven Workflow starten (M31, Poll- und Trigger-Knoten aus n8n-Paketen) */
+  activate?(activation: Activation): Promise<ActivationHandle>;
   /** Instanz für Sub-Nodes (KI): wird vom Eltern-Node über getSubNodeInstance geholt */
   supplyData?(ctx: ExecContext, itemIndex: number): Promise<unknown>;
 }

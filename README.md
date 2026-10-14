@@ -333,7 +333,10 @@ Community-Paket (Ordner mit `package.json` und `"n8n": { "nodes": [...], "creden
 Binärdaten). Das Paket `n8n-workflow` muss nicht installiert sein: filuflow stellt Fehlerklassen, Verbindungstypen und
 Hilfsfunktionen bereit. Deklarative Knoten (ohne `execute`, Requests über `requestDefaults` und `routing` beschrieben, wie
 viele Community-Knoten aus der n8n-Vorlage) laufen ebenfalls, mit Pagination, Nachbearbeitung und der Einstellung "Request
-Options" (Batching, Proxy, Timeout). Trigger-, Polling- und Webhook-Knoten werden noch nicht geladen.
+Options" (Batching, Proxy, Timeout). Poll-Knoten (z. B. Postfach- oder Feed-Trigger) fragen im aktiven Workflow nach den
+"Poll Times" ab (wie n8n mindestens jede Minute, erster Abruf beim Aktivieren) und merken sich ihren Stand in den statischen
+Daten; Trigger-Knoten mit eigener Verbindung (z. B. Nachrichten-Broker) starten über `emit` Ausführungen und werden beim
+Deaktivieren geschlossen. Im Editor laufen beide einmal direkt. Webhook-Knoten aus Paketen werden noch nicht geladen.
 
 **Community-Pakete installieren:** Auf der Seite **Pakete** (im Master auf der Seite eines Workers) installieren Sie
 n8n-Community-Pakete aus npm per Name (`n8n-nodes-…` oder `@scope/n8n-nodes-…`, optional mit Version), aktualisieren und

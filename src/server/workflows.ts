@@ -12,6 +12,7 @@ import type { CredentialProvider } from '../credentials/store.js';
 import type { WorkflowSource } from '../runner.js';
 import type { WebhookService, RegisteredWebhook } from './webhooks.js';
 import type { Scheduler } from './schedules.js';
+import type { TriggerActivations } from './activations.js';
 import type { Logger } from '../logger.js';
 
 export interface ManagedWorkflow {
@@ -33,6 +34,8 @@ export interface WorkflowManagerOptions {
   credentials: CredentialProvider;
   webhooks: WebhookService;
   scheduler: Scheduler;
+  /** Poll- und Trigger-Knoten aus Paketen (M31) */
+  triggers?: TriggerActivations;
   logger: Logger;
 }
 
@@ -152,12 +155,12 @@ export class WorkflowManager implements WorkflowSource {
           logger.warn({ workflow: n.workflow.name, err: (error as Error).message }, 'Test-Webhook nicht registriert');
         }
       }
-      if (managed.wantsActive) this.activate(managed, result.valid);
+      if (managed.wantsActive) await this.activate(managed, result.valid);
       else logger.info({ workflow: n.workflow.name, file: n.file }, 'Workflow geladen (inaktiv)');
     }
   }
 
-  private activate(managed: ManagedWorkflow, valid: boolean): void {
+  private async activate(managed: ManagedWorkflow, valid: boolean): Promise<void> {
     const { logger } = this.options;
     if (!valid) {
       managed.activationError = managed.issues
@@ -171,8 +174,10 @@ export class WorkflowManager implements WorkflowSource {
       managed.webhooks = this.options.webhooks.activate(managed.workflow);
       try {
         this.options.scheduler.add(managed.workflow);
+        await this.options.triggers?.activate(managed.workflow);
       } catch (error) {
         this.options.webhooks.production.remove(managed.workflow.id, managed.workflow.name);
+        this.options.scheduler.remove(managed.workflow);
         managed.webhooks = [];
         throw error;
       }
@@ -193,6 +198,7 @@ export class WorkflowManager implements WorkflowSource {
     this.options.webhooks.production.remove(managed.workflow.id, managed.workflow.name);
     this.options.webhooks.test.remove(managed.workflow.id, managed.workflow.name);
     this.options.scheduler.remove(managed.workflow);
+    void this.options.triggers?.deactivate(managed.workflow).catch(() => undefined);
     managed.active = false;
   }
 

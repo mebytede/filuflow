@@ -25,6 +25,7 @@ import type { NodeRegistry } from '../nodes/registry.js';
 import {
   isEngineRequest,
   type EngineRequest,
+  type ExecContext,
   type EngineResponse,
   type ExecuteWorkflowRequest,
   type ExecuteWorkflowResult,
@@ -1146,6 +1147,23 @@ export class WorkflowExecutor {
     });
     const result = await nodeType.execute(ctx);
     return result ?? null;
+  }
+
+  /**
+   * Kontext eines Knotens ohne laufende Ausführung (M31): aktivierte Trigger- und Poll-Knoten lesen damit Parameter,
+   * Credentials und statische Daten wie in n8n PollContext/TriggerContext (ohne Eingangsdaten)
+   */
+  contextFor(nodeName: string): ExecContext {
+    const node = this.graph.getNode(nodeName);
+    if (!node) throw new WorkflowValidationError(`Knoten "${nodeName}" existiert nicht`, [{ severity: 'error', code: 'trigger.unknown', message: `Knoten "${nodeName}" existiert nicht` }]);
+    return new NodeExecutionContext({
+      executor: this,
+      node,
+      executeData: { node, data: { main: [[]] }, source: null } as unknown as ExecuteData,
+      inputs: [[]],
+      connectionInputData: [],
+      runIndex: 0,
+    });
   }
 
   /** n8n handleNodeErrorOutput: fehlerhafte Items auf den letzten Ausgang */

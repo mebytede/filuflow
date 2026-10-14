@@ -22,6 +22,7 @@ import { registerChatAssets, registerUi } from './ui.js';
 import { registerWorkerApi } from './workerApi.js';
 import { VariableStore, registerVariablesApi } from './variablesApi.js';
 import { registerPackagesApi } from './packagesApi.js';
+import { TriggerActivations } from './activations.js';
 import { CommunityPackages, communityPackagesEnabled } from '../plugins/community.js';
 import { ChatSessionError, ChatSessions } from './chatSessions.js';
 import { registerOverview, triggersOf } from './overview.js';
@@ -207,7 +208,8 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
   if (packages && !(cp instanceof CommunityPackages)) {
     for (const r of await packages.loadInstalled()) for (const e of r.errors) logger.warn({ source: r.source, error: e }, 'Community-Paket mit Problemen');
   }
-  workflows = new WorkflowManager({ dir: options.dir, registry, credentials, webhooks, scheduler, logger });
+  const triggers = new TriggerActivations({ registry, manager, logger, saveStaticData });
+  workflows = new WorkflowManager({ dir: options.dir, registry, credentials, webhooks, scheduler, triggers, logger });
   await workflows.reload();
   // Pyodide braucht beim ersten Lauf etwa zwei Sekunden: vorladen, wenn ein Workflow Python nutzt
   if (process.env.FILUFLOW_PYTHON_PRELOAD !== 'false' && workflows.list().some((m) => usesPyodide(m.workflow))) {
@@ -497,6 +499,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
       setOAuth2TokenStore(undefined);
       workflows!.close();
       scheduler.stopAll();
+      await triggers.closeAll();
       await app.close();
       await manager.drain();
       store.close();

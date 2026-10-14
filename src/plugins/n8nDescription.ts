@@ -18,7 +18,7 @@ export interface N8nProperty {
   displayOptions?: { show?: DisplayRule; hide?: DisplayRule };
   typeOptions?: Record<string, unknown>;
   /** options/multiOptions: Werte; collection: Unterparameter; fixedCollection: Gruppen */
-  options?: Array<N8nProperty & { value?: string | number | boolean; values?: N8nProperty[] }>;
+  options?: Array<Omit<N8nProperty, 'type'> & { type?: string; value?: string | number | boolean; values?: N8nProperty[] }>;
   modes?: Array<{ name: string; displayName?: string; placeholder?: string }>;
   routing?: unknown;
 }
