@@ -5,7 +5,7 @@
 // utils/*): getInputData, getNodeParameter (mit Defaults wie getNodeParameters), getCredentials, continueOnFail,
 // helpers.httpRequest/request (mit und ohne Authentifizierung), returnJsonArray, constructExecutionMetaData und
 // Binärdaten. Deklarative Knoten (routing, ohne execute) führt src/plugins/routingNode.ts aus (M29), Poll- und
-// Trigger-Knoten src/plugins/triggerNode.ts (M31). Webhook-Knoten meldet der Lader als nicht unterstützt.
+// Trigger-Knoten src/plugins/triggerNode.ts (M31), Webhook-Knoten src/plugins/webhookNode.ts (M32).
 import type { ExecContext, NodeIssue, NodeType } from '../nodes/types.js';
 import type { NodeOutput, WorkflowNode } from '../types.js';
 import { NodeOperationError, ApplicationError } from './n8nWorkflowShim.js';
@@ -15,6 +15,7 @@ import { executeHelpers } from '../nodes/shared/executeHelpers.js';
 import { getByPath } from '../expressions/resolve.js';
 import { isDeclarative, runRoutingNode, withRequestOptions } from './routingNode.js';
 import { activateTrigger, executeTrigger, withPollTimes, type N8nTriggerImpl } from './triggerNode.js';
+import { hasPackageWebhooks, packageWebhooks, type N8nWebhookImpl } from './webhookNode.js';
 
 /** Ausschnitt aus INodeType */
 export interface N8nNodeInstance {
@@ -22,7 +23,8 @@ export interface N8nNodeInstance {
   execute?: (this: unknown) => Promise<unknown>;
   trigger?: N8nTriggerImpl['trigger'];
   poll?: N8nTriggerImpl['poll'];
-  webhook?: unknown;
+  webhook?: N8nWebhookImpl['webhook'];
+  webhookMethods?: N8nWebhookImpl['webhookMethods'];
   supplyData?: unknown;
   /** IVersionedNodeType */
   nodeVersions?: Record<number, N8nNodeInstance>;
@@ -34,7 +36,8 @@ export function unsupportedReason(node: N8nNodeInstance): string | undefined {
   const versions = node.nodeVersions ? Object.values(node.nodeVersions) : [node];
   for (const v of versions) {
     if (typeof v.execute === 'function' || isDeclarative(v)) continue;
-    if (v.webhook || v.description.webhooks?.length) return 'Webhook-Knoten aus n8n-Paketen werden noch nicht unterstützt';
+    if (hasPackageWebhooks(v as N8nWebhookImpl)) continue;
+    if (v.webhook || v.description.webhooks?.length) return 'Webhook-Knoten ohne webhook-Methode oder ohne Beschreibung der Webhooks';
     if (typeof v.poll === 'function' || typeof v.trigger === 'function') continue;
     if (v.description.polling) return 'Poll-Knoten ohne poll-Methode';
     if (v.supplyData) return 'KI-Sub-Nodes aus n8n-Paketen werden noch nicht unterstützt';
@@ -128,6 +131,8 @@ export function n8nNodeType(packageName: string, instance: N8nNodeInstance): Nod
   // Deklarative Knoten bekommen wie in n8n die Einstellung "Request Options"
   const describe = (impl: N8nNodeInstance) => (isDeclarative(impl) ? withRequestOptions(impl.description) : withPollTimes(impl.description));
   const isTriggerImpl = (impl: N8nNodeInstance) => typeof impl.execute !== 'function' && (typeof impl.poll === 'function' || typeof impl.trigger === 'function');
+  const isWebhookImpl = (impl: N8nNodeInstance) => typeof impl.execute !== 'function' && hasPackageWebhooks(impl as N8nWebhookImpl);
+  const webhooksFor = (version: number) => packageWebhooks(forVersion(version) as N8nWebhookImpl);
   const allVersions = instance.nodeVersions ? Object.values(instance.nodeVersions) : [instance];
   const latest = forVersion(Math.max(...versions));
   const description = (node: WorkflowNode) => describe(forVersion(node.typeVersion));
@@ -136,7 +141,17 @@ export function n8nNodeType(packageName: string, instance: N8nNodeInstance): Nod
     displayName: base.displayName,
     versions,
     group: 'Erweiterungen',
-    ...(allVersions.some(isTriggerImpl) ? { isTrigger: true } : {}),
+    ...(allVersions.some((v) => isTriggerImpl(v) || isWebhookImpl(v)) ? { isTrigger: true } : {}),
+    ...(allVersions.some(isWebhookImpl)
+      ? {
+          packageWebhooks: {
+            describe: (ctx) => (isWebhookImpl(forVersion(ctx.node.typeVersion)) ? webhooksFor(ctx.node.typeVersion).describe(ctx) : []),
+            handle: (call) => webhooksFor(call.ctx.node.typeVersion).handle(call),
+            lifecycle: (ctx, name, method, o) => webhooksFor(ctx.node.typeVersion).lifecycle!(ctx, name, method, o),
+            hasLifecycle: (name) => allVersions.some((v) => !!v.webhookMethods?.[name]),
+          },
+        }
+      : {}),
     parameters: propertiesToSchema(describe(latest).properties),
     inputs: (node) => mainCount(description(node).inputs, 1),
     outputs: (node) => Math.max(1, mainCount(description(node).outputs, 1)),
@@ -155,6 +170,8 @@ export function n8nNodeType(packageName: string, instance: N8nNodeInstance): Nod
       const impl = forVersion(ctx.node.typeVersion);
       if (typeof impl.execute !== 'function' && isDeclarative(impl)) return runRoutingNode(ctx, impl.description);
       if (isTriggerImpl(impl)) return executeTrigger(impl as N8nTriggerImpl, ctx);
+      // workflow-execute.ts runNode: Webhook-Knoten geben die Daten des Aufrufs weiter
+      if (isWebhookImpl(impl)) return ctx.inputs.length ? ctx.inputs : [[{ json: {} }]];
       if (typeof impl.execute !== 'function') throw new NodeOperationError(ctx.node, unsupportedReason(impl) ?? 'Knoten ohne execute');
       const result = await impl.execute.call(executeFunctions(ctx, impl.description));
       if (result === null || result === undefined) return null;

@@ -336,7 +336,10 @@ viele Community-Knoten aus der n8n-Vorlage) laufen ebenfalls, mit Pagination, Na
 Options" (Batching, Proxy, Timeout). Poll-Knoten (z. B. Postfach- oder Feed-Trigger) fragen im aktiven Workflow nach den
 "Poll Times" ab (wie n8n mindestens jede Minute, erster Abruf beim Aktivieren) und merken sich ihren Stand in den statischen
 Daten; Trigger-Knoten mit eigener Verbindung (z. B. Nachrichten-Broker) starten über `emit` Ausführungen und werden beim
-Deaktivieren geschlossen. Im Editor laufen beide einmal direkt. Webhook-Knoten aus Paketen werden noch nicht geladen.
+Deaktivieren geschlossen. Im Editor laufen beide einmal direkt. Webhook-Knoten aus Paketen bekommen ihre URL wie in n8n
+(`/webhook/<webhookId>/<pfad>`, Test unter `/webhook-test/…`); Knoten, die sich beim Dienst anmelden (`webhookMethods`),
+melden sich beim Aktivieren an und beim Deaktivieren ab, im Editor auch für die Test-URL. KI-Sub-Nodes aus Paketen werden
+noch nicht geladen.
 
 **Community-Pakete installieren:** Auf der Seite **Pakete** (im Master auf der Seite eines Workers) installieren Sie
 n8n-Community-Pakete aus npm per Name (`n8n-nodes-…` oder `@scope/n8n-nodes-…`, optional mit Version), aktualisieren und

@@ -194,7 +194,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
     staticData: staticFor,
     saveStaticData,
   });
-  const webhooks = new WebhookService({ manager, credentials, binary, logger, webhookBaseUrl: options.webhookBaseUrl, store, vars: variables.vars });
+  const webhooks = new WebhookService({ manager, credentials, binary, logger, webhookBaseUrl: options.webhookBaseUrl, store, vars: variables.vars, registry, saveStaticData });
   const scheduler = new Scheduler(manager, logger, staticFor);
   // Installierte Community-Pakete vor den Workflows laden; Änderungen prüfen die Workflows neu
   const cp = options.communityPackages;

@@ -315,6 +315,7 @@ Engine-Reihenfolge, Expressions (inkl. Rohwert vs. String), jeder Node, Filter-O
 | M29 | Deklarative Knoten | Community-Knoten mit requestDefaults und routing wie n8n RoutingNode |
 | M30 | Community-Pakete installieren | Installieren, Aktualisieren, Entfernen aus der Oberfläche und per API, auch beim Worker über den Master |
 | M31 | Poll- und Trigger-Knoten aus Paketen | Aktivierung mit Poll Times und emit wie n8n, manueller Lauf, Fehler-Workflow, Neustart nach Fehlern |
+| M32 | Webhook-Knoten aus Paketen | Pfade und Antwortmodi wie n8n, WebhookContext, Anmeldung beim Dienst (webhookMethods), Test-URL |
 
 Nach jedem Meilenstein: `docs/STATUS.md` aktualisieren (was geht, was fehlt) und einen Commit mit aussagekräftiger Nachricht.
 
@@ -335,8 +336,8 @@ Offene Funktionen, ungefähr nach Nutzen geordnet. Jede wird wie ein Meilenstein
   (Responses API, Groq, Mistral, Ollama, DeepSeek, OpenRouter, Azure OpenAI, Think Tool: M26; Embeddings, Simple Vector
   Store, Retriever, Q&A Chain: M27)
 - Dienst-Knoten mit eigenen OAuth-Flows (Gmail, Slack, Microsoft 365 usw.) und weitere Integrationen
-- Community-Nodes: Webhook-Knoten aus n8n-Paketen (Plugin-Schnittstelle und programmatische Knoten: M24; deklarative
-  Knoten: M29; Installation aus der Oberfläche: M30; Poll- und Trigger-Knoten: M31)
+- Community-Nodes: KI-Sub-Nodes aus n8n-Paketen (Plugin-Schnittstelle und programmatische Knoten: M24; deklarative
+  Knoten: M29; Installation aus der Oberfläche: M30; Poll- und Trigger-Knoten: M31; Webhook-Knoten: M32)
 
 ### 11.3 Credentials
 (Anlegen und Bearbeiten in der Oberfläche: M11; Import verschlüsselter n8n-Exporte und Freigabe für Projekte im Master: M22)

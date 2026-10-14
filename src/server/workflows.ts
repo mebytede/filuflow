@@ -174,6 +174,8 @@ export class WorkflowManager implements WorkflowSource {
       managed.webhooks = this.options.webhooks.activate(managed.workflow);
       try {
         this.options.scheduler.add(managed.workflow);
+        // Webhooks von Paket-Knoten beim Dienst anmelden (webhookMethods), dann Poll- und Trigger-Knoten
+        await this.options.webhooks.runPackageLifecycle(managed.workflow, 'create');
         await this.options.triggers?.activate(managed.workflow);
       } catch (error) {
         this.options.webhooks.production.remove(managed.workflow.id, managed.workflow.name);
@@ -195,6 +197,11 @@ export class WorkflowManager implements WorkflowSource {
   }
 
   private deactivate(managed: ManagedWorkflow): void {
+    if (managed.active) {
+      void this.options.webhooks.runPackageLifecycle(managed.workflow, 'delete').catch((error: unknown) =>
+        this.options.logger.warn({ workflow: managed.workflow.name, err: (error as Error).message }, 'Webhook konnte beim Dienst nicht abgemeldet werden'),
+      );
+    }
     this.options.webhooks.production.remove(managed.workflow.id, managed.workflow.name);
     this.options.webhooks.test.remove(managed.workflow.id, managed.workflow.name);
     this.options.scheduler.remove(managed.workflow);

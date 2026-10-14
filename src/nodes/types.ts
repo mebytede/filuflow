@@ -175,6 +175,55 @@ export interface ActivationHandle {
   close?(): Promise<void> | void;
 }
 
+/** Webhook eines Knotens aus einem n8n-Paket (M32), Werte der description.webhooks ausgewertet */
+export interface PackageWebhook {
+  name: string;
+  /** HTTP-Methode (bei mehreren je ein Eintrag) */
+  method: string;
+  /** Pfad aus der Beschreibung ohne führende und abschließende Schrägstriche */
+  path: string;
+  isFullPath: boolean;
+  responseMode: string;
+  responseCode: number;
+  responseData?: string;
+}
+
+/** Antwortobjekt im Stil von Express (getResponseObject), sammelt Status, Header und Body */
+export interface WebhookResponseCollector {
+  statusCode: number;
+  headersSent: boolean;
+  /** true, sobald die Antwort vollständig ist (end, send, json) */
+  readonly finished: boolean;
+  readonly headers: Record<string, string>;
+  readonly body: Buffer;
+}
+
+export interface PackageWebhookCall {
+  /** Kontext des Knotens (Modus "webhook" oder im Test "manual") */
+  ctx: ExecContext;
+  webhookName: string;
+  request: {
+    method: string;
+    headers: Record<string, string | string[] | undefined>;
+    query: Record<string, unknown>;
+    params: Record<string, string>;
+    body: unknown;
+    rawBody: Buffer;
+    ip: string;
+    ips: string[];
+    url: string;
+  };
+  response: WebhookResponseCollector & Record<string, unknown>;
+  /** URL eines Webhooks dieses Knotens (Test- oder Produktiv-URL) */
+  webhookUrl(name: string): string | undefined;
+}
+
+export interface PackageWebhookResult {
+  workflowData?: Item[][];
+  webhookResponse?: unknown;
+  noWebhookResponse?: boolean;
+}
+
 export interface NodeType {
   /** z. B. "n8n-nodes-base.set" */
   type: string;
@@ -223,6 +272,15 @@ export interface NodeType {
    * (n8n-Semantik: nodeSuccessData === null).
    */
   execute(ctx: ExecContext): Promise<NodeOutput | null | EngineRequest>;
+  /** Webhooks eines Knotens aus einem n8n-Paket (M32): Beschreibung, Aufruf und Registrierung beim Dienst */
+  packageWebhooks?: {
+    describe(ctx: ExecContext): PackageWebhook[];
+    handle(call: PackageWebhookCall): Promise<PackageWebhookResult>;
+    /** webhookMethods: checkExists, create, delete (Registrierung beim Dienst, z. B. per API) */
+    lifecycle?(ctx: ExecContext, webhookName: string, method: 'checkExists' | 'create' | 'delete', o: { isTest: boolean; webhookUrl(name: string): string | undefined }): Promise<boolean | undefined>;
+    /** Hat der Webhook Methoden zur Registrierung? */
+    hasLifecycle(webhookName: string): boolean;
+  };
   /** Auslöser im aktiven Workflow starten (M31, Poll- und Trigger-Knoten aus n8n-Paketen) */
   activate?(activation: Activation): Promise<ActivationHandle>;
   /** Instanz für Sub-Nodes (KI): wird vom Eltern-Node über getSubNodeInstance geholt */

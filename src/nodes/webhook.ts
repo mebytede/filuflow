@@ -254,6 +254,30 @@ async function parseMultipart(req: IncomingWebhookRequest): Promise<{ data: Reco
   return { data: norm(data), files: norm(files) as Record<string, File | File[]> };
 }
 
+/**
+ * webhook-helpers.ts parseRequestBody für Knoten aus n8n-Paketen (M32): multipart als { data, files }, sonst nach
+ * Content-Type; ab Knotenversion 2 nur JSON, Text, Formular und XML. Ohne lesbaren Body undefined.
+ */
+export async function parseRequestBodyForNode(req: IncomingWebhookRequest, version: number, binaryData = false): Promise<unknown> {
+  if (binaryData) return undefined;
+  const info = parseContentType(header(req, 'content-type'));
+  const contentType = info?.type;
+  if (contentType === 'multipart/form-data') return parseMultipart(req);
+  if (
+    version > 1 &&
+    !(
+      contentType?.startsWith('application/json') ||
+      contentType?.startsWith('text/plain') ||
+      contentType?.startsWith('application/x-www-form-urlencoded') ||
+      contentType?.endsWith('/xml') ||
+      contentType?.endsWith('+xml')
+    )
+  ) {
+    return undefined;
+  }
+  return parseBody(req.rawBody, contentType, info?.charset ?? 'utf-8');
+}
+
 /** isIpWhitelisted (utils.ts) */
 export function isIpWhitelisted(whitelist: string | string[] | undefined, ips: string[], ip?: string): boolean {
   if (whitelist === undefined || whitelist === '') return true;

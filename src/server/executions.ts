@@ -330,8 +330,8 @@ export class ExecutionManager {
   }
 
   /** Kontext eines Knotens ohne Ausführung für aktivierte Auslöser (M31), mit den statischen Daten des Workflows */
-  activationContext(workflow: Workflow, nodeName: string): ExecContext {
-    return this.options.runner.activationContext({ workflow, mode: 'trigger', staticData: this.options.staticData(workflow) }, nodeName);
+  activationContext(workflow: Workflow, nodeName: string, mode: ExecutionMode = 'trigger'): ExecContext {
+    return this.options.runner.activationContext({ workflow, mode, staticData: this.options.staticData(workflow) }, nodeName);
   }
 
   private runErrorWorkflow(workflow: Workflow, errorData: Record<string, unknown>, mode: ExecutionMode): void {

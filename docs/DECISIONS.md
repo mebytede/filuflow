@@ -392,3 +392,17 @@ Abstand ab einer Sekunde neu gestartet (höchstens 24 Stunden), wie n8n mit `add
 Der Kontext eines aktiven Auslösers ist derselbe wie bei einer Ausführung (`WorkflowExecutor.contextFor`), nur ohne
 Eingangsdaten; dadurch gelten Credentials, Expressions und statische Daten wie sonst. Die CLI führt Poll- und
 Trigger-Knoten wie den manuellen Lauf aus, wenn keine Eingabedaten übergeben werden.
+
+## Webhook-Knoten aus Paketen (M32)
+Paket-Knoten mit `webhook()` und `description.webhooks` laufen über den vorhandenen WebhookService; nur Beschreibung,
+Aufruf und Anmeldung kommen vom Knoten (`NodeType.packageWebhooks`, `src/plugins/webhookNode.ts`). Maßstab ist n8n 1.123.0
+`webhook.service.ts` (getNodeWebhooks, runWebhookMethod, runWebhook), `webhook-helpers.ts` (executeWebhook,
+evaluateResponseOptions, parseRequestBody) und die Kontexte WebhookContext und HookContext. Übernommen sind auch
+Eigenheiten: Ohne `responseData` in der Beschreibung antwortet n8n im Modus "onReceived" mit dem Text `firstEntryJson`
+(Default von getComplexParameterValue, den extractWebhookOnReceivedResponse vor `webhookResponse` prüft); ab Knotenversion
+2 werden nur JSON-, Text-, Formular- und XML-Bodies gelesen.
+
+Die Anmeldung beim Dienst (`checkExists`, `create`, `delete`) läuft beim Aktivieren vor den Poll- und Trigger-Knoten;
+scheitert sie, wird der Workflow nicht aktiviert. Beim Warten auf einen Test-Aufruf meldet filuflow den Test-Webhook an
+und danach wieder ab. Für das eigene Antworten (`noWebhookResponse`) gibt es ein Antwortobjekt im Stil von Express, das
+Status, Header und Body sammelt; Streaming über dieses Objekt ist nicht nachgebaut.

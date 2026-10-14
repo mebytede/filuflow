@@ -17,11 +17,15 @@ import {
   describeWebhooks,
   handleWebhookRequest,
   responseOptions,
+  parseRequestBodyForNode,
   type IncomingWebhookRequest,
   type WebhookDescription,
   type WebhookResponseOptions,
 } from '../nodes/webhook.js';
-import type { WebhookResponse } from '../nodes/types.js';
+import type { PackageWebhook, PackageWebhookResult, WebhookResponse } from '../nodes/types.js';
+import type { NodeRegistry } from '../nodes/registry.js';
+import { nodeWebhookPath } from '../plugins/webhookNode.js';
+import { ResponseCollector } from './responseCollector.js';
 import { WorkflowGraph } from '../engine/graph.js';
 import type { BinaryStore } from '../binary.js';
 import type { CredentialProvider } from '../credentials/store.js';
@@ -46,6 +50,19 @@ export interface RegisteredWebhook extends WebhookDescription {
   webhookPath: string;
   staticSegments: string[];
   pathLength: number;
+  /** Webhook eines Knotens aus einem n8n-Paket (M32): Name aus description.webhooks */
+  packageWebhook?: string;
+}
+
+/** Webhooks eines Paket-Knotens mit vollständigem Pfad (getNodeWebhooks) */
+export type PackageHookResolver = (workflow: Workflow, node: WorkflowNode) => Array<{ webhook: PackageWebhook; path: string }> | undefined;
+
+/** webhook.service.ts isDynamicPath */
+function isDynamicPath(rawPath: string): boolean {
+  const i = rawPath.indexOf('/');
+  const path = i !== -1 ? rawPath.substring(i + 1) : rawPath;
+  if (path === '' || path === ':' || path === '/:') return false;
+  return path.startsWith(':') || path.includes('/:');
 }
 
 export interface HttpResponse {
@@ -122,7 +139,10 @@ export class WebhookRegistry {
   private readonly dynamicHooks: RegisteredWebhook[] = [];
 
   /** resolveNode: Expressions in den Parametern des Webhook-Knotens auswerten (Pfad, Methoden) */
-  constructor(private readonly resolveNode: (workflow: Workflow, node: WorkflowNode) => WorkflowNode = (_w, n) => n) {}
+  constructor(
+    private readonly resolveNode: (workflow: Workflow, node: WorkflowNode) => WorkflowNode = (_w, n) => n,
+    private readonly packageHooks?: PackageHookResolver,
+  ) {}
 
   private static key(method: string, path: string, form = false): string {
     return `${method} ${form ? 'form:' : ''}${path}`;
@@ -146,6 +166,27 @@ export class WebhookRegistry {
         // Chat Trigger: GET (Seite) und POST (Nachrichten) unter <webhookId>/chat
         const path = chatWebhookPath(node);
         for (const method of ['GET', 'POST']) hooks.push({ node: node.name, method, path, isDynamic: false, workflow, webhookPath: path, staticSegments: path.split('/'), pathLength: 2 });
+        continue;
+      }
+      const pkg = node.disabled ? undefined : this.packageHooks?.(workflow, node);
+      if (pkg) {
+        for (const { webhook, path } of pkg) {
+          const dynamic = isDynamicPath(path) && !!node.webhookId;
+          const webhookPath = dynamic ? path.split('/').slice(1).join('/') : path;
+          const segments = webhookPath.split('/');
+          hooks.push({
+            node: node.name,
+            method: webhook.method,
+            path,
+            isDynamic: dynamic,
+            ...(dynamic ? { webhookId: node.webhookId } : {}),
+            workflow,
+            webhookPath,
+            staticSegments: segments.filter((x) => !x.startsWith(':')),
+            pathLength: segments.length,
+            packageWebhook: webhook.name,
+          });
+        }
         continue;
       }
       if (node.type !== WEBHOOK_NODE_TYPE) continue;
@@ -310,6 +351,10 @@ export interface WebhookServiceOptions {
   store?: ExecutionStore;
   /** $vars für Expressions in Webhook-Parametern */
   vars?: Record<string, unknown>;
+  /** Knotentypen, für Webhook-Knoten aus n8n-Paketen (M32) */
+  registry?: NodeRegistry;
+  /** Statische Daten speichern (nach dem Anmelden von Webhooks beim Dienst) */
+  saveStaticData?: (workflow: Workflow, mode: string) => void;
 }
 
 /** Letzte Ausführung des zuletzt ausgeführten Nodes (WorkflowHelpers.getDataLastExecutedNodeData) */
@@ -334,8 +379,52 @@ export class WebhookService {
 
   constructor(private readonly options: WebhookServiceOptions) {
     this.resolveNode = (workflow, node) => (node.type === WEBHOOK_NODE_TYPE ? resolveWebhookNode(workflow, node, options.vars) : node);
-    this.production = new WebhookRegistry(this.resolveNode);
-    this.test = new WebhookRegistry(this.resolveNode);
+    this.production = new WebhookRegistry(this.resolveNode, this.packageHookResolver);
+    this.test = new WebhookRegistry(this.resolveNode, this.packageHookResolver);
+  }
+
+  /** getNodeWebhooks für Knoten aus n8n-Paketen */
+  private readonly packageHookResolver: PackageHookResolver = (workflow, node) => {
+    const type = this.options.registry?.getVersioned(node.type, node.typeVersion);
+    if (!type?.packageWebhooks) return undefined;
+    const ctx = this.options.manager.activationContext(workflow, node.name, 'webhook');
+    return type.packageWebhooks.describe(ctx).map((webhook) => ({ webhook, path: nodeWebhookPath(workflow.id ?? '__UNSAVED__', node, webhook.path, webhook.isFullPath) }));
+  };
+
+  /** getNodeWebhookUrl eines Paket-Knotens (Test-URL mit /webhook-test/) */
+  private packageWebhookUrl(workflow: Workflow, node: WorkflowNode, name: string, test: boolean): string | undefined {
+    const hook = this.packageHookResolver(workflow, node)?.find((h) => h.webhook.name === name);
+    if (!hook) return undefined;
+    return `${this.options.webhookBaseUrl}${test ? 'webhook-test' : 'webhook'}/${hook.path}`;
+  }
+
+  /**
+   * webhookMethods eines Paket-Knotens für alle seine Webhooks: beim Aktivieren checkExists und bei Bedarf create
+   * (createWebhookIfNotExists), beim Deaktivieren delete. Danach werden die statischen Daten gespeichert.
+   */
+  async runPackageLifecycle(workflow: Workflow, action: 'create' | 'delete', test = false): Promise<void> {
+    const registry = this.options.registry;
+    if (!registry) return;
+    const mode = test ? 'manual' : 'webhook';
+    for (const node of workflow.nodes) {
+      if (node.disabled) continue;
+      const type = registry.getVersioned(node.type, node.typeVersion);
+      const pw = type?.packageWebhooks;
+      if (!pw?.lifecycle) continue;
+      const hooks = this.packageHookResolver(workflow, node) ?? [];
+      const names = [...new Set(hooks.map((h) => h.webhook.name))].filter((n) => pw.hasLifecycle(n));
+      for (const name of names) {
+        const ctx = this.options.manager.activationContext(workflow, node.name, mode);
+        const o = { isTest: test, webhookUrl: (n: string) => this.packageWebhookUrl(workflow, node, n, test) };
+        if (action === 'create') {
+          const exists = await pw.lifecycle(ctx, name, 'checkExists', o);
+          if (!exists) await pw.lifecycle(ctx, name, 'create', o);
+        } else {
+          await pw.lifecycle(ctx, name, 'delete', o);
+        }
+      }
+    }
+    if (!test) this.options.saveStaticData?.(workflow, 'webhook');
   }
 
   /**
@@ -346,14 +435,26 @@ export class WebhookService {
   listen(workflow: Workflow, timeoutMs: number): { promise: Promise<ActiveExecution | undefined>; cancel(): void } {
     const key = workflow.id ?? workflow.name;
     this.listeners.get(key)?.finish(undefined);
-    const registry = new WebhookRegistry(this.resolveNode);
+    const registry = new WebhookRegistry(this.resolveNode, this.packageHookResolver);
     const hooks = registry.add(workflow);
     if (!hooks.length) throw new WebhookConflictError('Der Workflow hat keinen Webhook-, Formular- oder Chat-Trigger');
+    // Paket-Knoten mit webhookMethods: Test-Webhook beim Dienst anmelden und nach dem Warten wieder abmelden (n8n
+    // test-webhooks.ts needsWebhook/deactivateWebhooks)
+    const registered = hooks.some((h) => h.packageWebhook)
+      ? this.runPackageLifecycle(workflow, 'create', true).catch((error: unknown) => {
+          this.options.logger.warn({ workflow: workflow.name, err: (error as Error).message }, 'Test-Webhook konnte beim Dienst nicht angemeldet werden');
+        })
+      : undefined;
     let finish!: (entry: ActiveExecution | undefined) => void;
     const promise = new Promise<ActiveExecution | undefined>((resolve) => {
       finish = (entry) => {
         clearTimeout(listener.timer);
         if (this.listeners.get(key) === listener) this.listeners.delete(key);
+        if (registered) {
+          void registered
+            .then(() => this.runPackageLifecycle(workflow, 'delete', true))
+            .catch((error: unknown) => this.options.logger.warn({ workflow: workflow.name, err: (error as Error).message }, 'Test-Webhook konnte beim Dienst nicht abgemeldet werden'));
+        }
         resolve(entry);
       };
     });
@@ -401,6 +502,7 @@ export class WebhookService {
     const workflow = hook.workflow;
     const original = workflow.nodes.find((n) => n.name === hook.node)!;
     if (original.type === CHAT_TRIGGER_TYPE) return this.handleChat(test, workflow, original, { ...request, params });
+    if (hook.packageWebhook) return this.handlePackage(test, hook, original, { ...request, params }, path);
     // Expressions in den Parametern je Aufruf auswerten (n8n executeWebhook, ohne Items)
     let node: WorkflowNode;
     try {
@@ -450,6 +552,59 @@ export class WebhookService {
         hooks,
       }),
     );
+  }
+
+  /** webhook-helpers.ts executeWebhook für Webhook-Knoten aus n8n-Paketen (M32) */
+  private async handlePackage(test: boolean, hook: RegisteredWebhook, node: WorkflowNode, request: IncomingWebhookRequest, path: string): Promise<HttpResponse> {
+    const workflow = hook.workflow;
+    const type = this.options.registry!.getVersioned(node.type, node.typeVersion)!;
+    const pw = type.packageWebhooks!;
+    const ctx = this.options.manager.activationContext(workflow, node.name, test ? 'manual' : 'webhook');
+    const description = pw.describe(ctx).find((w) => w.name === hook.packageWebhook && w.method === hook.method) ?? pw.describe(ctx).find((w) => w.name === hook.packageWebhook);
+    const responseMode = description?.responseMode ?? 'onReceived';
+    if (!['onReceived', 'lastNode', 'responseNode', 'streaming'].includes(responseMode)) {
+      return errorResponse(new Error(`The response mode '${responseMode}' is not valid!`));
+    }
+    let body: unknown;
+    try {
+      body = await parseRequestBodyForNode(request, node.typeVersion);
+    } catch (error) {
+      if (error instanceof UnprocessableRequestError) return errorResponse(Object.assign(new Error(error.message), { statusCode: 422, hint: error.hint }));
+      throw error;
+    }
+    const response = new ResponseCollector();
+    let result: PackageWebhookResult;
+    try {
+      result = await pw.handle({
+        ctx,
+        webhookName: hook.packageWebhook!,
+        request: { ...request, body, url: `/${test ? 'webhook-test' : 'webhook'}/${path}` },
+        response: response as unknown as ResponseCollector & Record<string, unknown>,
+        webhookUrl: (name) => this.packageWebhookUrl(workflow, node, name, test),
+      });
+    } catch (error) {
+      this.options.logger.error({ err: (error as Error).message, workflow: workflow.name, node: node.name }, 'Webhook-Fehler');
+      return errorResponse(new Error('Workflow Webhook Error: Workflow could not be started!'));
+    }
+    const responseCode = description?.responseCode ?? 200;
+    const start = (hooks: RunHooks) =>
+      this.startExecution({ workflow, mode: test ? 'manual' : 'webhook', startNodeName: node.name, triggerOutputs: result.workflowData, usePinData: test, hooks });
+    if (result.noWebhookResponse === true) {
+      // Der Knoten hat über getResponseObject selbst geantwortet
+      if (result.workflowData !== undefined) start({});
+      return response.toHttpResponse();
+    }
+    if (result.workflowData === undefined) {
+      return expressResponse(responseCode, response.headers, result.webhookResponse !== undefined ? result.webhookResponse : { message: 'Webhook call received' }, true);
+    }
+    const opts: WebhookResponseOptions = {
+      responseMode: responseMode as WebhookResponseOptions['responseMode'],
+      responseCode,
+      responseData: description?.responseData,
+      responseBinaryPropertyName: 'data',
+      responseHeaders: new Map(Object.entries(response.headers)),
+    };
+    return this.respondWith(opts, { webhookResponse: result.webhookResponse as string | undefined }, start);
   }
 
   // ---------------------------------------------------------------------------------------------
