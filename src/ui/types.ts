@@ -309,3 +309,20 @@ export interface InstanceInfo {
 export interface WorkflowStatus extends WorkflowSummary {
   issues: ValidationIssue[];
 }
+
+/** Installiertes Community-Paket (GET /api/community-packages) */
+export interface CommunityPackage {
+  packageName: string;
+  installedVersion: string;
+  installedNodes: Array<{ name: string; type: string }>;
+  installedCredentials: string[];
+  createdAt: string;
+  updatedAt: string;
+  /** Knoten des Pakets, die filuflow nicht laden konnte */
+  warnings?: string[];
+}
+
+export interface CommunityPackageList {
+  enabled: boolean;
+  data: CommunityPackage[];
+}

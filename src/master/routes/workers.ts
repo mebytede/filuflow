@@ -395,4 +395,50 @@ export function registerWorkerRoutes(api: FastifyInstance, ctx: MasterContext): 
       return sendWorkerError(reply, error);
     }
   });
+
+  // Community-Pakete beim Worker (M30): nur globale Admins; Installation führt Code des Pakets beim Worker aus
+  api.get('/api/admin/workers/:id/community-packages', async (request, reply) => {
+    if (!ctx.requireAdmin(request, reply)) return;
+    const worker = db.getWorker((request.params as { id: string }).id);
+    if (!worker) return reply.code(404).send({ message: 'Worker nicht gefunden' });
+    try {
+      return await hub.call(worker, 'GET', '/api/worker/community-packages', undefined, 15_000);
+    } catch (error) {
+      return sendWorkerError(reply, error);
+    }
+  });
+  for (const method of ['POST', 'PATCH'] as const) {
+    api.route({
+      method,
+      url: '/api/admin/workers/:id/community-packages',
+      handler: async (request, reply) => {
+        if (!ctx.requireAdmin(request, reply)) return;
+        const worker = db.getWorker((request.params as { id: string }).id);
+        if (!worker) return reply.code(404).send({ message: 'Worker nicht gefunden' });
+        const body = (request.body ?? {}) as { name?: unknown; version?: unknown };
+        const payload = { name: String(body.name ?? ''), ...(typeof body.version === 'string' && body.version ? { version: body.version } : {}) };
+        try {
+          // npm pack und npm install dauern; großzügige Frist
+          const result = await hub.call(worker, method, '/api/worker/community-packages', payload, 300_000);
+          ctx.audit(request, method === 'POST' ? 'worker.package_installed' : 'worker.package_updated', worker.id, payload);
+          return result;
+        } catch (error) {
+          return sendWorkerError(reply, error);
+        }
+      },
+    });
+  }
+  api.delete('/api/admin/workers/:id/community-packages', async (request, reply) => {
+    if (!ctx.requireAdmin(request, reply)) return;
+    const worker = db.getWorker((request.params as { id: string }).id);
+    if (!worker) return reply.code(404).send({ message: 'Worker nicht gefunden' });
+    const name = String((request.query as { name?: unknown }).name ?? '');
+    try {
+      await hub.call(worker, 'DELETE', `/api/worker/community-packages?name=${encodeURIComponent(name)}`, undefined, 60_000);
+      ctx.audit(request, 'worker.package_removed', worker.id, { name });
+      return reply.code(204).send();
+    } catch (error) {
+      return sendWorkerError(reply, error);
+    }
+  });
 }

@@ -21,6 +21,8 @@ import { registerEditorApi } from './editorApi.js';
 import { registerChatAssets, registerUi } from './ui.js';
 import { registerWorkerApi } from './workerApi.js';
 import { VariableStore, registerVariablesApi } from './variablesApi.js';
+import { registerPackagesApi } from './packagesApi.js';
+import { CommunityPackages, communityPackagesEnabled } from '../plugins/community.js';
 import { ChatSessionError, ChatSessions } from './chatSessions.js';
 import { registerOverview, triggersOf } from './overview.js';
 import type { LayeredCredentialProvider } from '../credentials/managed.js';
@@ -51,6 +53,8 @@ export interface ServerOptions {
   watch?: boolean;
   /** Verzeichnis der gebauten Weboberfläche; false schaltet sie ab (Default: dist/ui) */
   uiDir?: string | false;
+  /** Community-Pakete (M30): Ordner der installierten Pakete und npm-Registry; ohne Angabe keine Installation */
+  communityPackages?: { dir: string; npmRegistry?: string; enabled?: boolean; env?: NodeJS.ProcessEnv } | CommunityPackages;
   /** Worker-Modus (M9): API für den Master; Credentials optional vom Master beschreibbar */
   worker?: { version: string; credentials?: LayeredCredentialProvider };
 }
@@ -191,6 +195,18 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
   });
   const webhooks = new WebhookService({ manager, credentials, binary, logger, webhookBaseUrl: options.webhookBaseUrl, store, vars: variables.vars });
   const scheduler = new Scheduler(manager, logger, staticFor);
+  // Installierte Community-Pakete vor den Workflows laden; Änderungen prüfen die Workflows neu
+  const cp = options.communityPackages;
+  const packages =
+    cp instanceof CommunityPackages
+      ? cp
+      : cp
+        ? new CommunityPackages({ dir: cp.dir, npmRegistry: cp.npmRegistry, env: cp.env, registry, logger, onChange: () => workflows?.revalidate() })
+        : undefined;
+  const packagesEnabled = cp && !(cp instanceof CommunityPackages) && cp.enabled !== undefined ? cp.enabled : communityPackagesEnabled();
+  if (packages && !(cp instanceof CommunityPackages)) {
+    for (const r of await packages.loadInstalled()) for (const e of r.errors) logger.warn({ source: r.source, error: e }, 'Community-Paket mit Problemen');
+  }
   workflows = new WorkflowManager({ dir: options.dir, registry, credentials, webhooks, scheduler, logger });
   await workflows.reload();
   // Pyodide braucht beim ersten Lauf etwa zwei Sekunden: vorladen, wenn ein Workflow Python nutzt
@@ -405,6 +421,8 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
     await registerCredentialsApi(api, { prefix: '/api/credentials', credentials, workflows: () => workflows!, logger, oauth });
     await registerVariablesApi(api, { prefix: '/api/variables', variables, logger });
     if (options.worker) await registerVariablesApi(api, { prefix: '/api/worker/variables', variables, logger });
+    await registerPackagesApi(api, { prefix: '/api/community-packages', packages, enabled: packagesEnabled, logger });
+    if (options.worker) await registerPackagesApi(api, { prefix: '/api/worker/community-packages', packages, enabled: packagesEnabled, logger });
     await registerEditorApi(api, { registry, credentials, runner, manager, store, workflows: () => workflows!, webhookBaseUrl: options.webhookBaseUrl, webhooks });
     if (options.worker) {
       await registerWorkerApi(api, {

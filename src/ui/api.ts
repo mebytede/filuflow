@@ -1,5 +1,7 @@
 // REST-Client der Weboberfläche. Der API-Key liegt im localStorage dieses Browsers.
 import type {
+  CommunityPackage,
+  CommunityPackageList,
   CredentialDetail,
   CredentialImportResult,
   CredentialInfo,
@@ -121,6 +123,10 @@ export const api = {
   variables: () => request<{ data: VariableEntry[] }>('GET', '/api/variables').then((r) => r.data),
   saveVariable: (key: string, body: { value: string; rename?: string; create?: boolean }) => request<VariableEntry>('PUT', `/api/variables/${encodeURIComponent(key)}`, body),
   removeVariable: (key: string) => request<void>('DELETE', `/api/variables/${encodeURIComponent(key)}`),
+  communityPackages: () => request<CommunityPackageList>('GET', '/api/community-packages'),
+  installPackage: (name: string, version?: string) => request<CommunityPackage>('POST', '/api/community-packages', { name, ...(version ? { version } : {}) }),
+  updatePackage: (name: string, version?: string) => request<CommunityPackage>('PATCH', '/api/community-packages', { name, ...(version ? { version } : {}) }),
+  removePackage: (name: string) => request<void>('DELETE', `/api/community-packages?name=${encodeURIComponent(name)}`),
   executions: (filter: { workflow?: string; status?: string; limit?: number } = {}) => {
     const q = new URLSearchParams();
     if (filter.workflow) q.set('workflow', filter.workflow);

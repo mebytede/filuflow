@@ -367,3 +367,15 @@ mit dem Hinweis auf Batching.
 Dafür folgt `helpers.httpRequest` jetzt genauer convertN8nRequestToAxios: Ein leerer Body (z. B. `{}` aus den Defaults)
 wird nicht gesendet, bei GET nie ein Body. Nicht nachgebaut: `preAuthentication` von Credential-Typen (Tokens, die n8n vor
 dem Request holt und im Credential speichert) und der Header `User-Agent: n8n`.
+
+## Community-Pakete aus der Oberfläche (M30)
+Der Ablauf folgt n8n 1.123.0 `community-packages.service.ts`: Paketname prüfen, Version über die Registry auflösen,
+`npm pack` in einen Download-Ordner, nach `<ordner>/node_modules/<paket>` entpacken, dev-, peer- und optionale
+Abhängigkeiten entfernen, `npm install --ignore-scripts` mit denselben Schaltern, Abhängigkeit in `<ordner>/package.json`
+eintragen; ein Paket ohne ladbare Knoten wird wieder entfernt. Abweichend von n8n:
+- Die Version prüft filuflow mit `npm view` statt per HTTP; so gelten Proxy und Anmeldung der npm-Konfiguration auch dafür.
+- Die Liste der Pakete liegt als Datei `filuflow-packages.json` im Paketordner (n8n: Tabelle `installed_packages`); so
+  braucht der Ordner keine Datenbank und funktioniert auch für `validate` und `run`.
+- Beim Aktualisieren und Entfernen nimmt filuflow Knoten- und Credential-Typen aus der Registry und leert den
+  `require`-Cache des Pakets; ein Neustart ist nicht nötig. Es gibt keine Prüfung auf "verifizierte" Pakete und keine
+  Prüfsummen, weil filuflow keine Liste geprüfter Pakete von n8n bezieht.

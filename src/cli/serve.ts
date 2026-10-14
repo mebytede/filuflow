@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { loadVars } from '../runner.js';
 import { getLogger } from '../logger.js';
+import { defaultCommunityDir } from '../plugins/community.js';
 
 const USAGE = `Aufruf: filuflow serve [Optionen]
 
@@ -109,6 +110,7 @@ export async function cmdServe(args: string[], worker = false): Promise<number> 
     vars: await loadVars(values.vars),
     logger,
     ...(uiOff ? { uiDir: false as const } : {}),
+    communityPackages: { dir: defaultCommunityDir(), npmRegistry: env.FILUFLOW_COMMUNITY_PACKAGES_REGISTRY || env.N8N_COMMUNITY_PACKAGES_REGISTRY || undefined },
     ...(worker ? { worker: { version: packageVersion(), credentials } } : {}),
   });
   await server.app.listen({ port, host });

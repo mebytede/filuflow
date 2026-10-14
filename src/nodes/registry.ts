@@ -19,6 +19,11 @@ export class NodeRegistry {
     return t.versions.includes(version) ? t : undefined;
   }
 
+  /** Typ entfernen (Community-Paket deinstalliert) */
+  unregister(type: string): boolean {
+    return this.types.delete(type);
+  }
+
   has(type: string): boolean {
     return this.types.has(type);
   }

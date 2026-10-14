@@ -99,6 +99,12 @@ Plugins (eigene Module und Knoten im n8n-Format) laufen ohne Sandbox im Prozess 
 bekannter Quelle in die Plugin-Ordner legen und diese Ordner nur für Betreiber beschreibbar halten. Credential-Werte gelangen
 an Plugins nur über `getCredentials` des jeweiligen Knotens; in Logs und Ausführungen werden sie wie sonst maskiert.
 
+Community-Pakete aus der Oberfläche (M30) sind dasselbe: Wer installieren darf (im Einzelbetrieb jeder mit dem API-Key, im
+Master nur globale Admins, beim Worker der Master), kann damit beliebigen Code mit den Rechten von filuflow ausführen.
+filuflow installiert ohne npm-Installationsskripte (`--ignore-scripts`), prüft den Paketnamen streng (nur `n8n-nodes-…`,
+keine Sonderzeichen) und ruft npm ohne Shell auf; der Code des Pakets läuft beim Laden trotzdem. Wo das nicht gewollt ist,
+schaltet `FILUFLOW_COMMUNITY_PACKAGES_ENABLED=false` die Installation ab (bereits installierte Pakete werden weiter geladen).
+
 ## Master und Worker (M9)
 Benutzer des Masters sind das interne Team. Wer in einem Projekt bearbeiten darf, kann Code-Nodes schreiben und damit beliebigen
 Code auf dem Worker des Projekts ausführen, also in der Umgebung des Mandanten. Das Recht "Bearbeiten" ist entsprechend zu vergeben.

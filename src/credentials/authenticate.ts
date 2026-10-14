@@ -103,6 +103,11 @@ export function registerCredentialAuth(name: string, def: AuthDefinition): void 
   if (!BUILTIN[name]) registered.set(name, def);
 }
 
+/** Authentifizierung eines Plugin-Typs entfernen */
+export function unregisterCredentialAuth(name: string): void {
+  registered.delete(name);
+}
+
 function definition(type: string): AuthDefinition | undefined {
   return BUILTIN[type] ?? registered.get(type);
 }

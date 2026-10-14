@@ -407,6 +407,21 @@ describe('Variablen beim Worker über den Master', () => {
   });
 });
 
+describe('Community-Pakete beim Worker über den Master', () => {
+  it('reicht Liste und Installation an den Worker weiter, nur für globale Admins', async () => {
+    const w = await startWorker('w1');
+    const wk = await registerWorker(w);
+    // Worker ohne eingerichteten Paketordner: Liste leer, Installation abgelehnt
+    expect((await admin.get(`/api/admin/workers/${wk.id}/community-packages`)).json()).toEqual({ enabled: false, data: [] });
+    const install = await admin.post(`/api/admin/workers/${wk.id}/community-packages`, { name: 'n8n-nodes-wetter' });
+    expect(install.statusCode).toBe(409);
+    expect(install.json().message).toContain('nicht eingerichtet');
+    const member = await addUser(master, admin, 'mia@example.org');
+    expect((await member.client.get(`/api/admin/workers/${wk.id}/community-packages`)).statusCode).toBe(403);
+    expect((await member.client.post(`/api/admin/workers/${wk.id}/community-packages`, { name: 'n8n-nodes-wetter' })).statusCode).toBe(403);
+  });
+});
+
 describe('Freigabe von Credentials für Projekte', () => {
   it('beschränkt ein Credential auf Projekte: Liste, Speichern, Prüfen und Ausführen', async () => {
     const w = await startWorker('w1', { Gemeinsam: { type: 'httpHeaderAuth', data: { name: 'X', value: 'a' } } });

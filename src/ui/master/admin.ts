@@ -8,6 +8,7 @@ import type { CredentialTypeCatalog, VariableEntry } from '../types.js';
 import { credentialFormDialog, type CredentialFormBackend } from '../views/credentialForm.js';
 import { connectOAuth, credentialTable, importCredentialsDialog } from '../views/credentials.js';
 import { variableDialog, variableTable, type VariableBackend } from '../views/variables.js';
+import { packageActions, packageTable, type PackageBackend } from '../views/packages.js';
 
 const e = encodeURIComponent;
 
@@ -395,7 +396,8 @@ export async function workerPage(id: string): Promise<HTMLElement> {
   const wfBox = h('div', { class: 'card card-pad' }, h('h2', null, 'Workflows beim Worker'), h('p', { class: 'muted' }, 'Lade …'));
   const credBox = h('div', { class: 'card card-pad' }, h('h2', null, 'Credentials beim Worker'), h('p', { class: 'muted' }, 'Lade …'));
   const varBox = h('div', { class: 'card card-pad' }, h('h2', null, 'Variablen beim Worker'), h('p', { class: 'muted' }, 'Lade …'));
-  root.append(wfBox, credBox, varBox);
+  const pkgBox = h('div', { class: 'card card-pad' }, h('h2', null, 'Pakete beim Worker'), h('p', { class: 'muted' }, 'Lade …'));
+  root.append(wfBox, credBox, varBox, pkgBox);
 
   void mapi
     .workerWorkflows(id)
@@ -560,6 +562,33 @@ export async function workerPage(id: string): Promise<HTMLElement> {
       })
       .catch((err) => varBox.replaceChildren(h('h2', null, 'Variablen beim Worker'), h('p', { class: 'error-text' }, message(err))));
   void loadVariables();
+
+  // Community-Pakete beim Worker (M30)
+  const pkgBackend: PackageBackend = {
+    list: () => mapi.workerPackages(id),
+    install: (name, version) => mapi.installWorkerPackage(id, name, version),
+    update: (name, version) => mapi.updateWorkerPackage(id, name, version),
+    remove: (name) => mapi.removeWorkerPackage(id, name),
+  };
+  const loadPackages = (): Promise<void> =>
+    pkgBackend
+      .list()
+      .then(({ enabled, data }) => {
+        const actions = packageActions(pkgBackend, () => loadPackages(), 'Beim Worker');
+        pkgBox.replaceChildren(
+          h('div', { class: 'page-head' }, h('h2', null, 'Pakete beim Worker'), h('div', { class: 'spacer' }), enabled ? action('Paket installieren', () => actions.install()) : null),
+          h(
+            'p',
+            { class: 'muted small' },
+            enabled
+              ? 'Community-Knoten aus npm (n8n-nodes-…). Sie laufen beim Worker ohne Sandbox mit allen Rechten; nur Pakete bekannter Herkunft installieren.'
+              : 'Beim Worker ist das Installieren abgeschaltet (FILUFLOW_COMMUNITY_PACKAGES_ENABLED=false).',
+          ),
+          data.length ? packageTable(data, { update: (p) => void actions.update(p), remove: (p) => void actions.remove(p), readonly: !enabled }) : h('p', { class: 'muted' }, 'Keine Pakete installiert.'),
+        );
+      })
+      .catch((err) => pkgBox.replaceChildren(h('h2', null, 'Pakete beim Worker'), h('p', { class: 'error-text' }, message(err))));
+  void loadPackages();
   return root;
 }
 

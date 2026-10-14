@@ -1,6 +1,6 @@
 // REST-Client für den Master. Anmeldung über das Sitzungs-Cookie (HttpOnly), ändernde Requests mit CSRF-Header.
 import { request } from '../api.js';
-import type { CredentialDetail, CredentialImportResult, CredentialInfo, CredentialList, CredentialSaveBody, CredentialTypeCatalog, Execution, InspectResult, NodeTypeInfo, Overview as WorkerOverview, VariableEntry, Workflow } from '../types.js';
+import type { CommunityPackage, CommunityPackageList, CredentialDetail, CredentialImportResult, CredentialInfo, CredentialList, CredentialSaveBody, CredentialTypeCatalog, Execution, InspectResult, NodeTypeInfo, Overview as WorkerOverview, VariableEntry, Workflow } from '../types.js';
 import type {
   ApiToken,
   AuditEntry,
@@ -79,6 +79,10 @@ export const mapi = {
   workerVariables: (id: string) => request<{ data: VariableEntry[] }>('GET', `/api/admin/workers/${e(id)}/variables`).then((r) => r.data),
   setWorkerVariable: (id: string, key: string, body: { value: string; rename?: string; create?: boolean }) => request<VariableEntry>('PUT', `/api/admin/workers/${e(id)}/variables/${e(key)}`, body),
   deleteWorkerVariable: (id: string, key: string) => request<void>('DELETE', `/api/admin/workers/${e(id)}/variables/${e(key)}`),
+  workerPackages: (id: string) => request<CommunityPackageList>('GET', `/api/admin/workers/${e(id)}/community-packages`),
+  installWorkerPackage: (id: string, name: string, version?: string) => request<CommunityPackage>('POST', `/api/admin/workers/${e(id)}/community-packages`, { name, ...(version ? { version } : {}) }),
+  updateWorkerPackage: (id: string, name: string, version?: string) => request<CommunityPackage>('PATCH', `/api/admin/workers/${e(id)}/community-packages`, { name, ...(version ? { version } : {}) }),
+  removeWorkerPackage: (id: string, name: string) => request<void>('DELETE', `/api/admin/workers/${e(id)}/community-packages?name=${e(name)}`),
 
   // Projekte
   projects: () => request<{ data: Project[] }>('GET', '/api/projects').then((r) => r.data),

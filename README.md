@@ -335,6 +335,15 @@ Hilfsfunktionen bereit. Deklarative Knoten (ohne `execute`, Requests über `requ
 viele Community-Knoten aus der n8n-Vorlage) laufen ebenfalls, mit Pagination, Nachbearbeitung und der Einstellung "Request
 Options" (Batching, Proxy, Timeout). Trigger-, Polling- und Webhook-Knoten werden noch nicht geladen.
 
+**Community-Pakete installieren:** Auf der Seite **Pakete** (im Master auf der Seite eines Workers) installieren Sie
+n8n-Community-Pakete aus npm per Name (`n8n-nodes-…` oder `@scope/n8n-nodes-…`, optional mit Version), aktualisieren und
+entfernen sie. Wie bei n8n lädt filuflow das Paket mit `npm pack`, installiert seine Abhängigkeiten ohne
+Installationsskripte und stellt die Knoten sofort bereit, ohne Neustart; Workflows werden danach neu geprüft. Die Pakete
+liegen in `~/.filuflow/nodes` (`FILUFLOW_NODES_DIR`) und werden beim Start sowie von `validate` und `run` geladen. Dieselben
+Funktionen bietet die REST-API unter `/api/community-packages` (GET, POST und PATCH mit `{ "name", "version" }`, DELETE mit
+`?name=`). `FILUFLOW_COMMUNITY_PACKAGES_ENABLED=false` schaltet das Installieren ab, eine eigene Registry setzt
+`FILUFLOW_COMMUNITY_PACKAGES_REGISTRY` (jeweils auch mit `N8N_` statt `FILUFLOW_`).
+
 **filuflow-Plugins:** ein ES-Modul (`*.mjs` oder Paket mit `"filuflow": { "plugin": "index.js" }`), das ein Objekt oder eine
 Funktion exportiert:
 
@@ -493,6 +502,8 @@ setzen Credentials beim Worker, verwalten Benutzer und lesen das Audit-Log.
 | `FILUFLOW_IMPRINT_URL`, `FILUFLOW_PRIVACY_URL` | Links "Impressum" und "Datenschutz" (nur wenn gesetzt) | |
 | `FILUFLOW_LOG_LEVEL` | Log-Level (pino) | `info` |
 | `FILUFLOW_CUSTOM_EXTENSIONS` / `--nodes` | Pfade zu eigenen Knoten (mit `;` getrennt; auch `N8N_CUSTOM_EXTENSIONS`) | `~/.filuflow/custom` |
+| `FILUFLOW_NODES_DIR` | Ordner der über die Oberfläche installierten Community-Pakete | `~/.filuflow/nodes` |
+| `FILUFLOW_COMMUNITY_PACKAGES_ENABLED`, `FILUFLOW_COMMUNITY_PACKAGES_REGISTRY` | Installieren von Community-Paketen erlauben, npm-Registry (auch `N8N_…`) | `true`, `https://registry.npmjs.org` |
 
 ### Docker
 

@@ -40,12 +40,17 @@ export function extractNodesArgs(args: string[]): { paths: string[]; rest: strin
 }
 
 /** Plugins in die Standard-Registry laden; Probleme als Hinweis auf stderr, der Befehl läuft weiter */
-async function loadCliPlugins(extra: string[]): Promise<void> {
+async function loadCliPlugins(extra: string[], withCommunity: boolean): Promise<void> {
   const { loadPlugins, pluginPathsFromEnv } = await import('../plugins/loader.js');
   const { getDefaultRegistry } = await import('../nodes/index.js');
   const paths = [...pluginPathsFromEnv(), ...extra];
-  if (!paths.length) return;
-  for (const r of await loadPlugins(paths, getDefaultRegistry())) {
+  const reports = paths.length ? await loadPlugins(paths, getDefaultRegistry()) : [];
+  // Installierte Community-Pakete (M30); serve und worker laden sie selbst, um sie verwalten zu können
+  if (withCommunity) {
+    const { CommunityPackages, defaultCommunityDir } = await import('../plugins/community.js');
+    reports.push(...(await new CommunityPackages({ dir: defaultCommunityDir(), registry: getDefaultRegistry() }).loadInstalled()));
+  }
+  for (const r of reports) {
     for (const e of r.errors) process.stderr.write(`Plugin ${r.source}: ${e}\n`);
   }
 }
@@ -94,7 +99,7 @@ export async function main(argv: string[]): Promise<number> {
   // "master user ..." und Hilfen brauchen keine Knoten
   if (WITH_PLUGINS.has(command) && !(command === 'master' && rest[0] === 'user')) {
     const { paths, rest: args } = extractNodesArgs(rest);
-    await loadCliPlugins(paths);
+    await loadCliPlugins(paths, !['serve', 'worker', 'master'].includes(command));
     return handler(args);
   }
   return handler(rest);

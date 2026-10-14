@@ -282,6 +282,11 @@ describe('Weboberfläche', () => {
     await page.click('.modal .btn-primary');
     await page.waitForSelector('.list-table td:has-text("GRUSS")');
 
+    // Seite Pakete (ohne eingerichteten Paketordner: nur Hinweis)
+    await page.click('a[href="#/packages"]');
+    await page.waitForSelector('.page-head:has-text("Pakete")');
+    await page.waitForSelector('.empty:has-text("Noch keine Pakete installiert.")');
+
     // Testdaten für "Quelle" eingeben und festhalten
     await page.goto(`${base}/#/workflow/pinwf`);
     await page.waitForSelector('.node[data-node="Quelle"]');

@@ -348,6 +348,7 @@ export const CREDENTIAL_TYPES: CredentialTypeSchema[] = [
 ];
 
 const BY_NAME = new Map(CREDENTIAL_TYPES.map((t) => [t.name, t]));
+const BUILTIN = new Set(BY_NAME.keys());
 const resolved = new Map<string, CredentialTypeSchema>();
 
 /** Credential-Typ aus einem Plugin ergänzen (M24); eingebaute Typen bleiben unverändert */
@@ -355,6 +356,15 @@ export function registerCredentialType(schema: CredentialTypeSchema): void {
   if (BY_NAME.has(schema.name)) return;
   CREDENTIAL_TYPES.push(schema);
   BY_NAME.set(schema.name, schema);
+  resolved.clear();
+}
+
+/** Credential-Typ eines Plugins entfernen (Community-Paket deinstalliert oder aktualisiert); eingebaute bleiben */
+export function unregisterCredentialType(name: string): void {
+  if (BUILTIN.has(name) || !BY_NAME.has(name)) return;
+  BY_NAME.delete(name);
+  const i = CREDENTIAL_TYPES.findIndex((t) => t.name === name);
+  if (i !== -1) CREDENTIAL_TYPES.splice(i, 1);
   resolved.clear();
 }
 
