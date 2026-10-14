@@ -106,6 +106,11 @@ keine Sonderzeichen) und ruft npm ohne Shell auf; der Code des Pakets läuft bei
 schaltet `FILUFLOW_COMMUNITY_PACKAGES_ENABLED=false` die Installation ab (bereits installierte Pakete werden weiter geladen).
 
 ## Master und Worker (M9)
+Gemeinsame Credentials (M33) liegen im Master verschlüsselt mit `FILUFLOW_ENCRYPTION_KEY` und gehen im Klartext nur über
+die Verbindung zum Worker (TLS empfohlen) an die gewählten Worker; die Oberfläche bekommt nie geheime Werte zurück. Wer
+den Master-Schlüssel und die Datenbank hat, kann sie entschlüsseln; beim Worker gelten die Regeln für dort verwaltete
+Credentials.
+
 Benutzer des Masters sind das interne Team. Wer in einem Projekt bearbeiten darf, kann Code-Nodes schreiben und damit beliebigen
 Code auf dem Worker des Projekts ausführen, also in der Umgebung des Mandanten. Das Recht "Bearbeiten" ist entsprechend zu vergeben.
 Das gilt auch für Bearbeiten-Rechte an einem einzelnen Workflow (M23): Wer einen Workflow bearbeiten darf, erreicht über seine

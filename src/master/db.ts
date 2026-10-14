@@ -230,7 +230,50 @@ CREATE TABLE IF NOT EXISTS credential_access (
   project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   PRIMARY KEY (worker_id, credential, project_id)
 );
+-- Gemeinsame Credentials (M33): im Master verschlüsselt, an mehrere Worker verteilt
+CREATE TABLE IF NOT EXISTS shared_credentials (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  type TEXT NOT NULL,
+  data_enc TEXT NOT NULL,
+  version INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS shared_credential_workers (
+  credential_id TEXT NOT NULL REFERENCES shared_credentials(id) ON DELETE CASCADE,
+  worker_id TEXT NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
+  -- Name beim Worker, unter dem zuletzt verteilt wurde (für Umbenennen und Entfernen)
+  deployed_name TEXT,
+  deployed_version INTEGER,
+  deploy_error TEXT,
+  PRIMARY KEY (credential_id, worker_id)
+);
+-- Vom Worker zu entfernen (Zuordnung aufgehoben oder Credential gelöscht), bis es geklappt hat
+CREATE TABLE IF NOT EXISTS shared_credential_removals (
+  worker_id TEXT NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  PRIMARY KEY (worker_id, name)
+);
 `;
+
+export interface SharedCredentialRow {
+  id: string;
+  name: string;
+  type: string;
+  data_enc: string;
+  version: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SharedCredentialWorkerRow {
+  credential_id: string;
+  worker_id: string;
+  deployed_name: string | null;
+  deployed_version: number | null;
+  deploy_error: string | null;
+}
 
 export function newId(bytes = 8): string {
   return randomBytes(bytes).toString('hex');
@@ -446,6 +489,86 @@ export class MasterDb {
       for (const p of new Set(projects ?? [])) insert.run(workerId, credential, p);
     });
     tx();
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // Gemeinsame Credentials (M33)
+
+  listSharedCredentials(): SharedCredentialRow[] {
+    return this.db.prepare('SELECT * FROM shared_credentials ORDER BY name').all() as SharedCredentialRow[];
+  }
+
+  getSharedCredential(name: string): SharedCredentialRow | undefined {
+    return this.db.prepare('SELECT * FROM shared_credentials WHERE name = ?').get(name) as SharedCredentialRow | undefined;
+  }
+
+  saveSharedCredential(c: { id?: string; name: string; type: string; dataEnc: string }): SharedCredentialRow {
+    const existing = c.id ? (this.db.prepare('SELECT * FROM shared_credentials WHERE id = ?').get(c.id) as SharedCredentialRow | undefined) : undefined;
+    const t = now();
+    if (existing) {
+      this.db.prepare('UPDATE shared_credentials SET name = ?, type = ?, data_enc = ?, version = version + 1, updated_at = ? WHERE id = ?').run(c.name, c.type, c.dataEnc, t, existing.id);
+      return this.db.prepare('SELECT * FROM shared_credentials WHERE id = ?').get(existing.id) as SharedCredentialRow;
+    }
+    const id = c.id ?? newId(12);
+    this.db.prepare('INSERT INTO shared_credentials (id, name, type, data_enc, version, created_at, updated_at) VALUES (?, ?, ?, ?, 1, ?, ?)').run(id, c.name, c.type, c.dataEnc, t, t);
+    return this.db.prepare('SELECT * FROM shared_credentials WHERE id = ?').get(id) as SharedCredentialRow;
+  }
+
+  deleteSharedCredential(id: string): void {
+    this.db.prepare('DELETE FROM shared_credentials WHERE id = ?').run(id);
+  }
+
+  sharedCredentialWorkers(credentialId: string): SharedCredentialWorkerRow[] {
+    return this.db.prepare('SELECT * FROM shared_credential_workers WHERE credential_id = ? ORDER BY worker_id').all(credentialId) as SharedCredentialWorkerRow[];
+  }
+
+  sharedCredentialsForWorker(workerId: string): Array<SharedCredentialRow & SharedCredentialWorkerRow> {
+    return this.db
+      .prepare('SELECT c.*, w.worker_id, w.credential_id, w.deployed_name, w.deployed_version, w.deploy_error FROM shared_credentials c JOIN shared_credential_workers w ON w.credential_id = c.id WHERE w.worker_id = ? ORDER BY c.name')
+      .all(workerId) as Array<SharedCredentialRow & SharedCredentialWorkerRow>;
+  }
+
+  /** Zuordnung zu Workern setzen; entfernte Worker merken sich den verteilten Namen zum Löschen */
+  setSharedCredentialWorkers(credentialId: string, workerIds: string[]): void {
+    const tx = this.db.transaction(() => {
+      const current = this.sharedCredentialWorkers(credentialId);
+      const wanted = new Set(workerIds);
+      for (const row of current) {
+        if (wanted.has(row.worker_id)) continue;
+        if (row.deployed_name) this.db.prepare('INSERT OR IGNORE INTO shared_credential_removals (worker_id, name) VALUES (?, ?)').run(row.worker_id, row.deployed_name);
+        this.db.prepare('DELETE FROM shared_credential_workers WHERE credential_id = ? AND worker_id = ?').run(credentialId, row.worker_id);
+      }
+      const have = new Set(current.map((r) => r.worker_id));
+      for (const id of wanted) if (!have.has(id)) this.db.prepare('INSERT INTO shared_credential_workers (credential_id, worker_id) VALUES (?, ?)').run(credentialId, id);
+    });
+    tx();
+  }
+
+  markSharedCredentialDeployed(credentialId: string, workerId: string, r: { name?: string; version?: number; error: string | null }): void {
+    if (r.error === null) {
+      this.db.prepare('UPDATE shared_credential_workers SET deployed_name = ?, deployed_version = ?, deploy_error = NULL WHERE credential_id = ? AND worker_id = ?').run(r.name, r.version, credentialId, workerId);
+    } else {
+      this.db.prepare('UPDATE shared_credential_workers SET deploy_error = ? WHERE credential_id = ? AND worker_id = ?').run(r.error, credentialId, workerId);
+    }
+  }
+
+  /** Alle verteilten Namen eines Credentials zum Entfernen vormerken (Löschen im Master) */
+  queueSharedCredentialRemoval(credentialId: string): void {
+    for (const row of this.sharedCredentialWorkers(credentialId)) {
+      if (row.deployed_name) this.db.prepare('INSERT OR IGNORE INTO shared_credential_removals (worker_id, name) VALUES (?, ?)').run(row.worker_id, row.deployed_name);
+    }
+  }
+
+  queueRemoval(workerId: string, name: string): void {
+    this.db.prepare('INSERT OR IGNORE INTO shared_credential_removals (worker_id, name) VALUES (?, ?)').run(workerId, name);
+  }
+
+  pendingRemovals(workerId: string): string[] {
+    return (this.db.prepare('SELECT name FROM shared_credential_removals WHERE worker_id = ? ORDER BY name').all(workerId) as Array<{ name: string }>).map((r) => r.name);
+  }
+
+  removalDone(workerId: string, name: string): void {
+    this.db.prepare('DELETE FROM shared_credential_removals WHERE worker_id = ? AND name = ?').run(workerId, name);
   }
 
   renameCredentialAccess(workerId: string, from: string, to: string): void {

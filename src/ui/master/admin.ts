@@ -3,7 +3,7 @@
 import { confirmDialog, dialog, formatDate, h, toast } from '../dom.js';
 import { mapi } from './api.js';
 import { pageHead } from '../shell.js';
-import type { AuditEntry, OverviewWorker, Tenant, User, WorkerInfo } from './types.js';
+import type { AuditEntry, OverviewWorker, SharedCredential, Tenant, User, WorkerInfo } from './types.js';
 import type { CredentialTypeCatalog, VariableEntry } from '../types.js';
 import { credentialFormDialog, type CredentialFormBackend } from '../views/credentialForm.js';
 import { connectOAuth, credentialTable, importCredentialsDialog } from '../views/credentials.js';
@@ -26,7 +26,7 @@ function text(value = '', attrs: Record<string, unknown> = {}): HTMLInputElement
 
 export function adminTabs(active: string): HTMLElement {
   const tab = (key: string, label: string) => h('a', { class: `tab${active === key ? ' on' : ''}`, href: `#/admin/${key}` }, label);
-  return h('nav', { class: 'tabs page-tabs' }, tab('overview', 'Übersicht'), tab('tenants', 'Mandanten und Worker'), tab('users', 'Benutzer'), tab('settings', 'Einstellungen'), tab('audit', 'Audit-Log'));
+  return h('nav', { class: 'tabs page-tabs' }, tab('overview', 'Übersicht'), tab('tenants', 'Mandanten und Worker'), tab('credentials', 'Gemeinsame Credentials'), tab('users', 'Benutzer'), tab('settings', 'Einstellungen'), tab('audit', 'Audit-Log'));
 }
 
 function page(active: string, title: string): HTMLElement {
@@ -589,6 +589,106 @@ export async function workerPage(id: string): Promise<HTMLElement> {
       })
       .catch((err) => pkgBox.replaceChildren(h('h2', null, 'Pakete beim Worker'), h('p', { class: 'error-text' }, message(err))));
   void loadPackages();
+  return root;
+}
+
+// -----------------------------------------------------------------------------------------------
+// Gemeinsame Credentials (M33)
+
+export async function sharedCredentialsPage(): Promise<HTMLElement> {
+  const [list, overview] = await Promise.all([mapi.sharedCredentials(), mapi.overview()]);
+  const root = page('credentials', 'Gemeinsame Credentials');
+  const reload = async () => root.replaceWith(await sharedCredentialsPage());
+  const allWorkers = overview.tenants.flatMap((t) => t.workers.map((w) => ({ id: w.id, label: `${t.name} / ${w.name}` })));
+
+  const edit = async (current?: SharedCredential) => {
+    // Auswahl der Worker als zusätzliches Feld im Credential-Formular
+    const boxes = allWorkers.map((w) => ({ id: w.id, input: h('input', { type: 'checkbox', checked: !!current?.workers.some((x) => x.id === w.id) }) as HTMLInputElement, label: w.label }));
+    const element = h(
+      'div',
+      { class: 'field' },
+      h('span', null, 'Verteilen an Worker'),
+      allWorkers.length ? h('div', null, boxes.map((b) => h('label', { class: 'check' }, b.input, ` ${b.label}`))) : h('p', { class: 'muted small' }, 'Noch keine Worker angelegt.'),
+      h('span', { class: 'muted small' }, 'Das Credential wird bei jedem gewählten Worker angelegt und bei Änderungen dort ersetzt.'),
+    );
+    const backend: CredentialFormBackend = {
+      types: () => mapi.credentialTypes(),
+      get: async (name) => {
+        const d = await mapi.sharedCredential(name);
+        return { name: d.name, id: d.id, type: d.type, managed: true, data: d.data, secretsSet: d.secretsSet };
+      },
+      save: async (name, body) => {
+        const saved = await mapi.saveSharedCredential(name, { ...body, workers: body.workers ?? [] });
+        if (saved.errors?.length) toast(`Gespeichert, aber nicht überall verteilt: ${saved.errors.join('; ')}`, 'error');
+        return { name: saved.name, id: saved.id, type: saved.type };
+      },
+    };
+    const saved = await credentialFormDialog(backend, {
+      ...(current ? { name: current.name } : {}),
+      note: 'Geheime Werte liegen verschlüsselt im Master und werden nur an die gewählten Worker übertragen.',
+      extra: { element, collect: () => ({ workers: boxes.filter((b) => b.input.checked).map((b) => b.id) }) },
+    });
+    if (!saved) return;
+    toast(`"${saved.name}" gespeichert`, 'success');
+    await reload();
+  };
+  const remove = async (c: SharedCredential) => {
+    if (!(await confirmDialog('Credential löschen', `"${c.name}" wird im Master und bei ${c.workers.length} Worker(n) gelöscht. Workflows, die es nutzen, schlagen danach fehl.`))) return;
+    try {
+      const result = await mapi.deleteSharedCredential(c.name);
+      if (result?.errors?.length) toast(`Gelöscht; bei Workern noch offen: ${result.errors.join('; ')}`, 'error');
+      await reload();
+    } catch (err) {
+      toast(message(err), 'error');
+    }
+  };
+
+  root.append(
+    h(
+      'div',
+      { class: 'page-head' },
+      h('p', { class: 'muted', style: { maxWidth: '760px', margin: '0' } }, 'Ein Credential für mehrere Worker: einmal pflegen, überall gleich. Der Master verteilt Änderungen sofort und holt Ausfälle beim nächsten Abgleich nach.'),
+      h('div', { class: 'spacer' }),
+      h('button', { type: 'button', class: 'btn btn-primary', onclick: () => void edit() }, 'Credential anlegen'),
+    ),
+    list.length
+      ? h(
+          'div',
+          { class: 'table-wrap' },
+          h(
+            'table',
+            { class: 'list-table' },
+            h('thead', null, h('tr', null, h('th', null, 'Name'), h('th', null, 'Typ'), h('th', null, 'Worker'), h('th', null, 'Geändert'), h('th', { class: 'actions' }, ''))),
+            h(
+              'tbody',
+              null,
+              list.map((c) =>
+                h(
+                  'tr',
+                  null,
+                  h('td', null, h('a', { class: 'cell-name', href: '#', onclick: (ev: Event) => (ev.preventDefault(), void edit(c)) }, c.name)),
+                  h('td', { class: 'mono' }, c.type),
+                  h(
+                    'td',
+                    null,
+                    c.workers.length
+                      ? c.workers.map((w) => h('div', null, w.name, ' ', h('span', { class: `pill ${w.upToDate ? 'pill-success' : 'pill-error'}`, title: w.error ?? '' }, w.upToDate ? 'aktuell' : 'ausstehend')))
+                      : h('span', { class: 'muted' }, 'keinem Worker zugeordnet'),
+                  ),
+                  h('td', { class: 'muted' }, formatDate(c.updatedAt)),
+                  h(
+                    'td',
+                    { class: 'actions' },
+                    h('button', { type: 'button', class: 'btn btn-ghost', onclick: () => void edit(c) }, 'Bearbeiten'),
+                    h('button', { type: 'button', class: 'btn btn-ghost', onclick: () => void remove(c) }, 'Löschen'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        )
+      : h('div', { class: 'empty' }, h('p', null, 'Noch keine gemeinsamen Credentials.')),
+  );
   return root;
 }
 

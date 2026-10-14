@@ -133,7 +133,7 @@ export function credentialTable(
             h('td', null, typeLabel(c.type), c.type && typeLabel(c.type) !== c.type ? h('span', { class: 'mono muted small' }, ` ${c.type}`) : null),
             h('td', { title: used.join(', ') }, used.length ? (used.length === 1 ? used[0] : `${used.length} Workflows`) : h('span', { class: 'muted' }, 'nicht verwendet')),
             o.access ? h('td', { class: c.projects ? '' : 'muted' }, o.access.label(c.projects)) : null,
-            h('td', { class: 'muted', title: c.managed ? '' : o.fileHint }, c.managed ? 'Oberfläche' : 'Datei'),
+            h('td', { class: 'muted', title: c.shared ? 'Gemeinsames Credential: Änderungen unter Verwaltung, Gemeinsame Credentials' : c.managed ? '' : o.fileHint }, c.shared ? 'Master (gemeinsam)' : c.managed ? 'Oberfläche' : 'Datei'),
             h(
               'td',
               { class: 'actions' },

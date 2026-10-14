@@ -4,6 +4,7 @@ import type { CommunityPackage, CommunityPackageList, CredentialDetail, Credenti
 import type {
   ApiToken,
   AuditEntry,
+  SharedCredential,
   ExecutionSearchResult,
   WorkflowMember,
   WorkflowRole,
@@ -79,6 +80,10 @@ export const mapi = {
   workerVariables: (id: string) => request<{ data: VariableEntry[] }>('GET', `/api/admin/workers/${e(id)}/variables`).then((r) => r.data),
   setWorkerVariable: (id: string, key: string, body: { value: string; rename?: string; create?: boolean }) => request<VariableEntry>('PUT', `/api/admin/workers/${e(id)}/variables/${e(key)}`, body),
   deleteWorkerVariable: (id: string, key: string) => request<void>('DELETE', `/api/admin/workers/${e(id)}/variables/${e(key)}`),
+  sharedCredentials: () => request<{ data: SharedCredential[] }>('GET', '/api/admin/shared-credentials').then((r) => r.data),
+  sharedCredential: (name: string) => request<SharedCredential & { data: Record<string, unknown>; secretsSet: string[] }>('GET', `/api/admin/shared-credentials/${e(name)}`),
+  saveSharedCredential: (name: string, body: CredentialSaveBody & { workers: string[] }) => request<SharedCredential>('PUT', `/api/admin/shared-credentials/${e(name)}`, body),
+  deleteSharedCredential: (name: string) => request<{ errors?: string[] } | undefined>('DELETE', `/api/admin/shared-credentials/${e(name)}`),
   workerPackages: (id: string) => request<CommunityPackageList>('GET', `/api/admin/workers/${e(id)}/community-packages`),
   installWorkerPackage: (id: string, name: string, version?: string) => request<CommunityPackage>('POST', `/api/admin/workers/${e(id)}/community-packages`, { name, ...(version ? { version } : {}) }),
   updateWorkerPackage: (id: string, name: string, version?: string) => request<CommunityPackage>('PATCH', `/api/admin/workers/${e(id)}/community-packages`, { name, ...(version ? { version } : {}) }),

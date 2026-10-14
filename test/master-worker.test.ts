@@ -407,6 +407,69 @@ describe('Variablen beim Worker über den Master', () => {
   });
 });
 
+describe('Gemeinsame Credentials für mehrere Worker', () => {
+  it('verteilt, ändert, benennt um, entfernt beim Worker und gibt keine Geheimnisse zurück', async () => {
+    const w1 = await startWorker('w1');
+    const w2 = await startWorker('w2');
+    const k1 = await registerWorker(w1);
+    const k2 = await registerWorker(w2);
+    const value = (w: TestWorker, name: string) => {
+      const entry = w.credentials!.find({ name });
+      return entry && entry.name === name ? { type: entry.type, id: entry.id, ...w.credentials!.resolve(entry) } : undefined;
+    };
+
+    const created = await admin.put('/api/admin/shared-credentials/Gemeinsame%20API', { type: 'httpHeaderAuth', data: { name: 'X-Key', value: 'geheim-1' }, workers: [k1.id, k2.id], create: true });
+    expect(created.statusCode).toBe(200);
+    const body = created.json() as { id: string; version: number; workers: Array<{ id: string; upToDate: boolean }> };
+    expect(body.version).toBe(1);
+    expect(body.workers.every((w) => w.upToDate)).toBe(true);
+    // Beim Worker als verwaltetes Credential mit der ID aus dem Master
+    expect(value(w1, 'Gemeinsame API')).toMatchObject({ type: 'httpHeaderAuth', id: body.id, name: 'X-Key', value: 'geheim-1' });
+    expect(value(w2, 'Gemeinsame API')).toMatchObject({ value: 'geheim-1' });
+    // Liste beim Worker im Master: als gemeinsam gekennzeichnet
+    const list = (await admin.get(`/api/admin/workers/${k1.id}/credentials`)).json().data as Array<{ name: string; shared?: boolean }>;
+    expect(list.find((c) => c.name === 'Gemeinsame API')?.shared).toBe(true);
+    // Detail im Master ohne geheime Werte
+    const detail = await admin.get('/api/admin/shared-credentials/Gemeinsame%20API');
+    expect(detail.json()).toMatchObject({ data: { name: 'X-Key' }, secretsSet: ['value'] });
+    expect(detail.body).not.toContain('geheim-1');
+    expect((await admin.put('/api/admin/shared-credentials/Gemeinsame%20API', { type: 'httpHeaderAuth', data: { name: 'X' }, create: true })).statusCode).toBe(409);
+
+    // Ändern mit behaltenem Geheimnis und Umbenennen; nur noch Worker 1
+    const updated = await admin.put('/api/admin/shared-credentials/Gemeinsame%20API', { type: 'httpHeaderAuth', data: { name: 'X-Neu' }, keep: ['value'], rename: 'Shop API', workers: [k1.id] });
+    expect(updated.json()).toMatchObject({ name: 'Shop API', version: 2, workers: [{ id: k1.id, upToDate: true }] });
+    expect(value(w1, 'Gemeinsame API')).toBeUndefined();
+    expect(value(w1, 'Shop API')).toMatchObject({ name: 'X-Neu', value: 'geheim-1', id: body.id });
+    expect(value(w2, 'Gemeinsame API')).toBeUndefined();
+    expect(JSON.stringify((await admin.get('/api/admin/audit')).json())).toContain('shared_credential.updated');
+
+    // Nur globale Admins
+    const member = await addUser(master, admin, 'mia@example.org');
+    expect((await member.client.get('/api/admin/shared-credentials')).statusCode).toBe(403);
+
+    // Löschen entfernt es beim Worker
+    expect((await admin.del('/api/admin/shared-credentials/Shop%20API')).statusCode).toBe(204);
+    expect(value(w1, 'Shop API')).toBeUndefined();
+    expect((await admin.get('/api/admin/shared-credentials')).json()).toEqual({ data: [] });
+  });
+
+  it('holt die Verteilung nach, wenn ein Worker beim Speichern nicht erreichbar war', async () => {
+    const w1 = await startWorker('w1');
+    const k1 = await registerWorker(w1);
+    const port = Number(new URL(w1.url).port);
+    await w1.close();
+    const saved = await admin.put('/api/admin/shared-credentials/Spaeter', { type: 'httpBearerAuth', data: { token: 't-1' }, workers: [k1.id], create: true });
+    expect(saved.json().workers[0]).toMatchObject({ upToDate: false });
+    expect(saved.json().errors[0]).toContain('nicht erreichbar');
+    // Worker wieder da (gleicher Port, gleiche Daten): Abgleich verteilt
+    const again = await startWorker('w1', {}, port);
+    expect((await admin.post(`/api/admin/workers/${k1.id}/sync`, {})).statusCode).toBe(200);
+    const entry = again.credentials!.find({ name: 'Spaeter' });
+    expect(entry && again.credentials!.resolve(entry)).toMatchObject({ token: 't-1' });
+    expect((await admin.get('/api/admin/shared-credentials')).json().data[0].workers[0]).toMatchObject({ upToDate: true, error: null });
+  });
+});
+
 describe('Community-Pakete beim Worker über den Master', () => {
   it('reicht Liste und Installation an den Worker weiter, nur für globale Admins', async () => {
     const w = await startWorker('w1');

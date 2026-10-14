@@ -219,7 +219,9 @@ export function registerWorkerRoutes(api: FastifyInstance, ctx: MasterContext): 
       // Freigaben aus dem Master ergänzen (projects: null = alle Projekte des Workers)
       const list = await hub.call<{ data: Array<{ name: string }> }>(worker, 'GET', '/api/worker/credentials', undefined, 15_000);
       const access = db.credentialAccess(worker.id);
-      return { ...list, data: list.data.map((c) => ({ ...c, projects: access.get(c.name) ?? null })) };
+      // Gemeinsame Credentials aus dem Master kennzeichnen (M33): Änderungen gehören in den Master
+      const shared = new Set(db.sharedCredentialsForWorker(worker.id).map((c) => c.name));
+      return { ...list, data: list.data.map((c) => ({ ...c, projects: access.get(c.name) ?? null, ...(shared.has(c.name) ? { shared: true } : {}) })) };
     } catch (error) {
       return sendWorkerError(reply, error);
     }

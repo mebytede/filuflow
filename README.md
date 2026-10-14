@@ -479,7 +479,10 @@ filuflow master user reset-totp --email ada@example.org --db ./master.db
 
 Im Profil verwaltet jede Person Passwort, Zwei-Faktor-Anmeldung und API-Tokens für Skripte (`Authorization: Bearer ffl_…`).
 Administratoren sehen unter **Verwaltung** alle Mandanten und Worker (erreichbar, Version, nicht verteilte Workflows, Fehler),
-setzen Credentials beim Worker, verwalten Benutzer und lesen das Audit-Log.
+setzen Credentials beim Worker, verwalten Benutzer und lesen das Audit-Log. Unter **Gemeinsame Credentials** pflegen sie
+ein Credential einmal im Master und verteilen es an mehrere Worker: Der Master speichert es verschlüsselt, legt es bei den
+gewählten Workern an (mit derselben ID, damit Workflow-Verweise passen), ersetzt es dort bei Änderungen, benennt es mit um,
+entfernt es bei aufgehobener Zuordnung und holt Ausfälle beim nächsten Abgleich nach.
 
 ## Konfiguration
 

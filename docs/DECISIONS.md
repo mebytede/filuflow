@@ -406,3 +406,12 @@ Die Anmeldung beim Dienst (`checkExists`, `create`, `delete`) läuft beim Aktivi
 scheitert sie, wird der Workflow nicht aktiviert. Beim Warten auf einen Test-Aufruf meldet filuflow den Test-Webhook an
 und danach wieder ab. Für das eigene Antworten (`noWebhookResponse`) gibt es ein Antwortobjekt im Stil von Express, das
 Status, Header und Body sammelt; Streaming über dieses Objekt ist nicht nachgebaut.
+
+## Gemeinsame Credentials (M33)
+Ein gemeinsames Credential ist im Master die Quelle; beim Worker ist es ein gewöhnliches verwaltetes Credential, das der
+Master über die vorhandene Worker-API schreibt. So brauchen Worker keine Änderung, Freigaben für Projekte (M22) und die
+Prüfung von Workflows gelten unverändert, und ein Worker läuft auch ohne Master weiter. Der Master merkt sich je Worker
+den verteilten Namen und die Version; der Abgleich verteilt nur, was veraltet oder fehlgeschlagen ist, und arbeitet eine
+Liste offener Entfernungen ab. Die ID aus dem Master wird mitgegeben, damit Workflows, die per ID verweisen, auf allen
+Workern dasselbe Credential finden. Von Hand beim Worker geänderte Kopien werden erst bei der nächsten Änderung im Master
+überschrieben; die Oberfläche kennzeichnet sie als "Master (gemeinsam)".

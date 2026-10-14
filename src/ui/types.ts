@@ -197,6 +197,8 @@ export interface CredentialListEntry extends CredentialInfo {
   oauth?: { version?: 1 | 2; grantType?: string; connected: boolean };
   /** Master: freigegebene Projekte beim Worker (null: alle Projekte des Workers) */
   projects?: string[] | null;
+  /** Master: gemeinsames Credential aus dem Master (M33) */
+  shared?: boolean;
 }
 
 /** Variable für $vars (GET /api/variables) */
@@ -243,6 +245,8 @@ export interface CredentialSaveBody {
   create?: boolean;
   /** Master: beim Anlegen im Projekt-Editor nur für dieses Projekt freigeben */
   project?: string;
+  /** Master: gemeinsames Credential, an diese Worker verteilen (M33) */
+  workers?: string[];
 }
 
 export interface TaskData {

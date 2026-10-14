@@ -18,6 +18,8 @@ export interface CredentialFormOptions {
   /** Hinweis, wo gespeichert wird */
   note?: string;
   confirm?: string;
+  /** Zusätzliche Felder (z. B. Auswahl der Worker im Master); collect liefert Teile des Speicher-Bodys oder einen Fehler */
+  extra?: { element: HTMLElement; collect(): Partial<CredentialSaveBody> | string };
 }
 
 const OTHER = '__other__';
@@ -244,6 +246,7 @@ export async function credentialFormDialog(backend: CredentialFormBackend, o: Cr
       description,
       otherBox,
       fieldsBox,
+      o.extra?.element ?? null,
       h(
         'p',
         { class: 'muted small' },
@@ -261,8 +264,11 @@ export async function credentialFormDialog(backend: CredentialFormBackend, o: Cr
         if (!type) return void toast('Typ fehlt', 'error');
         const result = collect();
         if (typeof result === 'string') return void toast(result, 'error');
+        const extra = o.extra?.collect() ?? {};
+        if (typeof extra === 'string') return void toast(extra, 'error');
         try {
           return await backend.save(detail?.name ?? name, {
+            ...extra,
             type,
             data: result.data,
             keep: result.keep,

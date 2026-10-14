@@ -5,7 +5,7 @@
 import { Agent, EnvHttpProxyAgent, request as undiciRequest, type Dispatcher } from 'undici';
 import type { Logger } from '../logger.js';
 import type { Workflow } from '../types.js';
-import type { MasterDb, WorkerRow, WorkflowRow } from './db.js';
+import type { MasterDb, SharedCredentialRow, WorkerRow, WorkflowRow } from './db.js';
 import type { SecretBox } from './auth.js';
 
 export const MASTER_MARKER = 'filuflowMaster';
@@ -168,6 +168,8 @@ export class WorkerHub {
     if (this.syncing.has(worker.id)) return result;
     this.syncing.add(worker.id);
     try {
+      // Gemeinsame Credentials zuerst, damit verteilte Workflows sie beim Prüfen schon finden
+      result.errors.push(...(await this.syncCredentials(worker)));
       const remote = await this.call<{ data: WorkerWorkflowStatus[] }>(worker, 'GET', '/api/worker/workflows');
       const remoteById = new Map(remote.data.map((w) => [w.id, w]));
       const local = this.o.db.listWorkflowsForWorker(worker.id);
@@ -193,6 +195,45 @@ export class WorkerHub {
       this.syncing.delete(worker.id);
     }
     return result;
+  }
+
+  /** Ein gemeinsames Credential an einen Worker verteilen (anlegen, ändern oder umbenennen) */
+  async deployCredential(credential: SharedCredentialRow, worker: WorkerRow): Promise<string | null> {
+    const row = this.o.db.sharedCredentialWorkers(credential.id).find((r) => r.worker_id === worker.id);
+    if (!row) return null;
+    const previous = row.deployed_name;
+    try {
+      const data = JSON.parse(this.o.secrets.open(credential.data_enc)) as Record<string, unknown>;
+      const rename = previous && previous !== credential.name ? { rename: credential.name } : {};
+      await this.call(worker, 'PUT', `/api/worker/credentials/${encodeURIComponent(previous ?? credential.name)}`, { type: credential.type, data, id: credential.id, ...rename }, 30_000);
+      if (previous && previous !== credential.name) this.o.db.renameCredentialAccess(worker.id, previous, credential.name);
+      this.o.db.markSharedCredentialDeployed(credential.id, worker.id, { name: credential.name, version: credential.version, error: null });
+      return null;
+    } catch (error) {
+      const message = (error as Error).message;
+      this.o.db.markSharedCredentialDeployed(credential.id, worker.id, { error: message });
+      return `Credential ${credential.name}: ${message}`;
+    }
+  }
+
+  /** Gemeinsame Credentials eines Workers abgleichen: veraltete verteilen, aufgehobene entfernen */
+  async syncCredentials(worker: WorkerRow): Promise<string[]> {
+    const errors: string[] = [];
+    for (const name of this.o.db.pendingRemovals(worker.id)) {
+      try {
+        await this.call(worker, 'DELETE', `/api/worker/credentials/${encodeURIComponent(name)}`, undefined, 30_000);
+        this.o.db.removalDone(worker.id, name);
+      } catch (error) {
+        if (error instanceof WorkerError && error.status === 404) this.o.db.removalDone(worker.id, name);
+        else errors.push(`Credential ${name} entfernen: ${(error as Error).message}`);
+      }
+    }
+    for (const c of this.o.db.sharedCredentialsForWorker(worker.id)) {
+      if (c.deployed_version === c.version && c.deployed_name === c.name && !c.deploy_error) continue;
+      const error = await this.deployCredential(c, worker);
+      if (error) errors.push(error);
+    }
+    return errors;
   }
 
   async syncAll(): Promise<void> {

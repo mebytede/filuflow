@@ -183,6 +183,23 @@ describe('Master-Oberfläche', () => {
     await shot(page, '06-worker');
     expect(await page.content()).not.toContain('streng-geheim-123');
     expect(readFileSync(join(dir, 'credentials.managed.json'), 'utf8')).toContain('streng-geheim-123');
+
+    // Gemeinsames Credential für den Worker anlegen (M33)
+    await page.goto(`${base}/#/admin/credentials`);
+    await page.waitForSelector('.empty:has-text("Noch keine gemeinsamen Credentials.")');
+    await page.click('button:has-text("Credential anlegen")');
+    await page.locator('.modal [aria-label="Name"]').fill('Gemeinsam');
+    await page.locator('.modal select[aria-label="Typ"]').selectOption('httpBearerAuth');
+    await page.locator('.modal [aria-label="Bearer-Token"]').fill('gemeinsam-geheim-9');
+    await page.locator('.modal label.check:has-text("Produktion") input').check();
+    await page.click('.modal .btn-primary');
+    await page.waitForSelector('td .pill:has-text("aktuell")');
+    expect(await page.content()).not.toContain('gemeinsam-geheim-9');
+    await waitForFile(join(dir, 'credentials.managed.json'), 'gemeinsam-geheim-9');
+    // Zurück zur Seite des Workers
+    await page.goto(`${base}/#/admin/overview`);
+    await page.click('a.strong:has-text("Produktion")');
+    await page.waitForSelector('td:has-text("API Kunde A")');
     // Bearbeiten: öffentliches Feld sichtbar, geheimes leer; leer lassen behält den Wert
     await page.click('button[aria-label="API Kunde A bearbeiten"]');
     expect(await page.locator('.modal [aria-label="Header-Name"]').inputValue()).toBe('X-Api-Key');
@@ -309,3 +326,12 @@ describe('Master-Oberfläche', () => {
     }
   }, 120_000);
 });
+
+/** Wartet, bis eine Datei einen Text enthält */
+async function waitForFile(file: string, text: string): Promise<void> {
+  const end = Date.now() + 5000;
+  while (!readFileSync(file, 'utf8').includes(text)) {
+    if (Date.now() > end) throw new Error(`${text} fehlt in ${file}`);
+    await new Promise((r) => setTimeout(r, 50));
+  }
+}

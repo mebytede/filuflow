@@ -200,3 +200,14 @@ export interface AuditEntry {
   target: string | null;
   details: unknown;
 }
+
+/** Gemeinsames Credential im Master (M33), ohne Werte */
+export interface SharedCredential {
+  id: string;
+  name: string;
+  type: string;
+  version: number;
+  updatedAt: string;
+  workers: Array<{ id: string; name: string; deployedVersion: number | null; upToDate: boolean; error: string | null }>;
+  errors?: string[];
+}
