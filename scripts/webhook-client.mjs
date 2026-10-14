@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Sendet die Requests aus fixtures/<name>/webhook.json und sammelt die Antworten.
-// Wird von scripts/record-webhook.sh (gegen n8n) und vom Golden-Test (gegen flowlite) benutzt,
+// Wird von scripts/record-webhook.sh (gegen n8n) und vom Golden-Test (gegen filuflow) benutzt,
 // damit beide Seiten byte-gleiche Requests bekommen (Header-Reihenfolge, Host-Header).
 // Aufruf: node scripts/webhook-client.mjs <webhook.json> <basis-url> > responses.json
 import http from 'node:http';

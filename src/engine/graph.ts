@@ -81,6 +81,30 @@ export class WorkflowGraph {
   }
 
   /** Sub-Nodes, die per ai_*-Verbindung an `name` hängen (Quelle = Sub-Node). */
+  /**
+   * n8n Workflow.getHighestNode: oberste aktive Vorgänger über main (für ensureInputData). Wie n8n zählt der Knoten
+   * selbst nur mit disabled === false.
+   */
+  getHighestNode(name: string, connectionIndex?: number, checked: string[] = []): string[] {
+    const current: string[] = [];
+    if (this.nodes[name]?.disabled === false) current.push(name);
+    const inputs = this.byDestination[name]?.main;
+    if (!inputs) return current;
+    if (checked.includes(name)) return current;
+    checked.push(name);
+    const result: string[] = [];
+    inputs.forEach((list, index) => {
+      if (connectionIndex !== undefined && connectionIndex !== index) return;
+      for (const c of list ?? []) {
+        if (checked.includes(c.node) || !(c.node in this.nodes)) continue;
+        let add = this.getHighestNode(c.node, undefined, checked);
+        if (add.length === 0 && this.nodes[c.node].disabled !== true) add = [c.node];
+        for (const n of add) if (!result.includes(n)) result.push(n);
+      }
+    });
+    return result;
+  }
+
   getSubNodes(name: string, type: string): WorkflowNode[] {
     const conns = this.byDestination[name]?.[type] ?? [];
     const out: WorkflowNode[] = [];

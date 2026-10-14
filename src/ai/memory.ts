@@ -27,6 +27,11 @@ function messageJson(m: ChatMessage): Record<string, unknown> {
   return { lc: 1, type: 'constructor', id: ['langchain_core', 'messages', type], kwargs: { content: m.content, additional_kwargs: {}, response_metadata: {} } };
 }
 
+/** Alle Nachrichten einer Sitzung als LangChain-JSON (Chat Trigger: loadPreviousSession "memory") */
+export function memoryMessages(key: string): Record<string, unknown>[] {
+  return (store.get(key)?.messages ?? []).map(messageJson);
+}
+
 export class BufferWindowMemory {
   readonly kind = 'memory';
 
@@ -52,6 +57,14 @@ export class BufferWindowMemory {
     const history = this.k > 0 ? messages.slice(-this.k * 2) : [];
     this.ctx.addOutputData('ai_memory', index, [[{ json: { action: 'loadMemoryVariables', chatHistory: history.map(messageJson) } }]]);
     return history.map((m) => ({ ...m }));
+  }
+
+  /**
+   * chatHistory.addAIMessage / addUserMessage (Respond to Chat). n8n ruft das über memory.chatHistory, das logWrapper
+   * nicht umhüllt; daher ohne eigenen Lauf im Protokoll.
+   */
+  addMessage(role: 'human' | 'ai', content: string): void {
+    this.entry().messages.push({ role, content });
   }
 
   /** saveContext: Eingabe und Antwort anhängen */

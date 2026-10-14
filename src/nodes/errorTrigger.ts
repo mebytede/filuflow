@@ -3,11 +3,23 @@
 // Der Server startet den Fehler-Workflow mit den Fehlerdaten (execute-error-workflow.ts);
 // im manuellen Modus ohne Daten liefert der Node Beispieldaten wie n8n.
 import type { NodeType } from './types.js';
+import type { ParamSchema } from './params.js';
+
+// Parameter wie packages/nodes-base/nodes/ErrorTrigger/ErrorTrigger.node.ts (nur ein Hinweis)
+const parameters: ParamSchema[] = [
+  {
+    name: 'notice',
+    label: 'Dieser Knoten startet, wenn in einem anderen Workflow ein Fehler auftritt und dieser Workflow dort als Fehler-Workflow eingetragen ist.',
+    type: 'notice',
+    default: '',
+  },
+];
 
 export const errorTriggerNode: NodeType = {
   type: 'n8n-nodes-base.errorTrigger',
   displayName: 'Error Trigger',
   versions: [1],
+  parameters,
   isTrigger: true,
   inputs: () => 0,
   outputs: () => 1,

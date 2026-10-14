@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="64" viewBox="0 0 300 64" role="img" aria-label="filuflow">
+  <defs><linearGradient id="g" gradientUnits="userSpaceOnUse" x1="0" y1="21.9" x2="48" y2="26.1"><stop offset="0" stop-color="#9AEFFF"/><stop offset="0.45" stop-color="#5DE5FD"/><stop offset="1" stop-color="#3FB2F5"/></linearGradient></defs>
+  <g transform="translate(4 8)">
+    <path d="M4 10C16 10 18 24 30 24M4 24H30M4 38C16 38 18 24 30 24" fill="none" stroke="#0D6BA8" stroke-width="3.5"/>
+    <path d="M30 24H36" fill="none" stroke="#0D6BA8" stroke-width="5"/>
+    <rect x="34" y="17" width="14" height="14" fill="#0D6BA8"/>
+  </g>
+  <text x="72" y="44" fill="#0B1219" font-family="'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-weight="500" font-size="36" letter-spacing="-0.7">filuflow</text>
+</svg>

@@ -1,5 +1,5 @@
 {
-  "name": "flowlite",
+  "name": "filuflow",
   "version": "0.1.0",
   "description": "n8n-kompatible Workflow-Engine (internes Tool)",
   "private": true,
@@ -9,7 +9,7 @@
     "node": ">=22"
   },
   "bin": {
-    "flowlite": "./bin/flowlite.js"
+    "filuflow": "./bin/filuflow.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -18,14 +18,16 @@
     "bin"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && npm run build:ui",
     "test": "vitest run --exclude 'test/compat/**'",
     "test:compat": "vitest run test/compat",
-    "lint": "eslint . && tsc --noEmit",
-    "flowlite": "tsx src/cli/main.ts"
+    "lint": "eslint . && tsc --noEmit && tsc -p tsconfig.ui.json --noEmit",
+    "filuflow": "tsx src/cli/main.ts",
+    "build:ui": "tsc -p tsconfig.ui.json && node scripts/copy-ui-assets.mjs"
   },
   "dependencies": {
     "acorn": "^8.19.0",
+    "alasql": "4.4.0",
     "astring": "^1.9.0",
     "better-sqlite3": "^13.0.3",
     "cheerio": "1.0.0-rc.6",
@@ -38,6 +40,7 @@
     "luxon": "3.4.4",
     "math-expression-evaluator": "2.0.7",
     "pino": "^10.4.0",
+    "pyodide": "0.28.0",
     "qs": "6.11.0",
     "title-case": "3.0.3",
     "transliteration": "2.3.5",
@@ -55,6 +58,7 @@
     "@types/qs": "^6.15.1",
     "@types/xml2js": "^0.4.14",
     "eslint": "^10.12.0",
+    "playwright-core": "1.56.1",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.71.1",

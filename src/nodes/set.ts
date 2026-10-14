@@ -4,6 +4,7 @@
 //   helpers/utils.ts (typeVersion 3 bis 3.4).
 import lodash from 'lodash';
 import type { NodeType, ExecContext } from './types.js';
+import type { DisplayRule, ParamSchema } from './params.js';
 import type { Item, WorkflowNode } from '../types.js';
 import { NodeOperationError } from '../errors.js';
 import {
@@ -346,10 +347,309 @@ async function executeV2(ctx: ExecContext): Promise<Item[][]> {
   return [out];
 }
 
+// Parameter wie v1/SetV1.node.ts (typeVersion 1, 2) sowie v2/SetV2.node.ts, v2/manual.mode.ts und v2/raw.mode.ts
+// (typeVersion 3 bis 3.4). n8n beschreibt beide Fassungen getrennt; hier trennt die Regel "@version" sie. Wo n8n
+// "hide @version [3, 3.1, 3.2]" nutzt, steht hier gleichwertig "show @version >= 3.3".
+const V1: DisplayRule = { '@version': [1, 2] };
+const V3: DisplayRule = { '@version': [{ _cnd: { gte: 3 } }] };
+const V33 = { _cnd: { gte: 3.3 } };
+
+function v1ValueGroup(name: string, label: string, value: ParamSchema): { name: string; label: string; children: ParamSchema[] } {
+  return {
+    name,
+    label,
+    children: [
+      {
+        name: 'name',
+        label: 'Name',
+        type: 'string',
+        default: 'propertyName',
+        description: 'Name der Eigenschaft, unterstützt Punktnotation wie "data.person[0].name"',
+      },
+      value,
+    ],
+  };
+}
+
+const parameters: ParamSchema[] = [
+  // typeVersion 1, 2
+  {
+    name: 'keepOnlySet',
+    label: 'Nur gesetzte Werte behalten',
+    type: 'boolean',
+    default: false,
+    description: 'Ob alle anderen Werte entfernt werden',
+    show: V1,
+  },
+  {
+    name: 'values',
+    label: 'Zu setzende Werte',
+    type: 'fixedCollection',
+    default: {},
+    multiple: true,
+    addLabel: 'Wert hinzufügen',
+    description: 'Die zu setzenden Werte',
+    show: V1,
+    groups: [
+      v1ValueGroup('boolean', 'Boolean', { name: 'value', label: 'Wert', type: 'boolean', default: false, description: 'Der zu schreibende Boolean-Wert' }),
+      v1ValueGroup('number', 'Zahl', { name: 'value', label: 'Wert', type: 'number', default: 0, description: 'Die zu schreibende Zahl' }),
+      v1ValueGroup('string', 'Text', { name: 'value', label: 'Wert', type: 'string', default: '', description: 'Der zu schreibende Text' }),
+    ],
+  },
+  {
+    name: 'options',
+    label: 'Optionen',
+    type: 'collection',
+    default: {},
+    addLabel: 'Option hinzufügen',
+    show: V1,
+    children: [
+      {
+        name: 'dotNotation',
+        label: 'Punktnotation',
+        type: 'boolean',
+        default: true,
+        description: 'Ob "a.b" die Eigenschaft "b" unter "a" setzt statt den Schlüssel "a.b"',
+      },
+    ],
+  },
+
+  // typeVersion 3 bis 3.4
+  {
+    name: 'mode',
+    label: 'Modus',
+    type: 'options',
+    default: 'manual',
+    noExpression: true,
+    show: V3,
+    options: [
+      { value: 'manual', label: 'Manuelle Zuordnung', description: 'Felder einzeln bearbeiten' },
+      { value: 'raw', label: 'JSON', description: 'Ausgabe als JSON festlegen' },
+    ],
+  },
+  {
+    name: 'duplicateItem',
+    label: 'Item duplizieren',
+    type: 'boolean',
+    default: false,
+    description: 'Ob das Item mehrfach ausgegeben wird',
+    show: V3,
+  },
+  {
+    name: 'duplicateCount',
+    label: 'Anzahl Duplikate',
+    type: 'number',
+    default: 0,
+    min: 0,
+    description: 'Wie oft das Item dupliziert wird, vor allem zum Testen',
+    show: { ...V3, duplicateItem: [true] },
+  },
+  {
+    name: 'duplicateWarning',
+    label: 'Das Duplizieren wirkt nur bei manuellen Ausführungen und wird bei automatischen Läufen ignoriert.',
+    type: 'notice',
+    default: '',
+    show: { ...V3, duplicateItem: [true] },
+  },
+  // raw.mode.ts
+  {
+    name: 'jsonOutput',
+    label: 'JSON',
+    type: 'json',
+    default: '{\n  "my_field_1": "value",\n  "my_field_2": 1\n}\n',
+    rows: 5,
+    show: { ...V3, mode: ['raw'] },
+  },
+  // manual.mode.ts
+  {
+    name: 'fields',
+    label: 'Zu setzende Felder',
+    type: 'fixedCollection',
+    default: {},
+    multiple: true,
+    addLabel: 'Feld hinzufügen',
+    description: 'Vorhandene Felder bearbeiten oder neue hinzufügen',
+    show: { '@version': [3, 3.1, 3.2], mode: ['manual'] },
+    groups: [
+      {
+        name: 'values',
+        label: 'Werte',
+        children: [
+          {
+            name: 'name',
+            label: 'Name',
+            type: 'string',
+            default: '',
+            placeholder: 'z. B. fieldName',
+            description: 'Name des Felds, unterstützt Punktnotation wie data.person[0].name',
+          },
+          {
+            name: 'type',
+            label: 'Typ',
+            type: 'options',
+            default: 'stringValue',
+            description: 'Der Typ des Werts',
+            options: [
+              { value: 'stringValue', label: 'Text' },
+              { value: 'numberValue', label: 'Zahl' },
+              { value: 'booleanValue', label: 'Boolean' },
+              { value: 'arrayValue', label: 'Array' },
+              { value: 'objectValue', label: 'Objekt' },
+            ],
+          },
+          { name: 'stringValue', label: 'Wert', type: 'string', default: '', show: { type: ['stringValue'] } },
+          { name: 'numberValue', label: 'Wert', type: 'string', default: '', show: { type: ['numberValue'] } },
+          {
+            name: 'booleanValue',
+            label: 'Wert',
+            type: 'options',
+            default: 'true',
+            show: { type: ['booleanValue'] },
+            options: [
+              { value: 'true', label: 'Wahr' },
+              { value: 'false', label: 'Falsch' },
+            ],
+          },
+          {
+            name: 'arrayValue',
+            label: 'Wert',
+            type: 'string',
+            default: '',
+            placeholder: 'z. B. [ arrayItem1, arrayItem2, arrayItem3 ]',
+            show: { type: ['arrayValue'] },
+          },
+          { name: 'objectValue', label: 'Wert', type: 'json', default: '={}', rows: 2, show: { type: ['objectValue'] } },
+        ],
+      },
+    ],
+  },
+  {
+    name: 'assignments',
+    label: 'Zu setzende Felder',
+    type: 'assignments',
+    default: {},
+    show: { '@version': [V33], mode: ['manual'] },
+  },
+  {
+    name: 'include',
+    label: 'In Ausgabe aufnehmen',
+    type: 'options',
+    default: 'all',
+    description: 'Welche Eingabefelder in die Ausgabe-Items kommen',
+    show: { '@version': [3, 3.1, 3.2] },
+    options: [
+      { value: 'all', label: 'Alle Eingabefelder', description: 'Auch alle unveränderten Eingabefelder übernehmen' },
+      { value: 'none', label: 'Keine Eingabefelder', description: 'Nur die oben gesetzten Felder ausgeben' },
+      { value: 'selected', label: 'Ausgewählte Eingabefelder', description: 'Auch die Felder aus "Aufzunehmende Felder" übernehmen' },
+      { value: 'except', label: 'Alle Eingabefelder außer', description: 'Die Felder aus "Auszuschließende Felder" weglassen' },
+    ],
+  },
+  {
+    name: 'includeOtherFields',
+    label: 'Andere Eingabefelder übernehmen',
+    type: 'boolean',
+    default: false,
+    description: 'Ob neben den gesetzten Feldern auch alle Eingabefelder ausgegeben werden',
+    show: { '@version': [V33] },
+  },
+  {
+    name: 'include',
+    label: 'Aufzunehmende Eingabefelder',
+    type: 'options',
+    default: 'all',
+    description: 'Welche Eingabefelder in die Ausgabe-Items kommen',
+    show: { '@version': [V33] },
+    hide: { '/includeOtherFields': [false] },
+    options: [
+      { value: 'all', label: 'Alle', description: 'Auch alle unveränderten Eingabefelder übernehmen' },
+      { value: 'selected', label: 'Ausgewählte', description: 'Auch die Felder aus "Aufzunehmende Felder" übernehmen' },
+      { value: 'except', label: 'Alle außer', description: 'Die Felder aus "Auszuschließende Felder" weglassen' },
+    ],
+  },
+  {
+    name: 'includeFields',
+    label: 'Aufzunehmende Felder',
+    type: 'string',
+    default: '',
+    placeholder: 'z. B. fieldToInclude1,fieldToInclude2',
+    description: 'Kommagetrennte Liste der Feldnamen, die in die Ausgabe kommen',
+    show: { include: ['selected'], '@version': [3, 3.1, 3.2] },
+  },
+  {
+    name: 'excludeFields',
+    label: 'Auszuschließende Felder',
+    type: 'string',
+    default: '',
+    placeholder: 'z. B. fieldToExclude1,fieldToExclude2',
+    description: 'Kommagetrennte Liste der Feldnamen, die nicht in die Ausgabe kommen',
+    show: { include: ['except'], '@version': [3, 3.1, 3.2] },
+  },
+  {
+    name: 'includeFields',
+    label: 'Aufzunehmende Felder',
+    type: 'string',
+    default: '',
+    placeholder: 'z. B. fieldToInclude1,fieldToInclude2',
+    description: 'Kommagetrennte Liste der Feldnamen, die in die Ausgabe kommen',
+    show: { include: ['selected'], '/includeOtherFields': [true], '@version': [V33] },
+  },
+  {
+    name: 'excludeFields',
+    label: 'Auszuschließende Felder',
+    type: 'string',
+    default: '',
+    placeholder: 'z. B. fieldToExclude1,fieldToExclude2',
+    description: 'Kommagetrennte Liste der Feldnamen, die nicht in die Ausgabe kommen',
+    show: { include: ['except'], '/includeOtherFields': [true], '@version': [V33] },
+  },
+  {
+    name: 'options',
+    label: 'Optionen',
+    type: 'collection',
+    default: {},
+    addLabel: 'Option hinzufügen',
+    show: V3,
+    children: [
+      {
+        name: 'includeBinary',
+        label: 'Binärdatei übernehmen',
+        type: 'boolean',
+        default: true,
+        description: 'Ob vorhandene Binärdaten des Eingabe-Items übernommen werden',
+        hide: { '@version': [{ _cnd: { gte: 3.4 } }] },
+      },
+      {
+        name: 'stripBinary',
+        label: 'Binärdaten entfernen',
+        type: 'boolean',
+        default: true,
+        description: 'Ob Binärdaten entfernt werden, gilt nur mit "Andere Eingabefelder übernehmen"',
+        show: { '@version': [{ _cnd: { gte: 3.4 } }], '/includeOtherFields': [true] },
+      },
+      {
+        name: 'ignoreConversionErrors',
+        label: 'Typfehler ignorieren',
+        type: 'boolean',
+        default: false,
+        description: 'Ob Typfehler ignoriert und weniger strikt umgewandelt wird',
+        show: { '/mode': ['manual'] },
+      },
+      {
+        name: 'dotNotation',
+        label: 'Punktnotation unterstützen',
+        type: 'boolean',
+        default: true,
+        description: 'Ob "a.b" die Eigenschaft "b" unter "a" setzt statt den Schlüssel "a.b"',
+      },
+    ],
+  },
+];
+
 export const setNode: NodeType = {
   type: 'n8n-nodes-base.set',
   displayName: 'Edit Fields (Set)',
   versions: [1, 2, 3, 3.1, 3.2, 3.3, 3.4],
+  parameters,
   outputs: () => 1,
   async execute(ctx) {
     return ctx.node.typeVersion < 3 ? executeV1(ctx) : executeV2(ctx);

@@ -1,0 +1,1 @@
+{ "name": "n8n-nodes-takt", "version": "1.0.0", "type": "commonjs", "n8n": { "nodes": ["dist/ZaehlerTrigger.node.js", "dist/TaktTrigger.node.js"], "credentials": [] } }

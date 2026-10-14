@@ -111,7 +111,7 @@ export interface TaskData {
   startTime: number;
   executionIndex: number;
   executionTime: number;
-  executionStatus: 'success' | 'error' | 'canceled' | 'running';
+  executionStatus: 'success' | 'error' | 'canceled' | 'running' | 'waiting';
   /** main für normale Nodes; ai_* (z. B. ai_languageModel) für Läufe von Sub-Nodes */
   data: { main?: Array<Item[] | null>; [connectionType: string]: Array<Item[] | null> | undefined };
   source: Array<SourceData | null>;
@@ -136,4 +136,6 @@ export interface Execution {
   runData: RunData;
   lastNodeExecuted?: string;
   error?: SerializedError;
+  /** Status "waiting": Fortsetzen spätestens zu diesem Zeitpunkt (ISO); 3000-01-01 = unbegrenzt (n8n WAIT_INDEFINITELY) */
+  waitTill?: string;
 }

@@ -1,0 +1,1 @@
+{ "name": "n8n-nodes-eingang", "version": "1.0.0", "type": "commonjs", "n8n": { "nodes": ["dist/EingangTrigger.node.js", "dist/DienstTrigger.node.js"], "credentials": [] } }

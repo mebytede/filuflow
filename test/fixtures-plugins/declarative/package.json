@@ -1,0 +1,1 @@
+{ "name": "n8n-nodes-wetter", "version": "1.0.0", "type": "commonjs", "n8n": { "nodes": ["dist/Wetter.node.js"], "credentials": ["dist/WetterApi.credentials.js"] } }

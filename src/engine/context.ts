@@ -82,7 +82,7 @@ export class NodeExecutionContext implements ExecContext {
     this.engineResponse = init.engineResponse;
   }
 
-  getDataProxy(itemIndex: number, options: { cloneInput?: boolean; contextNodeName?: string } = {}): Record<string, unknown> {
+  getDataProxy(itemIndex: number, options: { cloneInput?: boolean; contextNodeName?: string; extraKeys?: Record<string, unknown> } = {}): Record<string, unknown> {
     const connectionInputData = options.cloneInput ? structuredCloneItems(this.connectionInputData) : this.connectionInputData;
     return createDataProxy({
       graph: this.workflow,
@@ -94,7 +94,7 @@ export class NodeExecutionContext implements ExecContext {
       executeData: this.executeData,
       mode: this.mode,
       timezone: this.timezone,
-      additionalKeys: this.executor.additionalKeys(),
+      additionalKeys: options.extraKeys ? { ...this.executor.additionalKeys(), ...options.extraKeys } : this.executor.additionalKeys(),
       siblingParameters: {},
       env: this.executor.env,
       contextNodeName: options.contextNodeName,
@@ -140,6 +140,17 @@ export class NodeExecutionContext implements ExecContext {
     return result as T;
   }
 
+  resolveValue(value: unknown, itemIndex: number, extraKeys?: Record<string, unknown>): unknown {
+    let data: Record<string, unknown> | undefined;
+    return resolveParameterValue(value, {
+      getData: () => (data ??= this.getDataProxy(itemIndex, { extraKeys })),
+      nodeName: this.node.name,
+      itemIndex,
+      runIndex: this.runIndex,
+      timeout: this.executor.expressionTimeout,
+    });
+  }
+
   evaluateExpression(expression: string, itemIndex: number): unknown {
     let data: Record<string, unknown> | undefined;
     return resolveSimpleValue(`=${expression}`, {
@@ -177,6 +188,19 @@ export class NodeExecutionContext implements ExecContext {
     this.executor.sendWebhookResponse(response);
   }
 
+  isStreaming(): boolean {
+    return this.executor.isStreaming();
+  }
+
+  /** n8n ExecuteContext.sendChunk: Inhalt als Text (Objekte als JSON) mit Metadaten des Knotens */
+  sendChunk(type: 'begin' | 'item' | 'end' | 'error', itemIndex: number, content?: unknown): void {
+    this.executor.sendChunk({
+      type,
+      content: content === undefined ? undefined : typeof content === 'string' ? content : JSON.stringify(content),
+      metadata: { nodeId: this.node.id ?? '', nodeName: this.node.name, itemIndex, runIndex: this.runIndex, timestamp: Date.now() },
+    });
+  }
+
   getSubNodes(type: string): WorkflowNode[] {
     return this.workflow.getSubNodes(this.node.name, type);
   }
@@ -210,6 +234,14 @@ export class NodeExecutionContext implements ExecContext {
 
   addOutputData(connectionType: string, index: number, data: Item[][] | Error, sourceRunIndex?: number): void {
     this.executor.recordSubNodeTask('output', this.node, this.parent, connectionType, data, index, sourceRunIndex);
+  }
+
+  putExecutionToWait(waitTill: Date): void {
+    this.executor.putExecutionToWait(waitTill);
+  }
+
+  get canWait(): boolean {
+    return this.executor.canWait;
   }
 
   logOutput(level: 'log' | 'info' | 'warn' | 'error' | 'debug', args: unknown[]): void {

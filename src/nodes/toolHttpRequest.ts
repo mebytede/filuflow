@@ -10,9 +10,12 @@ import lodash from 'lodash';
 import qs from 'qs';
 import { jsonrepair } from 'jsonrepair';
 import type { ExecContext, NodeIssue, NodeType } from './types.js';
+import type { ParamSchema } from './params.js';
 import type { WorkflowNode } from '../types.js';
 import { NodeOperationError } from '../errors.js';
-import { getOAuth2Token, signRequest } from '../credentials/oauth2.js';
+import { getOAuth2Token, oauth2ServiceOptions, signOAuth2Request, type OAuth2RequestOptions, type OAuth2Token } from '../credentials/oauth2.js';
+import { authenticateRequest, hasAuthentication } from '../credentials/authenticate.js';
+import { isOAuth2Type } from '../credentials/types.js';
 import type { HttpRequest } from '../http.js';
 import { STRING_INPUT_SCHEMA, type ToolInstance } from '../ai/tools.js';
 import { zodParse, zodToJsonSchema, type ZType } from '../ai/schema.js';
@@ -196,7 +199,12 @@ function makeToolInputSchema(params: ToolParameter[]): ZType {
 // ---------------------------------------------------------------------------------------------
 // HTTP (n8n helpers.httpRequest mit returnFullResponse)
 
-async function sendRequest(ctx: ExecContext, options: RequestOptions & { auth?: { username: string; password: string } }, oauth2?: Record<string, unknown>): Promise<FullResponse> {
+async function sendRequest(
+  ctx: ExecContext,
+  options: RequestOptions & { auth?: { username: string; password: string } },
+  oauth2?: Record<string, unknown>,
+  oauth2Options?: OAuth2RequestOptions,
+): Promise<FullResponse> {
   const headers: Record<string, string> = {};
   for (const [k, v] of Object.entries(options.headers ?? {})) if (v !== undefined && v !== null) headers[k] = String(v);
   let body: string | undefined;
@@ -218,8 +226,13 @@ async function sendRequest(ctx: ExecContext, options: RequestOptions & { auth?: 
     if (query) url += (url.includes('?') ? '&' : '?') + query;
   }
   let request: HttpRequest = { method: options.method, url, headers, body, signal: ctx.signal, timeout: 300_000 };
+  let token: OAuth2Token | undefined;
   const send = async (force: boolean) => {
-    if (oauth2) request = signRequest(request, await getOAuth2Token(ctx, oauth2, force), ctx.node.name);
+    if (oauth2) {
+      const fresh = await getOAuth2Token(ctx, oauth2, force, oauth2Options);
+      request = signOAuth2Request(request, fresh, ctx.node.name, oauth2Options, force ? token : undefined);
+      token = fresh;
+    }
     return ctx.helpers.http.request(request);
   };
   let res = await send(false);
@@ -287,7 +300,21 @@ async function configureHttpRequestFunction(ctx: ExecContext, authentication: st
     throw new NodeOperationError(ctx.node.name, `The type ${genericType} is not supported`, { itemIndex });
   }
   if (authentication === 'predefinedCredentialType') {
-    throw new NodeOperationError(ctx.node.name, 'HTTP Request Tool: vordefinierte Credential-Typen werden nicht unterstützt', { itemIndex });
+    // utils.ts predefinedCredentialRequest: httpRequestWithAuthentication mit getOAuth2AdditionalParameters (M28)
+    const type = ctx.getParam<string>('nodeCredentialType', itemIndex, '');
+    const cred = await ctx.getCredentials(type, itemIndex);
+    if (hasAuthentication(type)) {
+      return async (o) => {
+        const authed = await authenticateRequest(type, cred, { url: o.url, method: o.method, headers: o.headers, qs: o.qs, body: o.body });
+        return sendRequest(ctx, { ...o, headers: authed.headers ?? {}, qs: authed.qs ?? {}, body: authed.body, ...(authed.auth ? { auth: authed.auth } : {}) });
+      };
+    }
+    if (isOAuth2Type(type)) {
+      // requestOAuth2 mit isN8nRequest: erneuter Versuch nur nach 401
+      const options = oauth2ServiceOptions(type);
+      return (o) => sendRequest(ctx, o, cred, options && { ...options, tokenExpiredStatusCode: undefined });
+    }
+    throw new NodeOperationError(ctx.node.name, `HTTP Request Tool: für den Credential-Typ "${type}" kennt filuflow keine Authentifizierung`, { itemIndex });
   }
   return (o) => sendRequest(ctx, o);
 }
@@ -566,7 +593,10 @@ function validateNode(node: WorkflowNode): NodeIssue[] {
   const issues: NodeIssue[] = [];
   const auth = (p.authentication as string | undefined) ?? 'none';
   if (auth === 'predefinedCredentialType') {
-    issues.push({ code: 'node.unsupportedParameter', message: 'HTTP Request Tool: vordefinierte Credential-Typen werden nicht unterstützt', path: 'parameters.authentication' });
+    const type = String(p.nodeCredentialType ?? '');
+    if (!hasAuthentication(type) && !isOAuth2Type(type)) {
+      issues.push({ code: 'node.unsupportedParameter', message: `HTTP Request Tool: für den Credential-Typ "${type}" kennt filuflow keine Authentifizierung`, path: 'parameters.nodeCredentialType' });
+    }
   }
   if (auth === 'genericCredentialType' && !SUPPORTED_GENERIC.includes(String(p.genericAuthType))) {
     issues.push({ code: 'node.unsupportedParameter', message: `HTTP Request Tool: Authentifizierung "${String(p.genericAuthType)}" wird nicht unterstützt`, path: 'parameters.genericAuthType' });
@@ -581,14 +611,302 @@ function validateNode(node: WorkflowNode): NodeIssue[] {
   return issues;
 }
 
+// Parameter wie n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/tools/ToolHttpRequest/ToolHttpRequest.node.ts
+// (properties, für v1 und v1.1 gleich) mit den Bausteinen aus descriptions.ts (specifyBySelector, parametersCollection,
+// placeholderDefinitionsCollection, jsonInput, authenticationProperties, optimizeResponseProperties) und
+// packages/@n8n/nodes-langchain/utils/sharedFields.ts (getConnectionHintNoticeField). Die generischen Auth-Typen sind
+// die Credentials mit genericAuth: true aus packages/nodes-base/credentials; validate meldet nicht unterstützte.
+const SPECIFY_BY_OPTIONS = [
+  { value: 'keypair', label: 'Über Felder' },
+  { value: 'json', label: 'Über JSON' },
+  { value: 'model', label: 'Modell gibt alles vor' },
+];
+
+/** parametersCollection (descriptions.ts) unter eigenem Namen */
+function toolParametersCollection(name: string, label: string, show: ParamSchema['show']): ParamSchema {
+  return {
+    name,
+    label,
+    type: 'fixedCollection',
+    multiple: true,
+    placeholder: 'Parameter hinzufügen',
+    addLabel: 'Parameter hinzufügen',
+    default: { values: [{ name: '' }] },
+    show,
+    groups: [
+      {
+        name: 'values',
+        label: 'Werte',
+        children: [
+          { name: 'name', label: 'Name', type: 'string', default: '' },
+          {
+            name: 'valueProvider',
+            label: 'Wert kommt',
+            type: 'options',
+            default: 'modelRequired',
+            options: [
+              { value: 'modelRequired', label: 'Vom Modell (Pflicht)' },
+              { value: 'modelOptional', label: 'Vom Modell (optional)' },
+              { value: 'fieldValue', label: 'Aus dem Feld unten' },
+            ],
+          },
+          {
+            name: 'value',
+            label: 'Wert',
+            type: 'string',
+            default: '',
+            show: { valueProvider: ['fieldValue'] },
+            description: 'Mit {platzhalter} füllt das Modell Teile des Werts',
+          },
+        ],
+      },
+    ],
+  };
+}
+
+/** jsonInput (descriptions.ts): in n8n ein mehrzeiliger String, kein json-Typ */
+function toolJsonInput(name: string, show: ParamSchema['show']): ParamSchema {
+  return { name, label: 'JSON', type: 'string', rows: 5, default: '', show, description: 'Mit {platzhalter} füllt das Modell Teile des JSON' };
+}
+
+const parameters: ParamSchema[] = [
+  { name: 'notice', label: 'Dieser Knoten muss mit einem KI-Agenten verbunden sein', type: 'notice', default: '' },
+  {
+    name: 'toolDescription',
+    label: 'Beschreibung',
+    type: 'string',
+    default: '',
+    rows: 3,
+    placeholder: 'z. B. Liefert das aktuelle Wetter in der gewünschten Stadt',
+    description: 'Erklärt dem Modell, was das Tool tut',
+  },
+  {
+    name: 'method',
+    label: 'Methode',
+    type: 'options',
+    default: 'GET',
+    options: ['DELETE', 'GET', 'PATCH', 'POST', 'PUT'].map((m) => ({ value: m, label: m })),
+  },
+  {
+    name: 'placeholderNotice',
+    label: 'Tipp: Mit einem {platzhalter} füllt das Modell beliebige Teile des Requests; Details unter Platzhalter-Definitionen',
+    type: 'notice',
+    default: '',
+  },
+  {
+    name: 'url',
+    label: 'URL',
+    type: 'string',
+    default: '',
+    required: true,
+    placeholder: 'z. B. http://www.example.com/{path}',
+  },
+  {
+    name: 'authentication',
+    label: 'Authentifizierung',
+    type: 'options',
+    default: 'none',
+    noExpression: true,
+    description: 'Die Anmeldung übernimmt filuflow, das Modell sieht die Credentials nicht',
+    options: [
+      { value: 'none', label: 'Keine' },
+      { value: 'predefinedCredentialType', label: 'Vordefinierter Credential-Typ', description: 'Fertige Anmeldung für einen Dienst' },
+      { value: 'genericCredentialType', label: 'Generischer Credential-Typ', description: 'Frei konfigurierbar, z. B. Basic, Header oder OAuth2' },
+    ],
+  },
+  {
+    // n8n: type credentialsSelect; filuflow kennt Typen mit Authentifizierung und OAuth2-Typen (M28), validate meldet andere
+    name: 'nodeCredentialType',
+    label: 'Credential-Typ',
+    type: 'string',
+    default: '',
+    required: true,
+    noExpression: true,
+    show: { authentication: ['predefinedCredentialType'] },
+    description: 'Name des vordefinierten Credential-Typs, z. B. githubApi, notionApi oder ein OAuth2-Typ wie googleSheetsOAuth2Api',
+  },
+  {
+    name: 'googleApiWarning',
+    label: 'Im Credential müssen die Scopes für den Service Account angegeben sein',
+    type: 'notice',
+    default: '',
+    show: { nodeCredentialType: ['googleApi'] },
+  },
+  {
+    // n8n: type credentialsSelect (has:genericAuth)
+    name: 'genericAuthType',
+    label: 'Generischer Auth-Typ',
+    type: 'options',
+    default: '',
+    required: true,
+    show: { authentication: ['genericCredentialType'] },
+    options: [
+      { value: 'httpBasicAuth', label: 'Basic Auth' },
+      { value: 'httpBearerAuth', label: 'Bearer Auth' },
+      { value: 'httpCustomAuth', label: 'Custom Auth' },
+      { value: 'httpDigestAuth', label: 'Digest Auth' },
+      { value: 'httpHeaderAuth', label: 'Header Auth' },
+      { value: 'oAuth1Api', label: 'OAuth1 API' },
+      { value: 'oAuth2Api', label: 'OAuth2 API' },
+      { value: 'httpQueryAuth', label: 'Query Auth' },
+    ],
+  },
+  // Query
+  { name: 'sendQuery', label: 'Query-Parameter senden', type: 'boolean', default: false, noExpression: true, description: 'Ob der Request Query-Parameter hat' },
+  { name: 'specifyQuery', label: 'Query-Parameter angeben', type: 'options', default: 'keypair', show: { sendQuery: [true] }, options: SPECIFY_BY_OPTIONS },
+  toolParametersCollection('parametersQuery', 'Query-Parameter', { sendQuery: [true], specifyQuery: ['keypair'] }),
+  toolJsonInput('jsonQuery', { sendQuery: [true], specifyQuery: ['json'] }),
+  // Header
+  { name: 'sendHeaders', label: 'Header senden', type: 'boolean', default: false, noExpression: true, description: 'Ob der Request Header hat' },
+  { name: 'specifyHeaders', label: 'Header angeben', type: 'options', default: 'keypair', show: { sendHeaders: [true] }, options: SPECIFY_BY_OPTIONS },
+  toolParametersCollection('parametersHeaders', 'Header-Parameter', { sendHeaders: [true], specifyHeaders: ['keypair'] }),
+  toolJsonInput('jsonHeaders', { sendHeaders: [true], specifyHeaders: ['json'] }),
+  // Body
+  { name: 'sendBody', label: 'Body senden', type: 'boolean', default: false, noExpression: true, description: 'Ob der Request einen Body hat' },
+  { name: 'specifyBody', label: 'Body angeben', type: 'options', default: 'keypair', show: { sendBody: [true] }, options: SPECIFY_BY_OPTIONS },
+  toolParametersCollection('parametersBody', 'Body-Parameter', { sendBody: [true], specifyBody: ['keypair'] }),
+  toolJsonInput('jsonBody', { sendBody: [true], specifyBody: ['json'] }),
+  // Platzhalter
+  {
+    name: 'placeholderDefinitions',
+    label: 'Platzhalter-Definitionen',
+    type: 'fixedCollection',
+    multiple: true,
+    placeholder: 'Definition hinzufügen',
+    addLabel: 'Definition hinzufügen',
+    default: [],
+    groups: [
+      {
+        name: 'values',
+        label: 'Werte',
+        children: [
+          { name: 'name', label: 'Name des Platzhalters', type: 'string', default: '' },
+          { name: 'description', label: 'Beschreibung', type: 'string', default: '' },
+          {
+            name: 'type',
+            label: 'Typ',
+            type: 'options',
+            default: 'not specified',
+            options: [
+              { value: 'not specified', label: 'Nicht angegeben (Default)' },
+              { value: 'string', label: 'String' },
+              { value: 'number', label: 'Number' },
+              { value: 'boolean', label: 'Boolean' },
+              { value: 'json', label: 'JSON' },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  // Antwort optimieren
+  {
+    name: 'optimizeResponse',
+    label: 'Antwort optimieren',
+    type: 'boolean',
+    default: false,
+    noExpression: true,
+    description: 'Ob die Antwort gekürzt wird, damit weniger Daten an das Modell gehen',
+  },
+  {
+    name: 'responseType',
+    label: 'Erwarteter Antworttyp',
+    type: 'options',
+    default: 'json',
+    show: { optimizeResponse: [true] },
+    options: [
+      { value: 'json', label: 'JSON' },
+      { value: 'html', label: 'HTML' },
+      { value: 'text', label: 'Text' },
+    ],
+  },
+  {
+    name: 'dataField',
+    label: 'Feld mit den Daten',
+    type: 'string',
+    default: '',
+    placeholder: 'z. B. records',
+    show: { optimizeResponse: [true], responseType: ['json'] },
+    description: 'Feld der Antwort mit den Daten, leer für die ganze Antwort',
+  },
+  {
+    name: 'fieldsToInclude',
+    label: 'Felder übernehmen',
+    type: 'options',
+    default: 'all',
+    show: { optimizeResponse: [true], responseType: ['json'] },
+    options: [
+      { value: 'all', label: 'Alle', description: 'Alle Felder übernehmen' },
+      { value: 'selected', label: 'Ausgewählte', description: 'Nur die unten angegebenen Felder' },
+      { value: 'except', label: 'Außer', description: 'Die unten angegebenen Felder weglassen' },
+    ],
+    description: 'Welche Felder das Antwortobjekt enthält',
+  },
+  {
+    name: 'fields',
+    label: 'Felder',
+    type: 'string',
+    default: '',
+    placeholder: 'z. B. field1,field2',
+    show: { optimizeResponse: [true], responseType: ['json'] },
+    hide: { fieldsToInclude: ['all'] },
+    description: 'Feldnamen durch Kommas getrennt, Punktnotation erlaubt',
+  },
+  {
+    name: 'cssSelector',
+    label: 'Selektor (CSS)',
+    type: 'string',
+    default: 'body',
+    placeholder: 'z. B. body',
+    show: { optimizeResponse: [true], responseType: ['html'] },
+    description: 'Element oder Elemente im HTML der Antwort, die übernommen werden',
+  },
+  {
+    name: 'onlyContent',
+    label: 'Nur Inhalt',
+    type: 'boolean',
+    default: false,
+    show: { optimizeResponse: [true], responseType: ['html'] },
+    description: 'Ob nur der Text der Elemente ohne Tags und Attribute zurückkommt',
+  },
+  {
+    name: 'elementsToOmit',
+    label: 'Ausgelassene Elemente',
+    type: 'string',
+    default: '',
+    placeholder: 'z. B. img, .className, #ItemId',
+    show: { optimizeResponse: [true], responseType: ['html'], onlyContent: [true] },
+    description: 'Selektoren durch Kommas getrennt, die beim Auslesen fehlen',
+  },
+  {
+    name: 'truncateResponse',
+    label: 'Antwort kürzen',
+    type: 'boolean',
+    default: false,
+    show: { optimizeResponse: [true], responseType: ['text', 'html'] },
+    description: 'Spart Tokens',
+  },
+  {
+    name: 'maxLength',
+    label: 'Höchstens Zeichen',
+    type: 'number',
+    default: 1000,
+    min: 1,
+    show: { optimizeResponse: [true], responseType: ['text', 'html'], truncateResponse: [true] },
+  },
+];
+
 export const toolHttpRequestNode: NodeType = {
   type: '@n8n/n8n-nodes-langchain.toolHttpRequest',
   displayName: 'HTTP Request Tool',
   versions: [1, 1.1],
+  parameters,
   isSubNode: true,
+  aiOutput: 'ai_tool',
   inputs: () => 0,
   outputs: () => 0,
   credentialTypes(node) {
+    if (node.parameters.authentication === 'predefinedCredentialType') return [String(node.parameters.nodeCredentialType ?? '')];
     if (node.parameters.authentication !== 'genericCredentialType') return [];
     return [String(node.parameters.genericAuthType)];
   },

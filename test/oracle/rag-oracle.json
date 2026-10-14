@@ -1,0 +1,890 @@
+{
+ "text": "# Titel\n\nErster Absatz mit einigen Wörtern, die über mehrere Zeilen\ngehen und etwas länger sind.\n\nZweiter Absatz. Noch ein Satz hier. Und noch einer, damit es reicht.\nDritte Zeile im zweiten Absatz.\n\n## Abschnitt\n\nKurzer Text.\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx ende",
+ "cases": [
+  {
+   "name": "recursive-default",
+   "docs": [
+    {
+     "pageContent": "# Titel\n\nErster Absatz mit einigen Wörtern, die über mehrere Zeilen\ngehen und etwas länger sind.",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 1,
+        "to": 4
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "Zweiter Absatz. Noch ein Satz hier. Und noch einer, damit es reicht.",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 6,
+        "to": 6
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "Dritte Zeile im zweiten Absatz.",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 7,
+        "to": 7
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "## Abschnitt",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 9,
+        "to": 9
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "Kurzer Text.",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 11,
+        "to": 11
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 12,
+        "to": 12
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 12,
+        "to": 12
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "ende",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 12,
+        "to": 12
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "recursive-n8n",
+   "docs": [
+    {
+     "pageContent": "# Titel",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 1,
+        "to": 1
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "Erster Absatz mit einigen Wörtern, die über mehrere Zeilen",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 3,
+        "to": 3
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "gehen und etwas länger sind.",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 4,
+        "to": 4
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "Zweiter Absatz. Noch ein Satz hier. Und noch einer, damit es",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 6,
+        "to": 6
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "damit es reicht.",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 6,
+        "to": 6
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "Dritte Zeile im zweiten Absatz.",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 7,
+        "to": 7
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "## Abschnitt",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 9,
+        "to": 9
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "Kurzer Text.",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 11,
+        "to": 11
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 12,
+        "to": 12
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 12,
+        "to": 12
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 12,
+        "to": 12
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "ende",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 12,
+        "to": 12
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "recursive-markdown",
+   "docs": [
+    {
+     "pageContent": "# Titel",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 1,
+        "to": 1
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "Erster Absatz mit einigen Wörtern, die über mehrere Zeilen",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 3,
+        "to": 3
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "gehen und etwas länger sind.",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 4,
+        "to": 4
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "Zweiter Absatz. Noch ein Satz hier. Und noch einer, damit es reicht.",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 6,
+        "to": 6
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "Dritte Zeile im zweiten Absatz.",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 7,
+        "to": 7
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "Abschnitt",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 9,
+        "to": 9
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "Kurzer Text.",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 11,
+        "to": 11
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 12,
+        "to": 12
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 12,
+        "to": 12
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "ende",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 12,
+        "to": 12
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "character",
+   "docs": [
+    {
+     "pageContent": "# Titel\nErster Absatz mit einigen Wörtern, die über mehrere Zeilen",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 12,
+        "to": 13
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "gehen und etwas länger sind.",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 14,
+        "to": 14
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "Zweiter Absatz. Noch ein Satz hier. Und noch einer, damit es reicht.",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 16,
+        "to": 16
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "Dritte Zeile im zweiten Absatz.\n## Abschnitt\nKurzer Text.",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 16,
+        "to": 18
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx ende",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 27,
+        "to": 27
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "character-empty",
+   "docs": [
+    {
+     "pageContent": "# Titel\n\nErster Absatz mi",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 1,
+        "to": 3
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "tz mit einigen Wörtern, d",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 3,
+        "to": 3
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "rn, die über mehrere Zeil",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 3,
+        "to": 3
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "Zeilen\ngehen und etwas l",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 3,
+        "to": 4
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "was länger sind.\n\nZweiter",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 4,
+        "to": 6
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "eiter Absatz. Noch ein Sa",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 6,
+        "to": 6
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "in Satz hier. Und noch ei",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 6,
+        "to": 6
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "ch einer, damit es reicht",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 6,
+        "to": 6
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "eicht.\nDritte Zeile im zw",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 6,
+        "to": 7
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "im zweiten Absatz.\n\n## Ab",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 7,
+        "to": 9
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "## Abschnitt\n\nKurzer Text",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 9,
+        "to": 11
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "Text.\nxxxxxxxxxxxxxxxxxx",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 11,
+        "to": 12
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 12,
+        "to": 12
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 12,
+        "to": 12
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 12,
+        "to": 12
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 12,
+        "to": 12
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 12,
+        "to": 12
+       }
+      }
+     }
+    },
+    {
+     "pageContent": "xxxxxxxxxxxxxxxxx ende",
+     "metadata": {
+      "source": "blob",
+      "blobType": "text/plain",
+      "loc": {
+       "lines": {
+        "from": 12,
+        "to": 12
+       }
+      }
+     }
+    }
+   ]
+  }
+ ],
+ "loaders": {
+  "allPointerEmpty": [
+   {
+    "pageContent": "Ada",
+    "metadata": {
+     "source": "blob",
+     "blobType": "application/json",
+     "line": 1
+    }
+   },
+   {
+    "pageContent": "a",
+    "metadata": {
+     "source": "blob",
+     "blobType": "application/json",
+     "line": 2
+    }
+   },
+   {
+    "pageContent": "b",
+    "metadata": {
+     "source": "blob",
+     "blobType": "application/json",
+     "line": 3
+    }
+   },
+   {
+    "pageContent": "Berlin",
+    "metadata": {
+     "source": "blob",
+     "blobType": "application/json",
+     "line": 4
+    }
+   },
+   {
+    "pageContent": "y",
+    "metadata": {
+     "source": "blob",
+     "blobType": "application/json",
+     "line": 5
+    }
+   },
+   {
+    "pageContent": "a",
+    "metadata": {
+     "source": "blob",
+     "blobType": "application/json",
+     "line": 6
+    }
+   },
+   {
+    "pageContent": "b",
+    "metadata": {
+     "source": "blob",
+     "blobType": "application/json",
+     "line": 7
+    }
+   },
+   {
+    "pageContent": "Berlin",
+    "metadata": {
+     "source": "blob",
+     "blobType": "application/json",
+     "line": 8
+    }
+   },
+   {
+    "pageContent": "y",
+    "metadata": {
+     "source": "blob",
+     "blobType": "application/json",
+     "line": 9
+    }
+   },
+   {
+    "pageContent": "y",
+    "metadata": {
+     "source": "blob",
+     "blobType": "application/json",
+     "line": 10
+    }
+   }
+  ],
+  "noPointers": [
+   {
+    "pageContent": "Ada",
+    "metadata": {
+     "source": "blob",
+     "blobType": "application/json",
+     "line": 1
+    }
+   },
+   {
+    "pageContent": "a",
+    "metadata": {
+     "source": "blob",
+     "blobType": "application/json",
+     "line": 2
+    }
+   },
+   {
+    "pageContent": "b",
+    "metadata": {
+     "source": "blob",
+     "blobType": "application/json",
+     "line": 3
+    }
+   },
+   {
+    "pageContent": "Berlin",
+    "metadata": {
+     "source": "blob",
+     "blobType": "application/json",
+     "line": 4
+    }
+   },
+   {
+    "pageContent": "y",
+    "metadata": {
+     "source": "blob",
+     "blobType": "application/json",
+     "line": 5
+    }
+   }
+  ],
+  "pointerName": [
+   {
+    "pageContent": "Ada",
+    "metadata": {
+     "source": "blob",
+     "blobType": "application/json",
+     "line": 1
+    }
+   },
+   {
+    "pageContent": "Berlin",
+    "metadata": {
+     "source": "blob",
+     "blobType": "application/json",
+     "line": 2
+    }
+   }
+  ],
+  "text": [
+   {
+    "pageContent": "Hallo Welt",
+    "metadata": {
+     "source": "blob",
+     "blobType": "text/plain"
+    }
+   }
+  ]
+ },
+ "search": [
+  [
+   "a",
+   0.9987523388778446
+  ],
+  [
+   "e",
+   0.9987523388778446
+  ],
+  [
+   "b",
+   0.9981583918255792
+  ],
+  [
+   "d",
+   0.741535779123771
+  ]
+ ]
+}

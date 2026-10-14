@@ -13,7 +13,7 @@ import { splitExpression } from './split.js';
 import { INTERNAL, shouldExtend, transformCode } from './transform.js';
 import { extend, extendOptional } from './extensions/index.js';
 
-export const DEFAULT_EXPRESSION_TIMEOUT = Number(process.env.FLOWLITE_EXPRESSION_TIMEOUT_MS ?? 1000);
+export const DEFAULT_EXPRESSION_TIMEOUT = Number(process.env.FILUFLOW_EXPRESSION_TIMEOUT_MS ?? 1000);
 
 const UNSAFE_PROPERTIES = new Set(['__proto__', 'prototype', 'constructor', 'getPrototypeOf', 'mainModule', 'binding', '_load']);
 
@@ -71,7 +71,7 @@ function getContext(): vm.Context {
         __fl_scope: undefined,
         __fl_this: undefined,
       },
-      { codeGeneration: { strings: false, wasm: false }, name: 'flowlite-expressions' },
+      { codeGeneration: { strings: false, wasm: false }, name: 'filuflow-expressions' },
     );
   }
   return sharedContext;

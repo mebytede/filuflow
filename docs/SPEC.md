@@ -1,9 +1,12 @@
-# flowlite Spezifikation
+# filuflow Spezifikation
 
-Ziel: n8n-Workflow-JSONs, die in n8n (aktuelle 1.x) laufen, liefern in flowlite dieselben Items an denselben Nodes.
-Umfang Phase 1: Engine, Expressions, Kern-Nodes, CLI, Server mit Webhook/Cron, Execution-Log, Credentials. Danach KI-Nodes. Ein visueller Editor ist ausdrücklich **nicht** Teil dieser Spezifikation.
+filuflow ist eine eigenständige Workflow-Plattform: Engine, Editor im Browser, CLI, Server mit Webhooks und Zeitplänen,
+Ausführungsprotokoll, Credentials, KI-Knoten sowie Mehrbenutzer- und Mandantenbetrieb mit Master und Worker. Der Umfang ist
+nicht begrenzt; was noch fehlt, steht als Ausbau in Abschnitt 11.
 
-Alle Angaben zu n8n-Parametern unten sind der Startpunkt. Vor der Implementierung jedes Nodes gegen `packages/nodes-base/nodes/<Node>/` im n8n-Repo prüfen.
+Workflows nutzen das Workflow-Format von n8n. Workflows, die in n8n (aktuelle 1.x) laufen, liefern in filuflow dieselben Items an
+denselben Knoten; das sichern die Golden-Tests (Abschnitt 9). Die Angaben zu Parametern unten sind der Startpunkt. Vor der
+Implementierung eines Knotens im n8n-Format gegen `packages/nodes-base/nodes/<Node>/` im n8n-Repo prüfen.
 
 ---
 
@@ -67,7 +70,7 @@ interface TaskData {
 ### 2.1 Ablauf
 1. Workflow laden, validieren (Abschnitt 6).
 2. Start-Node bestimmen: explizit angegebener Trigger, sonst der einzige Trigger, sonst Fehler.
-3. Ausführung nach **v1-Reihenfolge** (Pflicht; v0 nicht unterstützen, mit klarer Meldung ablehnen):
+3. Ausführung nach **v1-Reihenfolge** (v0 ist Ausbau, siehe Abschnitt 11):
    - Stack-basiert: Ein Node läuft, sobald seine Eingangsdaten vorliegen. Ein Zweig wird vollständig zu Ende ausgeführt, bevor der nächste Zweig startet.
    - Reihenfolge paralleler Kinder: nach Canvas-Position (oben vor unten, dann links vor rechts). Exakte Sortierung in `packages/core` (WorkflowExecute) nachschlagen und nachbauen.
    - Nodes mit mehreren Eingängen (Merge): warten, bis kein Vorgänger mehr Daten liefern kann. Hat ein Eingang nie Daten bekommen, verhält sich der Node wie n8n v1 (nachschlagen, Testfall dafür schreiben).
@@ -128,7 +131,7 @@ interface ExecContext {
 | `$node["Name"].json` | Altform, erstes bzw. gepaartes Item |
 | `$items("Name", output?, run?)` | Altform |
 | `$now`, `$today` | luxon `DateTime` in Workflow-Zeitzone (Default `Europe/Berlin`, per Setting/Env überschreibbar) |
-| `$env` | Umgebungsvariablen (Allowlist per Config `FLOWLITE_ENV_ALLOW`, Default: alle mit Präfix `FL_`) |
+| `$env` | Umgebungsvariablen (Allowlist per Config `FILUFLOW_ENV_ALLOW`, Default: alle mit Präfix `FL_`) |
 | `$vars` | Werte aus `vars.json` |
 | `$execution.id`, `.mode`, `.resumeUrl` | Execution-Infos |
 | `$workflow.id`, `.name`, `.active` | Workflow-Infos |
@@ -159,19 +162,19 @@ Pro Node: unterstützte Versionen gegen n8n prüfen und mindestens die aktuelle 
 | `n8n-nodes-base.if` (v2.x) | `conditions` (Filter-Format, siehe 4.4), Ausgang 0 = true, 1 = false |
 | `n8n-nodes-base.filter` (v2.x) | Filter-Format, ein Ausgang; `options.looseTypeValidation` |
 | `n8n-nodes-base.switch` (v3.x) | `mode: rules/expression`, `rules.values[]`, `options.fallbackOutput` (`none`/`extra`/Index), `options.allMatchingOutputs`, `renameOutput` |
-| `n8n-nodes-base.code` (v2) | `language: javaScript` (Python: ablehnen mit Meldung), `mode: runOnceForAllItems/runOnceForEachItem`, `jsCode`; im Kontext alle Expression-Variablen plus `items` (Altform); Rückgabe normalisieren (Objekte ohne `json` einpacken, Einzelobjekt in Liste); async erlaubt; Timeout konfigurierbar (Default 60 s); `console.log` ins Execution-Log |
+| `n8n-nodes-base.code` (v2) | `language: javaScript`, `python` und `pythonNative` (M12), `mode: runOnceForAllItems/runOnceForEachItem`, `jsCode`; im Kontext alle Expression-Variablen plus `items` (Altform); Rückgabe normalisieren (Objekte ohne `json` einpacken, Einzelobjekt in Liste); async erlaubt; Timeout konfigurierbar (Default 60 s); `console.log` ins Execution-Log |
 
 ### 4.2 Meilenstein M3b: Daten und HTTP
 | Typ | Hinweise |
 |---|---|
-| `n8n-nodes-base.httpRequest` (v4.x) | `method`, `url`, `authentication` (`none`, `genericCredentialType` mit `httpHeaderAuth`/`httpBasicAuth`/`httpQueryAuth`/`httpBearerAuth`), `sendQuery`/`queryParameters`, `sendHeaders`/`headerParameters`, `sendBody` mit `contentType` json/form-urlencoded/multipart/raw/binaryData und `specifyBody` keypair/json, `options`: timeout, redirect, `response.response` (responseFormat autodetect/json/text/file, fullResponse, neverError), batching, allowUnauthorizedCerts, proxy. Pagination zuletzt. Fetch über `undici`, Proxy aus `HTTPS_PROXY` respektieren |
-| `n8n-nodes-base.merge` (v3.x) | `mode: append`, `combine` mit `combineBy: combineByFields/combineByPosition/combineAll`, `joinMode`, `chooseBranch`; `numberInputs`. `combineBySql` ablehnen |
+| `n8n-nodes-base.httpRequest` (v4.x) | `method`, `url`, `authentication` (`none`, `genericCredentialType` mit `httpHeaderAuth`/`httpBasicAuth`/`httpQueryAuth`/`httpBearerAuth`), `sendQuery`/`queryParameters`, `sendHeaders`/`headerParameters`, `sendBody` mit `contentType` json/form-urlencoded/multipart/raw/binaryData und `specifyBody` keypair/json, `options`: timeout, redirect, `response.response` (responseFormat autodetect/json/text/file, fullResponse, neverError), batching, allowUnauthorizedCerts, proxy, Pagination. Fetch über `undici`, Proxy aus `HTTPS_PROXY` respektieren |
+| `n8n-nodes-base.merge` (v3.x) | `mode: append`, `combine` mit `combineBy: combineByFields/combineByPosition/combineAll`, `joinMode`, `chooseBranch`, `combineBySql`; `numberInputs` |
 | `n8n-nodes-base.splitOut` | `fieldToSplitOut`, `include` |
 | `n8n-nodes-base.aggregate` | `aggregateIndividualFields` / `aggregateAllItemData` |
 | `n8n-nodes-base.splitInBatches` (v3, "Loop Over Items") | Ausgang 0 = done, 1 = loop; Zustand über Runs halten |
 | `n8n-nodes-base.removeDuplicates`, `sort`, `limit`, `summarize` | Standardoptionen |
 | `n8n-nodes-base.dateTime` (v2), `crypto`, `html` (extractHtmlContent mit cheerio), `xml` | häufig genutzte Operationen zuerst |
-| `n8n-nodes-base.wait` | nur `timeInterval` in Phase 1; Webhook-Resume später |
+| `n8n-nodes-base.wait` | `timeInterval`, `specificTime`, Fortsetzen per Webhook und per Formular; lange Wartezeiten überstehen einen Neustart |
 | `n8n-nodes-base.executeWorkflow` / `executeWorkflowTrigger` | Unter-Workflows aus dem Workflow-Verzeichnis per Name oder ID |
 | `n8n-nodes-base.stopAndError` | Fehler werfen |
 
@@ -192,13 +195,13 @@ Pro Node: unterstützte Versionen gegen n8n prüfen und mindestens die aktuelle 
 ```
 Operatoren je Typ (`string`, `number`, `boolean`, `dateTime`, `array`, `object`): equals, notEquals, contains, notContains, startsWith, endsWith, regex, notRegex, gt, gte, lt, lte, after, before, exists, notExists, empty, notEmpty, true, false, lengthEquals, lengthGt, lengthLt usw. Vollständige Liste und Typvalidierung (strict vs. loose) aus `packages/workflow` (FilterParameter) nachbauen. **Eigene Testtabelle** mit allen Operator/Typ-Kombinationen inkl. Grenzfällen (null, undefined, "", Zahlstrings).
 
-### 4.5 Meilenstein M7: KI-Nodes (nach Phase 1)
+### 4.5 Meilenstein M7: KI-Nodes
 Sub-Nodes sind über `ai_*`-Verbindungen **an** den Eltern-Node angeschlossen (Quelle = Sub-Node, Ziel = Eltern-Node). Sie werden nicht selbst ausgeführt, sondern vom Eltern-Node angefordert.
 - Modelle: `@n8n/n8n-nodes-langchain.lmChatGoogleGemini`, `lmChatAnthropic`, `lmChatOpenAi` (direkte HTTP-Calls an die jeweilige API, kein LangChain nötig)
 - `chainLlm` (Basic LLM Chain) mit `outputParserStructured` (JSON-Schema oder Beispiel-JSON)
 - `informationExtractor`, `textClassifier`, `sentimentAnalysis`
 - `agent` (Tools Agent) mit `toolCalculator`, `toolHttpRequest`, `toolCode`, `toolWorkflow`, `memoryBufferWindow`
-- `chatTrigger` und `chat` (Human in the Loop) erst, wenn es eine Oberfläche gibt
+- `chatTrigger` und `chat` (Human in the Loop) mit Chat-Ansicht in der Oberfläche
 Ausgabeformate (`output`, `text` usw.) exakt wie n8n.
 
 ---
@@ -206,13 +209,13 @@ Ausgabeformate (`output`, `text` usw.) exakt wie n8n.
 ## 5. Credentials
 - Datei `credentials.json` (oder Verzeichnis), Schlüssel = Credential-**Name** wie im Workflow (`node.credentials.<typ>.name`), Fallback auf ID.
 - Werte dürfen `{{ env.NAME }}` referenzieren, damit Secrets in Env/Secret-Store bleiben.
-- Optional verschlüsselt mit `FLOWLITE_ENCRYPTION_KEY` (AES-256-GCM).
-- Unterstützte Typen Phase 1: `httpHeaderAuth`, `httpBasicAuth`, `httpQueryAuth`, `httpBearerAuth`, `oAuth2Api` (nur client_credentials). Feldnamen wie in n8n (`packages/nodes-base/credentials/`).
+- Optional verschlüsselt mit `FILUFLOW_ENCRYPTION_KEY` (AES-256-GCM).
+- Typen: `httpHeaderAuth`, `httpBasicAuth`, `httpQueryAuth`, `httpBearerAuth`, `httpCustomAuth`, `jwtAuth`, `oAuth2Api` (alle Grant-Typen), dazu die Credentials der KI-Modelle und der Dienst-Knoten. Feldnamen wie in n8n (`packages/nodes-base/credentials/`).
 - Fehlende Credentials: Validierung meldet sie vor dem Lauf.
 
 ---
 
-## 6. Validierung (`flowlite validate`)
+## 6. Validierung (`filuflow validate`)
 Prüft und meldet gesammelt (nicht beim ersten Fehler abbrechen):
 - JSON-Struktur, doppelte Node-Namen, Verbindungen auf nicht existierende Nodes
 - Unbekannte Node-Typen, nicht unterstützte `typeVersion`s, nicht unterstützte Parameterwerte (z. B. `mode: combineBySql`)
@@ -225,26 +228,26 @@ Ausgabe menschenlesbar oder `--json`. Exit-Code 0/1.
 
 ## 7. CLI
 ```
-flowlite validate <wf.json> [--json]
-flowlite run <wf.json> [--input items.json] [--trigger "Node-Name"] [--json] [--only-last] [--no-pin]
-flowlite serve [--dir ./workflows] [--port 5678] [--db ./flowlite.db]
-flowlite executions list|show <id> [--json]
-flowlite nodes            # Liste unterstützter Node-Typen und Versionen
+filuflow validate <wf.json> [--json]
+filuflow run <wf.json> [--input items.json] [--trigger "Node-Name"] [--json] [--only-last] [--no-pin]
+filuflow serve [--dir ./workflows] [--port 5678] [--db ./filuflow.db]
+filuflow executions list|show <id> [--json]
+filuflow nodes            # Liste unterstützter Node-Typen und Versionen
 ```
 `run` gibt standardmäßig eine Übersicht pro Node aus (Items, Dauer, Fehler) und mit `--json` die vollständigen `runData`.
 
 ---
 
-## 8. Server (`flowlite serve`)
+## 8. Server (`filuflow serve`)
 - Lädt alle `*.json` aus `--dir`, beobachtet Änderungen (Hot Reload).
 - Workflows mit `active: true` registrieren Webhooks und Schedules.
-- REST-API (JSON, Auth über statischen API-Key `FLOWLITE_API_KEY` im Header `X-API-Key`):
+- REST-API (JSON, Auth über statischen API-Key `FILUFLOW_API_KEY` im Header `X-API-Key`):
   - `GET /api/workflows`, `GET /api/workflows/:id`
   - `POST /api/workflows/:id/run` (Body = Input-Items)
   - `GET /api/executions?workflow=&status=&limit=`, `GET /api/executions/:id`, `POST /api/executions/:id/cancel`
   - `GET /healthz`
 - Webhooks unter `/webhook/...` ohne API-Key (eigene Auth laut Node).
-- Execution-Log in SQLite: Tabelle `executions` (Metadaten) und `execution_data` (runData als JSON, komprimiert). Aufbewahrung konfigurierbar (`FLOWLITE_PRUNE_DAYS`, Default 14).
+- Execution-Log in SQLite: Tabelle `executions` (Metadaten) und `execution_data` (runData als JSON, komprimiert). Aufbewahrung konfigurierbar (`FILUFLOW_PRUNE_DAYS`, Default 14).
 - Parallelität: Konfigurierbares Limit gleichzeitiger Executions (Default 5), Warteschlange in-process.
 - Docker: `Dockerfile` (Node 22 slim, non-root) und `docker-compose.yml` mit Volume für Workflows, DB, Credentials.
 
@@ -278,7 +281,7 @@ Engine-Reihenfolge, Expressions (inkl. Rohwert vs. String), jeder Node, Filter-O
 | # | Inhalt | Fertig, wenn |
 |---|---|---|
 | M0 | Gerüst: package.json, tsconfig strict, eslint, vitest, Ordnerstruktur, `docs/STATUS.md`, `docs/DECISIONS.md` | `npm test` und `npm run lint` grün |
-| M1 | Typen, Loader, Validator, `flowlite validate`, `flowlite nodes` | Validierung meldet alle Fehlerklassen aus Abschnitt 6, Tests |
+| M1 | Typen, Loader, Validator, `filuflow validate`, `filuflow nodes` | Validierung meldet alle Fehlerklassen aus Abschnitt 6, Tests |
 | M2 | Engine (v1-Reihenfolge, pinData, disabled, alwaysOutputData, executeOnce, onError, retry) + Expression-Engine ohne Erweiterungsfunktionen | Engine-Tests mit Fake-Nodes grün |
 | M3a | Kern-Nodes + Filter-Format | Fixtures 1, 3, 6, 7 grün |
 | M3b | HTTP, Merge, Split/Aggregate, Loop, Rest aus 4.2 | Fixtures 2, 4, 5 grün |
@@ -287,10 +290,61 @@ Engine-Reihenfolge, Expressions (inkl. Rohwert vs. String), jeder Node, Filter-O
 | M5 | Server, Webhooks, Schedules, REST-API, SQLite-Log, Docker | Fixture 8 grün, Smoke-Test per curl dokumentiert |
 | M6 | Credentials | HTTP mit Header-/Basic-Auth gegen Mock getestet |
 | M7 | KI-Nodes | Basic LLM Chain + Structured Output Parser gegen gemockte Gemini-API |
+| M8 | Weboberfläche mit Workflow-Editor | Editor, Ausführungen und Credentials-Übersicht im Browser, Browser-Test |
+| M9 | Master und Worker: Benutzer, Rechte, Projekte, Mandanten, SSO | Integrationstests mit echten Workern, OIDC gegen nachgebauten Identity Provider |
+| M10 | Name filuflow und Design | Oberfläche nach dem Design-Handoff, alte Namen gelten weiter |
+| M11 | Credentials in der Oberfläche | Anlegen, Bearbeiten, Umbenennen, Löschen mit Formularen je Typ, im Einzelbetrieb und im Master; geheime Werte nie lesbar |
+| M12 | Python im Code-Node | Pyodide und lokaler Interpreter, Zeitlimit, Sperren wie n8n, Code Tool mit Python |
+| M13 | Wartende Ausführungen | Wait mit Fortsetzen per Webhook und zum Zeitpunkt, Zustand in SQLite, statische Daten und OAuth2-Tokens dauerhaft |
+| M14 | OAuth2 mit Anmeldung | Authorization Code und PKCE mit Rückleitung, Refresh, Einzelbetrieb und Master |
+| M15 | HTTP Request erweitert | Pagination in allen Modi wie n8n, Digest-Auth, Client-Zertifikate |
+| M16 | Chat Trigger | Webhooks wie n8n, gehostete Chat-Seite, Chat-Fenster im Editor, Basic Auth, frühere Nachrichten aus dem Memory |
+| M17 | Formulare | Form Trigger, Form-Knoten mit Folgeseiten und Abschluss, Wait per Formular |
+| M18 | Testdaten, Variablen, Teilausführung | pinData per Klick, Variablen-Seite, "Bis hier ausführen", "Auf Test-Aufruf warten", Expressions in Webhook-Parametern |
+| M19 | Parameterformulare je Knotentyp | Formular aus der Beschreibung je Knotentyp neben Baum und JSON, Sichtbarkeit und Defaults wie n8n |
+| M20 | Knoten-Ausbau | Merge per SQL, Execute Workflow aus Datei und URL, require mit Freigabeliste, Execution-Order v0 |
+| M21 | Streaming | Webhook, Respond to Webhook, Chat Trigger und AI Agent mit gestreamten Antworten wie n8n |
+| M22a | Chat mit Antwortknoten | Respond to Chat und Respond to Webhook im Chat, Warten auf die Antwort des Nutzers |
+| M22 | Credentials aus n8n, Teilen, OAuth1 | Import verschlüsselter n8n-Exporte, Freigabe für Projekte im Master, OAuth1 mit Verbinden |
+| M23 | Rollen je Workflow, zentrale Suche | Eigene Rollen für einzelne Workflows, Freigabe an Gäste, Ausführungen aller Worker durchsuchen |
+| M24 | Plugin-Schnittstelle | Eigene Knoten als JavaScript-Modul, Knoten und Credentials im n8n-Format (programmatisch) |
+| M25 | Code-Helfer, vordefinierte Credentials | helpers im Code-Knoten wie n8n, HTTP Request mit vordefinierten Credential-Typen |
+| M26 | KI-Ausbau | OpenAI Responses API, Groq, Mistral, Ollama, DeepSeek, OpenRouter, Azure OpenAI, Think Tool |
+| M27 | Embeddings und Vektorspeicher (RAG) | OpenAI Embeddings, Default Data Loader, Text Splitter, Simple Vector Store, Retriever, Q&A Chain, Vector Store Tool |
+| M28 | OAuth2-Typen der Dienste | Credential-Typen mit extends und festen Werten (Google, Microsoft, Slack, GitHub u. a.), Verbinden, Dienst-Eigenheiten von requestOAuth2 |
+| M29 | Deklarative Knoten | Community-Knoten mit requestDefaults und routing wie n8n RoutingNode |
+| M30 | Community-Pakete installieren | Installieren, Aktualisieren, Entfernen aus der Oberfläche und per API, auch beim Worker über den Master |
+| M31 | Poll- und Trigger-Knoten aus Paketen | Aktivierung mit Poll Times und emit wie n8n, manueller Lauf, Fehler-Workflow, Neustart nach Fehlern |
+| M32 | Webhook-Knoten aus Paketen | Pfade und Antwortmodi wie n8n, WebhookContext, Anmeldung beim Dienst (webhookMethods), Test-URL |
+| M33 | Gemeinsame Credentials | Ein Credential im Master, verteilt an mehrere Worker, mit Abgleich |
+| M34 | Eigene Rollen | Rollen mit frei gewählten Rechten für Projekte und einzelne Workflows |
 
-Nach jedem Meilenstein: `docs/STATUS.md` aktualisieren (was geht, was fehlt, bekannte Abweichungen) und einen Commit mit aussagekräftiger Nachricht.
+Nach jedem Meilenstein: `docs/STATUS.md` aktualisieren (was geht, was fehlt) und einen Commit mit aussagekräftiger Nachricht.
 
 ---
 
-## 11. Bewusst nicht im Umfang
-Visueller Editor, Mehrbenutzer/RBAC, Queue-Mode mit Redis, Python im Code-Node, Community-Nodes, Node-Typen mit eigenen OAuth-Flows (Gmail, Slack usw.; über HTTP Request + Credentials abbilden), `combineBySql`, Execution-Order v0.
+## 11. Ausbau
+Offene Funktionen, ungefähr nach Nutzen geordnet. Jede wird wie ein Meilenstein umgesetzt (Tests, `docs/STATUS.md`, Commit).
+
+### 11.1 Ausführung und Server
+(Expressions in Webhook-Parametern, Teilausführung bis zu einem Knoten, "Auf Test-Aufruf warten": M18; Execution-Order v0: M20; Streaming: M21)
+- Skalierung über mehrere Prozesse (Warteschlange, z. B. Redis) für hohe Last
+
+### 11.2 Knoten
+- Weitere Credential-Typen der Dienste (API-Keys mit authenticate, Google Service Account mit JWT)
+  (helpers im Code-Node und vordefinierte Credential-Typen im HTTP Request: M25; OAuth2-Typen mit festen URLs: M28)
+- KI: Agent-Varianten aus typeVersion 1.x, weitere Modelle (z. B. AWS Bedrock, Vertex), weitere Embeddings und
+  Vektorspeicher (z. B. PGVector, Qdrant), Dateien wie PDF im Data Loader
+  (Responses API, Groq, Mistral, Ollama, DeepSeek, OpenRouter, Azure OpenAI, Think Tool: M26; Embeddings, Simple Vector
+  Store, Retriever, Q&A Chain: M27)
+- Dienst-Knoten mit eigenen OAuth-Flows (Gmail, Slack, Microsoft 365 usw.) und weitere Integrationen
+- Community-Nodes: KI-Sub-Nodes aus n8n-Paketen (Plugin-Schnittstelle und programmatische Knoten: M24; deklarative
+  Knoten: M29; Installation aus der Oberfläche: M30; Poll- und Trigger-Knoten: M31; Webhook-Knoten: M32)
+
+### 11.3 Credentials
+(Anlegen und Bearbeiten in der Oberfläche: M11; Import verschlüsselter n8n-Exporte und Freigabe für Projekte im Master: M22;
+gemeinsame Credentials für mehrere Worker: M33)
+
+### 11.4 Oberfläche und Master
+(Testdaten per Klick, Variablen-Seite: M18; Chat-Ansicht: M16; Parameterformulare: M19; Rollen je Workflow und zentrale
+Ausführungssuche: M23; frei definierbare Rollen: M34)

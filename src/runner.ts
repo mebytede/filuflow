@@ -5,9 +5,10 @@ import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Execution, ExecutionMode, Item, Workflow } from './types.js';
-import { executeWorkflow, findStartNode, WorkflowExecutor, type ExecutorOptions, type RunHooks } from './engine/executor.js';
+import { executeWorkflow, findStartNode, WorkflowExecutor, type ExecutorOptions, type ResumeData, type RunHooks } from './engine/executor.js';
 import { WorkflowGraph } from './engine/graph.js';
 import type { NodeRegistry } from './nodes/registry.js';
+import type { ExecContext } from './nodes/types.js';
 import { getDefaultRegistry } from './nodes/index.js';
 import type { CredentialProvider } from './credentials/store.js';
 import { StaticCredentialProvider } from './credentials/store.js';
@@ -83,6 +84,12 @@ export interface RunOptions {
   staticData?: Record<string, Record<string, unknown>>;
   /** Callback, sobald der Executor existiert (z. B. für Abbruch) */
   onStart?: (executor: WorkflowExecutor) => void;
+  /** Execution darf dauerhaft warten (nur Server); Unter-Workflows nie */
+  canWait?: boolean;
+  /** Wartende Execution fortsetzen */
+  resume?: ResumeData;
+  /** Nur bis zu diesem Knoten (Editor) */
+  destinationNode?: string;
 }
 
 /** Start-Node für Unter-Workflows (n8n findSubworkflowStart): executeWorkflowTrigger, sonst ein Start-Typ */
@@ -129,6 +136,9 @@ export class Runner {
       timezone: this.options.timezone,
       staticData: run.staticData,
       webhookWaitingBaseUrl: this.options.webhookWaitingBaseUrl,
+      canWait: depth === 0 && run.canWait === true,
+      ...(depth === 0 && run.destinationNode ? { destinationNode: run.destinationNode } : {}),
+      resume: run.resume,
       runSubWorkflow: (req) => this.runSubWorkflow(req, depth + 1),
     };
   }
@@ -139,6 +149,11 @@ export class Runner {
     const execution = await executor.run();
     await this.options.onExecutionFinished?.(execution, run.workflow);
     return execution;
+  }
+
+  /** Kontext eines Knotens ohne Ausführung, z. B. für aktivierte Poll- und Trigger-Knoten (M31) */
+  activationContext(run: RunOptions, nodeName: string): ExecContext {
+    return new WorkflowExecutor(this.executorOptions(run, 0)).contextFor(nodeName);
   }
 
   /** Prüft vorab, ob ein Start-Node bestimmbar ist (für klare CLI-Fehler) */
@@ -192,9 +207,9 @@ export class Runner {
 
 /** vars.json laden (für $vars), leer wenn nicht vorhanden */
 export async function loadVars(path?: string): Promise<Record<string, unknown>> {
-  const file = path ?? process.env.FLOWLITE_VARS ?? 'vars.json';
+  const file = path ?? process.env.FILUFLOW_VARS ?? 'vars.json';
   if (!existsSync(file)) {
-    if (path || process.env.FLOWLITE_VARS) throw new Error(`Variablen-Datei ${file} nicht gefunden`);
+    if (path || process.env.FILUFLOW_VARS) throw new Error(`Variablen-Datei ${file} nicht gefunden`);
     return {};
   }
   return JSON.parse(await readFile(file, 'utf8')) as Record<string, unknown>;

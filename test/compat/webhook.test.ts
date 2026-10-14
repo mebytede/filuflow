@@ -1,4 +1,4 @@
-// Golden-Tests für Webhook-Fixtures (fixtures/<name>/webhook.json): flowlite serve gegen
+// Golden-Tests für Webhook-Fixtures (fixtures/<name>/webhook.json): filuflow serve gegen
 // Antworten und Executions aus echtem n8n (scripts/record-webhook.sh).
 import { describe, expect, it } from 'vitest';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
@@ -21,7 +21,7 @@ describe('Webhook-Kompatibilität mit n8n', () => {
   for (const name of fixtures) {
     it(name, async () => {
       const dir = join(FIXTURES, name);
-      const work = mkdtempSync(join(tmpdir(), 'flowlite-wh-'));
+      const work = mkdtempSync(join(tmpdir(), 'filuflow-wh-'));
       const workflow = JSON.parse(readFileSync(join(dir, 'workflow.json'), 'utf8')) as Workflow;
       workflow.id ??= `fx-${name}`;
       writeFileSync(join(work, 'workflow.json'), JSON.stringify(workflow));

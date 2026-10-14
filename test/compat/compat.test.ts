@@ -1,4 +1,4 @@
-// Golden-Tests: flowlite gegen Ergebnisse aus echtem n8n (fixtures/<name>/expected.json).
+// Golden-Tests: filuflow gegen Ergebnisse aus echtem n8n (fixtures/<name>/expected.json).
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -69,9 +69,9 @@ describe('Kompatibilität mit n8n', () => {
 
 // M4: dieselben Fixtures über die echte CLI (eigener Prozess, --json)
 const run = promisify(execFile);
-const BIN = join(__dirname, '..', '..', 'bin', 'flowlite.js');
+const BIN = join(__dirname, '..', '..', 'bin', 'filuflow.js');
 
-describe('Kompatibilität über flowlite run', () => {
+describe('Kompatibilität über filuflow run', () => {
   for (const name of fixtures) {
     it(name, async () => {
       const dir = join(FIXTURES, name);
@@ -84,7 +84,7 @@ describe('Kompatibilität über flowlite run', () => {
       if (existsSync(join(dir, 'credentials.json'))) args.push('--credentials', join(dir, 'credentials.json'));
       server.requests.length = 0;
       // Exit-Code 1 bei fehlgeschlagener Execution ist erwartet (z. B. Stop and Error)
-      const { stdout } = await run(process.execPath, args, { cwd: dir, env: { ...process.env, FL_COMPAT: 'ja', FLOWLITE_CREDENTIALS: undefined } }).catch(
+      const { stdout } = await run(process.execPath, args, { cwd: dir, env: { ...process.env, FL_COMPAT: 'ja', FILUFLOW_CREDENTIALS: undefined } }).catch(
         (error: { stdout?: string; stderr?: string }) => {
           if (!error.stdout) throw new Error(error.stderr ?? String(error));
           return { stdout: error.stdout };

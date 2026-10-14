@@ -13,6 +13,7 @@ import lodash from 'lodash';
 import { nodeNameToToolName, STRING_INPUT_SCHEMA, type ToolInstance } from '../ai/tools.js';
 import { generateSchemaFromExample, jsonSchemaToZod, zodParse, zodToJsonSchema, type ZType } from '../ai/schema.js';
 import { extractFromAIParameters, schemaFromArguments } from '../ai/fromAI.js';
+import type { ParamSchema } from './params.js';
 
 type Query = string | Record<string, unknown>;
 
@@ -252,11 +253,230 @@ function toolV2(baseCtx: ExecContext, itemIndex: number, manualLogging: boolean)
   };
 }
 
+// Parameter wie v1/versionDescription.ts (typeVersion 1 bis 1.3) und v2/versionDescription.ts (2 bis 2.2), n8n 1.123.0.
+// Felder, die es nur in einer der beiden Fassungen gibt, tragen zusätzlich eine Bedingung auf "@version".
+// Der Hinweis auf eine n8n-Vorlage (noticeTemplateExample) entfällt, weil es die Vorlagen in filuflow nicht gibt.
+// workflowSelector (ab v1.2) speichert einen Resource Locator; resourceMapper (workflowInputs, v2) gibt es im Editor
+// nicht, daher hier JSON.
+const V1 = { '@version': [{ _cnd: { lt: 2 } }] };
+const DESCRIPTION_PLACEHOLDER = 'Rufe dieses Tool auf, um eine zufällige Farbe zu erhalten. Die Eingabe ist eine kommagetrennte Liste auszuschließender Farben.';
+
+const parameters: ParamSchema[] = [
+  { name: 'notice', label: 'Dieser Node muss mit einem AI Agent verbunden werden.', type: 'notice', default: '' },
+  { name: 'name', label: 'Name', type: 'string', default: '', placeholder: 'My_Color_Tool', show: { '@version': [1] } },
+  {
+    // v1: gte 1.1, v2: lte 2.1 (sonst gleich)
+    name: 'name',
+    label: 'Name',
+    type: 'string',
+    default: '',
+    placeholder: 'z. B. My_Color_Tool',
+    description: 'Name der aufgerufenen Funktion: nur Buchstaben, Ziffern und Unterstriche',
+    show: { '@version': [1.1, 1.2, 1.3, 2, 2.1] },
+  },
+  {
+    // Nicht in n8n: in v2.2 blendet n8n "name" aus, exportierte Workflows enthalten ihn aber oft noch.
+    // Nur sichtbar, wenn gesetzt (ohne Default, damit die Regel auf den eigenen Wert greift).
+    name: 'name',
+    label: 'Name (nicht verwendet)',
+    type: 'string',
+    description: 'Ab Version 2.2 ist der Node-Name der Tool-Name; dieser Wert wird ignoriert.',
+    show: { '@version': [2.2], name: [{ _cnd: { exists: true } }] },
+  },
+  { name: 'description', label: 'Beschreibung', type: 'string', default: '', rows: 3, placeholder: DESCRIPTION_PLACEHOLDER },
+  {
+    name: 'executeNotice',
+    label: 'Das Tool ruft den unten angegebenen Workflow auf und nimmt die Antwort aus dessen letztem Node. Der Workflow muss mit einem Execute Workflow Trigger beginnen.',
+    type: 'notice',
+    default: '',
+  },
+  {
+    name: 'source',
+    label: 'Quelle',
+    type: 'options',
+    default: 'database',
+    description: 'Woher der auszuführende Workflow kommt',
+    options: [
+      { value: 'database', label: 'Datenbank', description: 'Workflow per ID laden' },
+      { value: 'parameter', label: 'Unten festlegen', description: 'JSON-Code eines Workflows angeben' },
+    ],
+  },
+  {
+    name: 'workflowId',
+    label: 'Workflow-ID',
+    type: 'string',
+    default: '',
+    required: true,
+    description: 'Auszuführender Workflow (ID oder Name im Workflow-Verzeichnis)',
+    show: { source: ['database'], '@version': [{ _cnd: { lte: 1.1 } }] },
+  },
+  {
+    name: 'workflowId',
+    label: 'Workflow',
+    type: 'resourceLocator',
+    default: '',
+    required: true,
+    modes: [
+      { name: 'list', label: 'Aus Liste', placeholder: 'Workflow-ID oder Name' },
+      { name: 'id', label: 'ID', placeholder: 'Workflow-ID' },
+    ],
+    show: { source: ['database'], '@version': [{ _cnd: { gte: 1.2 } }] },
+  },
+  {
+    // Nicht in n8n: bei Quelle "parameter" blendet n8n workflowInputs aus, exportierte Workflows enthalten den Wert
+    // aber oft noch. Nur sichtbar, wenn gesetzt; steht vor der eigentlichen Definition und hat keinen Default, damit
+    // die Regel auf den eigenen Wert greift.
+    name: 'workflowInputs',
+    label: 'Workflow-Eingaben (nicht verwendet)',
+    type: 'json',
+    noExpression: true,
+    description: 'Wird nur bei der Quelle Datenbank verwendet.',
+    show: { '@version': [{ _cnd: { gte: 2 } }], source: ['parameter'], workflowInputs: [{ _cnd: { exists: true } }] },
+  },
+  {
+    name: 'workflowInputs',
+    label: 'Workflow-Eingaben',
+    type: 'json',
+    default: { mappingMode: 'defineBelow', value: null },
+    required: true,
+    noExpression: true,
+    description: 'Objekt mit mappingMode, value (Werte, auch mit $fromAI) und schema wie in n8n.',
+    show: { source: ['database'], '@version': [{ _cnd: { gte: 2 } }] },
+    hide: { workflowId: [''] },
+  },
+  {
+    name: 'workflowJson',
+    label: 'Workflow-JSON',
+    type: 'json',
+    default: '\n\n\n\n\n\n\n\n\n',
+    rows: 10,
+    required: true,
+    description: 'JSON-Code des auszuführenden Workflows',
+    show: { source: ['parameter'] },
+  },
+  {
+    name: 'responsePropertyName',
+    label: 'Feld mit der Antwort',
+    type: 'string',
+    default: 'response',
+    required: true,
+    description: 'Feld im Ergebnis des zuletzt ausgeführten Nodes, dessen Wert das Tool zurückgibt',
+    show: { '@version': [{ _cnd: { lt: 1.3 } }] },
+  },
+  {
+    name: 'fields',
+    label: 'Zusätzliche Workflow-Eingaben',
+    type: 'fixedCollection',
+    multiple: true,
+    default: {},
+    placeholder: 'Wert hinzufügen',
+    addLabel: 'Wert hinzufügen',
+    description: 'Werte, die der Execute Workflow Trigger des aufgerufenen Workflows ausgibt',
+    show: V1,
+    groups: [
+      {
+        name: 'values',
+        label: 'Werte',
+        children: [
+          {
+            name: 'name',
+            label: 'Name',
+            type: 'string',
+            default: '',
+            placeholder: 'z. B. fieldName',
+            description: 'Name des Felds, Punkt-Notation möglich (z. B. data.person[0].name)',
+          },
+          {
+            name: 'type',
+            label: 'Typ',
+            type: 'options',
+            default: 'stringValue',
+            description: 'Typ des Werts',
+            options: [
+              { value: 'stringValue', label: 'Text' },
+              { value: 'numberValue', label: 'Zahl' },
+              { value: 'booleanValue', label: 'Boolean' },
+              { value: 'arrayValue', label: 'Array' },
+              { value: 'objectValue', label: 'Objekt' },
+            ],
+          },
+          { name: 'stringValue', label: 'Wert', type: 'string', default: '', show: { type: ['stringValue'] } },
+          { name: 'numberValue', label: 'Wert', type: 'string', default: '', show: { type: ['numberValue'] } },
+          {
+            name: 'booleanValue',
+            label: 'Wert',
+            type: 'options',
+            default: 'true',
+            options: [
+              { value: 'true', label: 'Wahr' },
+              { value: 'false', label: 'Falsch' },
+            ],
+            show: { type: ['booleanValue'] },
+          },
+          {
+            name: 'arrayValue',
+            label: 'Wert',
+            type: 'string',
+            default: '',
+            placeholder: 'z. B. [ arrayItem1, arrayItem2, arrayItem3 ]',
+            show: { type: ['arrayValue'] },
+          },
+          { name: 'objectValue', label: 'Wert', type: 'json', default: '={}', rows: 2, show: { type: ['objectValue'] } },
+        ],
+      },
+    ],
+  },
+  {
+    name: 'specifyInputSchema',
+    label: 'Eingabeschema festlegen',
+    type: 'boolean',
+    default: false,
+    noExpression: true,
+    description: 'Ob das LLM die Eingabe in einem Schema liefern muss, gegen das geprüft wird',
+    show: V1,
+  },
+  {
+    name: 'schemaType',
+    label: 'Schema-Typ',
+    type: 'options',
+    default: 'fromJson',
+    noExpression: true,
+    description: 'Wie das Schema der Funktion angegeben wird',
+    options: [
+      { value: 'fromJson', label: 'Aus JSON-Beispiel erzeugen', description: 'Schema aus einem JSON-Beispiel ableiten' },
+      { value: 'manual', label: 'Mit JSON Schema festlegen', description: 'JSON Schema von Hand angeben' },
+    ],
+    show: { specifyInputSchema: [true], ...V1 },
+  },
+  {
+    name: 'jsonSchemaExample',
+    label: 'JSON-Beispiel',
+    type: 'json',
+    default: '{\n\t"some_input": "some_value"\n}',
+    noExpression: true,
+    rows: 10,
+    description: 'Beispielobjekt, aus dem das Schema erzeugt wird',
+    show: { schemaType: ['fromJson'], ...V1 },
+  },
+  {
+    name: 'inputSchema',
+    label: 'Eingabeschema',
+    type: 'json',
+    default:
+      '{\n"type": "object",\n"properties": {\n\t"some_input": {\n\t\t"type": "string",\n\t\t"description": "Some input to the function"\n\t\t}\n\t}\n}',
+    rows: 10,
+    description: 'JSON Schema der Funktion ($ref wird nicht unterstützt)',
+    show: { schemaType: ['manual'], ...V1 },
+  },
+];
+
 export const toolWorkflowNode: NodeType = {
   type: '@n8n/n8n-nodes-langchain.toolWorkflow',
   displayName: 'Call n8n Workflow Tool',
   versions: [1, 1.1, 1.2, 1.3, 2, 2.1, 2.2],
+  parameters,
   isSubNode: true,
+  aiOutput: 'ai_tool',
   inputs: () => 0,
   outputs: () => 0,
   validate(node) {

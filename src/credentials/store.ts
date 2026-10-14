@@ -4,10 +4,19 @@
 //   { "type": "httpHeaderAuth", "id": "abc", "data": { "name": "X-Key", "value": "{{ env.MY_KEY }}" } }
 // Kurzform ohne "data": das Objekt selbst sind die Felder.
 // Verschlüsselte Einträge oder Dateien: { "encrypted": "<base64(iv|tag|ciphertext)>" }
-// mit AES-256-GCM, Schlüssel = SHA-256(FLOWLITE_ENCRYPTION_KEY).
+// mit AES-256-GCM, Schlüssel = SHA-256(FILUFLOW_ENCRYPTION_KEY).
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { join, basename } from 'node:path';
+import { isSecretField, PUBLIC_KEY, SECRET_KEY } from './types.js';
+import { decryptN8nCredential, n8nKeyFromEnv } from './n8nCipher.js';
+
+/** Name und ID des Credentials an aufgelösten Daten (executor.getCredentials), z. B. für OAuth2-Tokens */
+export const CREDENTIAL_REF = Symbol('filuflow.credentialRef');
+
+export function credentialRefOf(data: Record<string, unknown>): { name: string; id?: string; type: string } | undefined {
+  return (data as Record<symbol, { name: string; id?: string; type: string } | undefined>)[CREDENTIAL_REF];
+}
 
 export interface CredentialEntry {
   name: string;
@@ -23,6 +32,8 @@ export interface CredentialProvider {
   resolve(entry: CredentialEntry): Record<string, unknown>;
   /** Alle geheimen Werte (für Maskierung in Ausgaben und Execution-Log) */
   secretValues?(): string[];
+  /** Alle Einträge (Editor: Auswahl nach Name und Typ, ohne Werte) */
+  list?(): CredentialEntry[];
 }
 
 function deriveKey(secret: string): Buffer {
@@ -47,12 +58,12 @@ export function decryptValue(encoded: string, secret: string): unknown {
     decipher.setAuthTag(tag);
     plain = Buffer.concat([decipher.update(ct), decipher.final()]).toString('utf8');
   } catch {
-    throw new Error('Entschlüsselung fehlgeschlagen: falscher FLOWLITE_ENCRYPTION_KEY oder beschädigte Daten');
+    throw new Error('Entschlüsselung fehlgeschlagen: falscher FILUFLOW_ENCRYPTION_KEY oder beschädigte Daten');
   }
   return JSON.parse(plain);
 }
 
-/** Verschlüsselt eine Credential-Datei (flowlite-Format oder n8n-Export) je Eintrag; Namen, IDs und Typen bleiben lesbar */
+/** Verschlüsselt eine Credential-Datei (filuflow-Format oder n8n-Export) je Eintrag; Namen, IDs und Typen bleiben lesbar */
 export function encryptCredentialsFile(raw: unknown, secret: string): unknown {
   const encryptEntry = (entry: unknown): unknown => {
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return entry;
@@ -96,8 +107,8 @@ function maybeDecrypt(value: unknown, where: string): unknown {
   if (value && typeof value === 'object' && !Array.isArray(value)) {
     const obj = value as Record<string, unknown>;
     if (typeof obj.encrypted === 'string' && Object.keys(obj).length === 1) {
-      const key = process.env.FLOWLITE_ENCRYPTION_KEY;
-      if (!key) throw new Error(`${where}: verschlüsselt, aber FLOWLITE_ENCRYPTION_KEY ist nicht gesetzt`);
+      const key = process.env.FILUFLOW_ENCRYPTION_KEY;
+      if (!key) throw new Error(`${where}: verschlüsselt, aber FILUFLOW_ENCRYPTION_KEY ist nicht gesetzt`);
       return decryptValue(obj.encrypted, key);
     }
   }
@@ -134,7 +145,16 @@ function toEntry(name: string, raw: unknown, where: string): CredentialEntry {
   }
   const obj = value as Record<string, unknown>;
   if (typeof obj.data === 'string' && obj.type) {
-    throw new Error(`${where}: Credential "${name}" ist mit dem n8n-Schlüssel verschlüsselt; bitte mit "n8n export:credentials --decrypted" exportieren`);
+    // n8n-Export ohne --decrypted: mit N8N_ENCRYPTION_KEY entschlüsseln (n8nCipher.ts)
+    const n8nKey = n8nKeyFromEnv();
+    if (!n8nKey) {
+      throw new Error(`${where}: Credential "${name}" ist mit dem n8n-Schlüssel verschlüsselt; N8N_ENCRYPTION_KEY setzen oder mit "n8n export:credentials --decrypted" exportieren`);
+    }
+    try {
+      obj.data = decryptN8nCredential(obj.data, n8nKey);
+    } catch (error) {
+      throw new Error(`${where}: Credential "${name}": ${(error as Error).message}`, { cause: error });
+    }
   }
   if (obj.data && typeof obj.data === 'object') {
     return {
@@ -149,10 +169,9 @@ function toEntry(name: string, raw: unknown, where: string): CredentialEntry {
 
 /**
  * Geheime Felder (in n8n die Felder mit typeOptions.password der Credential-Typen, z. B. password, value,
- * token, clientSecret, privateKey). Nur diese werden in Ausgaben und im Execution-Log maskiert.
+ * token, clientSecret, privateKey). Nur diese werden in Ausgaben und im Execution-Log maskiert: nach dem
+ * Schema des Typs (types.ts) und zusätzlich nach Feldnamen.
  */
-const SECRET_KEY = /pass|secret|token|value|json|private|apikey|api_key/i;
-const PUBLIC_KEY = /^(publicKey|keyType|tokenType|accessTokenUrl|authUrl|grantType)$/;
 
 export class StaticCredentialProvider implements CredentialProvider {
   private readonly entries: CredentialEntry[];
@@ -183,7 +202,7 @@ export class StaticCredentialProvider implements CredentialProvider {
 
   secretValues(): string[] {
     const out = new Set<string>();
-    const walk = (v: unknown, secret: boolean): void => {
+    const walk = (v: unknown, secret: boolean, type?: string): void => {
       if (typeof v === 'string') {
         if (secret) out.add(v);
       } else if (typeof v === 'number') {
@@ -191,15 +210,15 @@ export class StaticCredentialProvider implements CredentialProvider {
       } else if (Array.isArray(v)) {
         v.forEach((x) => walk(x, secret));
       } else if (v && typeof v === 'object') {
-        Object.entries(v).forEach(([k, x]) => walk(x, secret || (SECRET_KEY.test(k) && !PUBLIC_KEY.test(k))));
+        Object.entries(v).forEach(([k, x]) => walk(x, secret || (type !== undefined && isSecretField(type, k)) || (SECRET_KEY.test(k) && !PUBLIC_KEY.test(k))));
       }
     };
     for (const e of this.entries) {
       try {
-        walk(this.resolve(e), false);
+        walk(this.resolve(e), false, e.type ?? '');
       } catch {
         // nicht auflösbare Env-Referenzen: nur Rohwerte maskieren
-        walk(e.data, false);
+        walk(e.data, false, e.type ?? '');
       }
     }
     // Kurze Werte (z. B. "1", "true") würden zu viel maskieren
@@ -237,11 +256,11 @@ export async function loadCredentials(path: string): Promise<StaticCredentialPro
 
 /** Pfad aus Umgebung/Default; liefert leeren Provider, wenn nichts existiert */
 export async function loadDefaultCredentials(explicit?: string): Promise<StaticCredentialProvider> {
-  const candidate = explicit ?? process.env.FLOWLITE_CREDENTIALS ?? 'credentials.json';
+  const candidate = explicit ?? process.env.FILUFLOW_CREDENTIALS ?? 'credentials.json';
   try {
     return await loadCredentials(candidate);
   } catch (error) {
-    if (explicit || process.env.FLOWLITE_CREDENTIALS) throw error;
+    if (explicit || process.env.FILUFLOW_CREDENTIALS) throw error;
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return new StaticCredentialProvider();
     throw error;
   }

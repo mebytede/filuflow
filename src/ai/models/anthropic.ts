@@ -107,6 +107,69 @@ export class AnthropicChatModel extends ChatModel {
     return { messages: result, system };
   }
 
+  /** Messages API mit stream: true; Ereignisse wie die Anthropic-SDK zu einer Nachricht zusammensetzen */
+  private async streamMessages(url: string, headers: Record<string, string>, body: Record<string, unknown>, signal: AbortSignal | undefined, onToken: (text: string) => void): Promise<Record<string, unknown>> {
+    let message: Record<string, unknown> = {};
+    const blocks: Array<Record<string, unknown>> = [];
+    const partialJson: string[] = [];
+    let streamError: string | undefined;
+    await this.postStream(url, headers, { ...body, stream: true }, signal, (data) => {
+      let ev: { type?: string; message?: Record<string, unknown>; index?: number; content_block?: Record<string, unknown>; delta?: Record<string, unknown>; usage?: Record<string, unknown>; error?: { message?: string } };
+      try {
+        ev = JSON.parse(data) as typeof ev;
+      } catch {
+        return;
+      }
+      switch (ev.type) {
+        case 'message_start':
+          message = { ...(ev.message ?? {}) };
+          break;
+        case 'content_block_start':
+          blocks[ev.index ?? blocks.length] = { ...(ev.content_block ?? {}) };
+          break;
+        case 'content_block_delta': {
+          const block = blocks[ev.index ?? 0];
+          const d = ev.delta ?? {};
+          if (!block) break;
+          if (d.type === 'text_delta' && typeof d.text === 'string') {
+            block.text = String(block.text ?? '') + d.text;
+            onToken(d.text);
+          } else if (d.type === 'input_json_delta' && typeof d.partial_json === 'string') {
+            partialJson[ev.index ?? 0] = (partialJson[ev.index ?? 0] ?? '') + d.partial_json;
+          } else if (d.type === 'thinking_delta' && typeof d.thinking === 'string') {
+            block.thinking = String(block.thinking ?? '') + d.thinking;
+          } else if (d.type === 'signature_delta' && typeof d.signature === 'string') {
+            block.signature = d.signature;
+          }
+          break;
+        }
+        case 'content_block_stop': {
+          const index = ev.index ?? 0;
+          const block = blocks[index];
+          if (block?.type === 'tool_use' && partialJson[index] !== undefined) {
+            try {
+              block.input = JSON.parse(partialJson[index] || '{}');
+            } catch {
+              block.input = {};
+            }
+          }
+          break;
+        }
+        case 'message_delta':
+          Object.assign(message, ev.delta ?? {});
+          message.usage = { ...((message.usage as Record<string, unknown>) ?? {}), ...(ev.usage ?? {}) };
+          break;
+        case 'error':
+          streamError = ev.error?.message ?? 'Fehler im Stream';
+          break;
+        default:
+          break;
+      }
+    });
+    if (streamError) throw new Error(streamError);
+    return { ...message, content: blocks.filter(Boolean) };
+  }
+
   protected async call(messages: ChatMessage[], options: ModelCallOptions): Promise<ChatResult> {
     const o = this.opts;
     const body: Record<string, unknown> = {
@@ -126,12 +189,10 @@ export class AnthropicChatModel extends ChatModel {
     body.messages = payload.messages;
     body.system = payload.system;
     const base = (o.baseURL || 'https://api.anthropic.com').replace(/\/+$/, '');
-    const res = await this.postJson(
-      `${base}/v1/messages`,
-      { 'anthropic-version': '2023-06-01', 'x-api-key': o.apiKey, 'content-type': 'application/json', ...(o.headers ?? {}) },
-      body,
-      options.signal,
-    );
+    const headers = { 'anthropic-version': '2023-06-01', 'x-api-key': o.apiKey, 'content-type': 'application/json', ...(o.headers ?? {}) };
+    const res = options.onToken
+      ? await this.streamMessages(`${base}/v1/messages`, headers, body, options.signal, options.onToken)
+      : await this.postJson(`${base}/v1/messages`, headers, body, options.signal);
     const content = (res.content as Block[] | undefined) ?? [];
     const toolCalls: ToolCall[] = content
       .filter((b) => b.type === 'tool_use')

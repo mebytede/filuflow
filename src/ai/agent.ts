@@ -169,13 +169,22 @@ function buildMessages(p: PromptInput): ChatMessage[] {
 }
 
 /** Modell aufrufen; bei Fehler das Fallback-Modell (RunnableWithFallbacks) */
-async function invokeWithFallback(setup: AgentSetup, messages: ChatMessage[], tools: ToolDefinition[]): Promise<ChatResult> {
+async function invokeWithFallback(setup: AgentSetup, messages: ChatMessage[], tools: ToolDefinition[], onToken?: (text: string) => void, includeBuiltInTools = false): Promise<ChatResult> {
+  const options = { tools, ...(onToken ? { onToken } : {}), ...(includeBuiltInTools ? { includeBuiltInTools } : {}) };
   try {
-    return await setup.model.invoke(messages, { tools });
+    return await setup.model.invoke(messages, options);
   } catch (error) {
     if (!setup.fallbackModel) throw error;
-    return setup.fallbackModel.invoke(messages, { tools });
+    return setup.fallbackModel.invoke(messages, options);
   }
+}
+
+/**
+ * Streaming wie n8n ToolsAgent V2 execute.ts / V3 runAgent.ts: ab typeVersion 2.1, wenn die Antwort gestreamt wird und
+ * options.enableStreaming nicht ausgeschaltet ist
+ */
+function streamingEnabled(ctx: ExecContext): boolean {
+  return ctx.node.typeVersion >= 2.1 && ctx.isStreaming() && ctx.getParam<boolean>('options.enableStreaming', 0, true) !== false;
 }
 
 /** parseAIMessageToToolAction */
@@ -363,9 +372,13 @@ async function runAgentExecutor(ctx: ExecContext, setup: AgentSetup, itemIndex: 
   const steps: AgentStep[] = [];
   let iterations = 0;
   let finish: AgentFinish | undefined;
+  // V2 streamt den ganzen Lauf (streamEvents): ein begin, die Text-Teile aller Modellaufrufe, ein end
+  const stream = streamingEnabled(ctx);
+  const onToken = stream ? (text: string) => ctx.sendChunk('item', itemIndex, text) : undefined;
+  if (stream) ctx.sendChunk('begin', itemIndex);
   while (iterations < maxIterations) {
     const messages = buildMessages({ input: item.input, options: item.options, hasParser: !!item.outputParser, chatHistory, binary: item.binary, steps, version: ctx.node.typeVersion });
-    const result = await invokeWithFallback(setup, messages, definitions);
+    const result = await invokeWithFallback(setup, messages, definitions, onToken);
     const output = applyStepsParser(parseModelResult(result), item.outputParser, setup.memory);
     if (!Array.isArray(output)) {
       finish = output;
@@ -389,6 +402,7 @@ async function runAgentExecutor(ctx: ExecContext, setup: AgentSetup, itemIndex: 
     steps.push(...newSteps);
     iterations++;
   }
+  if (stream) ctx.sendChunk('end', itemIndex);
   finish ??= { returnValues: { output: 'Agent stopped due to max iterations.' } };
   const response: Record<string, unknown> = { ...finish.returnValues };
   if (item.options.returnIntermediateSteps === true) response.intermediateSteps = serializeSteps(steps, false);
@@ -474,7 +488,12 @@ async function runAgentV3Item(
   const item = await prepareItem(ctx, itemIndex);
   const chatHistory = setup.memory ? await setup.memory.load() : undefined;
   const messages = buildMessages({ input: item.input, options: item.options, hasParser: !!item.outputParser, chatHistory, binary: item.binary, steps, version: ctx.node.typeVersion });
-  const result = await invokeWithFallback(setup, messages, toolDefinitions(item.tools));
+  // V3 streamt je Modellaufruf (processEventStream: begin, Text-Teile, end)
+  const stream = streamingEnabled(ctx);
+  if (stream) ctx.sendChunk('begin', itemIndex);
+  // V3 (createAgentSequence getAllTools): eingebaute Tools des Modells (OpenAI Responses API) zusätzlich
+  const result = await invokeWithFallback(setup, messages, toolDefinitions(item.tools), stream ? (text) => ctx.sendChunk('item', itemIndex, text) : undefined, true);
+  if (stream) ctx.sendChunk('end', itemIndex);
   const output = applyStepsParser(parseModelResult(result), item.outputParser, setup.memory);
   if (!Array.isArray(output)) {
     const out = output.returnValues.output;

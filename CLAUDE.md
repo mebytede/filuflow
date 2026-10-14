@@ -1,12 +1,12 @@
-# flowlite: n8n-kompatible Workflow-Engine (internes Tool)
+# filuflow: Workflow-Plattform mit Editor, Server und Mandantenbetrieb
 
 ## Was das ist
-flowlite führt **n8n-Workflow-JSONs** (Export aus n8n, `executionOrder: "v1"`) ohne n8n aus.
-Internes Tool, kein Produkt. Erst Engine, CLI und Server; ein Editor kommt später.
-Die vollständige Spezifikation mit Meilensteinen steht in `docs/SPEC.md`. Lies sie vor jeder Arbeit.
+filuflow ist ein eigenes Produkt: Workflow-Engine, Editor im Browser, CLI, Server mit Webhooks und Zeitplänen, KI-Knoten und
+Mehrbenutzer-/Mandantenbetrieb (Master und Worker). Workflows nutzen das Workflow-Format von n8n (`executionOrder: "v1"`).
+Der Umfang ist offen; die Spezifikation mit Meilensteinen und dem Ausbau steht in `docs/SPEC.md`. Lies sie vor jeder Arbeit.
 
 ## Leitplanken
-- **Kompatibilität schlägt Eleganz.** Wenn n8n sich in einem Punkt seltsam verhält, verhält sich flowlite genauso. Abweichungen nur bewusst und in `docs/DEVIATIONS.md` dokumentiert.
+- **n8n-Workflows laufen weiter.** Knoten im n8n-Format verhalten sich wie in n8n (Golden-Tests in `fixtures/`), damit exportierte Workflows ohne Umbau laufen. Eigene Funktionen darüber hinaus sind ausdrücklich erwünscht.
 - **Referenz ist der n8n-Quellcode** (`github.com/n8n-io/n8n`, v. a. `packages/workflow`, `packages/core`, `packages/nodes-base`, `packages/@n8n/nodes-langchain`). Nutze ihn, um Parameter-Schemas und Verhalten nachzuvollziehen. **Keinen Code kopieren** (Sustainable Use License): Verhalten nachbauen, eigene Implementierung schreiben.
 - **Nicht raten.** Ist ein Parametername, Default oder Verhalten unklar, im n8n-Quellcode nachsehen und die Fundstelle (Datei, Node-Version) als Kommentar über der Implementierung notieren.
 - **Unbekannte Node-Typen oder Versionen** führen nie zu stillem Fehlverhalten: `validate` meldet sie, `run` bricht vor dem Start mit klarer Liste ab.
@@ -28,9 +28,9 @@ npm run build        # tsc
 npm test             # vitest run
 npm run test:compat  # Golden-Tests gegen fixtures/
 npm run lint         # eslint + tsc --noEmit
-npx flowlite validate <workflow.json>
-npx flowlite run <workflow.json> [--input data.json] [--json]
-npx flowlite serve [--dir ./workflows] [--port 5678]
+npx filuflow validate <workflow.json>
+npx filuflow run <workflow.json> [--input data.json] [--json]
+npx filuflow serve [--dir ./workflows] [--port 5678]
 ```
 
 ## Code-Konventionen

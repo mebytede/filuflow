@@ -4,6 +4,7 @@
 import type { NodeType } from './types.js';
 import type { Item, PairedItem, SourceData } from '../types.js';
 import { deepCopy } from './shared/utils.js';
+import type { ParamSchema } from './params.js';
 
 interface LoopContext {
   items?: Item[];
@@ -15,10 +16,38 @@ interface LoopContext {
   done?: boolean;
 }
 
+// Parameter wie packages/nodes-base/nodes/SplitInBatches/v3/SplitInBatchesV3.node.ts
+const parameters: ParamSchema[] = [
+  {
+    name: 'splitInBatchesNotice',
+    label: 'Diesen Knoten brauchen Sie oft nicht: Knoten laufen automatisch einmal für jedes Item.',
+    type: 'notice',
+    default: '',
+  },
+  { name: 'batchSize', label: 'Batch-Größe', type: 'number', default: 1, min: 1, description: 'Anzahl der Items, die pro Durchlauf ausgegeben werden' },
+  {
+    name: 'options',
+    label: 'Optionen',
+    type: 'collection',
+    default: {},
+    addLabel: 'Option hinzufügen',
+    children: [
+      {
+        name: 'reset',
+        label: 'Zurücksetzen',
+        type: 'boolean',
+        default: false,
+        description: 'Ob der Knoten wieder von vorn beginnt und die eingehenden Items als neue Menge behandelt',
+      },
+    ],
+  },
+];
+
 export const splitInBatchesNode: NodeType = {
   type: 'n8n-nodes-base.splitInBatches',
   displayName: 'Loop Over Items',
   versions: [3],
+  parameters,
   outputs: () => 2,
   async execute(ctx) {
     const items = ctx.items.slice();

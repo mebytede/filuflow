@@ -84,18 +84,26 @@ export function validateWorkflow(input: unknown, options: ValidateOptions): Vali
     add({ severity: 'warning', code: 'json.structure', message: '"name" fehlt', path: 'name' });
   }
 
-  // Ausführungsreihenfolge
+  // Ausführungsreihenfolge: wie n8n (isLegacyExecutionOrder) gilt alles außer "v1" als v0
   const order = wf.settings?.executionOrder;
   if (order === undefined) {
     add({
+      severity: 'warning',
       code: 'settings.executionOrder.missing',
-      message: 'settings.executionOrder fehlt. flowlite unterstützt nur "v1" (in n8n unter Workflow-Einstellungen setzen)',
+      message: 'settings.executionOrder fehlt; der Workflow läuft wie in n8n mit der alten Reihenfolge "v0". Für neue Workflows "v1" setzen.',
+      path: 'settings.executionOrder',
+    });
+  } else if (order === 'v0') {
+    add({
+      severity: 'warning',
+      code: 'settings.executionOrder.legacy',
+      message: 'settings.executionOrder "v0": alte Reihenfolge (Breitensuche, fehlende Vorgänger werden mit ausgeführt)',
       path: 'settings.executionOrder',
     });
   } else if (order !== 'v1') {
     add({
       code: 'settings.executionOrder.unsupported',
-      message: `settings.executionOrder "${String(order)}" wird nicht unterstützt, nur "v1"`,
+      message: `settings.executionOrder "${String(order)}" ist unbekannt, erlaubt sind "v1" und "v0"`,
       path: 'settings.executionOrder',
     });
   }

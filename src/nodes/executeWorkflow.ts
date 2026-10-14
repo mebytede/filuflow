@@ -3,12 +3,16 @@
 //   ExecuteWorkflow.node.ts, GenericFunctions.ts (getWorkflowInfo),
 //   utils/workflowInputsResourceMapping/GenericFunctions.ts (getCurrentWorkflowInputData),
 //   utils/workflow-backtracking.ts (findPairedItemThroughWorkflowData)
-// Unter-Workflows kommen aus dem Workflow-Verzeichnis (ID oder Name), source "localFile"/"url" werden nicht unterstützt.
+// Unter-Workflows kommen aus dem Workflow-Verzeichnis (ID oder Name), aus einer lokalen Datei (localFile, begrenzbar mit
+// FILUFLOW_RESTRICT_FILE_ACCESS_TO), von einer URL oder aus dem Parameter workflowJson.
 import lodash from 'lodash';
 import type { ExecContext, ExecuteWorkflowRequest, NodeType } from './types.js';
 import type { Item, PairedItem, RunData, TaskData } from '../types.js';
 import { NodeOperationError } from '../errors.js';
+import { readFile } from 'node:fs/promises';
 import { jsonParse } from './shared/utils.js';
+import { checkFileAccess } from './shared/fileAccess.js';
+import type { ParamSchema } from './params.js';
 
 function getCurrentWorkflowInputData(ctx: ExecContext): Item[] {
   const inputData: Item[] = ctx.items.map(({ json, binary }, itemIndex) => ({
@@ -28,7 +32,7 @@ function getCurrentWorkflowInputData(ctx: ExecContext): Item[] {
   }));
 }
 
-function getWorkflowInfo(ctx: ExecContext, source: string, itemIndex = 0): Pick<ExecuteWorkflowRequest, 'workflowId' | 'workflowJson'> {
+async function getWorkflowInfo(ctx: ExecContext, source: string, itemIndex = 0): Promise<Pick<ExecuteWorkflowRequest, 'workflowId' | 'workflowJson'>> {
   if (source === 'database') {
     if (ctx.node.typeVersion === 1) return { workflowId: String(ctx.getParam('workflowId', itemIndex, '')) };
     const value = ctx.getParam<unknown>('workflowId', itemIndex, {});
@@ -38,6 +42,34 @@ function getWorkflowInfo(ctx: ExecContext, source: string, itemIndex = 0): Pick<
   if (source === 'parameter') {
     const json = ctx.getParam<unknown>('workflowJson', itemIndex, '\n\n\n');
     return { workflowJson: typeof json === 'string' ? jsonParse(json) : json };
+  }
+  if (source === 'localFile') {
+    const workflowPath = String(ctx.getParam('workflowPath', itemIndex, ''));
+    let text: string;
+    try {
+      text = await readFile(await checkFileAccess(workflowPath), 'utf8');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        throw new NodeOperationError(ctx.node.name, `The file "${workflowPath}" could not be found, [item ${itemIndex}]`);
+      }
+      throw new NodeOperationError(ctx.node.name, (error as Error).message, { itemIndex });
+    }
+    // Eigene Meldung, damit der Dateiinhalt nicht in Fehlermeldungen landet (wie n8n)
+    return { workflowJson: jsonParse(text, { errorMessage: 'The file content is not valid JSON' }) };
+  }
+  if (source === 'url') {
+    // n8n helpers.request mit json: true und gzip: true; Fehler ab Status 400
+    const workflowUrl = String(ctx.getParam('workflowUrl', itemIndex, ''));
+    const res = await ctx.helpers.http.request({ method: 'GET', url: workflowUrl, signal: ctx.signal, headers: { accept: 'application/json,text/*;q=0.99', 'accept-encoding': 'gzip, deflate' } });
+    const body = res.body.toString('utf8');
+    if (res.statusCode >= 400) throw new NodeOperationError(ctx.node.name, `${res.statusCode} - ${JSON.stringify(body)}`, { itemIndex });
+    let code: unknown = body;
+    try {
+      code = JSON.parse(body);
+    } catch {
+      // request-promise liefert bei json: true den Text, wenn er kein JSON ist
+    }
+    return { workflowJson: code };
   }
   throw new NodeOperationError(ctx.node.name, `Execute Workflow: source "${source}" wird nicht unterstützt`);
 }
@@ -77,14 +109,153 @@ function findPairedItemThroughWorkflowData(runData: RunData, lastNode: string | 
 
 const generatePairedItemData = (length: number): PairedItem[] => Array.from({ length }, (_v, item) => ({ item }));
 
+// Parameter wie packages/nodes-base/nodes/ExecuteWorkflow/ExecuteWorkflow/ExecuteWorkflow.node.ts.
+// workflowId ab 1.1 ist in n8n ein workflowSelector (Resource Locator mit den Modi list und id).
+// workflowInputs ist in n8n ein resourceMapper ({ mappingMode, value, schema, ... }); hier als JSON-Objekt.
+const parameters: ParamSchema[] = [
+  { name: 'operation', label: 'Operation', type: 'hidden', noExpression: true, default: 'call_workflow' },
+  {
+    name: 'outdatedVersionWarning',
+    label: 'Dieser Knoten ist veraltet. Bitte entfernen Sie ihn und fügen Sie einen neuen hinzu.',
+    type: 'notice',
+    default: '',
+    show: { '@version': [{ _cnd: { lte: 1.1 } }] },
+  },
+  {
+    name: 'source',
+    label: 'Quelle',
+    type: 'options',
+    default: 'database',
+    options: [
+      { value: 'database', label: 'Datenbank', description: 'Workflow über seine ID laden' },
+      { value: 'localFile', label: 'Lokale Datei', description: 'Workflow aus einer Datei auf dem Server laden' },
+      { value: 'parameter', label: 'Parameter', description: 'Workflow aus einem Parameter laden' },
+      { value: 'url', label: 'URL', description: 'Workflow von einer URL laden' },
+    ],
+    description: 'Woher der auszuführende Workflow kommt',
+    show: { '@version': [{ _cnd: { lte: 1.1 } }] },
+  },
+  {
+    name: 'source',
+    label: 'Quelle',
+    type: 'options',
+    default: 'database',
+    options: [
+      { value: 'database', label: 'Datenbank', description: 'Workflow über seine ID laden' },
+      { value: 'localFile', label: 'Lokale Datei', description: 'Workflow aus einer Datei auf dem Server laden' },
+      { value: 'parameter', label: 'Unten festlegen', description: 'JSON eines Workflows angeben' },
+      { value: 'url', label: 'URL', description: 'Workflow von einer URL laden' },
+    ],
+    description: 'Woher der auszuführende Workflow kommt',
+    show: { '@version': [{ _cnd: { gte: 1.2 } }] },
+  },
+  {
+    name: 'workflowId',
+    label: 'Workflow-ID',
+    type: 'string',
+    default: '',
+    required: true,
+    description: 'Steht in der URL des Workflows. Eine Expression wird bei "einmal für alle Items" nur für das erste Item ausgewertet.',
+    show: { source: ['database'], '@version': [1] },
+  },
+  {
+    name: 'workflowId',
+    label: 'Workflow',
+    type: 'resourceLocator',
+    default: '',
+    required: true,
+    modes: [
+      { name: 'list', label: 'Aus Liste', placeholder: 'Workflow wählen' },
+      { name: 'id', label: 'Nach ID', placeholder: 'Workflow-ID' },
+    ],
+    show: { source: ['database'], '@version': [{ _cnd: { gte: 1.1 } }] },
+  },
+  {
+    name: 'workflowPath',
+    label: 'Pfad der Workflow-Datei',
+    type: 'string',
+    default: '',
+    placeholder: '/data/workflow.json',
+    required: true,
+    description: 'Pfad zur JSON-Datei des Workflows auf dem Server',
+    show: { source: ['localFile'] },
+  },
+  {
+    name: 'workflowUrl',
+    label: 'Workflow-URL',
+    type: 'string',
+    default: '',
+    placeholder: 'https://example.com/workflow.json',
+    required: true,
+    description: 'URL, von der der Workflow geladen wird',
+    show: { source: ['url'] },
+  },
+  {
+    name: 'workflowJson',
+    label: 'Workflow-JSON',
+    type: 'json',
+    rows: 10,
+    default: '\n\n\n',
+    required: true,
+    description: 'JSON des auszuführenden Workflows',
+    show: { source: ['parameter'] },
+  },
+  {
+    name: 'executeWorkflowNotice',
+    label: 'Alle Daten, die in diesen Knoten gehen, gibt der Execute Workflow Trigger des Unter-Workflows aus.',
+    type: 'notice',
+    default: '',
+    show: { '@version': [{ _cnd: { lte: 1.1 } }] },
+  },
+  {
+    name: 'workflowInputs',
+    label: 'Eingaben des Workflows',
+    type: 'json',
+    noExpression: true,
+    default: { mappingMode: 'defineBelow', value: null },
+    required: true,
+    description: 'Werte für die Eingaben des Unter-Workflows (value) und deren Schema (schema)',
+    show: { source: ['database'], '@version': [{ _cnd: { gte: 1.2 } }] },
+    hide: { workflowId: [''] },
+  },
+  {
+    name: 'mode',
+    label: 'Modus',
+    type: 'options',
+    noExpression: true,
+    default: 'once',
+    options: [
+      { value: 'once', label: 'Einmal mit allen Items', description: 'Alle Items in einer einzigen Ausführung des Unter-Workflows' },
+      { value: 'each', label: 'Einmal für jedes Item', description: 'Unter-Workflow für jedes Item einzeln aufrufen' },
+    ],
+  },
+  {
+    name: 'options',
+    label: 'Optionen',
+    type: 'collection',
+    default: {},
+    addLabel: 'Option hinzufügen',
+    children: [
+      {
+        name: 'waitForSubWorkflow',
+        label: 'Auf Unter-Workflow warten',
+        type: 'boolean',
+        default: true,
+        description: 'Ob dieser Workflow wartet, bis der Unter-Workflow fertig ist',
+      },
+    ],
+  },
+];
+
 export const executeWorkflowNode: NodeType = {
   type: 'n8n-nodes-base.executeWorkflow',
   displayName: 'Execute Workflow',
   versions: [1, 1.1, 1.2, 1.3],
+  parameters,
   outputs: () => 1,
   validate(node) {
     const source = (node.parameters.source as string | undefined) ?? 'database';
-    if (source !== 'database' && source !== 'parameter') {
+    if (!['database', 'parameter', 'localFile', 'url'].includes(source)) {
       return [{ code: 'node.unsupportedParameter', message: `Execute Workflow: source "${source}" wird nicht unterstützt`, path: 'parameters.source' }];
     }
     return [];
@@ -100,7 +271,7 @@ export const executeWorkflowNode: NodeType = {
       for (let i = 0; i < items.length; i++) {
         try {
           const wait = ctx.getParam<boolean>('options.waitForSubWorkflow', i, true);
-          const info = getWorkflowInfo(ctx, source, i);
+          const info = await getWorkflowInfo(ctx, source, i);
           const result = await ctx.executeWorkflow({ ...info, items: [items[i]], waitForCompletion: wait });
           if (wait) {
             for (const [outputIndex, output] of result.data.entries()) {
@@ -131,7 +302,7 @@ export const executeWorkflowNode: NodeType = {
 
     try {
       const wait = ctx.getParam<boolean>('options.waitForSubWorkflow', 0, true);
-      const info = getWorkflowInfo(ctx, source);
+      const info = await getWorkflowInfo(ctx, source);
       const result = await ctx.executeWorkflow({ ...info, items, waitForCompletion: wait });
       if (!wait) return [items];
       const fallback = generatePairedItemData(items.length);

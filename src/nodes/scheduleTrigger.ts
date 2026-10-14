@@ -3,11 +3,12 @@
 // GenericFunctions.ts: toCronExpression, intervalToRecurrence, recurrenceCheck, validateInterval).
 // n8n nutzt moment-timezone und das Paket "cron"; hier luxon und croner (gleiche 6-Felder-Syntax).
 // Der Server registriert die Cron-Ausdrücke; in der Execution reicht der Node die Zeitdaten durch.
-// Ohne Server-Daten (z. B. flowlite run) erzeugt er die Daten für "jetzt" wie n8n im manuellen Modus.
+// Ohne Server-Daten (z. B. filuflow run) erzeugt er die Daten für "jetzt" wie n8n im manuellen Modus.
 import { randomInt } from 'node:crypto';
 import { DateTime } from 'luxon';
 import { Cron } from 'croner';
 import type { NodeIssue, NodeType } from './types.js';
+import type { ParamSchema } from './params.js';
 import type { WorkflowNode } from '../types.js';
 import { NodeOperationError } from '../errors.js';
 
@@ -194,10 +195,106 @@ export function scheduleItemJson(timezone: string, now: DateTime<boolean> = Date
   };
 }
 
+// Parameter wie n8n ScheduleTrigger.node.ts (properties, in allen Versionen gleich)
+const HOURS = Array.from({ length: 24 }, (_v, h) => ({ value: h, label: h === 0 ? 'Mitternacht' : h === 12 ? 'Mittag' : `${h} Uhr` }));
+const parameters: ParamSchema[] = [
+  {
+    name: 'notice',
+    label: 'Der Workflow läuft nach diesem Zeitplan, sobald er aktiviert ist; zum Testen lässt er sich auch manuell starten.',
+    type: 'notice',
+    default: '',
+  },
+  {
+    name: 'rule',
+    label: 'Regeln',
+    type: 'fixedCollection',
+    default: { interval: [{ field: 'days' }] },
+    multiple: true,
+    addLabel: 'Regel hinzufügen',
+    groups: [
+      {
+        name: 'interval',
+        label: 'Intervall',
+        children: [
+          {
+            name: 'field',
+            label: 'Intervall',
+            type: 'options',
+            default: 'days',
+            options: [
+              { value: 'seconds', label: 'Sekunden' },
+              { value: 'minutes', label: 'Minuten' },
+              { value: 'hours', label: 'Stunden' },
+              { value: 'days', label: 'Tage' },
+              { value: 'weeks', label: 'Wochen' },
+              { value: 'months', label: 'Monate' },
+              { value: 'cronExpression', label: 'Eigener Ausdruck (Cron)' },
+            ],
+          },
+          { name: 'secondsInterval', label: 'Sekunden zwischen den Starts', type: 'number', default: 30, description: 'Abstand in Sekunden, 1 bis 59', show: { field: ['seconds'] } },
+          { name: 'minutesInterval', label: 'Minuten zwischen den Starts', type: 'number', default: 5, description: 'Abstand in Minuten, 1 bis 59', show: { field: ['minutes'] } },
+          { name: 'hoursInterval', label: 'Stunden zwischen den Starts', type: 'number', default: 1, description: 'Abstand in Stunden, 1 bis 23', show: { field: ['hours'] } },
+          { name: 'daysInterval', label: 'Tage zwischen den Starts', type: 'number', default: 1, description: 'Abstand in Tagen, 1 bis 31', show: { field: ['days'] } },
+          { name: 'weeksInterval', label: 'Wochen zwischen den Starts', type: 'number', default: 1, description: 'Ohne Angabe jede Woche', show: { field: ['weeks'] } },
+          { name: 'monthsInterval', label: 'Monate zwischen den Starts', type: 'number', default: 1, description: 'Ohne Angabe jeden Monat', show: { field: ['months'] } },
+          {
+            name: 'triggerAtDayOfMonth',
+            label: 'Tag im Monat',
+            type: 'number',
+            default: 1,
+            min: 1,
+            max: 31,
+            description: 'Fehlt der Tag in einem Monat, startet der Workflow dort nicht',
+            show: { field: ['months'] },
+          },
+          {
+            name: 'triggerAtDay',
+            label: 'Wochentage',
+            type: 'multiOptions',
+            default: [0],
+            show: { field: ['weeks'] },
+            options: [
+              { value: 1, label: 'Montag' },
+              { value: 2, label: 'Dienstag' },
+              { value: 3, label: 'Mittwoch' },
+              { value: 4, label: 'Donnerstag' },
+              { value: 5, label: 'Freitag' },
+              { value: 6, label: 'Samstag' },
+              { value: 0, label: 'Sonntag' },
+            ],
+          },
+          { name: 'triggerAtHour', label: 'Stunde', type: 'options', default: 0, options: HOURS, description: 'Stunde des Tages für den Start', show: { field: ['days', 'weeks', 'months'] } },
+          {
+            name: 'triggerAtMinute',
+            label: 'Minute',
+            type: 'number',
+            default: 0,
+            min: 0,
+            max: 59,
+            description: 'Minute nach der vollen Stunde, 0 bis 59',
+            show: { field: ['hours', 'days', 'weeks', 'months'] },
+          },
+          { name: 'notice', label: 'Hilfe zu Cron-Ausdrücken gibt es z. B. auf crontab.guru.', type: 'notice', default: '', show: { field: ['cronExpression'] } },
+          {
+            name: 'expression',
+            label: 'Ausdruck',
+            type: 'string',
+            default: '',
+            placeholder: 'z. B. 0 15 * 1 sun',
+            description: 'Format: [Sekunde] [Minute] [Stunde] [Tag im Monat] [Monat] [Wochentag]',
+            show: { field: ['cronExpression'] },
+          },
+        ],
+      },
+    ],
+  },
+];
+
 export const scheduleTriggerNode: NodeType = {
   type: 'n8n-nodes-base.scheduleTrigger',
   displayName: 'Schedule Trigger',
   versions: [1, 1.1, 1.2, 1.3],
+  parameters,
   isTrigger: true,
   inputs: () => 0,
   outputs: () => 1,

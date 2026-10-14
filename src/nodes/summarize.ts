@@ -2,6 +2,7 @@
 // Nachgebaut nach n8n 1.123.0 packages/nodes-base/nodes/Transform/Summarize (Summarize.node.ts, utils.ts)
 import lodash from 'lodash';
 import type { NodeType } from './types.js';
+import type { ParamSchema } from './params.js';
 import type { Item } from '../types.js';
 import { NodeOperationError } from '../errors.js';
 
@@ -134,10 +135,164 @@ function toArray(r: Nested): Result[] {
   return [r];
 }
 
+// Parameter wie Summarize.node.ts (properties) und utils.ts (NUMERICAL_AGGREGATIONS = average, sum).
+// "field" und "fieldsToSplitBy" sind wie in n8n mehrfach definiert, nur mit anderem Text je nach Sichtbarkeit.
+const parameters: ParamSchema[] = [
+  {
+    name: 'fieldsToSummarize',
+    label: 'Zusammenzufassende Felder',
+    type: 'fixedCollection',
+    default: { values: [{ aggregation: 'count', field: '' }] },
+    multiple: true,
+    addLabel: 'Feld hinzufügen',
+    groups: [
+      {
+        name: 'values',
+        label: '',
+        children: [
+          {
+            name: 'aggregation',
+            label: 'Aggregation',
+            type: 'options',
+            default: 'count',
+            description: 'Wie die Werte des Felds kombiniert werden',
+            options: [
+              { value: 'append', label: 'Anhängen' },
+              { value: 'average', label: 'Durchschnitt' },
+              { value: 'concatenate', label: 'Verketten' },
+              { value: 'count', label: 'Anzahl' },
+              { value: 'countUnique', label: 'Anzahl eindeutiger Werte' },
+              { value: 'max', label: 'Maximum' },
+              { value: 'min', label: 'Minimum' },
+              { value: 'sum', label: 'Summe' },
+            ],
+          },
+          {
+            name: 'field',
+            label: 'Feld',
+            type: 'string',
+            default: '',
+            placeholder: 'z. B. cost',
+            description: 'Name des Eingabefelds, das zusammengefasst wird',
+            hide: { aggregation: ['average', 'sum', 'countUnique', 'count', 'max', 'min'] },
+          },
+          {
+            name: 'field',
+            label: 'Feld',
+            type: 'string',
+            default: '',
+            placeholder: 'z. B. cost',
+            description: 'Eingabefeld mit Zahlen; null, undefined und leere Texte werden ignoriert',
+            show: { aggregation: ['average', 'sum'] },
+          },
+          {
+            name: 'field',
+            label: 'Feld',
+            type: 'string',
+            default: '',
+            placeholder: 'z. B. cost',
+            description: 'Name des Eingabefelds; null, undefined und leere Texte werden ignoriert',
+            show: { aggregation: ['countUnique', 'count', 'max', 'min'] },
+          },
+          {
+            name: 'includeEmpty',
+            label: 'Leere Werte einbeziehen',
+            type: 'boolean',
+            default: false,
+            show: { aggregation: ['append', 'concatenate', 'count', 'countUnique'] },
+          },
+          {
+            name: 'separateBy',
+            label: 'Trennzeichen',
+            type: 'options',
+            default: ',',
+            description: 'Was zwischen die Werte kommt',
+            show: { aggregation: ['concatenate'] },
+            options: [
+              { value: ',', label: 'Komma' },
+              { value: ', ', label: 'Komma und Leerzeichen' },
+              { value: '\n', label: 'Neue Zeile' },
+              { value: '', label: 'Keines' },
+              { value: ' ', label: 'Leerzeichen' },
+              { value: 'other', label: 'Anderes' },
+            ],
+          },
+          {
+            name: 'customSeparator',
+            label: 'Eigenes Trennzeichen',
+            type: 'string',
+            default: '',
+            show: { aggregation: ['concatenate'], separateBy: ['other'] },
+          },
+        ],
+      },
+    ],
+  },
+  {
+    name: 'fieldsToSplitBy',
+    label: 'Aufteilen nach Feldern',
+    type: 'string',
+    default: '',
+    placeholder: 'z. B. country, city',
+    description: 'Eingabefelder, nach denen die Zusammenfassung aufgeteilt wird, kommagetrennt',
+    hide: { '/options.outputFormat': ['singleItem'] },
+  },
+  {
+    name: 'fieldsToSplitBy',
+    label: 'Gruppieren nach Feldern',
+    type: 'string',
+    default: '',
+    placeholder: 'z. B. country, city',
+    description: 'Eingabefelder, nach denen die Zusammenfassung aufgeteilt wird, kommagetrennt',
+    show: { '/options.outputFormat': ['singleItem'] },
+  },
+  {
+    name: 'options',
+    label: 'Optionen',
+    type: 'collection',
+    default: {},
+    addLabel: 'Option hinzufügen',
+    children: [
+      {
+        name: 'continueIfFieldNotFound',
+        label: 'Weiter, wenn Feld fehlt',
+        type: 'boolean',
+        default: false,
+        description: 'Ob bei einem in keinem Item vorhandenen Feld ein leeres Item statt eines Fehlers entsteht',
+        hide: { '@version': [{ _cnd: { gte: 1.1 } }] },
+      },
+      {
+        name: 'disableDotNotation',
+        label: 'Punktnotation deaktivieren',
+        type: 'boolean',
+        default: false,
+        description: 'Ob Unterfelder per "parent.child" nicht angesprochen werden können',
+      },
+      {
+        name: 'outputFormat',
+        label: 'Ausgabeformat',
+        type: 'options',
+        default: 'separateItems',
+        options: [
+          { value: 'separateItems', label: 'Jede Gruppe in einem eigenen Item' },
+          { value: 'singleItem', label: 'Alle Gruppen in einem Item' },
+        ],
+      },
+      {
+        name: 'skipEmptySplitFields',
+        label: 'Items ohne gültige Gruppierfelder ignorieren',
+        type: 'boolean',
+        default: false,
+      },
+    ],
+  },
+];
+
 export const summarizeNode: NodeType = {
   type: 'n8n-nodes-base.summarize',
   displayName: 'Summarize',
   versions: [1, 1.1],
+  parameters,
   outputs: () => 1,
   async execute(ctx) {
     const items = ctx.items;

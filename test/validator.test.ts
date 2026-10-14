@@ -60,7 +60,10 @@ describe('validateWorkflow', () => {
     const wf = base() as Record<string, unknown>;
     delete wf.settings;
     expect(codes(wf)).toContain('settings.executionOrder.missing');
+    expect(validateWorkflow(wf, { registry: fakeRegistry() }).valid).toBe(true);
     wf.settings = { executionOrder: 'v0' };
+    expect(codes(wf)).toContain('settings.executionOrder.legacy');
+    wf.settings = { executionOrder: 'v2' };
     expect(codes(wf)).toContain('settings.executionOrder.unsupported');
   });
 

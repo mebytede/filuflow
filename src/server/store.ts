@@ -1,12 +1,16 @@
 // Execution-Log in SQLite (SPEC 8): Tabelle `executions` (Metadaten) und
 // `execution_data` (runData als gzip-komprimiertes JSON). Credential-Werte werden vor dem
 // Speichern maskiert (CLAUDE.md: Secrets nie loggen, auch nicht im Execution-Log).
+// Wartende Executions (M13): `execution_resume` hält den Zustand zum Fortsetzen. Er muss unmaskiert sein (die Daten
+// fließen weiter in Expressions), wird mit FILUFLOW_ENCRYPTION_KEY verschlüsselt und nach dem Fortsetzen gelöscht.
+// Außerdem: statische Workflow-Daten (`workflow_static_data`) und kleine Schlüssel-Wert-Daten (`kv`, z. B. OAuth2-Tokens).
 import Database from 'better-sqlite3';
 import { gzipSync, gunzipSync } from 'node:zlib';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import type { Execution, ExecutionMode, ExecutionStatus, RunData, SerializedError, Workflow } from '../types.js';
-import { maskDeep } from '../credentials/store.js';
+import { decryptValue, encryptValue, maskDeep } from '../credentials/store.js';
+import type { ExecutorState } from '../engine/executor.js';
 
 export interface ExecutionSummary {
   id: string;
@@ -19,6 +23,7 @@ export interface ExecutionSummary {
   lastNodeExecuted?: string;
   error?: SerializedError;
   parentExecutionId?: string;
+  waitTill?: string;
 }
 
 export interface StoredExecution extends ExecutionSummary {
@@ -28,8 +33,18 @@ export interface StoredExecution extends ExecutionSummary {
 
 export interface ListFilter {
   workflow?: string;
+  /** Nur diese Workflow-IDs (Master: Ausführungen eines Projekts) */
+  workflowIds?: string[];
   status?: string;
   limit?: number;
+  /** Suche (M23): Ausführungs-ID, Workflow-Name, letzter Knoten oder Fehlermeldung */
+  q?: string;
+  /** Beginn ab bzw. vor (ISO-Zeit) */
+  from?: string;
+  to?: string;
+  /** Blättern: nur Ausführungen, die vor diesem Zeitpunkt begonnen haben */
+  before?: string;
+  mode?: string;
 }
 
 interface Row {
@@ -43,6 +58,13 @@ interface Row {
   last_node: string | null;
   error: string | null;
   parent_id: string | null;
+  wait_till: string | null;
+}
+
+export interface ExecutionStats {
+  total: number;
+  errors: number;
+  workflows: Record<string, { runs: number; last?: ExecutionSummary }>;
 }
 
 const SCHEMA = `
@@ -65,7 +87,46 @@ CREATE TABLE IF NOT EXISTS execution_data (
   execution_id TEXT PRIMARY KEY REFERENCES executions (id) ON DELETE CASCADE,
   data BLOB NOT NULL
 );
+CREATE TABLE IF NOT EXISTS execution_resume (
+  execution_id TEXT PRIMARY KEY REFERENCES executions (id) ON DELETE CASCADE,
+  data BLOB NOT NULL
+);
+CREATE TABLE IF NOT EXISTS workflow_static_data (
+  workflow_key TEXT PRIMARY KEY,
+  data TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS kv (
+  key TEXT PRIMARY KEY,
+  value BLOB NOT NULL,
+  updated_at TEXT NOT NULL
+);
 `;
+
+/** Zustand zum Fortsetzen: Engine-Zustand plus unmaskierte runData */
+export interface ResumeRecord {
+  state: ExecutorState;
+  runData: RunData;
+  workflow: Workflow;
+}
+
+/** gzip, mit FILUFLOW_ENCRYPTION_KEY zusätzlich AES-256-GCM */
+function sealJson(value: unknown): Buffer {
+  const json = JSON.stringify(value);
+  const key = process.env.FILUFLOW_ENCRYPTION_KEY;
+  const payload = key ? JSON.stringify({ encrypted: encryptValue(json, key) }) : json;
+  return gzipSync(Buffer.from(payload));
+}
+
+function openJson<T>(blob: Buffer): T {
+  const parsed = JSON.parse(gunzipSync(blob).toString('utf8')) as unknown;
+  if (parsed && typeof parsed === 'object' && typeof (parsed as { encrypted?: unknown }).encrypted === 'string') {
+    const key = process.env.FILUFLOW_ENCRYPTION_KEY;
+    if (!key) throw new Error('Gespeicherte Daten sind verschlüsselt, aber FILUFLOW_ENCRYPTION_KEY ist nicht gesetzt');
+    return JSON.parse(decryptValue((parsed as { encrypted: string }).encrypted, key) as string) as T;
+  }
+  return parsed as T;
+}
 
 function toSummary(row: Row): ExecutionSummary {
   return {
@@ -79,6 +140,7 @@ function toSummary(row: Row): ExecutionSummary {
     ...(row.last_node ? { lastNodeExecuted: row.last_node } : {}),
     ...(row.error ? { error: JSON.parse(row.error) as SerializedError } : {}),
     ...(row.parent_id ? { parentExecutionId: row.parent_id } : {}),
+    ...(row.wait_till ? { waitTill: row.wait_till } : {}),
   };
 }
 
@@ -94,6 +156,10 @@ export class ExecutionStore {
     this.db.pragma('journal_mode = WAL');
     this.db.pragma('foreign_keys = ON');
     this.db.exec(SCHEMA);
+    // Spalte wait_till für Datenbanken aus der Zeit vor M13
+    const columns = (this.db.prepare(`PRAGMA table_info(executions)`).all() as Array<{ name: string }>).map((c) => c.name);
+    if (!columns.includes('wait_till')) this.db.exec(`ALTER TABLE executions ADD COLUMN wait_till TEXT`);
+    this.db.exec(`CREATE INDEX IF NOT EXISTS idx_executions_wait ON executions (status, wait_till)`);
   }
 
   close(): void {
@@ -103,7 +169,7 @@ export class ExecutionStore {
   /** Beim Start: Executions, die beim letzten Lauf nicht fertig wurden, als abgestürzt markieren */
   markCrashed(): number {
     return this.db
-      .prepare(`UPDATE executions SET status = 'crashed', stopped_at = ? WHERE status IN ('new', 'running', 'waiting')`)
+      .prepare(`UPDATE executions SET status = 'crashed', stopped_at = ? WHERE status IN ('new', 'running')`)
       .run(new Date().toISOString()).changes;
   }
 
@@ -130,10 +196,10 @@ export class ExecutionStore {
     const tx = this.db.transaction(() => {
       this.db
         .prepare(
-          `INSERT INTO executions (id, workflow_id, workflow_name, mode, status, started_at, stopped_at, last_node, error, parent_id)
-           VALUES (@id, @workflowId, @workflowName, @mode, @status, @startedAt, @stoppedAt, @lastNode, @error, @parentId)
+          `INSERT INTO executions (id, workflow_id, workflow_name, mode, status, started_at, stopped_at, last_node, error, parent_id, wait_till)
+           VALUES (@id, @workflowId, @workflowName, @mode, @status, @startedAt, @stoppedAt, @lastNode, @error, @parentId, @waitTill)
            ON CONFLICT (id) DO UPDATE SET status = excluded.status, stopped_at = excluded.stopped_at,
-             last_node = excluded.last_node, error = excluded.error`,
+             last_node = excluded.last_node, error = excluded.error, wait_till = excluded.wait_till`,
         )
         .run({
           id: execution.id,
@@ -142,10 +208,11 @@ export class ExecutionStore {
           mode: execution.mode,
           status: execution.status,
           startedAt: execution.startedAt,
-          stoppedAt: execution.stoppedAt ?? new Date().toISOString(),
+          stoppedAt: execution.status === 'waiting' ? null : (execution.stoppedAt ?? new Date().toISOString()),
           lastNode: execution.lastNodeExecuted ?? null,
           error: masked.error ? JSON.stringify(masked.error) : null,
           parentId: parentExecutionId ?? null,
+          waitTill: execution.status === 'waiting' ? (execution.waitTill ?? null) : null,
         });
       this.db.prepare(`INSERT OR REPLACE INTO execution_data (execution_id, data) VALUES (?, ?)`).run(execution.id, blob);
     });
@@ -174,13 +241,122 @@ export class ExecutionStore {
       where.push('(workflow_id = ? OR workflow_name = ?)');
       args.push(filter.workflow, filter.workflow);
     }
+    if (filter.workflowIds) {
+      if (!filter.workflowIds.length) return [];
+      where.push(`workflow_id IN (${filter.workflowIds.map(() => '?').join(', ')})`);
+      args.push(...filter.workflowIds);
+    }
     if (filter.status) {
       where.push('status = ?');
       args.push(filter.status);
     }
+    if (filter.mode) {
+      where.push('mode = ?');
+      args.push(filter.mode);
+    }
+    if (filter.from) {
+      where.push('started_at >= ?');
+      args.push(filter.from);
+    }
+    if (filter.to) {
+      where.push('started_at < ?');
+      args.push(filter.to);
+    }
+    if (filter.before) {
+      where.push('started_at < ?');
+      args.push(filter.before);
+    }
+    if (filter.q?.trim()) {
+      const like = `%${filter.q.trim().replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+      where.push("(id = ? OR workflow_name LIKE ? ESCAPE '\\' OR last_node LIKE ? ESCAPE '\\' OR error LIKE ? ESCAPE '\\')");
+      args.push(filter.q.trim(), like, like, like);
+    }
     const limit = Math.min(Math.max(1, filter.limit ?? 20), 1000);
     const sql = `SELECT * FROM executions ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY started_at DESC, rowid DESC LIMIT ${limit}`;
     return (this.db.prepare(sql).all(...args) as Row[]).map(toSummary);
+  }
+
+  /**
+   * Kennzahlen für die Übersicht: Ausführungen und Fehler seit `since`, je Workflow die Zahl der Läufe seit
+   * `since` und die letzte Ausführung. Optional auf Workflow-IDs begrenzt (Master: nur ein Projekt).
+   */
+  stats(since: string, workflowIds?: string[]): ExecutionStats {
+    if (workflowIds && !workflowIds.length) return { total: 0, errors: 0, workflows: {} };
+    const only = workflowIds ? ` AND workflow_id IN (${workflowIds.map(() => '?').join(', ')})` : '';
+    const ids = workflowIds ?? [];
+    const totals = this.db
+      .prepare(`SELECT COUNT(*) AS n, COALESCE(SUM(status IN ('error', 'crashed')), 0) AS e FROM executions WHERE started_at >= ?${only}`)
+      .get(since, ...ids) as { n: number; e: number };
+    const workflows: ExecutionStats['workflows'] = {};
+    for (const r of this.db.prepare(`SELECT workflow_id AS id, COUNT(*) AS n FROM executions WHERE started_at >= ? AND workflow_id IS NOT NULL${only} GROUP BY workflow_id`).all(since, ...ids) as Array<{ id: string; n: number }>) {
+      workflows[r.id] = { runs: r.n };
+    }
+    const last = this.db
+      .prepare(
+        `SELECT e.* FROM executions e JOIN (SELECT workflow_id, MAX(started_at) AS m FROM executions WHERE workflow_id IS NOT NULL${only} GROUP BY workflow_id) l
+         ON e.workflow_id = l.workflow_id AND e.started_at = l.m`,
+      )
+      .all(...ids) as Row[];
+    for (const row of last) {
+      const id = row.workflow_id as string;
+      workflows[id] = { runs: workflows[id]?.runs ?? 0, last: toSummary(row) };
+    }
+    return { total: totals.n, errors: totals.e, workflows };
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // Wartende Executions
+
+  saveResume(id: string, record: ResumeRecord): void {
+    this.db.prepare(`INSERT OR REPLACE INTO execution_resume (execution_id, data) VALUES (?, ?)`).run(id, sealJson(record));
+  }
+
+  loadResume(id: string): ResumeRecord | undefined {
+    const row = this.db.prepare(`SELECT data FROM execution_resume WHERE execution_id = ?`).get(id) as { data: Buffer } | undefined;
+    return row ? openJson<ResumeRecord>(row.data) : undefined;
+  }
+
+  deleteResume(id: string): void {
+    this.db.prepare(`DELETE FROM execution_resume WHERE execution_id = ?`).run(id);
+  }
+
+  /** Wartende Executions, die bis `before` fortgesetzt werden müssen */
+  waitingDue(before: string): Array<{ id: string; waitTill: string }> {
+    return (
+      this.db.prepare(`SELECT id, wait_till FROM executions WHERE status = 'waiting' AND wait_till IS NOT NULL AND wait_till <= ? ORDER BY wait_till`).all(before) as Array<{
+        id: string;
+        wait_till: string;
+      }>
+    ).map((r) => ({ id: r.id, waitTill: r.wait_till }));
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // Statische Workflow-Daten und Schlüssel-Wert-Daten
+
+  getStaticData(key: string): Record<string, Record<string, unknown>> | undefined {
+    const row = this.db.prepare(`SELECT data FROM workflow_static_data WHERE workflow_key = ?`).get(key) as { data: string } | undefined;
+    return row ? (JSON.parse(row.data) as Record<string, Record<string, unknown>>) : undefined;
+  }
+
+  setStaticData(key: string, data: Record<string, Record<string, unknown>>): void {
+    this.db
+      .prepare(`INSERT INTO workflow_static_data (workflow_key, data, updated_at) VALUES (?, ?, ?) ON CONFLICT (workflow_key) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`)
+      .run(key, JSON.stringify(data), new Date().toISOString());
+  }
+
+  getValue<T>(key: string): T | undefined {
+    const row = this.db.prepare(`SELECT value FROM kv WHERE key = ?`).get(key) as { value: Buffer } | undefined;
+    return row ? openJson<T>(row.value) : undefined;
+  }
+
+  setValue(key: string, value: unknown): void {
+    this.db
+      .prepare(`INSERT INTO kv (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`)
+      .run(key, sealJson(value), new Date().toISOString());
+  }
+
+  deleteValue(key: string): void {
+    this.db.prepare(`DELETE FROM kv WHERE key = ?`).run(key);
   }
 
   /** Löscht abgeschlossene Executions älter als `days` Tage; liefert die Anzahl */

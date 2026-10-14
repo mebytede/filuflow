@@ -25,6 +25,7 @@ import type { NodeRegistry } from '../nodes/registry.js';
 import {
   isEngineRequest,
   type EngineRequest,
+  type ExecContext,
   type EngineResponse,
   type ExecuteWorkflowRequest,
   type ExecuteWorkflowResult,
@@ -34,10 +35,11 @@ import {
 import { getLogger, type Logger } from '../logger.js';
 import { UndiciHttpClient, type HttpClient } from '../http.js';
 import { FileBinaryStore, type BinaryStore } from '../binary.js';
-import type { CredentialProvider } from '../credentials/store.js';
+import { CREDENTIAL_REF, type CredentialProvider } from '../credentials/store.js';
+import { applySchemaDefaults } from '../credentials/defaults.js';
 import {
   ExecutionCancelledError,
-  FlowliteError,
+  FiluflowError,
   NodeOperationError,
   WorkflowValidationError,
   serializeError,
@@ -45,7 +47,7 @@ import {
 import { createDataProxy, allowedEnv, type ExecuteData, type AdditionalKeys } from '../expressions/proxy.js';
 import { DEFAULT_EXPRESSION_TIMEOUT } from '../expressions/evaluator.js';
 
-export const DEFAULT_TIMEZONE = process.env.FLOWLITE_TIMEZONE ?? process.env.GENERIC_TIMEZONE ?? 'Europe/Berlin';
+export const DEFAULT_TIMEZONE = process.env.FILUFLOW_TIMEZONE ?? process.env.GENERIC_TIMEZONE ?? 'Europe/Berlin';
 
 export interface ExecutionLogEntry {
   time: number;
@@ -59,6 +61,19 @@ export interface RunHooks {
   nodeExecuteAfter?(nodeName: string, taskData: TaskData): void;
   /** responseMode=responseNode: Antwort sofort senden */
   sendResponse?(response: WebhookResponse): void;
+  /**
+   * Streaming (n8n Hook sendChunk): nur gesetzt, wenn die Antwort gestreamt wird (Webhook oder Chat Trigger mit
+   * responseMode "streaming")
+   */
+  sendChunk?(chunk: StructuredChunk): void;
+}
+
+export type ChunkType = 'begin' | 'item' | 'end' | 'error';
+/** n8n StructuredChunk (packages/workflow/src/interfaces.ts), als JSON-Zeile in die Antwort geschrieben */
+export interface StructuredChunk {
+  type: ChunkType;
+  content?: string;
+  metadata: { nodeId: string; nodeName: string; runIndex: number; itemIndex: number; timestamp?: number };
 }
 
 export interface SubWorkflowRunner {
@@ -93,7 +108,43 @@ export interface ExecutorOptions {
   webhookWaitingBaseUrl?: string;
   /** Wartezeit-Funktion (Tests) */
   sleep?: (ms: number) => Promise<void>;
+  /** Execution darf dauerhaft warten (Server); sonst warten Wait-Nodes im Prozess oder melden einen Fehler */
+  canWait?: boolean;
+  /** Fortsetzen einer wartenden Execution (n8n WorkflowExecute mit runExecutionData) */
+  resume?: ResumeData;
+  /**
+   * Nur bis zu diesem Knoten ausführen (Editor "Bis hier ausführen", n8n destinationNode): es laufen nur der Knoten und
+   * seine Vorgänger, Kinder außerhalb davon werden nicht eingeplant.
+   */
+  destinationNode?: string;
 }
+
+/** Gespeicherter Zustand einer wartenden Execution (n8n runExecutionData.executionData, JSON-fähig) */
+export interface ExecutorState {
+  version: 1;
+  startedAt: string;
+  executionIndex: number;
+  lastNodeExecuted?: string;
+  stack: Array<{ node: string; disabled?: boolean; data: StackItem['data']; source: StackItem['source']; runIndex?: number; metadata?: StackMetadata }>;
+  waiting: Record<string, Record<number, WaitingEntry>>;
+  waitingSource: Record<string, Record<number, WaitingSource>>;
+  nodeContexts: Record<string, Record<string, unknown>>;
+}
+
+export interface ResumeData {
+  state: ExecutorState;
+  runData: RunData;
+  /** Daten für den wartenden Node (Webhook-Request); ohne gibt der Node seine Eingangsdaten weiter */
+  webhookData?: Array<Item[] | null>;
+  /**
+   * Antwort aus dem Chat (n8n chat-execution-manager.ts runNode): der wartende Node bildet daraus mit onMessage seine
+   * Ausgabe, ohne onMessage ist das Item selbst die Ausgabe
+   */
+  chatMessage?: Item;
+}
+
+/** n8n WAIT_INDEFINITELY */
+export const WAIT_INDEFINITELY = new Date('3000-01-01T00:00:00.000Z');
 
 /** n8n ITaskMetadata (nur die Felder für Engine-Requests) */
 interface StackMetadata {
@@ -154,12 +205,22 @@ export class WorkflowExecutor {
   readonly env: Record<string, string | undefined>;
   readonly expressionTimeout: number;
   readonly triggerItems?: Item[];
-  readonly runData: RunData = {};
+  runData: RunData = {};
   readonly logs: ExecutionLogEntry[] = [];
+  readonly canWait: boolean;
 
   private readonly options: ExecutorOptions;
   private readonly abort = new AbortController();
-  private readonly nodeContexts: Record<string, Record<string, unknown>> = {};
+  private nodeContexts: Record<string, Record<string, unknown>> = {};
+  private waitTill?: Date;
+  /** destinationNode: der Zielknoten und seine Vorgänger */
+  private readonly allowedNodes?: Set<string>;
+  /**
+   * Execution-Order v0 (n8n isLegacyExecutionOrder: alles außer "v1"): Breitensuche statt Tiefensuche, fehlende
+   * Vorgänger von Knoten mit mehreren Eingängen werden mit ausgeführt, Eingangsdaten nur aus Eingang 1.
+   */
+  private readonly legacyOrder: boolean;
+  private lastExecutionTry = '';
   private readonly staticData: Record<string, Record<string, unknown>>;
   private readonly pinData: Workflow['pinData'];
   private readonly sleep: (ms: number) => Promise<void>;
@@ -192,6 +253,16 @@ export class WorkflowExecutor {
     this.staticData = options.staticData ?? {};
     this.pinData = options.usePinData === false ? undefined : options.workflow.pinData;
     this.sleep = options.sleep ?? defaultSleep;
+    this.canWait = options.canWait === true;
+    this.legacyOrder = options.workflow.settings?.executionOrder !== 'v1';
+    if (options.destinationNode) {
+      if (!this.graph.getNode(options.destinationNode)) {
+        throw new WorkflowValidationError(`Zielknoten "${options.destinationNode}" existiert nicht`, [
+          { severity: 'error', code: 'trigger.unknown', message: `Zielknoten "${options.destinationNode}" existiert nicht` },
+        ]);
+      }
+      this.allowedNodes = new Set([options.destinationNode, ...this.graph.getParentNodes(options.destinationNode)]);
+    }
     if (options.signal) {
       if (options.signal.aborted) this.cancel();
       else options.signal.addEventListener('abort', () => this.cancel(), { once: true });
@@ -228,6 +299,79 @@ export class WorkflowExecutor {
     };
   }
 
+  putExecutionToWait(waitTill: Date): void {
+    if (!this.canWait) throw new FiluflowError('Diese Ausführung kann nicht warten (nur im Server, nicht in Unter-Workflows oder der CLI)');
+    this.waitTill = waitTill;
+  }
+
+  /** Zustand zum Speichern einer wartenden Execution */
+  getState(): ExecutorState {
+    return {
+      version: 1,
+      startedAt: this.startedAt.toISOString(),
+      executionIndex: this.executionIndex,
+      lastNodeExecuted: this.lastNodeExecuted,
+      stack: this.stack.map((s) => ({
+        node: s.node.name,
+        ...(s.node.disabled ? { disabled: true } : {}),
+        data: s.data,
+        source: s.source,
+        ...(s.runIndex !== undefined ? { runIndex: s.runIndex } : {}),
+        ...(s.metadata ? { metadata: s.metadata } : {}),
+      })),
+      waiting: this.waiting,
+      waitingSource: this.waitingSource,
+      nodeContexts: this.nodeContexts,
+    };
+  }
+
+  /**
+   * Zustand übernehmen und den wartenden Node fortsetzen (n8n handleWaitingState und WaitingWebhooks):
+   * Der Node oben auf dem Stack wird deaktiviert (gibt seine Eingangsdaten weiter, bei einem Webhook dessen Daten),
+   * sein letzter Lauf wird entfernt, damit er nicht doppelt erscheint.
+   */
+  private restore(resume: ResumeData): void {
+    const { state } = resume;
+    this.startedAt = new Date(state.startedAt);
+    this.executionIndex = state.executionIndex;
+    this.lastNodeExecuted = state.lastNodeExecuted;
+    this.runData = resume.runData;
+    this.waiting = state.waiting ?? {};
+    this.waitingSource = state.waitingSource ?? {};
+    this.nodeContexts = state.nodeContexts ?? {};
+    this.stack = state.stack.map((s) => {
+      const node = this.graph.getNode(s.node);
+      if (!node) throw new FiluflowError(`Node "${s.node}" der wartenden Ausführung fehlt im Workflow`);
+      return { node: s.disabled ? { ...node, disabled: true } : node, data: s.data, source: s.source, runIndex: s.runIndex, metadata: s.metadata };
+    });
+    if (!this.stack.length) throw new FiluflowError('Wartende Ausführung ohne fortzusetzenden Node');
+    this.stack[0] = { ...this.stack[0], node: { ...this.stack[0].node, disabled: true } };
+    if (resume.webhookData) this.stack[0].data = { main: resume.webhookData };
+    const last = this.lastNodeExecuted;
+    if (last && this.runData[last]?.length) this.runData[last].pop();
+  }
+
+  /** Ausgabe des wartenden Nodes aus einer Chat-Antwort (onMessage mit Kontext des Nodes) */
+  private async applyChatMessage(message: Item): Promise<void> {
+    const top = this.stack[0];
+    const original = this.graph.getNode(top.node.name)!;
+    const nodeType = this.registry.getVersioned(original.type, original.typeVersion);
+    let data: Item[][] | undefined = [[message]];
+    if (nodeType?.onMessage) {
+      const inputs = top.data.main.map((i) => i ?? []);
+      const ctx = new NodeExecutionContext({
+        executor: this,
+        node: original,
+        executeData: { ...top, node: original } as ExecuteData,
+        inputs: inputs.length ? inputs : [[]],
+        connectionInputData: top.data.main[0] ?? [],
+        runIndex: this.runData[original.name]?.length ?? 0,
+      });
+      data = await nodeType.onMessage(ctx, message);
+    }
+    if (data) this.stack[0] = { ...top, data: { main: data } };
+  }
+
   getNodeContext(nodeName: string): Record<string, unknown> {
     return (this.nodeContexts[nodeName] ??= {});
   }
@@ -254,7 +398,11 @@ export class WorkflowExecutor {
     if (!provider || !entry) {
       throw new NodeOperationError(node.name, `Credentials "${ref.name}" for type "${type}" not found`, { itemIndex });
     }
-    return provider.resolve(entry);
+    // Defaults des Typs (auch geerbte und versteckte Felder) wie n8n getDecrypted mit applyDefaultsAndOverwrites
+    const data = applySchemaDefaults(type, provider.resolve(entry));
+    // Identität für dauerhaft gespeicherte OAuth2-Tokens (nicht aufzählbar, erscheint nicht in Daten oder Logs)
+    Object.defineProperty(data, CREDENTIAL_REF, { value: { name: entry.name, ...(entry.id ? { id: entry.id } : {}), type }, enumerable: false });
+    return data;
   }
 
   async executeSubWorkflow(node: WorkflowNode, request: ExecuteWorkflowRequest): Promise<ExecuteWorkflowResult> {
@@ -267,6 +415,15 @@ export class WorkflowExecutor {
       parentNode: node,
       parentWorkflow: this.graph.workflow,
     });
+  }
+
+  /** n8n ExecuteContext.isStreaming: Hook vorhanden und Modus erlaubt Streaming */
+  isStreaming(): boolean {
+    return !!this.options.hooks?.sendChunk && ['manual', 'webhook', 'integrated'].includes(this.mode);
+  }
+
+  sendChunk(chunk: StructuredChunk): void {
+    this.options.hooks?.sendChunk?.(chunk);
   }
 
   sendWebhookResponse(response: WebhookResponse): void {
@@ -374,25 +531,29 @@ export class WorkflowExecutor {
       );
     }
     const order = this.graph.workflow.settings?.executionOrder;
-    if (order !== 'v1') {
-      throw new WorkflowValidationError(
-        `executionOrder "${order ?? '(fehlt)'}" wird nicht unterstützt; flowlite führt nur "v1" aus`,
-        [{ severity: 'error', code: 'settings.executionOrder', message: 'nur v1' }],
-      );
+    if (order !== undefined && order !== 'v1' && order !== 'v0') {
+      throw new WorkflowValidationError(`executionOrder "${String(order)}" ist unbekannt (erlaubt: "v1", "v0")`, [
+        { severity: 'error', code: 'settings.executionOrder', message: 'nur v1 oder v0' },
+      ]);
     }
   }
 
   async run(): Promise<Execution> {
     this.startedAt = new Date();
     this.checkSupported();
-    const start = findStartNode(this.graph, this.registry, this.options.startNodeName);
-    this.stack = [
-      {
-        node: start,
-        data: { main: this.options.triggerOutputs ?? [this.options.triggerItems ?? [{ json: {} }]] },
-        source: null,
-      },
-    ];
+    if (this.options.resume) {
+      this.restore(this.options.resume);
+      if (this.options.resume.chatMessage) await this.applyChatMessage(this.options.resume.chatMessage);
+    } else {
+      const start = findStartNode(this.graph, this.registry, this.options.startNodeName);
+      this.stack = [
+        {
+          node: start,
+          data: { main: this.options.triggerOutputs ?? [this.options.triggerItems ?? [{ json: {} }]] },
+          source: null,
+        },
+      ];
+    }
     let executionError: SerializedError | undefined;
     try {
       executionError = await this.processStack();
@@ -408,6 +569,9 @@ export class WorkflowExecutor {
     } else if (executionError) {
       this.status = 'error';
       this.error = executionError;
+      this.waitTill = undefined;
+    } else if (this.waitTill) {
+      this.status = 'waiting';
     } else {
       this.status = 'success';
     }
@@ -426,6 +590,7 @@ export class WorkflowExecutor {
       runData: this.runData,
       lastNodeExecuted: this.lastNodeExecuted,
       ...(this.error ? { error: this.error } : {}),
+      ...(this.status === 'waiting' && this.waitTill ? { waitTill: this.waitTill.toISOString() } : {}),
     };
   }
 
@@ -464,6 +629,16 @@ export class WorkflowExecutor {
       let runIndex = 0;
       if (executionData.runIndex !== undefined) runIndex = executionData.runIndex;
       else if (Object.hasOwn(this.runData, node.name)) runIndex = this.runData[node.name].length;
+
+      // Endlosschleife: derselbe Knoten kommt ohne Fortschritt erneut dran (n8n currentExecutionTry)
+      const currentExecutionTry = `${node.name}:${runIndex}`;
+      if (currentExecutionTry === this.lastExecutionTry) {
+        throw new FiluflowError('Stopped execution because it seems to be in an endless loop');
+      }
+      if (!this.ensureInputData(executionData)) {
+        this.lastExecutionTry = currentExecutionTry;
+        continue executionLoop;
+      }
 
       // Fortgesetzte Agents lösen den Hook nicht erneut aus (n8n AI-1414)
       if (!executionData.metadata?.nodeWasResumed) this.options.hooks?.nodeExecuteBefore?.(node.name);
@@ -519,7 +694,7 @@ export class WorkflowExecutor {
             }
           }
 
-          if (nodeSuccessData === null) {
+          if (nodeSuccessData === null && !this.waitTill) {
             // Node lief, lieferte aber nichts: Zweig endet, kein runData-Eintrag (wie n8n)
             continue executionLoop;
           }
@@ -529,7 +704,7 @@ export class WorkflowExecutor {
           if (this.signal.aborted && (this.status as ExecutionStatus) === 'canceled') {
             executionError = serializeError(new ExecutionCancelledError(this.executionId));
           } else {
-            if (error instanceof FlowliteError && error.nodeName === undefined) error.nodeName = node.name;
+            if (error instanceof FiluflowError && error.nodeName === undefined) error.nodeName = node.name;
             executionError = serializeError(error);
           }
           this.logger.debug({ node: node.name, err: executionError.message }, 'Node fehlgeschlagen');
@@ -541,7 +716,7 @@ export class WorkflowExecutor {
         startTime: taskStartTime,
         executionIndex: taskExecutionIndex,
         executionTime: Date.now() - taskStartTime,
-        executionStatus: 'success',
+        executionStatus: this.waitTill ? 'waiting' : 'success',
         data: { main: [] },
         source: taskSource,
       };
@@ -549,6 +724,12 @@ export class WorkflowExecutor {
       if (executionError !== undefined) {
         taskData.error = executionError;
         taskData.executionStatus = 'error';
+        // Fehler auch in eine gestreamte Antwort schreiben (n8n workflow-execute.ts: sendChunk "error")
+        this.options.hooks?.sendChunk?.({
+          type: 'error',
+          content: executionError.description === undefined || executionError.description === null ? undefined : String(executionError.description),
+          metadata: { nodeId: node.id ?? '', nodeName: node.name, runIndex, itemIndex: 0 },
+        });
         if (
           node.continueOnFail === true ||
           node.onError === 'continueRegularOutput' ||
@@ -586,6 +767,12 @@ export class WorkflowExecutor {
       else list.push(taskData);
       this.options.hooks?.nodeExecuteAfter?.(node.name, list[runIndex] ?? taskData);
 
+      if (this.waitTill) {
+        // Node zurück auf den Stack, damit die Execution beim Fortsetzen hier weiterläuft (n8n workflow-execute.ts)
+        this.stack.unshift(executionData);
+        break;
+      }
+
       // Kinder auf den Stack legen
       const outputs = this.graph.bySource[node.name]?.main;
       if (outputs) {
@@ -594,23 +781,25 @@ export class WorkflowExecutor {
           if (!(outputIndex in outputs)) continue;
           for (const connection of outputs[outputIndex] ?? []) {
             if (!this.graph.getNode(connection.node)) {
-              throw new FlowliteError(`Destination node not found: ${connection.node}`);
+              throw new FiluflowError(`Destination node not found: ${connection.node}`);
             }
             const data = nodeSuccessData?.[outputIndex];
-            if (data && data.length !== 0) {
+            // Nur wenn der Ausgang Items hat; v0 auch bei leerem Ausgang an einen zweiten ("optionalen") Eingang
+            if (data && (data.length !== 0 || (connection.index > 0 && this.legacyOrder))) {
               const target = this.graph.getNode(connection.node)!;
               nodesToAdd.push({ position: target.position ?? [0, 0], connection, outputIndex });
             }
           }
         }
-        // n8n: oben-links zuerst (Vergleichsfunktion bewusst unverändert übernommen)
-        nodesToAdd.sort((a, b) => {
+        // n8n v1: oben-links zuerst (Vergleichsfunktion bewusst unverändert übernommen); v0 in Verbindungsreihenfolge
+        if (!this.legacyOrder) nodesToAdd.sort((a, b) => {
           if (a.position[1] < b.position[1]) return 1;
           if (a.position[1] > b.position[1]) return -1;
           if (a.position[0] > b.position[0]) return -1;
           return 0;
         });
         for (const n of nodesToAdd) {
+          if (this.allowedNodes && !this.allowedNodes.has(n.connection.node)) continue;
           this.addNodeToBeExecuted(n.connection, n.outputIndex, node.name, nodeSuccessData!, runIndex);
         }
       }
@@ -624,7 +813,8 @@ export class WorkflowExecutor {
           if (!checkNode) continue;
           const checkType = this.registry.getVersioned(checkNode.type, checkNode.typeVersion);
           const inputCount = checkType?.inputs ? checkType.inputs(checkNode) : 1;
-          const requiredInputs = checkType?.requiredInputs?.(checkNode);
+          // requiredInputs gibt es nur in v1
+          const requiredInputs = this.legacyOrder ? undefined : checkType?.requiredInputs?.(checkNode);
           if (requiredInputs !== undefined) {
             if ((Array.isArray(requiredInputs) && requiredInputs.length === inputCount) || requiredInputs === inputCount) {
               continue;
@@ -705,7 +895,7 @@ export class WorkflowExecutor {
     const subNodeExecutionData: NonNullable<StackMetadata['subNodeExecutionData']> = { actions: [], metadata: request.metadata };
     for (const action of request.actions) {
       const node = this.graph.getNode(action.nodeName);
-      if (!node) throw new FlowliteError(`Workflow does not contain a node with the name of "${action.nodeName}".`);
+      if (!node) throw new FiluflowError(`Workflow does not contain a node with the name of "${action.nodeName}".`);
       this.rewireOutputLogTo.set(node.name, action.type);
       const parentSourceData = executionData.source?.main?.[runIndex];
       const parentOutputIndex = parentSourceData?.previousNodeOutput ?? 0;
@@ -770,9 +960,11 @@ export class WorkflowExecutor {
     if (runIndex) source.previousNodeRun = runIndex;
 
     if (numberOfInputs > 1) {
+      let nodeWasWaiting = true;
       if (this.waiting[target] === undefined) {
         this.waiting[target] = {};
         this.waitingSource[target] = {};
+        nodeWasWaiting = false;
       }
       let createNew = true;
       let waitingIndex: number | undefined;
@@ -794,7 +986,7 @@ export class WorkflowExecutor {
 
       const allDataFound = this.waiting[target][waitingIndex].main.every((d) => d !== null);
       if (allDataFound) {
-        this.stack.unshift({
+        this.enqueue({
           node: this.graph.getNode(target)!,
           data: this.waiting[target][waitingIndex],
           source: this.waitingSource[target][waitingIndex],
@@ -805,20 +997,108 @@ export class WorkflowExecutor {
           delete this.waiting[target];
           delete this.waitingSource[target];
         }
+        return;
       }
+      if (!nodeWasWaiting && this.legacyOrder) this.forceInputNodes(target, parentNodeName, outputIndex, nodeSuccessData, runIndex);
       return;
     }
 
     const connectionDataArray: Array<Item[] | null> = [];
     for (let i = connection.index; i >= 0; i--) connectionDataArray[i] = null;
     connectionDataArray[connection.index] = nodeSuccessData[outputIndex];
-    this.stack.unshift({
+    this.enqueue({
       node: this.graph.getNode(target)!,
       data: { main: connectionDataArray },
       source: { main: [source] },
       ...(newRunIndex !== undefined ? { runIndex: newRunIndex } : {}),
       ...(metadata ? { metadata } : {}),
     });
+  }
+
+  /** n8n runPartialWorkflow2 enqueueFn: v1 unshift (Tiefensuche), v0 push (Breitensuche) */
+  private enqueue(item: StackItem): void {
+    if (this.legacyOrder) this.stack.push(item);
+    else this.stack.unshift(item);
+  }
+
+  /** n8n incomingConnectionIsEmpty */
+  private incomingConnectionIsEmpty(connections: Array<{ node: string; index: number }>, runIndex: number): boolean {
+    for (const c of connections) {
+      const data = this.runData[c.node]?.[runIndex]?.data?.main?.[c.index];
+      if (data !== undefined && data !== null && data.length !== 0) return false;
+    }
+    return true;
+  }
+
+  /**
+   * v0: Knoten mit mehreren Eingängen wartet zum ersten Mal; Vorgänger der anderen Eingänge, die noch nicht liefen und
+   * nicht schon eingeplant sind, werden auf den Stack gelegt (n8n addNodeToBeExecuted, Zweig !nodeWasWaiting)
+   */
+  private forceInputNodes(target: string, parentNodeName: string, outputIndex: number, nodeSuccessData: NodeOutput, runIndex: number): void {
+    const checkOutputNodes: string[] = [];
+    for (const list of this.graph.bySource[parentNodeName]?.main ?? []) for (const c of list ?? []) checkOutputNodes.push(c.node);
+    const inputs = this.graph.byDestination[target]?.main ?? [];
+    for (let inputIndex = 0; inputIndex < inputs.length; inputIndex++) {
+      for (const inputData of inputs[inputIndex] ?? []) {
+        if (inputData.node === parentNodeName) continue;
+        const stackNodes = this.stack.map((x) => x.node.name);
+        if (checkOutputNodes.includes(inputData.node)) {
+          if (!this.incomingConnectionIsEmpty(this.graph.byDestination[inputData.node]?.main?.[0] ?? [], runIndex)) continue;
+        }
+        if (stackNodes.includes(inputData.node)) continue;
+        if (this.runData[inputData.node] !== undefined) continue;
+
+        // Obersten Vorgänger suchen, der noch nicht lief
+        const parents = this.graph.getParentNodes(inputData.node, 'main', -1);
+        parents.push(inputData.node);
+        parents.reverse();
+        let nodeToAdd: string | undefined = inputData.node;
+        for (const parent of parents) {
+          if (inputData.node !== parent && checkOutputNodes.includes(parent)) {
+            nodeToAdd = undefined;
+            break;
+          }
+          if (stackNodes.includes(parent)) {
+            nodeToAdd = undefined;
+            break;
+          }
+          if (this.runData[parent] !== undefined) break;
+          nodeToAdd = parent;
+        }
+        if (nodeToAdd !== undefined && this.graph.getParentNodes(nodeToAdd).includes(parentNodeName) && (nodeSuccessData[outputIndex]?.length ?? 0) === 0) {
+          // Kein Lauf ohne Daten für Knoten hinter dem Elternknoten
+          nodeToAdd = undefined;
+        }
+        if (nodeToAdd === undefined) continue;
+
+        let addEmptyItem = false;
+        if (this.graph.byDestination[nodeToAdd] === undefined) addEmptyItem = true;
+        else if (this.incomingConnectionIsEmpty(this.graph.byDestination[nodeToAdd]?.main?.[0] ?? [], runIndex)) addEmptyItem = true;
+        if (addEmptyItem) {
+          const source: SourceData = { previousNode: parentNodeName };
+          if (outputIndex) source.previousNodeOutput = outputIndex;
+          if (runIndex) source.previousNodeRun = runIndex;
+          this.enqueue({ node: this.graph.getNode(nodeToAdd)!, data: { main: [[{ json: {} }]] }, source: { main: [source] } });
+        }
+      }
+    }
+  }
+
+  /**
+   * n8n ensureInputData: Eingänge ohne aktiven Vorgänger zählen nicht; in v0 kommt ein Knoten zurück auf den Stack,
+   * solange Daten eines Eingangs fehlen
+   */
+  private ensureInputData(executionData: StackItem): boolean {
+    const node = executionData.node;
+    const inputs = this.graph.byDestination[node.name]?.main ?? [];
+    for (let index = 0; index < inputs.length; index++) {
+      if (this.graph.getHighestNode(node.name, index).length === 0) return true;
+      if (this.legacyOrder && (executionData.data.main.length < index || executionData.data.main[index] === null)) {
+        this.stack.push(executionData);
+        return false;
+      }
+    }
+    return true;
   }
 
   /** n8n runNode: liefert null, wenn der Node keine Daten hat */
@@ -840,10 +1120,13 @@ export class WorkflowExecutor {
     } else {
       if (!inputData.main?.length) return null;
       connectionInputData = inputData.main[0];
-      for (const mainData of inputData.main) {
-        if (mainData?.length) {
-          connectionInputData = mainData;
-          break;
+      // v1: Daten des ersten Eingangs mit Items; v0 (forceInputNodeExecution) immer Eingang 1
+      if (!this.legacyOrder) {
+        for (const mainData of inputData.main) {
+          if (mainData?.length) {
+            connectionInputData = mainData;
+            break;
+          }
         }
       }
       if (!connectionInputData || connectionInputData.length === 0) return null;
@@ -864,6 +1147,23 @@ export class WorkflowExecutor {
     });
     const result = await nodeType.execute(ctx);
     return result ?? null;
+  }
+
+  /**
+   * Kontext eines Knotens ohne laufende Ausführung (M31): aktivierte Trigger- und Poll-Knoten lesen damit Parameter,
+   * Credentials und statische Daten wie in n8n PollContext/TriggerContext (ohne Eingangsdaten)
+   */
+  contextFor(nodeName: string): ExecContext {
+    const node = this.graph.getNode(nodeName);
+    if (!node) throw new WorkflowValidationError(`Knoten "${nodeName}" existiert nicht`, [{ severity: 'error', code: 'trigger.unknown', message: `Knoten "${nodeName}" existiert nicht` }]);
+    return new NodeExecutionContext({
+      executor: this,
+      node,
+      executeData: { node, data: { main: [[]] }, source: null } as unknown as ExecuteData,
+      inputs: [[]],
+      connectionInputData: [],
+      runIndex: 0,
+    });
   }
 
   /** n8n handleNodeErrorOutput: fehlerhafte Items auf den letzten Ausgang */

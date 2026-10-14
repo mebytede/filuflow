@@ -2,7 +2,7 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist/**', 'node_modules/**', 'fixtures/**', 'coverage/**'] },
+  { ignores: ['dist/**', 'node_modules/**', 'fixtures/**', 'coverage/**', 'test/fixtures-plugins/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -21,7 +21,7 @@ export default tseslint.config(
   {
     files: ['bin/**/*.js', 'scripts/**/*.mjs'],
     languageOptions: {
-      globals: { process: 'readonly', console: 'readonly', Buffer: 'readonly', URL: 'readonly' },
+      globals: { process: 'readonly', console: 'readonly', Buffer: 'readonly', URL: 'readonly', Blob: 'readonly' },
     },
     rules: { '@typescript-eslint/no-unused-vars': ['error', { varsIgnorePattern: '^_', ignoreRestSiblings: true }] },
   },

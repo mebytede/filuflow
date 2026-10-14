@@ -221,10 +221,10 @@ describe('Fehlerbehandlung', () => {
     );
   });
 
-  it('lehnt executionOrder v0 ab', async () => {
+  it('lehnt unbekannte executionOrder ab', async () => {
     const w = wf([{ name: 'Start', type: T }], []);
-    w.settings = { executionOrder: 'v0' };
-    await expect(run(w)).rejects.toThrow(/v1/);
+    w.settings = { executionOrder: 'v2' as 'v1' };
+    await expect(run(w)).rejects.toThrow(/v2/);
   });
 
   it('kann abgebrochen werden', async () => {
@@ -330,3 +330,57 @@ describe('Paired Items und Expressions', () => {
     ]);
   });
 });
+
+// Execution-Order v0 nach n8n 1.123.0 packages/core/src/execution-engine/workflow-execute.ts (isLegacyExecutionOrder)
+describe('Engine v0-Reihenfolge', () => {
+  const v0 = { settings: { executionOrder: 'v0' as const } };
+
+  it('führt Kinder in Verbindungsreihenfolge aus, Breite vor Tiefe', async () => {
+    const nodes = [
+      { name: 'Start', type: T },
+      { name: 'Unten', type: 'test.pass', position: [200, 300] as [number, number] },
+      { name: 'Oben', type: 'test.pass', position: [200, -100] as [number, number] },
+      { name: 'Mitte', type: 'test.pass', position: [200, 100] as [number, number] },
+      { name: 'ObenKind', type: 'test.pass', position: [400, -100] as [number, number] },
+      { name: 'Links', type: 'test.pass', position: [100, 100] as [number, number] },
+    ];
+    const links: Array<[string, string]> = [['Start', 'Unten'], ['Start', 'Oben'], ['Start', 'Mitte'], ['Oben', 'ObenKind'], ['Start', 'Links']];
+    expect((await run(wf(nodes, links, v0))).order).toEqual(['Start', 'Unten', 'Oben', 'Mitte', 'Links', 'ObenKind']);
+    // fehlende Angabe gilt wie in n8n als v0
+    expect((await run(wf(nodes, links, { settings: {} }))).order).toEqual(['Start', 'Unten', 'Oben', 'Mitte', 'Links', 'ObenKind']);
+  });
+
+  it('führt fehlende Vorgänger eines Merge mit aus', async () => {
+    const nodes = [
+      { name: 'Start', type: T },
+      { name: 'A', type: 'test.set', parameters: { field: 'x', value: 'a' } },
+      { name: 'Daten', type: 'test.set', parameters: { field: 'x', value: 'b' } },
+      { name: 'Merge', type: 'test.merge' },
+    ];
+    const links: Array<[string, string, number, number]> = [['Start', 'A', 0, 0], ['A', 'Merge', 0, 0], ['Daten', 'Merge', 0, 1]];
+    const legacy = await run(wf(nodes, links, v0));
+    expect(legacy.exec.status).toBe('success');
+    expect(legacy.order).toEqual(['Start', 'A', 'Daten', 'Merge']);
+    expect(out(legacy.exec, 'Merge')).toEqual([{ x: 'a' }, { x: 'b' }]);
+    // v1: "Daten" hängt an keinem Trigger und läuft nicht; Merge läuft am Ende mit einem Eingang
+    const modern = await run(wf(nodes, links));
+    expect(modern.order).toEqual(['Start', 'A', 'Merge']);
+    expect(out(modern.exec, 'Merge')).toEqual([{ x: 'a' }]);
+  });
+
+  it('nutzt die Daten von Eingang 1 und wartet auf alle Eingänge', async () => {
+    const nodes = [
+      { name: 'Start', type: T },
+      { name: 'Leer', type: 'test.empty' },
+      { name: 'Voll', type: 'test.set', parameters: { field: 'x', value: 'b' } },
+      { name: 'Merge', type: 'test.merge' },
+    ];
+    const links: Array<[string, string, number, number]> = [['Start', 'Leer', 0, 0], ['Start', 'Voll', 0, 0], ['Leer', 'Merge', 0, 0], ['Voll', 'Merge', 0, 1]];
+    const legacy = await run(wf(nodes, links, v0));
+    // Eingang 1 ist leer: in v0 läuft Merge nicht (keine Daten auf Eingang 1)
+    expect(legacy.exec.runData.Merge).toBeUndefined();
+    const modern = await run(wf(nodes, links));
+    expect(out(modern.exec, 'Merge')).toEqual([{ x: 'b' }]);
+  });
+});
+

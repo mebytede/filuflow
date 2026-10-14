@@ -4,6 +4,7 @@ import * as cheerio from 'cheerio';
 import { convert } from 'html-to-text';
 import lodash from 'lodash';
 import type { NodeType } from './types.js';
+import type { ParamSchema } from './params.js';
 import type { Item } from '../types.js';
 import { NodeOperationError } from '../errors.js';
 import { getResolvables, sanitizeDataPathKey } from './shared/utils.js';
@@ -102,10 +103,184 @@ const capitalizeHeader = (header: string, capitalize?: boolean) =>
         .map((w) => w[0].toUpperCase() + w.slice(1))
         .join(' ');
 
+// Parameter wie Html.node.ts (properties, extractionValuesCollection) und placeholder.ts (Default der Vorlage)
+function extractionValues(def: unknown, show: ParamSchema['show']): ParamSchema {
+  return {
+    name: 'extractionValues',
+    label: 'Zu extrahierende Werte',
+    type: 'fixedCollection',
+    default: def,
+    multiple: true,
+    addLabel: 'Wert hinzufügen',
+    show,
+    groups: [
+      {
+        name: 'values',
+        label: 'Werte',
+        children: [
+          { name: 'key', label: 'Schlüssel', type: 'string', default: '', description: 'Schlüssel, unter dem der Wert gespeichert wird' },
+          { name: 'cssSelector', label: 'CSS-Selektor', type: 'string', default: '', placeholder: '.price', description: 'Zu verwendender CSS-Selektor' },
+          {
+            name: 'returnValue',
+            label: 'Rückgabewert',
+            type: 'options',
+            default: 'text',
+            description: 'Welche Daten zurückgegeben werden',
+            options: [
+              { value: 'attribute', label: 'Attribut', description: 'Wert eines Attributs wie "class"' },
+              { value: 'html', label: 'HTML', description: 'Das enthaltene HTML des Elements' },
+              { value: 'text', label: 'Text', description: 'Nur der Textinhalt des Elements' },
+              { value: 'value', label: 'Wert', description: 'Wert eines input, select oder textarea' },
+            ],
+          },
+          {
+            name: 'attribute',
+            label: 'Attribut',
+            type: 'string',
+            default: '',
+            placeholder: 'class',
+            description: 'Name des Attributs, dessen Wert zurückkommt',
+            show: { returnValue: ['attribute'] },
+          },
+          {
+            name: 'skipSelectors',
+            label: 'Zu überspringende Selektoren',
+            type: 'string',
+            default: '',
+            placeholder: 'z. B. img, .className, #ItemId',
+            description: 'Kommagetrennte Selektoren, die beim Text ausgelassen werden',
+            show: { returnValue: ['text'], '@version': [{ _cnd: { gt: 1.1 } }] },
+          },
+          {
+            name: 'returnArray',
+            label: 'Als Array zurückgeben',
+            type: 'boolean',
+            default: false,
+            description: 'Ob mehrere Treffer einzeln als Array statt als ein Text zurückkommen',
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function tableAttribute(name: string, label: string, description: string): ParamSchema {
+  return { name, label, type: 'string', default: '', description, placeholder: 'z. B. style="padding:10px"' };
+}
+
+const parameters: ParamSchema[] = [
+  {
+    name: 'operation',
+    label: 'Operation',
+    type: 'options',
+    default: 'generateHtmlTemplate',
+    noExpression: true,
+    options: [
+      { value: 'generateHtmlTemplate', label: 'HTML-Vorlage erzeugen' },
+      { value: 'extractHtmlContent', label: 'HTML-Inhalt extrahieren' },
+      { value: 'convertToHtmlTable', label: 'In HTML-Tabelle umwandeln' },
+    ],
+  },
+  {
+    name: 'html',
+    label: 'HTML-Vorlage',
+    type: 'code',
+    language: 'html',
+    default: PLACEHOLDER,
+    noExpression: true,
+    description: 'Zu erzeugende HTML-Vorlage',
+    show: { operation: ['generateHtmlTemplate'] },
+  },
+  {
+    name: 'notice',
+    label: 'Tipp: {{ }} für Expressions und <style>-Tags für CSS verwenden. JS in <script>-Tags wird übernommen, aber nicht ausgeführt.',
+    type: 'notice',
+    default: '',
+    show: { operation: ['generateHtmlTemplate'] },
+  },
+  {
+    name: 'sourceData',
+    label: 'Quelldaten',
+    type: 'options',
+    default: 'json',
+    description: 'Ob das HTML aus Binär- oder JSON-Daten gelesen wird',
+    show: { operation: ['extractHtmlContent'] },
+    options: [
+      { value: 'binary', label: 'Binär' },
+      { value: 'json', label: 'JSON' },
+    ],
+  },
+  {
+    name: 'dataPropertyName',
+    label: 'Binärfeld der Eingabe',
+    type: 'string',
+    default: 'data',
+    required: true,
+    description: 'Binärfeld mit der Datei, aus der extrahiert wird',
+    show: { operation: ['extractHtmlContent'], sourceData: ['binary'] },
+  },
+  {
+    name: 'dataPropertyName',
+    label: 'JSON-Eigenschaft',
+    type: 'string',
+    default: 'data',
+    required: true,
+    description: 'JSON-Eigenschaft mit dem HTML als Text oder Array von Texten',
+    show: { operation: ['extractHtmlContent'], sourceData: ['json'] },
+  },
+  extractionValues({}, { operation: ['extractHtmlContent'], '@version': [1] }),
+  extractionValues(
+    { values: [{ key: '', cssSelector: '', returnValue: 'text', returnArray: false }] },
+    { operation: ['extractHtmlContent'], '@version': [{ _cnd: { gt: 1 } }] },
+  ),
+  {
+    name: 'options',
+    label: 'Optionen',
+    type: 'collection',
+    default: {},
+    addLabel: 'Option hinzufügen',
+    show: { operation: ['extractHtmlContent'] },
+    children: [
+      {
+        name: 'trimValues',
+        label: 'Werte trimmen',
+        type: 'boolean',
+        default: true,
+        description: 'Ob Leerzeichen und Zeilenumbrüche am Anfang und Ende entfernt werden',
+      },
+      {
+        name: 'cleanUpText',
+        label: 'Text bereinigen',
+        type: 'boolean',
+        default: true,
+        description: 'Ob Ränder getrimmt, Zeilenumbrüche entfernt und Leerraum zusammengefasst wird',
+      },
+    ],
+  },
+  {
+    name: 'options',
+    label: 'Optionen',
+    type: 'collection',
+    default: {},
+    addLabel: 'Option hinzufügen',
+    show: { operation: ['convertToHtmlTable'] },
+    children: [
+      { name: 'capitalize', label: 'Überschriften großschreiben', type: 'boolean', default: false, description: 'Ob die Spaltenköpfe großgeschrieben werden' },
+      { name: 'customStyling', label: 'Eigenes Styling', type: 'boolean', default: false, description: 'Ob das Standard-Styling entfällt' },
+      { name: 'caption', label: 'Beschriftung', type: 'string', default: '', description: 'Beschriftung der Tabelle' },
+      tableAttribute('tableAttributes', 'Tabellenattribute', 'Attribute für das table-Element'),
+      tableAttribute('headerAttributes', 'Kopfattribute', 'Attribute für den Tabellenkopf'),
+      tableAttribute('rowAttributes', 'Zeilenattribute', 'Attribute für jede Tabellenzeile'),
+      tableAttribute('cellAttributes', 'Zellattribute', 'Attribute für jede Tabellenzelle'),
+    ],
+  },
+];
+
 export const htmlNode: NodeType = {
   type: 'n8n-nodes-base.html',
   displayName: 'HTML',
   versions: [1, 1.1, 1.2],
+  parameters,
   outputs: () => 1,
   async execute(ctx) {
     const items = ctx.items;

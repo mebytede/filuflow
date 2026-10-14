@@ -2,15 +2,81 @@
 // Nachgebaut nach n8n 1.123.0 packages/nodes-base/nodes/Transform/SplitOut/SplitOut.node.ts
 import lodash from 'lodash';
 import type { NodeType } from './types.js';
+import type { ParamSchema } from './params.js';
 import type { BinaryRef, Item } from '../types.js';
 import { NodeOperationError } from '../errors.js';
 import { deepCopy } from './shared/utils.js';
 import { prepareFieldsArray } from './shared/fields.js';
 
+// Parameter wie SplitOut.node.ts (properties)
+const parameters: ParamSchema[] = [
+  {
+    name: 'fieldToSplitOut',
+    label: 'Aufzuteilende Felder',
+    type: 'string',
+    default: '',
+    required: true,
+    placeholder: 'Felder links herüberziehen oder Namen eingeben',
+    description: 'Felder, die in einzelne Items aufgeteilt werden, kommagetrennt; für Binärdaten $binary',
+  },
+  {
+    name: 'include',
+    label: 'Aufnehmen',
+    type: 'options',
+    default: 'noOtherFields',
+    description: 'Ob weitere Felder in die neuen Items kopiert werden',
+    options: [
+      { value: 'noOtherFields', label: 'Keine anderen Felder' },
+      { value: 'allOtherFields', label: 'Alle anderen Felder' },
+      { value: 'selectedOtherFields', label: 'Ausgewählte andere Felder' },
+    ],
+  },
+  {
+    name: 'fieldsToInclude',
+    label: 'Aufzunehmende Felder',
+    type: 'string',
+    default: '',
+    placeholder: 'z. B. email, name',
+    description: 'Felder der Eingabe-Items, die mitkopiert werden',
+    show: { include: ['selectedOtherFields'] },
+  },
+  {
+    name: 'options',
+    label: 'Optionen',
+    type: 'collection',
+    default: {},
+    addLabel: 'Option hinzufügen',
+    children: [
+      {
+        name: 'disableDotNotation',
+        label: 'Punktnotation deaktivieren',
+        type: 'boolean',
+        default: false,
+        description: 'Ob Unterfelder per "parent.child" nicht angesprochen werden können',
+      },
+      {
+        name: 'destinationFieldName',
+        label: 'Name des Zielfelds',
+        type: 'string',
+        default: '',
+        description: 'Feld in der Ausgabe für den aufgeteilten Inhalt',
+      },
+      {
+        name: 'includeBinary',
+        label: 'Binärdaten übernehmen',
+        type: 'boolean',
+        default: false,
+        description: 'Ob die Binärdaten in die neuen Items kommen',
+      },
+    ],
+  },
+];
+
 export const splitOutNode: NodeType = {
   type: 'n8n-nodes-base.splitOut',
   displayName: 'Split Out',
   versions: [1],
+  parameters,
   outputs: () => 1,
   async execute(ctx) {
     const returnData: Item[] = [];

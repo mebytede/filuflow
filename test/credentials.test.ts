@@ -19,7 +19,7 @@ import type { Workflow } from '../src/types.js';
 
 const dirs: string[] = [];
 function tmpFile(name: string, content: unknown): string {
-  const dir = mkdtempSync(join(tmpdir(), 'flowlite-cred-'));
+  const dir = mkdtempSync(join(tmpdir(), 'filuflow-cred-'));
   dirs.push(dir);
   const file = join(dir, name);
   writeFileSync(file, typeof content === 'string' ? content : JSON.stringify(content));
@@ -28,7 +28,7 @@ function tmpFile(name: string, content: unknown): string {
 
 afterEach(() => {
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
-  delete process.env.FLOWLITE_ENCRYPTION_KEY;
+  delete process.env.FILUFLOW_ENCRYPTION_KEY;
   delete process.env.FL_TEST_SECRET;
   clearOAuth2Cache();
 });
@@ -77,10 +77,10 @@ describe('Credential-Dateien', () => {
     expect(decryptCredentialsFile(encrypted, 'schluessel')).toEqual({ Basic: plain.Basic, Flach: { data: { token: 'x' } } });
 
     const file = tmpFile('enc.json', encrypted);
-    await expect(loadCredentials(file)).rejects.toThrow('FLOWLITE_ENCRYPTION_KEY ist nicht gesetzt');
-    process.env.FLOWLITE_ENCRYPTION_KEY = 'falsch';
+    await expect(loadCredentials(file)).rejects.toThrow('FILUFLOW_ENCRYPTION_KEY ist nicht gesetzt');
+    process.env.FILUFLOW_ENCRYPTION_KEY = 'falsch';
     await expect(loadCredentials(file)).rejects.toThrow('Entschlüsselung fehlgeschlagen');
-    process.env.FLOWLITE_ENCRYPTION_KEY = 'schluessel';
+    process.env.FILUFLOW_ENCRYPTION_KEY = 'schluessel';
     const provider = await loadCredentials(file);
     expect(provider.find({ name: 'Basic' }, 'httpBasicAuth')?.data.password).toBe('geheim');
   });

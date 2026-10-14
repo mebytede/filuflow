@@ -8,9 +8,79 @@ import type { ChatModel } from '../ai/models/base.js';
 import type { ZType } from '../ai/schema.js';
 import { LangChainStructuredParser } from '../ai/langchainParser.js';
 import { runStructuredPrompt } from '../ai/classifier.js';
+import type { ParamSchema } from './params.js';
+import { batchingParam } from './shared/aiParams.js';
 
 export const SYSTEM_PROMPT_TEMPLATE =
   "Please classify the text provided by the user into one of the following categories: {categories}, and use the provided formatting instructions below. Don't explain, and only output the json.";
+
+// Parameter wie chains/TextClassifier/TextClassifier.node.ts (properties), Batching aus utils/sharedFields.ts
+const parameters: ParamSchema[] = [
+  {
+    name: 'inputText',
+    label: 'Zu klassifizierender Text',
+    type: 'string',
+    required: true,
+    default: '',
+    rows: 2,
+    description: 'Expression auf Daten vorheriger Knoten oder fester Text',
+  },
+  {
+    name: 'categories',
+    label: 'Kategorien',
+    type: 'fixedCollection',
+    default: {},
+    multiple: true,
+    addLabel: 'Kategorie hinzufügen',
+    groups: [
+      {
+        name: 'categories',
+        label: 'Kategorien',
+        children: [
+          { name: 'category', label: 'Kategorie', type: 'string', default: '', required: true, description: 'Hinzuzufügende Kategorie' },
+          { name: 'description', label: 'Beschreibung', type: 'string', default: '', description: 'Beschreibung, falls die Kategorie nicht eindeutig ist' },
+        ],
+      },
+    ],
+  },
+  {
+    name: 'options',
+    label: 'Optionen',
+    type: 'collection',
+    default: {},
+    addLabel: 'Option hinzufügen',
+    children: [
+      { name: 'multiClass', label: 'Mehrere Kategorien erlauben', type: 'boolean', default: false },
+      {
+        name: 'fallback',
+        label: 'Ohne klare Zuordnung',
+        type: 'options',
+        default: 'discard',
+        description: 'Was mit Items ohne passende Kategorie geschieht',
+        options: [
+          { value: 'discard', label: 'Item verwerfen', description: 'Item wird nicht ausgegeben' },
+          { value: 'other', label: "Auf zusätzlichem Zweig 'Other' ausgeben", description: "Eigener Ausgang mit dem Namen 'Other'" },
+        ],
+      },
+      {
+        name: 'systemPromptTemplate',
+        label: 'Vorlage für den System-Prompt',
+        type: 'string',
+        default: SYSTEM_PROMPT_TEMPLATE,
+        rows: 6,
+        description: 'Wird direkt als Vorlage für den System-Prompt genutzt',
+      },
+      {
+        name: 'enableAutoFixing',
+        label: 'Automatische Korrektur',
+        type: 'boolean',
+        default: true,
+        description: 'Ob fehlerhafte Ausgaben korrigiert werden, ggf. mit einem weiteren LLM-Aufruf',
+      },
+      batchingParam({ '@version': [{ _cnd: { gte: 1.1 } }] }),
+    ],
+  },
+];
 
 interface Category {
   category: string;
@@ -27,7 +97,9 @@ export const textClassifierNode: NodeType = {
   type: '@n8n/n8n-nodes-langchain.textClassifier',
   displayName: 'Text Classifier',
   versions: [1, 1.1],
+  parameters,
   outputs: outputCount,
+  aiInputs: () => [{ type: 'ai_languageModel', index: 0, label: 'Chat Model' }],
   async execute(ctx) {
     const items = ctx.items;
     const batchSize = ctx.getParam<number>('options.batching.batchSize', 0, 5);

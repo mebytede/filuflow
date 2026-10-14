@@ -3,7 +3,7 @@ import { toItems, formatSummary } from '../src/cli/run.js';
 import { StaticCredentialProvider, maskDeep } from '../src/credentials/store.js';
 import type { Execution } from '../src/types.js';
 
-describe('flowlite run', () => {
+describe('filuflow run', () => {
   it('wandelt Input in Items um', () => {
     expect(toItems([{ a: 1 }, { json: { b: 2 }, pairedItem: { item: 0 } }])).toEqual([
       { json: { a: 1 } },
