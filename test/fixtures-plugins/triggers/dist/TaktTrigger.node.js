@@ -1,37 +1,37 @@
 'use strict';
-// Trigger-Knoten mit eigener Verbindung (hier ein Timer): emit startet Ausführungen, closeFunction räumt auf,
-// manualTriggerFunction liefert im Editor sofort ein Ergebnis
-const offen = { anzahl: 0 };
+// Trigger node with its own connection (here a timer): emit starts executions, closeFunction cleans up,
+// manualTriggerFunction delivers a result right away in the editor
+const open = { count: 0 };
 class TaktTrigger {
   constructor() {
     this.description = {
-      displayName: 'Takt Trigger', name: 'taktTrigger', group: ['trigger'], version: 1, inputs: [], outputs: ['main'],
+      displayName: 'Tick Trigger', name: 'taktTrigger', group: ['trigger'], version: 1, inputs: [], outputs: ['main'],
       properties: [
-        { displayName: 'Intervall (ms)', name: 'intervall', type: 'number', default: 50 },
-        { displayName: 'Fehler nach', name: 'fehlerNach', type: 'number', default: 0 },
+        { displayName: 'Interval (ms)', name: 'interval', type: 'number', default: 50 },
+        { displayName: 'Fail After', name: 'failAfter', type: 'number', default: 0 },
       ],
     };
   }
   async trigger() {
-    const intervall = this.getNodeParameter('intervall');
-    const fehlerNach = this.getNodeParameter('fehlerNach');
-    let takt = 0;
-    offen.anzahl++;
+    const interval = this.getNodeParameter('interval');
+    const failAfter = this.getNodeParameter('failAfter');
+    let tick = 0;
+    open.count++;
     const timer = setInterval(() => {
-      takt++;
-      if (fehlerNach && takt >= fehlerNach) this.emitError(new Error('Verbindung verloren'));
-      else this.emit([this.helpers.returnJsonArray([{ takt }])]);
-    }, intervall);
+      tick++;
+      if (failAfter && tick >= failAfter) this.emitError(new Error('Connection lost'));
+      else this.emit([this.helpers.returnJsonArray([{ tick }])]);
+    }, interval);
     return {
       closeFunction: async () => {
         clearInterval(timer);
-        offen.anzahl--;
+        open.count--;
       },
       manualTriggerFunction: async () => {
-        this.emit([this.helpers.returnJsonArray([{ takt: 0, manuell: true }])]);
+        this.emit([this.helpers.returnJsonArray([{ tick: 0, manual: true }])]);
       },
     };
   }
 }
-TaktTrigger.offen = offen;
+TaktTrigger.open = open;
 exports.TaktTrigger = TaktTrigger;

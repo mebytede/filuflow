@@ -1,4 +1,4 @@
-// Expressions mit Erweiterungsfunktionen gegen eine Orakel-Tabelle aus echtem n8n
+// Expressions with extension functions against an oracle table from real n8n
 // (scripts/record-expression-table.sh, n8n Expression.getParameterValue).
 import { beforeAll, describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -59,20 +59,20 @@ function evaluate(tpl: string): { result?: unknown; error?: string } {
   }
 }
 
-describe('Expressions mit Erweiterungsfunktionen (Orakel n8n 1.123.0)', () => {
+describe('Expressions with extension functions (oracle n8n 1.123.0)', () => {
   beforeAll(() => {
     Settings.defaultZone = 'Europe/Berlin';
   });
 
-  it(`stimmen in allen ${table.cases.length} Fällen mit n8n überein`, () => {
+  it(`match n8n in all ${table.cases.length} cases`, () => {
     const mismatches: string[] = [];
     for (const c of table.cases) {
       const actual = evaluate(c.tpl);
       if (JSON.stringify(actual) !== JSON.stringify(c.expected)) {
-        mismatches.push(`${c.tpl}\n    erwartet ${JSON.stringify(c.expected)}\n    erhalten ${JSON.stringify(actual)}`);
+        mismatches.push(`${c.tpl}\n    expected ${JSON.stringify(c.expected)}\n    received ${JSON.stringify(actual)}`);
       }
     }
-    if (mismatches.length) console.log(`${mismatches.length} Abweichungen:\n` + mismatches.slice(0, 60).join('\n'));
+    if (mismatches.length) console.log(`${mismatches.length} mismatches:\n` + mismatches.slice(0, 60).join('\n'));
     expect(mismatches.length).toBe(0);
   });
 });

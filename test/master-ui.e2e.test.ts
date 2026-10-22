@@ -17,7 +17,7 @@ import { CLIENT_ID, CLIENT_SECRET, MockIdp } from './helpers/idp.js';
 
 const ROOT = join(__dirname, '..');
 const WORKER_KEY = 'worker-schluessel-0123456789';
-const PASSWORD = 'sehr-geheimes-passwort';
+const PASSWORD = 'very-secret-password';
 const shots = process.env.FILUFLOW_SCREENSHOTS;
 let browser: Browser | undefined;
 let worker: FiluflowServer | undefined;

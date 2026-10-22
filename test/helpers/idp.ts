@@ -1,12 +1,12 @@
-// Nachgebauter OpenID-Connect-Provider für Tests: Discovery, JWKS, Token-Endpunkt mit PKCE-Prüfung und
-// Client-Authentifizierung, signierte ID-Tokens (RS256, PS256, ES256). /authorize meldet automatisch an
-// (Claims aus autoLogin), für Browser-Tests.
+// Mock OpenID Connect provider for tests: discovery, JWKS, token endpoint with PKCE check and
+// client authentication, signed ID tokens (RS256, PS256, ES256). /authorize logs in automatically
+// (claims from autoLogin), for browser tests.
 import Fastify, { type FastifyInstance } from 'fastify';
 import { createHash, generateKeyPairSync, sign, type KeyObject } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
 
 export const CLIENT_ID = 'filuflow';
-export const CLIENT_SECRET = 'idp-geheimnis';
+export const CLIENT_SECRET = 'idp-secret';
 
 export interface Pending {
   claims: Record<string, unknown>;
@@ -21,9 +21,9 @@ export class MockIdp {
   codes = new Map<string, Pending>();
   lastAuthorize?: URLSearchParams;
   tokenRequests: Array<{ body: Record<string, string>; authorization?: string }> = [];
-  /** Manipulation des ausgestellten Tokens je Test */
+  /** Tampering with the issued token per test */
   tamper: { alg?: 'RS256' | 'PS256' | 'ES256'; signWith?: KeyObject; kid?: string } = {};
-  /** Claims für die automatische Anmeldung über /authorize */
+  /** Claims for the automatic login via /authorize */
   autoLogin?: Record<string, unknown>;
 
   async start(): Promise<void> {
@@ -42,7 +42,7 @@ export class MockIdp {
     }));
     this.app.get('/authorize', async (request, reply) => {
       const q = request.query as Record<string, string>;
-      if (!this.autoLogin) return reply.code(400).send('keine automatische Anmeldung konfiguriert');
+      if (!this.autoLogin) return reply.code(400).send('no automatic login configured');
       const code = `code-${Math.random().toString(36).slice(2)}`;
       const now = Math.floor(Date.now() / 1000);
       this.codes.set(code, { claims: { iss: this.base, aud: q.client_id, iat: now, exp: now + 300, nonce: q.nonce, ...this.autoLogin }, challenge: q.code_challenge });
@@ -57,7 +57,7 @@ export class MockIdp {
       if (!pending || body.grant_type !== 'authorization_code') return reply.code(400).send({ error: 'invalid_grant' });
       this.codes.delete(body.code);
       const challenge = createHash('sha256').update(body.code_verifier ?? '').digest('base64url');
-      if (challenge !== pending.challenge) return reply.code(400).send({ error: 'invalid_grant', error_description: 'PKCE verifier falsch' });
+      if (challenge !== pending.challenge) return reply.code(400).send({ error: 'invalid_grant', error_description: 'PKCE verifier wrong' });
       return { access_token: 'at', token_type: 'Bearer', id_token: this.idToken(pending.claims) };
     });
     await this.app.listen({ port: 0, host: '127.0.0.1' });

@@ -1,8 +1,8 @@
 'use strict';
-// Versionierter Knoten (IVersionedNodeType) mit zwei Ausgängen
+// Versioned node (IVersionedNodeType) with two outputs
 class SplitterV1 {
   constructor(base) {
-    this.description = { ...base, version: 1, inputs: ['main'], outputs: ['main', 'main'], outputNames: ['gerade', 'ungerade'], properties: [{ displayName: 'Feld', name: 'field', type: 'string', default: 'n' }] };
+    this.description = { ...base, version: 1, inputs: ['main'], outputs: ['main', 'main'], outputNames: ['even', 'odd'], properties: [{ displayName: 'Field', name: 'field', type: 'string', default: 'n' }] };
   }
   async execute() {
     const even = [];

@@ -1,4 +1,4 @@
-// Beispiel eines Knotens im n8n-Format (CommonJS, wie kompilierte Community-Nodes), nutzt das Paket n8n-workflow
+// Example of a node in n8n format (CommonJS, like compiled community nodes), uses the n8n-workflow package
 'use strict';
 const { NodeOperationError, NodeConnectionTypes } = require('n8n-workflow');
 
@@ -9,20 +9,20 @@ class Greeter {
       name: 'greeter',
       group: ['transform'],
       version: [1, 2],
-      description: 'Begrüßt und ruft optional eine API auf',
+      description: 'Greets and optionally calls an API',
       defaults: { name: 'Greeter' },
       inputs: [NodeConnectionTypes.Main],
       outputs: [NodeConnectionTypes.Main],
       credentials: [{ name: 'demoApi', required: true, displayOptions: { show: { callApi: [true] } } }],
       properties: [
-        { displayName: 'Anrede', name: 'salutation', type: 'options', default: 'Hallo', options: [{ name: 'Hallo', value: 'Hallo' }, { name: 'Moin', value: 'Moin' }] },
+        { displayName: 'Salutation', name: 'salutation', type: 'options', default: 'Hello', options: [{ name: 'Hello', value: 'Hello' }, { name: 'Hi', value: 'Hi' }] },
         { displayName: 'Name', name: 'name', type: 'string', default: '={{ $json.name }}' },
-        { displayName: 'API aufrufen', name: 'callApi', type: 'boolean', default: false },
+        { displayName: 'Call API', name: 'callApi', type: 'boolean', default: false },
         { displayName: 'URL', name: 'url', type: 'string', default: '', displayOptions: { show: { callApi: [true] } } },
-        { displayName: 'Nur v2', name: 'suffix', type: 'string', default: '!', displayOptions: { show: { '@version': [2] } } },
+        { displayName: 'Only v2', name: 'suffix', type: 'string', default: '!', displayOptions: { show: { '@version': [2] } } },
         {
-          displayName: 'Optionen', name: 'options', type: 'collection', default: {}, placeholder: 'Option hinzufügen',
-          options: [{ displayName: 'Großschreiben', name: 'upper', type: 'boolean', default: false }],
+          displayName: 'Options', name: 'options', type: 'collection', default: {}, placeholder: 'Add Option',
+          options: [{ displayName: 'Uppercase', name: 'upper', type: 'boolean', default: false }],
         },
       ],
     };
@@ -34,7 +34,7 @@ class Greeter {
     for (let i = 0; i < items.length; i++) {
       try {
         const name = this.getNodeParameter('name', i);
-        if (!name) throw new NodeOperationError(this.getNode(), 'Name fehlt', { itemIndex: i });
+        if (!name) throw new NodeOperationError(this.getNode(), 'Name missing', { itemIndex: i });
         const suffix = this.getNode().typeVersion >= 2 ? this.getNodeParameter('suffix', i) : '';
         let text = `${this.getNodeParameter('salutation', i)} ${name}${suffix}`;
         if (this.getNodeParameter('options.upper', i, false)) text = text.toUpperCase();

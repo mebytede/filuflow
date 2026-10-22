@@ -1,9 +1,9 @@
-// Baut die Weboberfläche einmal vor allen Tests (die Browser-Tests brauchen dist/ui). Vorher bauten beide
-// Browser-Tests parallel und kamen sich beim Kopieren der Dateien in die Quere. Die Golden-Tests brauchen sie nicht.
+// Builds the web interface once before all tests (the browser tests need dist/ui). Previously both browser tests
+// built in parallel and got in each other's way while copying the files. The golden tests do not need it.
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 
-/** Nur Golden-Tests ausgewählt? Werte von --exclude zählen nicht (npm test schließt test/compat damit aus). */
+/** Only golden tests selected? Values of --exclude do not count (npm test excludes test/compat with it). */
 function onlyCompat(argv: string[]): boolean {
   const filters: string[] = [];
   for (let i = 0; i < argv.length; i++) {

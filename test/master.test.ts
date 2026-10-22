@@ -153,7 +153,7 @@ describe('Einrichtung und Anmeldung', () => {
     expect((await client.get('/api/me')).statusCode).toBe(200);
     expect((await admin.put(`/api/admin/users/${id}`, { disabled: true })).statusCode).toBe(200);
     expect((await client.get('/api/me')).statusCode).toBe(401);
-    expect((await new Client(m.app).login('bob@example.org', 'passwort-fuer-bob@example.org')).statusCode).toBe(401);
+    expect((await new Client(m.app).login('bob@example.org', 'password-for-bob@example.org')).statusCode).toBe(401);
   });
 });
 
@@ -234,7 +234,7 @@ describe('TOTP', () => {
     expect(m.db.getUser(id)!.totp_enabled).toBe(1);
     await admin.put(`/api/admin/users/${id}`, { resetTotp: true });
     expect(m.db.getUser(id)!.totp_enabled).toBe(0);
-    expect((await new Client(m.app).login('eve@example.org', 'passwort-fuer-eve@example.org')).json()).toEqual({ mfaRequired: false });
+    expect((await new Client(m.app).login('eve@example.org', 'password-for-eve@example.org')).json()).toEqual({ mfaRequired: false });
   });
 });
 

@@ -1,5 +1,5 @@
-// Golden-Tests für Webhook-Fixtures (fixtures/<name>/webhook.json): filuflow serve gegen
-// Antworten und Executions aus echtem n8n (scripts/record-webhook.sh).
+// Golden tests for webhook fixtures (fixtures/<name>/webhook.json): filuflow serve against
+// responses and executions from real n8n (scripts/record-webhook.sh).
 import { describe, expect, it } from 'vitest';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
@@ -9,7 +9,7 @@ import { createServer } from '../../src/server/app.js';
 import { applyIgnore, executionToSnapshot } from '../../src/snapshot.js';
 import { StaticCredentialProvider, loadCredentials, maskDeep } from '../../src/credentials/store.js';
 import type { Execution, Workflow } from '../../src/types.js';
-// @ts-expect-error -- reines JS-Modul ohne Typen
+// @ts-expect-error -- plain JS module without types
 import { sendRequests } from '../../scripts/webhook-client.mjs';
 
 const FIXTURES = join(__dirname, '..', '..', 'fixtures');
@@ -17,7 +17,7 @@ const fixtures = readdirSync(FIXTURES).filter(
   (n) => existsSync(join(FIXTURES, n, 'webhook.json')) && existsSync(join(FIXTURES, n, 'expected.json')),
 );
 
-describe('Webhook-Kompatibilität mit n8n', () => {
+describe('Webhook compatibility with n8n', () => {
   for (const name of fixtures) {
     it(name, async () => {
       const dir = join(FIXTURES, name);
@@ -53,9 +53,9 @@ describe('Webhook-Kompatibilität mit n8n', () => {
             const e = server.store.get(s.id)!;
             return { mode: e.mode, ...executionToSnapshot({ ...e, runData: e.runData ?? {} } as Execution) };
           });
-        // ignore.json-Pfade beziehen sich auf { responses, executions }
+        // ignore.json paths refer to { responses, executions }
         const actual = applyIgnore({ responses, executions }, ignore) as typeof expected;
-        // Das Execution-Log maskiert Credential-Werte; die erwarteten Executions werden genauso maskiert
+        // The execution log masks credential values; the expected executions are masked the same way
         const wanted = applyIgnore(structuredClone(expected), ignore) as typeof expected;
         wanted.executions = maskDeep(wanted.executions, credentials.secretValues());
         expect(actual.responses).toEqual(wanted.responses);

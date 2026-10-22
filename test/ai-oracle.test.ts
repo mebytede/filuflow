@@ -1,5 +1,5 @@
-// KI-Hilfsfunktionen gegen n8n-Code als Orakel (test/oracle/ai-table.json.gz, scripts/record-ai-oracle.sh):
-// Schema aus Beispiel-JSON, Format-Anweisungen und Parser-Ergebnisse des Structured Output Parsers.
+// AI helper functions against n8n code as an oracle (test/oracle/ai-table.json.gz, scripts/record-ai-oracle.sh):
+// Schema from example JSON, format instructions and parser results of the Structured Output Parser.
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
@@ -22,8 +22,8 @@ interface Table {
 
 const table = JSON.parse(gunzipSync(readFileSync(join(__dirname, 'oracle', 'ai-table.json.gz'))).toString('utf8')) as Table;
 
-describe('KI-Orakel', () => {
-  it('erzeugt Schemas aus Beispielen wie generate-schema', () => {
+describe('AI oracle', () => {
+  it('generates schemas from examples like generate-schema', () => {
     for (const c of table.examples) {
       expect({ example: c.example, req: c.allRequired, schema: generateSchemaFromExample(c.example, c.allRequired) }).toEqual({
         example: c.example,
@@ -33,7 +33,7 @@ describe('KI-Orakel', () => {
     }
   });
 
-  it('erzeugt dieselben Format-Anweisungen und Parser-Ergebnisse', () => {
+  it('produces the same format instructions and parser results', () => {
     let count = 0;
     for (const p of table.parsers) {
       if (p.error) continue;

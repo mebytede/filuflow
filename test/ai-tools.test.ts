@@ -1,5 +1,5 @@
-// KI-Tools gegen n8n-Code als Orakel (test/oracle/ai-tools.json, scripts/record-ai-tools-oracle.sh):
-// Calculator-Tool und $fromAI-Platzhalter mit dem daraus erzeugten JSON Schema.
+// AI tools against n8n code as an oracle (test/oracle/ai-tools.json, scripts/record-ai-tools-oracle.sh):
+// Calculator tool and $fromAI placeholders with the JSON Schema generated from them.
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -14,7 +14,7 @@ interface Table {
 
 const table = JSON.parse(readFileSync(join(__dirname, 'oracle', 'ai-tools.json'), 'utf8')) as Table;
 
-describe('Calculator wie n8n', () => {
+describe('Calculator like n8n', () => {
   for (const c of table.calculator) {
     it(JSON.stringify(c.input), () => {
       expect(calculate(c.input)).toBe(c.output);
@@ -22,7 +22,7 @@ describe('Calculator wie n8n', () => {
   }
 });
 
-describe('$fromAI wie n8n', () => {
+describe('$fromAI like n8n', () => {
   for (const c of table.fromAI) {
     it(c.text, () => {
       if (c.error) {

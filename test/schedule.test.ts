@@ -1,5 +1,5 @@
-// Schedule Trigger: Datumsformate gegen moment-timezone aus dem n8n-Image (test/oracle/schedule-moment.json,
-// erzeugt mit moment.tz(...).format(...) wie in ScheduleTrigger.node.ts), Cron-Ausdrücke, Wiederholungsprüfung.
+// Schedule Trigger: date formats against moment-timezone from the n8n image (test/oracle/schedule-moment.json,
+// generated with moment.tz(...).format(...) as in ScheduleTrigger.node.ts), cron expressions, recurrence check.
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -29,7 +29,7 @@ function node(parameters: Record<string, unknown>, typeVersion = 1.2): WorkflowN
 }
 
 describe('Schedule Trigger', () => {
-  it('formatiert wie moment-timezone', () => {
+  it('formats like moment-timezone', () => {
     for (const c of cases) {
       const json = scheduleItemJson(c.z, DateTime.fromISO(c.t));
       expect({ t: c.t, z: c.z, ...json }).toEqual({
@@ -50,7 +50,7 @@ describe('Schedule Trigger', () => {
     }
   });
 
-  it('Wiederholungsprüfung nutzt dieselben Kalenderwerte wie moment', () => {
+  it('recurrence check uses the same calendar values as moment', () => {
     for (const c of cases) {
       const now = DateTime.fromISO(c.t);
       const rules: number[] = [];
@@ -62,7 +62,7 @@ describe('Schedule Trigger', () => {
     }
   });
 
-  it('löst nur nach Ablauf des Intervalls erneut aus', () => {
+  it('fires again only after the interval has elapsed', () => {
     const rules: number[] = [];
     const rec = intervalToRecurrence({ field: 'hours', hoursInterval: 3, triggerAtMinute: 0 }, 0);
     const at = (h: number) => DateTime.fromObject({ year: 2024, month: 5, day: 1, hour: h }, { zone: 'UTC' });
@@ -71,7 +71,7 @@ describe('Schedule Trigger', () => {
     expect(recurrenceCheck(rec, rules, 'UTC', at(4))).toBe(true);
   });
 
-  it('erzeugt Cron-Ausdrücke wie n8n', () => {
+  it('creates cron expressions like n8n', () => {
     expect(toCronExpression({ field: 'seconds', secondsInterval: 10 })).toBe('*/10 * * * * *');
     expect(toCronExpression({ field: 'cronExpression', expression: '0 15 * * 1' })).toBe('0 15 * * 1');
     expect(toCronExpression({ field: 'minutes', minutesInterval: 5 })).toMatch(/^\d+ \*\/5 \* \* \* \*$/);
@@ -80,11 +80,11 @@ describe('Schedule Trigger', () => {
     expect(toCronExpression({ field: 'months', monthsInterval: 2, triggerAtDayOfMonth: 15, triggerAtHour: 6, triggerAtMinute: 0 })).toMatch(/^\d+ 0 6 15 \*\/2 \*$/);
   });
 
-  it('füllt Defaults der Unterfelder und prüft Regeln', () => {
+  it('fills sub-field defaults and checks rules', () => {
     const rules = scheduleRules(node({ rule: { interval: [{ field: 'hours' }, {}] } }));
     expect(rules[0].cronExpression).toMatch(/^\d+ 0 \*\/1 \* \* \*$/);
     expect(rules[1].cronExpression).toMatch(/^\d+ 0 0 \* \* \*$/);
-    expect(() => scheduleRules(node({ rule: { interval: [{ field: 'cronExpression', expression: 'kein cron' }] } }))).toThrow('Invalid cron expression');
+    expect(() => scheduleRules(node({ rule: { interval: [{ field: 'cronExpression', expression: 'not a cron' }] } }))).toThrow('Invalid cron expression');
     expect(() => scheduleRules(node({ rule: { interval: [{ field: 'seconds', secondsInterval: 90 }] } }, 1.3))).toThrow('Invalid interval');
     expect(() => scheduleRules(node({ rule: { interval: [{ field: 'seconds', secondsInterval: 90 }] } }, 1.2))).not.toThrow();
   });

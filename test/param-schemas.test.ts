@@ -1,5 +1,5 @@
-// M19: Parameterbeschreibungen je Knotentyp. Struktur, Sichtbarkeitsregeln, Defaults und Abdeckung aller Parameter,
-// die in den Fixture-Workflows (exportiert aus n8n) vorkommen.
+// M19: parameter descriptions per node type. Structure, visibility rules, defaults and coverage of all parameters
+// that appear in the fixture workflows (exported from n8n).
 import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -19,50 +19,50 @@ function walk(defs: ParamSchema[], visit: (def: ParamSchema, siblings: ParamSche
   }
 }
 
-describe('Parameterbeschreibungen', () => {
-  it('gibt es für jeden Knotentyp', () => {
+describe('Parameter descriptions', () => {
+  it('exist for every node type', () => {
     const missing = types.filter((t) => !t.parameters).map((t) => t.type);
     expect(missing).toEqual([]);
   });
 
-  it('sind strukturell gültig', () => {
+  it('are structurally valid', () => {
     const problems: string[] = [];
     for (const t of types) {
       walk(t.parameters ?? [], (def, siblings, path) => {
         const where = `${t.type} ${path}`;
-        if (!def.name || !def.label || !def.type) problems.push(`${where}: name, label oder type fehlt`);
-        if (/—/.test(`${def.label} ${def.description ?? ''} ${def.placeholder ?? ''}`)) problems.push(`${where}: Gedankenstrich`);
-        if ((def.type === 'options' || def.type === 'multiOptions') && !def.options?.length) problems.push(`${where}: options ohne Liste`);
+        if (!def.name || !def.label || !def.type) problems.push(`${where}: name, label or type missing`);
+        if (/\u2014/.test(`${def.label} ${def.description ?? ''} ${def.placeholder ?? ''}`)) problems.push(`${where}: em dash`);
+        if ((def.type === 'options' || def.type === 'multiOptions') && !def.options?.length) problems.push(`${where}: options without a list`);
         if (def.type === 'options' && def.default !== undefined && def.default !== '' && !(typeof def.default === 'string' && def.default.startsWith('=')) && def.options && !def.options.some((o) => o.value === def.default)) {
-          problems.push(`${where}: Default ${JSON.stringify(def.default)} nicht in den Optionen`);
+          problems.push(`${where}: Default ${JSON.stringify(def.default)} not in the options`);
         }
-        if (def.type === 'fixedCollection' && !def.groups?.length) problems.push(`${where}: fixedCollection ohne Gruppen`);
-        if (def.type === 'collection' && !def.children) problems.push(`${where}: collection ohne children`);
+        if (def.type === 'fixedCollection' && !def.groups?.length) problems.push(`${where}: fixedCollection without groups`);
+        if (def.type === 'collection' && !def.children) problems.push(`${where}: collection without children`);
         for (const rule of [def.show, def.hide]) {
           for (const key of Object.keys(rule ?? {})) {
             if (key === '@version') continue;
             if (key.startsWith('/')) {
-              if (!(t.parameters ?? []).some((d) => d.name === key.slice(1).split('.')[0])) problems.push(`${where}: Regel auf unbekannten Parameter "${key}"`);
+              if (!(t.parameters ?? []).some((d) => d.name === key.slice(1).split('.')[0])) problems.push(`${where}: rule on unknown parameter "${key}"`);
               continue;
             }
-            if (!siblings.some((s) => s.name === key)) problems.push(`${where}: Regel auf unbekannten Parameter "${key}"`);
+            if (!siblings.some((s) => s.name === key)) problems.push(`${where}: rule on unknown parameter "${key}"`);
           }
         }
         if (def.options) {
           const values = def.options.map((o) => o.value);
-          if (new Set(values).size !== values.length) problems.push(`${where}: doppelte Optionswerte`);
+          if (new Set(values).size !== values.length) problems.push(`${where}: duplicate option values`);
         }
       });
       for (const def of t.parameters ?? []) {
         for (const key of Object.keys(def.show ?? {}).filter((k) => k.startsWith('/'))) {
-          if (!(t.parameters ?? []).some((d) => d.name === key.slice(1).split('.')[0])) problems.push(`${t.type} ${def.name}: Regel auf unbekannten Parameter "${key}"`);
+          if (!(t.parameters ?? []).some((d) => d.name === key.slice(1).split('.')[0])) problems.push(`${t.type} ${def.name}: rule on unknown parameter "${key}"`);
         }
       }
     }
     expect(problems).toEqual([]);
   });
 
-  it('kennt alle Parameter der Fixture-Workflows (aus n8n exportiert)', () => {
+  it('knows all parameters of the fixture workflows (exported from n8n)', () => {
     const dir = join(import.meta.dirname, '..', 'fixtures');
     const problems: string[] = [];
     let checked = 0;
@@ -76,23 +76,23 @@ describe('Parameterbeschreibungen', () => {
         const known = new Set(t.parameters.map((d) => d.name));
         for (const key of Object.keys(node.parameters ?? {})) {
           checked++;
-          if (!known.has(key)) problems.push(`${name}: ${node.type} v${node.typeVersion} "${key}" fehlt in der Beschreibung`);
+          if (!known.has(key)) problems.push(`${name}: ${node.type} v${node.typeVersion} "${key}" missing in the description`);
         }
-        // Gesetzte Parameter sind für diese Version sichtbar (sonst zeigt das Formular sie nicht)
+        // Set parameters are visible for this version (otherwise the form does not show them)
         const visible = new Set(visibleParameterNames(node.parameters ?? {}, t.parameters, node.typeVersion));
         for (const key of Object.keys(node.parameters ?? {})) {
-          if (known.has(key) && !visible.has(key)) problems.push(`${name}: ${node.type} v${node.typeVersion} "${key}" ist gesetzt, aber im Formular unsichtbar`);
+          if (known.has(key) && !visible.has(key)) problems.push(`${name}: ${node.type} v${node.typeVersion} "${key}" is set but invisible in the form`);
         }
-        // Werte von Auswahlfeldern stehen in den Optionen der sichtbaren Definition
+        // Values of option fields are in the options of the visible definition
         const root = { values: node.parameters ?? {}, defs: t.parameters };
         for (const def of visibleDefs(root, root, node.typeVersion)) {
           const v = node.parameters?.[def.name];
           if (v === undefined || (typeof v === 'string' && v.startsWith('='))) continue;
           const allowed = (def.options ?? []).map((o) => o.value);
-          // fixtures/12-data-nodes setzt dateTime "to" von Hand auf "day"; n8n bietet nur "month" an
+          // fixtures/12-data-nodes sets dateTime "to" to "day" by hand; n8n only offers "month"
           if (node.type === 'n8n-nodes-base.dateTime' && def.name === 'to' && v === 'day') continue;
-          if (def.type === 'options' && !allowed.includes(v as string)) problems.push(`${name}: ${node.type} "${def.name}" = ${JSON.stringify(v)} nicht in den Optionen`);
-          if (def.type === 'multiOptions' && (!Array.isArray(v) || v.some((x) => !allowed.includes(x as string)))) problems.push(`${name}: ${node.type} "${def.name}" = ${JSON.stringify(v)} nicht in den Optionen`);
+          if (def.type === 'options' && !allowed.includes(v as string)) problems.push(`${name}: ${node.type} "${def.name}" = ${JSON.stringify(v)} not in the options`);
+          if (def.type === 'multiOptions' && (!Array.isArray(v) || v.some((x) => !allowed.includes(x as string)))) problems.push(`${name}: ${node.type} "${def.name}" = ${JSON.stringify(v)} not in the options`);
         }
       }
     }
@@ -100,18 +100,18 @@ describe('Parameterbeschreibungen', () => {
     expect([...new Set(problems)]).toEqual([]);
   });
 
-  it('Sichtbarkeit wie n8n: show, hide, @version, Expressions', () => {
+  it('visibility like n8n: show, hide, @version, expressions', () => {
     const schema: ParamSchema[] = [
-      { name: 'mode', label: 'Modus', type: 'options', default: 'a', options: [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }] },
-      { name: 'nurA', label: 'Nur A', type: 'string', default: '', show: { mode: ['a'] } },
-      { name: 'nichtB', label: 'Nicht B', type: 'string', default: '', hide: { mode: ['b'] } },
-      { name: 'neu', label: 'Ab v2', type: 'string', default: '', show: { '@version': [{ _cnd: { gte: 2 } }] } },
-      { name: 'feld', label: 'Feld v1', type: 'number', default: 1, show: { '@version': [1] } },
-      { name: 'feld', label: 'Feld v2', type: 'string', default: 'x', show: { '@version': [{ _cnd: { gte: 2 } }] } },
+      { name: 'mode', label: 'Mode', type: 'options', default: 'a', options: [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }] },
+      { name: 'onlyA', label: 'Only A', type: 'string', default: '', show: { mode: ['a'] } },
+      { name: 'notB', label: 'Not B', type: 'string', default: '', hide: { mode: ['b'] } },
+      { name: 'new', label: 'From v2', type: 'string', default: '', show: { '@version': [{ _cnd: { gte: 2 } }] } },
+      { name: 'field', label: 'Field v1', type: 'number', default: 1, show: { '@version': [1] } },
+      { name: 'field', label: 'Field v2', type: 'string', default: 'x', show: { '@version': [{ _cnd: { gte: 2 } }] } },
     ];
-    expect(visibleParameterNames({}, schema, 1)).toEqual(['mode', 'nurA', 'nichtB', 'feld']);
-    expect(visibleParameterNames({ mode: 'b' }, schema, 2)).toEqual(['mode', 'neu', 'feld']);
-    // Expression im steuernden Parameter: abhängige Felder bleiben sichtbar
-    expect(visibleParameterNames({ mode: '={{ "b" }}' }, schema, 1)).toEqual(['mode', 'nurA', 'nichtB', 'feld']);
+    expect(visibleParameterNames({}, schema, 1)).toEqual(['mode', 'onlyA', 'notB', 'field']);
+    expect(visibleParameterNames({ mode: 'b' }, schema, 2)).toEqual(['mode', 'new', 'field']);
+    // Expression in the controlling parameter: dependent fields stay visible
+    expect(visibleParameterNames({ mode: '={{ "b" }}' }, schema, 1)).toEqual(['mode', 'onlyA', 'notB', 'field']);
   });
 });

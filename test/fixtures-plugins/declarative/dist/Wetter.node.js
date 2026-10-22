@@ -1,17 +1,17 @@
 'use strict';
-// Deklarativer Knoten (ohne execute) im Stil der n8n-Vorlage "n8n-nodes-starter": Requests, Parameter, Pagination und
-// Nachbearbeitung stehen in der Beschreibung.
+// Declarative node (without execute) in the style of the n8n template "n8n-nodes-starter": requests, parameters,
+// pagination and post-processing are defined in the description.
 async function addTrace(requestOptions) {
   requestOptions.headers = { ...(requestOptions.headers || {}), 'X-Trace': `item-${this.getItemIndex()}-${this.getNodeParameter('resource')}` };
   return requestOptions;
 }
 async function markSource(items, response) {
-  return items.map((item) => ({ json: { ...item.json, quelle: response.headers['x-quelle'] || null } }));
+  return items.map((item) => ({ json: { ...item.json, source: response.headers['x-source'] || null } }));
 }
 class Wetter {
   constructor() {
     this.description = {
-      displayName: 'Wetter',
+      displayName: 'Weather',
       name: 'wetter',
       group: ['transform'],
       version: 1,
@@ -22,7 +22,7 @@ class Wetter {
       properties: [
         {
           displayName: 'Resource', name: 'resource', type: 'options', noDataExpression: true, default: 'city',
-          options: [{ name: 'Stadt', value: 'city' }, { name: 'Symbol', value: 'icon' }],
+          options: [{ name: 'City', value: 'city' }, { name: 'Symbol', value: 'icon' }],
         },
         {
           displayName: 'Operation', name: 'operation', type: 'options', noDataExpression: true, default: 'get',
@@ -47,7 +47,7 @@ class Wetter {
                     { type: 'filter', properties: { pass: '={{$responseItem.temp > 10}}' } },
                     { type: 'sort', properties: { key: 'name' } },
                     { type: 'limit', properties: { maxResults: 2 } },
-                    { type: 'setKeyValue', properties: { stadt: '={{$responseItem.name}}', status: '={{$response.statusCode}}' } },
+                    { type: 'setKeyValue', properties: { city: '={{$responseItem.name}}', status: '={{$response.statusCode}}' } },
                   ],
                 },
               },
@@ -99,7 +99,7 @@ class Wetter {
           ],
         },
         {
-          displayName: 'Datei-Feld', name: 'binaryProperty', type: 'string', default: 'data',
+          displayName: 'Binary Property', name: 'binaryProperty', type: 'string', default: 'data',
           displayOptions: { show: { resource: ['icon'] } },
           routing: {
             request: { method: 'GET', url: '/icon', encoding: 'arraybuffer' },
