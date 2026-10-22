@@ -6,3 +6,4 @@ coverage/
 .env
 /data/
 fixtures/**/_actual.json
+!test/fixtures-plugins/**/dist/
