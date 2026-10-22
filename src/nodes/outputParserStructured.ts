@@ -1,6 +1,6 @@
-// Structured Output Parser, @n8n/n8n-nodes-langchain.outputParserStructured (typeVersion 1 bis 1.3)
-// Nachgebaut nach n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/output_parser/OutputParserStructured
-// Auto-Fix (autoFix) wird noch nicht unterstützt (validate meldet es).
+// Structured Output Parser, @n8n/n8n-nodes-langchain.outputParserStructured (typeVersion 1 to 1.3)
+// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/output_parser/OutputParserStructured
+// Auto-fix (autoFix) is not supported yet (validate reports it).
 import type { NodeIssue, NodeType } from './types.js';
 import { NodeOperationError } from '../errors.js';
 import { generateSchemaFromExample, type JsonSchema } from '../ai/schema.js';
@@ -42,9 +42,9 @@ const DEFAULT_JSON_SCHEMA = `{
   }
 }`;
 
-// Parameter wie output_parser/OutputParserStructured/OutputParserStructured.node.ts (properties), gemeinsame Felder aus
-// utils/descriptions.ts, Default von "prompt" wie NAIVE_FIX_PROMPT in prompt.ts. Der Verbindungshinweis
-// (getConnectionHintNoticeField) fehlt.
+// Parameters as in output_parser/OutputParserStructured/OutputParserStructured.node.ts (properties), shared fields from
+// utils/descriptions.ts, default of "prompt" as NAIVE_FIX_PROMPT in prompt.ts. The connection hint
+// (getConnectionHintNoticeField) is missing.
 const parameters: ParamSchema[] = [
   { ...schemaTypeParam, show: { '@version': [{ _cnd: { gte: 1.2 } }] } },
   jsonSchemaExampleParam(DEFAULT_EXAMPLE),
@@ -57,31 +57,31 @@ const parameters: ParamSchema[] = [
     default: DEFAULT_JSON_SCHEMA,
     rows: 10,
     required: true,
-    description: 'JSON Schema, nach dem die Ausgabe aufgebaut und geprüft wird',
+    description: 'JSON Schema used to structure and validate the output',
     show: { '@version': [{ _cnd: { lte: 1.1 } }] },
   },
   {
     name: 'autoFix',
-    label: 'Format automatisch korrigieren',
+    label: 'Auto-Fix Format',
     type: 'boolean',
     default: false,
-    description: 'Ob eine Ausgabe im falschen Format mit einem weiteren LLM-Aufruf korrigiert wird',
+    description: 'Whether to automatically fix the output when it is not in the correct format. Will cause another LLM call.',
   },
   {
     name: 'customizeRetryPrompt',
-    label: 'Prompt für den neuen Versuch anpassen',
+    label: 'Customize Retry Prompt',
     type: 'boolean',
     default: false,
-    description: 'Ob ein eigener Prompt für die Korrektur genutzt wird',
+    description: 'Whether to customize the prompt used for retrying the output parsing',
     show: { autoFix: [true] },
   },
   {
     name: 'prompt',
-    label: 'Eigener Prompt',
+    label: 'Custom Prompt',
     type: 'string',
     default: NAIVE_FIX_TEMPLATE,
     rows: 10,
-    description: 'Vorlage mit den Platzhaltern {instructions}, {completion} und {error}',
+    description: 'Template with the placeholders {instructions}, {completion} and {error}',
     show: { autoFix: [true], customizeRetryPrompt: [true] },
   },
 ];
@@ -98,7 +98,7 @@ export const outputParserStructuredNode: NodeType = {
   validate(node) {
     const issues: NodeIssue[] = [];
     if (node.parameters.autoFix === true) {
-      issues.push({ code: 'node.unsupportedParameter', message: 'Structured Output Parser: "Auto-Fix Format" wird noch nicht unterstützt', path: 'parameters.autoFix' });
+      issues.push({ code: 'node.unsupportedParameter', message: 'Structured Output Parser: "Auto-Fix Format" is not supported yet', path: 'parameters.autoFix' });
     }
     return issues;
   },
@@ -107,7 +107,7 @@ export const outputParserStructuredNode: NodeType = {
   },
   async supplyData(ctx, itemIndex) {
     const version = ctx.node.typeVersion;
-    // schemaType ist erst ab v1.2 sichtbar (Default fromJson), davor gilt das JSON-Schema
+    // schemaType is only visible from v1.2 on (default fromJson); before that the JSON schema applies
     const schemaType = version >= 1.2 ? ctx.getParam<string>('schemaType', itemIndex, 'fromJson') : '';
     const example = ctx.getParam<string>('jsonSchemaExample', itemIndex, DEFAULT_EXAMPLE);
     const inputSchema = version <= 1.1 ? ctx.getParam<string>('jsonSchema', itemIndex, DEFAULT_JSON_SCHEMA) : ctx.getParam<string>('inputSchema', itemIndex, DEFAULT_INPUT_SCHEMA);

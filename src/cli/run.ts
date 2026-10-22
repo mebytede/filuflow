@@ -1,6 +1,6 @@
-// filuflow run <wf.json> [--input items.json] [--trigger "Node-Name"] [--json] [--only-last] [--no-pin]
-// Führt einen Workflow einmal aus. Vor dem Start wird validiert: unbekannte Node-Typen/Versionen
-// und andere Fehler brechen mit einer Liste ab, ohne dass ein Node läuft.
+// filuflow run <wf.json> [--input items.json] [--trigger "Node name"] [--json] [--only-last] [--no-pin]
+// Executes a workflow once. Validation happens before the start: unknown node types/versions
+// and other errors abort with a list, without any node running.
 import { parseArgs } from 'node:util';
 import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -13,19 +13,19 @@ import { DirectoryWorkflowSource, Runner, loadVars, type WorkflowSource } from '
 import { parseWorkflow } from '../loader.js';
 import { WorkflowValidationError } from '../errors.js';
 
-const USAGE = `Aufruf: filuflow run <wf.json> [Optionen]
+const USAGE = `Usage: filuflow run <wf.json> [options]
 
-  --input <items.json>     Start-Items (Array aus Items {json} oder einfachen Objekten)
-  --trigger <Node-Name>    Start-Node (Default: der einzige Trigger des Workflows)
-  --json                   vollständige Execution inkl. runData als JSON ausgeben
-  --only-last              nur die Ausgabe des zuletzt ausgeführten Nodes als JSON ausgeben
-  --no-pin                 pinData des Workflows ignorieren
-  --credentials <pfad>     credentials.json oder Verzeichnis (Default: FILUFLOW_CREDENTIALS, ./credentials.json)
-  --vars <pfad>            Variablen für $vars (Default: FILUFLOW_VARS, ./vars.json)
-  --workflows <dir>        Verzeichnis für Unter-Workflows (Default: Verzeichnis der Datei und ./sub)
+  --input <items.json>     Start items (array of items {json} or plain objects)
+  --trigger <node name>    Start node (default: the workflow's only trigger)
+  --json                   output the complete execution including runData as JSON
+  --only-last              output only the last executed node's output as JSON
+  --no-pin                 ignore the workflow's pinData
+  --credentials <path>     credentials.json or directory (default: FILUFLOW_CREDENTIALS, ./credentials.json)
+  --vars <path>            Variables for $vars (default: FILUFLOW_VARS, ./vars.json)
+  --workflows <dir>        Directory for sub-workflows (default: the file's directory and ./sub)
 `;
 
-/** Sucht Unter-Workflows in mehreren Verzeichnissen, in Reihenfolge */
+/** Looks up sub-workflows in several directories, in order */
 class MultiDirSource implements WorkflowSource {
   private readonly sources: DirectoryWorkflowSource[];
   constructor(dirs: string[]) {
@@ -40,12 +40,12 @@ class MultiDirSource implements WorkflowSource {
   }
 }
 
-/** Input-Datei: Items mit "json" oder einfache Objekte (werden zu {json}) */
+/** Input file: items with "json" or plain objects (become {json}) */
 export function toItems(raw: unknown, file = 'input'): Item[] {
   const list = Array.isArray(raw) ? raw : [raw];
   return list.map((entry, i) => {
     if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {
-      throw new Error(`${file}: Eintrag ${i} ist kein Objekt`);
+      throw new Error(`${file}: entry ${i} is not an object`);
     }
     const obj = entry as Record<string, unknown>;
     if (obj.json && typeof obj.json === 'object' && !Array.isArray(obj.json)) return { ...obj } as unknown as Item;
@@ -64,13 +64,13 @@ function plural(n: number): string {
 }
 
 function describeRun(run: TaskData): string {
-  if (run.error) return `Fehler: ${run.error.message}`;
+  if (run.error) return `Error: ${run.error.message}`;
   const outs = run.data?.main ?? [];
   if (outs.length <= 1) return plural(outs[0]?.length ?? 0);
-  return outs.map((o, i) => `Ausgang ${i}: ${o?.length ?? 0}`).join(', ');
+  return outs.map((o, i) => `Output ${i}: ${o?.length ?? 0}`).join(', ');
 }
 
-/** Übersicht pro Node: Status, Items, Dauer, Fehler */
+/** Overview per node: status, items, duration, errors */
 export function formatSummary(execution: Execution): string {
   const runs = Object.entries(execution.runData)
     .flatMap(([name, list]) => list.map((run, idx) => ({ name, run, idx, total: list.length })))
@@ -79,14 +79,14 @@ export function formatSummary(execution: Execution): string {
   const width = Math.max(4, ...runs.map((r) => label(r).length));
   const lines = [`Workflow "${execution.workflowName}", Execution ${execution.id}`];
   for (const r of runs) {
-    const mark = r.run.executionStatus === 'success' ? 'OK    ' : r.run.executionStatus === 'canceled' ? 'ABBR. ' : 'FEHLER';
+    const mark = r.run.executionStatus === 'success' ? 'OK    ' : r.run.executionStatus === 'canceled' ? 'CANCEL' : 'ERROR ';
     const ms = `${r.run.executionTime} ms`.padStart(8);
     lines.push(`  ${mark} ${label(r).padEnd(width)} ${ms}  ${describeRun(r.run)}`);
   }
   const duration = execution.stoppedAt ? Date.parse(execution.stoppedAt) - Date.parse(execution.startedAt) : undefined;
-  lines.push(`Status: ${execution.status}${duration !== undefined ? `, Dauer ${duration} ms` : ''}`);
+  lines.push(`Status: ${execution.status}${duration !== undefined ? `, duration ${duration} ms` : ''}`);
   if (execution.error) {
-    lines.push(`Fehler${execution.error.node ? ` in "${execution.error.node}"` : ''}: ${execution.error.message}`);
+    lines.push(`Error${execution.error.node ? ` in "${execution.error.node}"` : ''}: ${execution.error.message}`);
     if (execution.error.description) lines.push(`  ${execution.error.description}`);
   }
   return lines.join('\n');
@@ -141,7 +141,7 @@ export async function cmdRun(args: string[]): Promise<number> {
   const credentials = await loadDefaultCredentials(values.credentials);
   const result = validateWorkflow(raw, { registry, credentials, checkCredentials: true });
   if (!result.valid) {
-    process.stderr.write(`${formatIssues(result.issues)}\nWorkflow wird nicht ausgeführt.\n`);
+    process.stderr.write(`${formatIssues(result.issues)}\nWorkflow will not be executed.\n`);
     return 1;
   }
   const workflow = parseWorkflow(raw, file);
@@ -176,7 +176,7 @@ export async function cmdRun(args: string[]): Promise<number> {
     });
   } catch (error) {
     if (error instanceof WorkflowValidationError) {
-      process.stderr.write(`${formatIssues(error.issues)}\nWorkflow wird nicht ausgeführt.\n`);
+      process.stderr.write(`${formatIssues(error.issues)}\nWorkflow will not be executed.\n`);
       return 1;
     }
     throw error;

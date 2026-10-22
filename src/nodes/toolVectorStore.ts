@@ -1,7 +1,7 @@
 // Vector Store Question Answer Tool, @n8n/n8n-nodes-langchain.toolVectorStore (typeVersion 1, 1.1)
-// Nachgebaut nach n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/tools/ToolVectorStore mit VectorStoreQATool und
-// VectorDBQAChain aus @langchain/classic 1.0.5 (similaritySearch mit k, StuffDocumentsChain, CHAT_PROMPT aus
-// chains/question_answering/stuff_prompts.js). Name in v1 aus dem Parameter, ab v1.1 aus dem Node-Namen.
+// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/tools/ToolVectorStore with VectorStoreQATool and
+// VectorDBQAChain from @langchain/classic 1.0.5 (similaritySearch with k, StuffDocumentsChain, CHAT_PROMPT from
+// chains/question_answering/stuff_prompts.js). Name in v1 from the parameter, from v1.1 from the node name.
 import type { ExecContext, NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
 import type { Item } from '../types.js';
@@ -12,17 +12,17 @@ import { stuffDocuments } from '../ai/documents.js';
 import { formatTemplate } from '../ai/messages.js';
 import { createTool, nodeNameToToolName, type ToolInstance } from '../ai/tools.js';
 
-// stuff_prompts.js system_template (mit dem Leerzeichen am Ende der ersten Zeile)
+// stuff_prompts.js system_template (with the trailing space at the end of the first line)
 const SYSTEM_TEMPLATE = `Use the following pieces of context to answer the users question. 
 If you don't know the answer, just say that you don't know, don't try to make up an answer.
 ----------------
 {context}`;
 
 const parameters: ParamSchema[] = [
-  { name: 'notice', label: 'Dieser Node muss mit einem AI Agent verbunden werden.', type: 'notice', default: '' },
-  { name: 'name', label: 'Name der Daten', type: 'string', default: '', placeholder: 'z. B. kundendaten', show: { '@version': [1] } },
-  { name: 'description', label: 'Beschreibung der Daten', type: 'string', default: '', rows: 3, placeholder: 'z. B. Name, E-Mail und Vertrag eines Kunden' },
-  { name: 'topK', label: 'Anzahl', type: 'number', default: 4, description: 'Höchstzahl Treffer' },
+  { name: 'notice', label: 'This node must be connected to an AI agent.', type: 'notice', default: '' },
+  { name: 'name', label: 'Data Name', type: 'string', default: '', placeholder: 'e.g. users_info', show: { '@version': [1] } },
+  { name: 'description', label: 'Description of Data', type: 'string', default: '', rows: 3, placeholder: 'e.g. a customer\'s name, email and contract' },
+  { name: 'topK', label: 'Limit', type: 'number', default: 4, description: 'The maximum number of results to return' },
 ];
 
 async function getTool(ctx: ExecContext, itemIndex: number, log: boolean): Promise<ToolInstance> {

@@ -1,4 +1,4 @@
-// Gemeinsame Basis der Chat-Modelle: Aufruf mit Tracing im runData des Modell-Nodes
+// Common base of the chat models: call with tracing in the runData of the model node
 // (n8n packages/@n8n/nodes-langchain/nodes/llms/N8nLlmTracing.ts: handleLLMStart/handleLLMEnd/handleLLMError).
 import type { ExecContext } from '../../nodes/types.js';
 import { NodeApiError, NodeOperationError } from '../../errors.js';
@@ -8,18 +8,18 @@ import type { JsonSchema } from '../schema.js';
 export interface ToolDefinition {
   name: string;
   description: string;
-  /** JSON Schema der Argumente (wie zodToJsonSchema des Tool-Schemas) */
+  /** JSON Schema of the arguments (like zodToJsonSchema of the tool schema) */
   schema: JsonSchema;
 }
 
 export interface ModelCallOptions {
   tools?: ToolDefinition[];
   signal?: AbortSignal;
-  /** Index der Generierung für das Tracing (Agent: Quelle im Eltern-Lauf) */
+  /** Index of the generation for tracing (agent: source in the parent run) */
   sourceRunIndex?: number;
-  /** Streaming: Text-Teile, sobald das Modell sie liefert (n8n streamEvents, on_chat_model_stream) */
+  /** Streaming: text chunks as soon as the model delivers them (n8n streamEvents, on_chat_model_stream) */
   onToken?: (text: string) => void;
-  /** Eingebaute Tools des Modells mitsenden (n8n Tools Agent V3: model.metadata.tools) */
+  /** Send along the built-in tools of the model (n8n Tools Agent V3: model.metadata.tools) */
   includeBuiltInTools?: boolean;
 }
 
@@ -47,7 +47,7 @@ export class LlmHttpError extends Error {
   }
 }
 
-/** Grobe Token-Schätzung (n8n nutzt tiktoken; nur für das Tracing) */
+/** Rough token estimate (n8n uses tiktoken; only for tracing) */
 function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
@@ -58,7 +58,7 @@ export abstract class ChatModel {
   constructor(
     protected readonly ctx: ExecContext,
     readonly modelName: string,
-    /** Für das Tracing (n8n: kwargs des LangChain-Modells) */
+    /** For tracing (n8n: kwargs of the LangChain model) */
     protected readonly tracingOptions: Record<string, unknown>,
   ) {}
 
@@ -96,7 +96,7 @@ export abstract class ChatModel {
     }
   }
 
-  /** HTTP-POST mit JSON; Fehler als LlmHttpError */
+  /** HTTP POST with JSON; errors as LlmHttpError */
   protected async postJson(url: string, headers: Record<string, string>, body: unknown, signal?: AbortSignal): Promise<Record<string, unknown>> {
     const res = await this.ctx.helpers.http.request({
       method: 'POST',
@@ -111,13 +111,13 @@ export abstract class ChatModel {
     try {
       return JSON.parse(text) as Record<string, unknown>;
     } catch {
-      throw new LlmHttpError(`Ungültige Antwort von ${url}`, res.statusCode, text);
+      throw new LlmHttpError(`Invalid response from ${url}`, res.statusCode, text);
     }
   }
 
   /**
-   * HTTP-POST mit Server-Sent Events: onEvent je Ereignis (data-Zeilen zusammengefügt). Liefert ein HTTP-Client keine
-   * Teilantworten, werden die Ereignisse am Ende aus dem vollständigen Body gelesen.
+   * HTTP POST with server-sent events: onEvent per event (data lines joined). If an HTTP client delivers no
+   * partial responses, the events are read from the complete body at the end.
    */
   protected async postStream(url: string, headers: Record<string, string>, body: unknown, signal: AbortSignal | undefined, onEvent: (data: string, event?: string) => void): Promise<void> {
     let buffer = '';
@@ -162,7 +162,7 @@ export abstract class ChatModel {
       const parsed = JSON.parse(body) as { error?: { message?: string } | string; message?: string };
       detail = (typeof parsed.error === 'object' ? parsed.error?.message : parsed.error) ?? parsed.message ?? body;
     } catch {
-      // Rohtext
+      // raw text
     }
     return `${status} ${statusText}: ${detail}`;
   }

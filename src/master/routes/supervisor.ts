@@ -1,9 +1,9 @@
-// Aufseher im Master (M38). Jeder Worker hat seinen eigenen Aufseher (Regeln, Analysen, Vorschläge, Modell mit seinen
-// Credentials). Der Master sammelt Hinweise und Vorschläge der Worker und zeigt jeder Person nur die Workflows, die sie
-// sehen darf (Aktion supervisor.read). Analysieren, Vorschläge erstellen und das Gespräch im Editor brauchen
-// supervisor.use. Angenommen werden Vorschläge im Master: Der vorgeschlagene Stand wird eine neue Version des Workflows
-// (workflow.edit) und wie jede Version verteilt; der Worker markiert den Vorschlag danach nur noch als angenommen.
-// Einstellungen und Berichte je Worker pflegen globale Admins über die Weiterleitung unter /api/admin/workers/:id/supervisor.
+// Supervisor in the master (M38). Every worker has its own supervisor (rules, analyses, proposals, model with its
+// credentials). The master collects the workers' findings and proposals and shows each person only the workflows they
+// may see (action supervisor.read). Analyzing, creating proposals and the chat in the editor require
+// supervisor.use. Proposals are accepted in the master: the proposed state becomes a new version of the workflow
+// (workflow.edit) and is distributed like any version; afterwards the worker only marks the proposal as accepted.
+// Global admins maintain settings and reports per worker through the forwarding under /api/admin/workers/:id/supervisor.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { MasterContext } from '../app.js';
 import type { ProjectRow, UserRow, WorkerRow, WorkflowRow } from '../db.js';
@@ -28,7 +28,7 @@ interface RemoteProposal {
 }
 
 const FINDING_ACTIONS = ['dismiss', 'reopen', 'analyze', 'propose'];
-/** Weiterleitung für Admins: nur diese Pfade unter /api/supervisor des Workers */
+/** Forwarding for admins: only these paths under the worker's /api/supervisor */
 const ADMIN_PATH = /^(status|settings|scan|reports|usage|findings(\/[\w-]+(\/(dismiss|reopen|analyze|propose))?)?|proposals(\/[\w-]+(\/(reject|test))?)?)$/;
 
 export function registerSupervisorRoutes(api: FastifyInstance, ctx: MasterContext): void {
@@ -42,7 +42,7 @@ export function registerSupervisorRoutes(api: FastifyInstance, ctx: MasterContex
   };
   const workflowAllows = (user: UserRow, row: WorkflowRow, action: ProjectAction) => allows(effectiveWorkflowRole(projectRoleOf(user, row.project_id), db.getWorkflowRole(row.id, user.id)), action);
 
-  /** Workflows, für die der Benutzer die Aktion darf, mit Projekt und Worker */
+  /** Workflows for which the user may perform the action, with project and worker */
   const visibleWorkflows = (user: UserRow, action: ProjectAction) => {
     const out = new Map<string, { row: WorkflowRow; project: ProjectRow; workerId: string }>();
     for (const project of db.listProjects()) {
@@ -57,7 +57,7 @@ export function registerSupervisorRoutes(api: FastifyInstance, ctx: MasterContex
     return out;
   };
 
-  /** Projekte, in denen der Benutzer neue Workflows anlegen darf (für neue Workflows aus dem Gespräch) */
+  /** Projects in which the user may create new workflows (for new workflows from the chat) */
   const editableProjects = (user: UserRow): ProjectRow[] => db.listProjects().filter((p) => p.worker_id && allows(projectRoleOf(user, p.id), 'workflow.edit'));
 
   const workerError = (reply: FastifyReply, error: unknown) => {
@@ -72,7 +72,7 @@ export function registerSupervisorRoutes(api: FastifyInstance, ctx: MasterContex
   const user = (request: FastifyRequest) => request.auth!.user;
   const who = (u: UserRow) => u.name || u.email;
 
-  /** Von allen betroffenen Workern sammeln; nicht erreichbare Worker als Fehler */
+  /** Collect from all affected workers; unreachable workers as errors */
   const gather = async <T>(workerIds: Set<string>, path: string): Promise<{ items: Array<{ worker: WorkerRow; item: T }>; errors: Array<{ workerId: string; workerName: string; message: string }> }> => {
     const workers = [...workerIds].map((id) => db.getWorker(id)).filter((w): w is WorkerRow => !!w);
     const results = await Promise.allSettled(workers.map((w) => hub.call<{ data: T[] }>(w, 'GET', path, undefined, 15_000)));
@@ -127,7 +127,7 @@ export function registerSupervisorRoutes(api: FastifyInstance, ctx: MasterContex
     return { data, errors };
   });
 
-  /** Überblick für die Seite "Aufseher": Zahlen aus den sichtbaren Hinweisen und Vorschlägen */
+  /** Overview for the "Supervisor" page: numbers from the visible findings and proposals */
   api.get('/api/supervisor/overview', async (request) => {
     const u = user(request);
     const visible = visibleWorkflows(u, 'supervisor.read');
@@ -149,23 +149,23 @@ export function registerSupervisorRoutes(api: FastifyInstance, ctx: MasterContex
     return { workers: out.sort((a, b) => a.name.localeCompare(b.name)), canCreate: editable.map((p) => ({ id: p.id, name: p.name, workerId: p.worker_id })) };
   });
 
-  /** Worker aus der Route; 404, wenn es ihn nicht gibt */
+  /** Worker from the route; 404 if it does not exist */
   const workerOf = (request: FastifyRequest, reply: FastifyReply): WorkerRow | undefined => {
     const w = db.getWorker((request.params as { wid: string }).wid);
-    if (!w) void reply.code(404).send({ message: 'Worker nicht gefunden' });
+    if (!w) void reply.code(404).send({ message: 'Worker not found' });
     return w;
   };
 
-  /** Workflow eines Hinweises oder Vorschlags: muss zu diesem Worker gehören, Recht prüfen */
+  /** Workflow of a finding or proposal: must belong to this worker, check permission */
   const workflowFor = (reply: FastifyReply, u: UserRow, worker: WorkerRow, workflowId: string | undefined, action: ProjectAction): WorkflowRow | undefined => {
     const row = workflowId ? db.getWorkflow(workflowId) : undefined;
     const project = row ? db.getProject(row.project_id) : undefined;
     if (!row || project?.worker_id !== worker.id || !workflowAllows(u, row, 'supervisor.read')) {
-      void reply.code(404).send({ message: 'Nicht gefunden' });
+      void reply.code(404).send({ message: 'Not found' });
       return undefined;
     }
     if (!workflowAllows(u, row, action)) {
-      void reply.code(403).send({ message: 'Keine Berechtigung für diese Aktion' });
+      void reply.code(403).send({ message: 'No permission for this action' });
       return undefined;
     }
     return row;
@@ -175,7 +175,7 @@ export function registerSupervisorRoutes(api: FastifyInstance, ctx: MasterContex
     const worker = workerOf(request, reply);
     if (!worker) return;
     const { fid, action } = request.params as { fid: string; action: string };
-    if (!FINDING_ACTIONS.includes(action)) return reply.code(404).send({ message: 'Unbekannte Aktion' });
+    if (!FINDING_ACTIONS.includes(action)) return reply.code(404).send({ message: 'Unknown action' });
     try {
       const finding = await hub.call<RemoteFinding>(worker, 'GET', `/api/supervisor/findings/${encodeURIComponent(fid)}`);
       if (!workflowFor(reply, user(request), worker, finding.workflowId, 'supervisor.use')) return;
@@ -187,12 +187,12 @@ export function registerSupervisorRoutes(api: FastifyInstance, ctx: MasterContex
     }
   });
 
-  /** Vorschlag vom Worker holen und Zugriff prüfen (Änderung: Workflow sehen; neu: Projekt mit Bearbeiten-Recht) */
+  /** Fetch the proposal from the worker and check access (change: see the workflow; new: project with edit permission) */
   const proposalFor = async (request: FastifyRequest, reply: FastifyReply, worker: WorkerRow, action: ProjectAction): Promise<{ proposal: RemoteProposal; row?: WorkflowRow } | undefined> => {
     const proposal = await hub.call<RemoteProposal>(worker, 'GET', `/api/supervisor/proposals/${encodeURIComponent((request.params as { pid: string }).pid)}`);
     if (proposal.kind === 'new') {
       if (!editableProjects(user(request)).some((p) => p.worker_id === worker.id)) {
-        void reply.code(404).send({ message: 'Nicht gefunden' });
+        void reply.code(404).send({ message: 'Not found' });
         return undefined;
       }
       return { proposal };
@@ -229,7 +229,7 @@ export function registerSupervisorRoutes(api: FastifyInstance, ctx: MasterContex
     });
   }
 
-  /** Credentials, die für das Projekt nicht freigegeben sind (wie beim Speichern) */
+  /** Credentials not shared with the project (as when saving) */
   const blockedCredentials = (projectId: string, wf: Workflow): string[] => {
     const workerId = db.getProject(projectId)?.worker_id;
     if (!workerId) return [];
@@ -244,7 +244,7 @@ export function registerSupervisorRoutes(api: FastifyInstance, ctx: MasterContex
     return [...out];
   };
 
-  /** Kennzeichnung des Masters entfernen (der Master setzt sie beim Verteilen neu) */
+  /** Remove the master's marker (the master sets it again when distributing) */
   const stripMarker = (wf: Workflow): Workflow => {
     const meta = { ...((wf.meta as Record<string, unknown> | undefined) ?? {}) };
     delete meta[MASTER_MARKER];
@@ -262,15 +262,15 @@ export function registerSupervisorRoutes(api: FastifyInstance, ctx: MasterContex
       const found = await proposalFor(request, reply, worker, 'workflow.edit');
       if (!found) return;
       const p = found.proposal;
-      if (p.status !== 'open') return reply.code(409).send({ message: `Der Vorschlag ist nicht mehr offen (${p.status})` });
-      if (!p.workflow) return reply.code(502).send({ message: 'Der Worker hat den vorgeschlagenen Stand nicht geliefert' });
+      if (p.status !== 'open') return reply.code(409).send({ message: `The proposal is no longer open (${p.status})` });
+      if (!p.workflow) return reply.code(502).send({ message: 'The worker did not deliver the proposed state' });
       let project: ProjectRow;
       let wf = stripMarker(JSON.parse(JSON.stringify(p.workflow)) as Workflow);
       if (p.kind === 'change') {
         const row = found.row!;
-        // Der Vorschlag muss auf der aktuellen Version im Master beruhen
+        // The proposal must be based on the current version in the master
         if (p.baseVersion !== row.version) {
-          return reply.code(409).send({ message: `Der Workflow hat im Master inzwischen Version ${row.version}, der Vorschlag beruht auf ${p.baseVersion === undefined ? 'einem Stand ohne Master-Version' : `Version ${p.baseVersion}`}. Lassen Sie einen neuen Vorschlag erstellen.` });
+          return reply.code(409).send({ message: `The workflow is now at version ${row.version} in the master, the proposal is based on ${p.baseVersion === undefined ? 'a state without a master version' : `version ${p.baseVersion}`}. Have a new proposal created.` });
         }
         project = db.getProject(row.project_id)!;
         wf = { ...wf, id: row.id, active: row.active === 1 };
@@ -278,20 +278,20 @@ export function registerSupervisorRoutes(api: FastifyInstance, ctx: MasterContex
         const projectId = (request.body as { projectId?: unknown } | undefined)?.projectId;
         const candidates = editableProjects(u).filter((x) => x.worker_id === worker.id);
         const chosen = typeof projectId === 'string' ? candidates.find((x) => x.id === projectId) : candidates.length === 1 ? candidates[0] : undefined;
-        if (!chosen) return reply.code(400).send({ message: 'Projekt für den neuen Workflow fehlt (projectId)', projects: candidates.map((x) => ({ id: x.id, name: x.name })) });
+        if (!chosen) return reply.code(400).send({ message: 'Project for the new workflow is missing (projectId)', projects: candidates.map((x) => ({ id: x.id, name: x.name })) });
         project = chosen;
         delete wf.id;
         wf.active = false;
       }
       const blocked = blockedCredentials(project.id, wf);
-      if (blocked.length) return reply.code(403).send({ message: `Credential${blocked.length > 1 ? 's' : ''} ${blocked.map((b) => `"${b}"`).join(', ')} ${blocked.length > 1 ? 'sind' : 'ist'} für dieses Projekt nicht freigegeben` });
+      if (blocked.length) return reply.code(403).send({ message: `Credential${blocked.length > 1 ? 's' : ''} ${blocked.map((b) => `"${b}"`).join(', ')} ${blocked.length > 1 ? 'are' : 'is'} not shared with this project` });
       const saved = db.saveWorkflow(project.id, wf, u.id);
       ctx.audit(request, p.kind === 'new' ? 'workflow.created' : 'workflow.saved', saved.id, { version: saved.version, projectId: project.id, source: 'supervisor', proposalId: p.id, workerId: worker.id });
       const deployed = await hub.deploy(saved);
       const decided = await hub
         .call<Record<string, unknown>>(worker, 'POST', `/api/supervisor/proposals/${encodeURIComponent(p.id)}/decided`, { status: 'accepted', by: who(u), result: { workflowId: saved.id, version: saved.version } })
         .catch((error: unknown) => {
-          ctx.logger.warn({ err: (error as Error).message, proposal: p.id }, 'Aufseher: Vorschlag beim Worker nicht als angenommen markiert');
+          ctx.logger.warn({ err: (error as Error).message, proposal: p.id }, 'Supervisor: proposal not marked as accepted on the worker');
           return { ...p, status: 'accepted', result: { workflowId: saved.id, version: saved.version } };
         });
       const { workflow: _w, ...rest } = decided as Record<string, unknown>;
@@ -301,36 +301,36 @@ export function registerSupervisorRoutes(api: FastifyInstance, ctx: MasterContex
     }
   });
 
-  // Gespräch im Editor: mit workflowId zu diesem Workflow, sonst ein neuer Workflow im Projekt
+  // Chat in the editor: with workflowId about this workflow, otherwise a new workflow in the project
   api.post('/api/supervisor/chat', async (request, reply) => {
     const u = user(request);
-    const body = (request.body ?? {}) as { projectId?: unknown; workflowId?: unknown; messages?: unknown };
+    const body = (request.body ?? {}) as { projectId?: unknown; workflowId?: unknown; messages?: unknown; language?: unknown };
     let worker: WorkerRow | undefined;
     let workflowId: string | undefined;
     if (typeof body.workflowId === 'string' && body.workflowId) {
       const row = db.getWorkflow(body.workflowId);
       const project = row ? db.getProject(row.project_id) : undefined;
-      if (!row || !project || !workflowAllows(u, row, 'supervisor.read')) return reply.code(404).send({ message: 'Workflow nicht gefunden' });
-      if (!workflowAllows(u, row, 'supervisor.use')) return reply.code(403).send({ message: 'Keine Berechtigung, den Aufseher zu nutzen' });
+      if (!row || !project || !workflowAllows(u, row, 'supervisor.read')) return reply.code(404).send({ message: 'Workflow not found' });
+      if (!workflowAllows(u, row, 'supervisor.use')) return reply.code(403).send({ message: 'No permission to use the supervisor' });
       worker = project.worker_id ? db.getWorker(project.worker_id) : undefined;
       workflowId = row.id;
     } else {
       const project = typeof body.projectId === 'string' ? db.getProject(body.projectId) : undefined;
       const role = project ? projectRoleOf(u, project.id) : undefined;
-      if (!project || !role) return reply.code(404).send({ message: 'Projekt nicht gefunden' });
-      if (!allows(role, 'workflow.edit') || !allows(role, 'supervisor.use')) return reply.code(403).send({ message: 'Keine Berechtigung, mit dem Aufseher Workflows zu entwerfen' });
+      if (!project || !role) return reply.code(404).send({ message: 'Project not found' });
+      if (!allows(role, 'workflow.edit') || !allows(role, 'supervisor.use')) return reply.code(403).send({ message: 'No permission to design workflows with the supervisor' });
       worker = project.worker_id ? db.getWorker(project.worker_id) : undefined;
     }
-    if (!worker) return reply.code(409).send({ message: 'Das Projekt hat keinen Worker' });
+    if (!worker) return reply.code(409).send({ message: 'The project has no worker' });
     try {
-      const result = await hub.call<{ reply: string; proposals: RemoteProposal[]; tokens: number }>(worker, 'POST', '/api/supervisor/chat', { messages: body.messages, ...(workflowId ? { workflowId } : {}) }, 600_000);
+      const result = await hub.call<{ reply: string; proposals: RemoteProposal[]; tokens: number }>(worker, 'POST', '/api/supervisor/chat', { messages: body.messages, ...(workflowId ? { workflowId } : {}), ...(body.language === 'en' || body.language === 'de' ? { language: body.language } : {}) }, 600_000);
       return { ...result, proposals: result.proposals.map((p) => ({ ...p, ...tag(worker!) })) };
     } catch (error) {
       return workerError(reply, error);
     }
   });
 
-  // Verwaltung je Worker (nur globale Admins): Einstellungen, Status, Prüfung, Berichte, Verbrauch, Hinweise
+  // Administration per worker (global admins only): settings, status, scan, reports, usage, findings
   api.route({
     method: ['GET', 'PUT', 'POST'],
     url: '/api/admin/workers/:wid/supervisor/*',
@@ -339,7 +339,7 @@ export function registerSupervisorRoutes(api: FastifyInstance, ctx: MasterContex
       const worker = workerOf(request, reply);
       if (!worker) return;
       const path = (request.params as { '*': string })['*'] ?? '';
-      if (!ADMIN_PATH.test(path)) return reply.code(404).send({ message: 'Nicht gefunden' });
+      if (!ADMIN_PATH.test(path)) return reply.code(404).send({ message: 'Not found' });
       const query = request.url.includes('?') ? request.url.slice(request.url.indexOf('?')) : '';
       try {
         const long = /analyze|propose|reports|test/.test(path) && request.method === 'POST';

@@ -1,5 +1,5 @@
-// Einstieg der Weboberfläche. Einzelbetrieb: Anmeldung mit API-Key, Navigation (Hash-Routing), Seiten.
-// Im Master-Modus übernimmt master/app.ts (Sitzungen, Projekte, Verwaltung).
+// Entry point of the web interface. Standalone mode: login with API key, navigation (hash routing), pages.
+// In master mode, master/app.ts takes over (sessions, projects, administration).
 import { api, ApiError, getApiKey, setApiKey, setUnauthorizedHandler } from './api.js';
 import { h, toast } from './dom.js';
 import type { CredentialInfo, InstanceInfo, NodeTypeInfo } from './types.js';
@@ -7,6 +7,7 @@ import { brand } from './brand.js';
 import { icon } from './icons.js';
 import { editorLayout, sidebarLayout, type NavItem } from './shell.js';
 import { applyTheme } from './theme.js';
+import { applyLocale, getLocale, setLocale, t } from './i18n.js';
 import { settingsView } from './views/settings.js';
 import { Editor } from './editor/editor.js';
 import { emptyWorkflow } from './editor/model.js';
@@ -26,7 +27,7 @@ const supervisorChat: SupervisorChatBackend = {
   supervisorHref: '#/supervisor',
 };
 
-/** Nach dem Annehmen eines Vorschlags im Editor: geänderten Workflow neu laden, neuen öffnen */
+/** After accepting a proposal in the editor: reload the changed workflow, open a new one */
 function afterAccepted(p: SupervisorProposal): void {
   const id = p.result?.workflowId;
   if (!id) return;
@@ -42,7 +43,7 @@ let current: { editor?: Editor } = {};
 let catalog: { types: NodeTypeInfo[]; credentials: CredentialInfo[]; webhookBaseUrl: string; info: InstanceInfo } | undefined;
 let lastHash = location.hash;
 let skipNextRoute = false;
-/** Laufnummer der Navigation: Ergebnisse älterer, langsamerer Seitenaufrufe werden verworfen */
+/** Navigation sequence number: results of older, slower page loads are discarded */
 let routeSeq = 0;
 
 async function loadCatalog(force = false): Promise<NonNullable<typeof catalog>> {
@@ -54,14 +55,14 @@ async function loadCatalog(force = false): Promise<NonNullable<typeof catalog>> 
 }
 
 const NAV: NavItem[] = [
-  { key: 'workflows', label: 'Workflows', icon: 'share-2', href: '#/workflows' },
-  { key: 'executions', label: 'Ausführungen', icon: 'list-checks', href: '#/executions' },
-  { key: 'credentials', label: 'Credentials', icon: 'asterisk', href: '#/credentials' },
-  { key: 'variables', label: 'Variablen', icon: 'variable', href: '#/variables' },
-  { key: 'packages', label: 'Pakete', icon: 'package', href: '#/packages' },
-  { key: 'supervisor', label: 'Aufseher', icon: 'scan-eye', href: '#/supervisor' },
+  { key: 'workflows', label: t('Workflows'), icon: 'share-2', href: '#/workflows' },
+  { key: 'executions', label: t('Executions'), icon: 'list-checks', href: '#/executions' },
+  { key: 'credentials', label: t('Credentials'), icon: 'asterisk', href: '#/credentials' },
+  { key: 'variables', label: t('Variables'), icon: 'variable', href: '#/variables' },
+  { key: 'packages', label: t('Packages'), icon: 'package', href: '#/packages' },
+  { key: 'supervisor', label: t('Supervisor'), icon: 'scan-eye', href: '#/supervisor' },
 ];
-const NAV_BOTTOM: NavItem[] = [{ key: 'settings', label: 'Einstellungen', icon: 'settings', href: '#/settings' }];
+const NAV_BOTTOM: NavItem[] = [{ key: 'settings', label: t('Settings'), icon: 'settings', href: '#/settings' }];
 
 function logout(): void {
   setApiKey(null);
@@ -69,21 +70,21 @@ function logout(): void {
   showLogin();
 }
 
-/** Fuß der Seitenleiste: Instanz, Kompatibilität, Impressum und Datenschutz (wenn konfiguriert), Abmelden */
+/** Sidebar footer: instance, compatibility, imprint and privacy policy (if configured), log out */
 function sidebarFooter(): Array<Node | null> {
   const info = catalog?.info;
   return [
-    h('div', { class: 'foot-row' }, icon('server', 16), `Instanz ${info?.instance ?? ''}`),
-    h('div', null, 'Kompatibel mit n8n 1.123'),
+    h('div', { class: 'foot-row' }, icon('server', 16), t('Instance {name}', { name: info?.instance ?? '' })),
+    h('div', null, t('Compatible with n8n 1.123')),
     info?.imprintUrl || info?.privacyUrl
       ? h(
           'div',
           { class: 'foot-links' },
-          info.imprintUrl ? h('a', { href: info.imprintUrl, target: '_blank', rel: 'noopener' }, 'Impressum') : null,
-          info.privacyUrl ? h('a', { href: info.privacyUrl, target: '_blank', rel: 'noopener' }, 'Datenschutz') : null,
+          info.imprintUrl ? h('a', { href: info.imprintUrl, target: '_blank', rel: 'noopener' }, t('Imprint')) : null,
+          info.privacyUrl ? h('a', { href: info.privacyUrl, target: '_blank', rel: 'noopener' }, t('Privacy policy')) : null,
         )
       : null,
-    h('button', { type: 'button', class: 'link', onclick: logout }, 'Abmelden'),
+    h('button', { type: 'button', class: 'link', onclick: logout }, t('Log out')),
   ];
 }
 
@@ -101,10 +102,22 @@ function setPage(active: string, content: HTMLElement, editor?: Editor, seq = ro
   }
 }
 
+/** Small language switch on the login page (labels are not translated) */
+function loginLocaleSwitch(): HTMLElement {
+  const current = getLocale();
+  return h(
+    'div',
+    { class: 'login-locale', role: 'group', 'aria-label': t('Language'), style: { display: 'flex', gap: '8px', justifyContent: 'center' } },
+    ...([['en', 'EN'], ['de', 'DE']] as const).map(([value, text]) =>
+      h('button', { type: 'button', class: 'link', 'aria-pressed': String(current === value), style: { fontWeight: current === value ? '600' : '400' }, onclick: () => setLocale(value) }, text),
+    ),
+  );
+}
+
 function showLogin(message?: string): void {
   current.editor?.destroy();
   current = {};
-  const input = h('input', { type: 'password', class: 'param-input', placeholder: 'FILUFLOW_API_KEY', autocomplete: 'current-password', 'aria-label': 'API-Key' });
+  const input = h('input', { type: 'password', class: 'param-input', placeholder: 'FILUFLOW_API_KEY', autocomplete: 'current-password', 'aria-label': t('API key') });
   const error = h('p', { class: 'error-text', role: 'alert' }, message ?? '');
   const submit = async (e: Event) => {
     e.preventDefault();
@@ -115,7 +128,7 @@ function showLogin(message?: string): void {
       void route();
     } catch (err) {
       setApiKey(null);
-      error.textContent = err instanceof ApiError && err.status === 401 ? 'Der API-Key ist falsch oder die REST-API ist deaktiviert (FILUFLOW_API_KEY nicht gesetzt).' : `Fehler: ${(err as Error).message}`;
+      error.textContent = err instanceof ApiError && err.status === 401 ? t('The API key is wrong or the REST API is disabled (FILUFLOW_API_KEY not set).') : t('Error: {message}', { message: (err as Error).message });
     }
   };
   app.replaceChildren(
@@ -126,11 +139,12 @@ function showLogin(message?: string): void {
         'form',
         { class: 'login-card', onsubmit: submit },
         brand(32),
-        h('span', { class: 'label' }, 'Anmeldung'),
-        h('p', { class: 'muted', style: { margin: '0' } }, 'Melden Sie sich mit dem API-Key des Servers an (Umgebungsvariable FILUFLOW_API_KEY).'),
-        h('label', { class: 'field' }, h('span', null, 'API-Key'), input),
+        h('span', { class: 'label' }, t('Login')),
+        h('p', { class: 'muted', style: { margin: '0' } }, t("Log in with the server's API key (environment variable FILUFLOW_API_KEY).")),
+        h('label', { class: 'field' }, h('span', null, t('API key')), input),
         error,
-        h('button', { type: 'submit', class: 'btn btn-primary btn-m btn-block' }, 'Anmelden'),
+        h('button', { type: 'submit', class: 'btn btn-primary btn-m btn-block' }, t('Log in')),
+        loginLocaleSwitch(),
       ),
     ),
   );
@@ -139,10 +153,10 @@ function showLogin(message?: string): void {
 
 async function openEditor(id: string | undefined, seq: number, openSupervisor = false): Promise<void> {
   const cat = await loadCatalog();
-  // Credentials können sich auf der Credentials-Seite geändert haben
+  // Credentials may have changed on the credentials page
   cat.credentials = await api.credentials();
   const { types, credentials, webhookBaseUrl } = cat;
-  const crumbs = [{ label: 'Workflows', href: '#/workflows' }];
+  const crumbs = [{ label: t('Workflows'), href: '#/workflows' }];
   if (!id) {
     const editor = new Editor({
       workflow: emptyWorkflow(),
@@ -189,15 +203,15 @@ async function route(): Promise<void> {
       setPage('executions', el, editor, seq);
     } else if (parts[0] === 'credentials') setPage('credentials', await credentialsView(), undefined, seq);
     else if (parts[0] === 'variables') setPage('variables', await variablesView(), undefined, seq);
-    // Neue oder entfernte Knoten: Palette beim nächsten Öffnen des Editors neu laden
+    // New or removed nodes: reload the palette the next time the editor opens
     else if (parts[0] === 'packages') setPage('packages', await packagesView(() => (catalog = undefined)), undefined, seq);
     else if (parts[0] === 'supervisor') setPage('supervisor', await supervisorView(parts[1] ?? 'findings', new URLSearchParams(query ?? '')), undefined, seq);
     else if (parts[0] === 'settings') setPage('settings', settingsView(logout), undefined, seq);
-    else setPage('workflows', h('section', { class: 'page' }, h('h1', null, 'Seite nicht gefunden'), h('a', { href: '#/workflows' }, 'Zu den Workflows')), undefined, seq);
+    else setPage('workflows', h('section', { class: 'page' }, h('h1', null, t('Page not found')), h('a', { href: '#/workflows' }, t('Go to workflows'))), undefined, seq);
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) return;
     if (seq !== routeSeq) return;
-    setPage(parts[0] ?? 'workflows', h('section', { class: 'page' }, h('h1', null, 'Fehler'), h('p', { class: 'error-text' }, (error as Error).message), h('a', { href: '#/workflows' }, 'Zu den Workflows')));
+    setPage(parts[0] ?? 'workflows', h('section', { class: 'page' }, h('h1', null, t('Error')), h('p', { class: 'error-text' }, (error as Error).message), h('a', { href: '#/workflows' }, t('Go to workflows'))));
   }
 }
 
@@ -205,7 +219,7 @@ function startStandalone(): void {
   setUnauthorizedHandler(() => {
     setApiKey(null);
     catalog = undefined;
-    showLogin('Sitzung abgelaufen oder API-Key ungültig.');
+    showLogin(t('Session expired or API key invalid.'));
   });
 
   window.addEventListener('hashchange', () => {
@@ -214,7 +228,7 @@ function startStandalone(): void {
       lastHash = location.hash;
       return;
     }
-    if (current.editor?.isDirty && !window.confirm('Ungespeicherte Änderungen verwerfen?')) {
+    if (current.editor?.isDirty && !window.confirm(t('Discard unsaved changes?'))) {
       skipNextRoute = true;
       location.hash = lastHash;
       return;
@@ -229,18 +243,19 @@ function startStandalone(): void {
   void route();
 }
 
-/** Betriebsart des Servers: Master (Benutzer, Projekte, Worker) oder Einzelbetrieb (API-Key) */
+/** Server operating mode: master (users, projects, workers) or standalone (API key) */
 async function boot(): Promise<void> {
   applyTheme();
+  applyLocale();
   window.addEventListener('unhandledrejection', (e) => {
-    toast(`Fehler: ${(e.reason as Error)?.message ?? String(e.reason)}`, 'error');
+    toast(t('Error: {message}', { message: (e.reason as Error)?.message ?? String(e.reason) }), 'error');
   });
   let mode: string | undefined;
   try {
     const res = await fetch('/healthz');
     mode = ((await res.json()) as { mode?: string }).mode;
   } catch {
-    // Server nicht erreichbar: Einzelbetrieb versuchen, Fehler zeigt die Anmeldung
+    // Server unreachable: try standalone mode, the login page shows the error
   }
   if (mode === 'master') {
     const { startMaster } = await import('./master/app.js');

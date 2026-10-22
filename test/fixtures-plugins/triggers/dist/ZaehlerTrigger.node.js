@@ -1,26 +1,26 @@
 'use strict';
-// Poll-Knoten: zählt in den statischen Daten des Knotens hoch und liefert nur neue Werte (wie typische RSS- oder
-// Postfach-Trigger, die sich den letzten Stand merken)
+// Poll node: counts up in the node's static data and only returns new values (like typical RSS or mailbox
+// triggers that remember the last state)
 class ZaehlerTrigger {
   constructor() {
     this.description = {
-      displayName: 'Zähler Trigger', name: 'zaehlerTrigger', group: ['trigger'], version: 1, polling: true,
+      displayName: 'Counter Trigger', name: 'zaehlerTrigger', group: ['trigger'], version: 1, polling: true,
       inputs: [], outputs: ['main'],
       properties: [
-        { displayName: 'Schritt', name: 'schritt', type: 'number', default: 1 },
-        { displayName: 'Leer', name: 'leer', type: 'boolean', default: false },
-        { displayName: 'Fehler', name: 'fehler', type: 'boolean', default: false },
+        { displayName: 'Step', name: 'step', type: 'number', default: 1 },
+        { displayName: 'Empty', name: 'empty', type: 'boolean', default: false },
+        { displayName: 'Fail', name: 'fail', type: 'boolean', default: false },
       ],
     };
   }
   async poll() {
-    if (this.getNodeParameter('fehler')) throw new Error('Quelle nicht erreichbar');
-    if (this.getNodeParameter('leer')) return null;
+    if (this.getNodeParameter('fail')) throw new Error('Source not reachable');
+    if (this.getNodeParameter('empty')) return null;
     const data = this.getWorkflowStaticData('node');
-    const before = data.stand || 0;
-    const stand = before + this.getNodeParameter('schritt');
-    if (this.getMode() !== 'manual') data.stand = stand;
-    return [this.helpers.returnJsonArray([{ stand, modus: this.getMode(), aktivierung: this.getActivationMode() }])];
+    const before = data.count || 0;
+    const count = before + this.getNodeParameter('step');
+    if (this.getMode() !== 'manual') data.count = count;
+    return [this.helpers.returnJsonArray([{ count, mode: this.getMode(), activation: this.getActivationMode() }])];
   }
 }
 exports.ZaehlerTrigger = ZaehlerTrigger;

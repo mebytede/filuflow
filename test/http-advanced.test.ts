@@ -1,5 +1,5 @@
-// HTTP Request (M15): Pagination wie n8n (Parameter je Seite, nächste URL, Statuscodes, eigene Bedingung, Limit,
-// Abbruch bei 5x gleicher Antwort), Digest-Auth und Client-Zertifikate (httpSslAuth) gegen lokale Server.
+// HTTP Request (M15): pagination like n8n (parameter per page, next URL, status codes, custom condition, limit,
+// stop after 5x the same response), Digest auth and client certificates (httpSslAuth) against local servers.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createServer as createHttpServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { createServer as createHttpsServer } from 'node:https';
@@ -26,7 +26,7 @@ function handler(req: IncomingMessage, res: ServerResponse): void {
     res.writeHead(status, { 'content-type': 'application/json', 'content-length': Buffer.byteLength(text) });
     res.end(text);
   };
-  if (url.pathname === '/seiten') {
+  if (url.pathname === '/pages') {
     const page = Number(url.searchParams.get('page') ?? 1);
     return json(200, page <= 3 ? [{ n: page * 10 + 1 }, { n: page * 10 + 2 }] : []);
   }
@@ -36,9 +36,9 @@ function handler(req: IncomingMessage, res: ServerResponse): void {
   }
   if (url.pathname === '/status') {
     const page = Number(url.searchParams.get('page') ?? 1);
-    return page < 3 ? json(200, { page }) : json(404, { fehler: 'keine Seite' });
+    return page < 3 ? json(200, { page }) : json(404, { error: 'no page' });
   }
-  if (url.pathname === '/gleich') return json(200, [{ immer: 'gleich' }]);
+  if (url.pathname === '/same') return json(200, [{ always: 'same' }]);
   if (url.pathname === '/digest') {
     const auth = req.headers.authorization ?? '';
     const realm = 'filuflow';
@@ -50,10 +50,10 @@ function handler(req: IncomingMessage, res: ServerResponse): void {
     }
     const p = Object.fromEntries([...auth.slice(7).matchAll(/(\w+)=(?:"([^"]*)"|([^,\s]*))/g)].map((m) => [m[1], m[2] ?? m[3]]));
     const md5 = (s: string) => createHash('md5').update(s).digest('hex');
-    const ha1 = md5(`max:${realm}:geheim`);
+    const ha1 = md5(`max:${realm}:secret`);
     const ha2 = md5(`${req.method}:${p.uri}`);
     const expected = md5(`${ha1}:${nonce}:${p.nc}:${p.cnonce}:${p.qop}:${ha2}`);
-    return p.response === expected && p.opaque === 'xyz' ? json(200, { angemeldet: p.username, uri: p.uri }) : json(401, { falsch: true });
+    return p.response === expected && p.opaque === 'xyz' ? json(200, { loggedIn: p.username, uri: p.uri }) : json(401, { wrong: true });
   }
   res.writeHead(404);
   res.end();
@@ -90,11 +90,11 @@ async function run(wf: Workflow, credentials = new StaticCredentialProvider()): 
 const pagination = (p: Record<string, unknown>) => ({ pagination: { pagination: p } });
 
 describe('Pagination', () => {
-  it('Parameter je Seite mit $pageCount, fertig bei leerer Antwort', async () => {
+  it('parameter per page with $pageCount, done on an empty response', async () => {
     requests.length = 0;
     const { out } = await run(
       httpWorkflow({
-        url: `${base}/seiten`,
+        url: `${base}/pages`,
         options: pagination({
           paginationMode: 'updateAParameterInEachRequest',
           parameters: { parameters: [{ type: 'qs', name: 'page', value: '={{ $pageCount + 1 }}' }] },
@@ -103,11 +103,11 @@ describe('Pagination', () => {
       }),
     );
     expect(out.map((i) => i.json.n)).toEqual([11, 12, 21, 22, 31, 32]);
-    expect(requests).toEqual(['/seiten?page=1', '/seiten?page=2', '/seiten?page=3', '/seiten?page=4']);
+    expect(requests).toEqual(['/pages?page=1', '/pages?page=2', '/pages?page=3', '/pages?page=4']);
     expect(out.every((i) => (i.pairedItem as { item: number }).item === 0)).toBe(true);
   });
 
-  it('nächste URL aus der Antwort, eigene Bedingung mit $response', async () => {
+  it('next URL from the response, custom condition with $response', async () => {
     const { out } = await run(
       httpWorkflow({
         url: `${base}/cursor`,
@@ -122,7 +122,7 @@ describe('Pagination', () => {
     expect(out.map((i) => i.json.items)).toEqual([[{ c: 0 }], [{ c: 1 }], [{ c: 2 }]]);
   });
 
-  it('fertig bei Statuscode 404 (letzte Antwort wird ausgegeben), Seitenlimit', async () => {
+  it('done on status code 404 (last response is output), page limit', async () => {
     const statusWf = httpWorkflow({
       url: `${base}/status`,
       options: pagination({
@@ -132,10 +132,10 @@ describe('Pagination', () => {
         statusCodesWhenComplete: '404',
       }),
     });
-    expect((await run(statusWf)).out.map((i) => i.json)).toEqual([{ page: 1 }, { page: 2 }, { fehler: 'keine Seite' }]);
+    expect((await run(statusWf)).out.map((i) => i.json)).toEqual([{ page: 1 }, { page: 2 }, { error: 'no page' }]);
     const limited = await run(
       httpWorkflow({
-        url: `${base}/seiten`,
+        url: `${base}/pages`,
         options: pagination({
           paginationMode: 'updateAParameterInEachRequest',
           parameters: { parameters: [{ type: 'qs', name: 'page', value: '={{ $pageCount + 1 }}' }] },
@@ -148,45 +148,45 @@ describe('Pagination', () => {
     expect(limited.out.map((i) => i.json.n)).toEqual([11, 12, 21, 22]);
   });
 
-  it('bricht nach 5x gleicher Antwort ab, meldet ungültige URL und fehlende Parameter', async () => {
+  it('stops after 5x the same response, reports an invalid URL and missing parameters', async () => {
     const same = await run(
       httpWorkflow({
-        url: `${base}/gleich`,
+        url: `${base}/same`,
         options: pagination({ paginationMode: 'updateAParameterInEachRequest', parameters: { parameters: [{ type: 'qs', name: 'x', value: '1' }] }, paginationCompleteWhen: 'responseIsEmpty' }),
       }),
     );
     expect(same.error?.message).toBe('The returned response was identical 5x, so requests got stopped');
     const badUrl = await run(
-      httpWorkflow({ url: `${base}/cursor`, options: pagination({ paginationMode: 'responseContainsNextURL', nextURL: '={{ "kaputt" }}', paginationCompleteWhen: 'responseIsEmpty' }) }),
+      httpWorkflow({ url: `${base}/cursor`, options: pagination({ paginationMode: 'responseContainsNextURL', nextURL: '={{ "broken" }}', paginationCompleteWhen: 'responseIsEmpty' }) }),
     );
-    expect(badUrl.error?.message).toBe("'kaputt' is not a valid URL.");
+    expect(badUrl.error?.message).toBe("'broken' is not a valid URL.");
     expect(badUrl.error?.description).toBe('Make sure the "Next URL" parameter evaluates to a valid URL.');
     const empty = await run(
-      httpWorkflow({ url: `${base}/seiten`, options: pagination({ paginationMode: 'updateAParameterInEachRequest', parameters: { parameters: [{ type: 'qs', name: '', value: '' }] } }) }),
+      httpWorkflow({ url: `${base}/pages`, options: pagination({ paginationMode: 'updateAParameterInEachRequest', parameters: { parameters: [{ type: 'qs', name: '', value: '' }] } }) }),
     );
     expect(empty.error?.message).toMatch(/At least one entry with 'Name' and 'Value'/);
   });
 });
 
-describe('Digest-Auth', () => {
-  it('antwortet auf die Challenge', async () => {
-    const credentials = new StaticCredentialProvider([{ name: 'Digest', type: 'httpDigestAuth', data: { user: 'max', password: 'geheim' } }]);
+describe('Digest auth', () => {
+  it('answers the challenge', async () => {
+    const credentials = new StaticCredentialProvider([{ name: 'Digest', type: 'httpDigestAuth', data: { user: 'max', password: 'secret' } }]);
     const wf = httpWorkflow(
       { url: `${base}/digest?a=1`, authentication: 'genericCredentialType', genericAuthType: 'httpDigestAuth' },
       { credentials: { httpDigestAuth: { id: null, name: 'Digest' } } },
     );
     const { out, error } = await run(wf, credentials);
     expect(error).toBeUndefined();
-    expect(out[0].json).toEqual({ angemeldet: 'max', uri: '/digest?a=1' });
-    const wrong = new StaticCredentialProvider([{ name: 'Digest', type: 'httpDigestAuth', data: { user: 'max', password: 'falsch' } }]);
+    expect(out[0].json).toEqual({ loggedIn: 'max', uri: '/digest?a=1' });
+    const wrong = new StaticCredentialProvider([{ name: 'Digest', type: 'httpDigestAuth', data: { user: 'max', password: 'wrong' } }]);
     expect((await run(wf, wrong)).error?.message).toMatch(/Authorization failed/);
   });
 });
 
 const hasOpenssl = spawnSync('openssl', ['version']).status === 0;
 
-describe.skipIf(!hasOpenssl)('Client-Zertifikate', () => {
-  it('meldet sich mit Zertifikat an, eigene CA', async () => {
+describe.skipIf(!hasOpenssl)('Client certificates', () => {
+  it('logs in with a certificate, custom CA', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'filuflow-tls-'));
     const ssl = (...args: string[]) => execFileSync('openssl', args, { cwd: dir, stdio: 'pipe' });
     try {
@@ -206,13 +206,13 @@ describe.skipIf(!hasOpenssl)('Client-Zertifikate', () => {
       try {
         const url = `https://127.0.0.1:${(https.address() as AddressInfo).port}/`;
         const credentials = new StaticCredentialProvider([
-          { name: 'Zertifikat', type: 'httpSslAuth', data: { ca: read('ca.crt'), cert: read('client.crt'), key: read('client.key') } },
-          { name: 'NurCA', type: 'httpSslAuth', data: { ca: read('ca.crt') } },
+          { name: 'Certificate', type: 'httpSslAuth', data: { ca: read('ca.crt'), cert: read('client.crt'), key: read('client.key') } },
+          { name: 'CaOnly', type: 'httpSslAuth', data: { ca: read('ca.crt') } },
         ]);
-        const ok = await run(httpWorkflow({ url, provideSslCertificates: true }, { credentials: { httpSslAuth: { id: null, name: 'Zertifikat' } } }), credentials);
+        const ok = await run(httpWorkflow({ url, provideSslCertificates: true }, { credentials: { httpSslAuth: { id: null, name: 'Certificate' } } }), credentials);
         expect(ok.error).toBeUndefined();
         expect(ok.out[0].json).toEqual({ client: 'filuflow-client' });
-        const without = await run(httpWorkflow({ url, provideSslCertificates: true }, { credentials: { httpSslAuth: { id: null, name: 'NurCA' } } }), credentials);
+        const without = await run(httpWorkflow({ url, provideSslCertificates: true }, { credentials: { httpSslAuth: { id: null, name: 'CaOnly' } } }), credentials);
         expect(without.error).toBeDefined();
       } finally {
         await new Promise((r) => https.close(r));

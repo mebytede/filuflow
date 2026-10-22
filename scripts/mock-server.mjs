@@ -1,19 +1,19 @@
 #!/usr/bin/env node
-// Lokaler Mock-Server für HTTP-Fixtures (offline, deterministisch).
+// Local mock server for HTTP fixtures (offline, deterministic).
 //
-// Antworten stehen in fixtures/<name>/mocks.json:
+// Responses are defined in fixtures/<name>/mocks.json:
 //   [{ "method": "GET", "path": "/geo/search?name=Berlin", "status": 200,
 //      "headers": { "content-type": "application/json" }, "body": { ... } }]
-// "path" vergleicht Pfad + Query exakt; "pathPrefix" nur den Anfang; "bodyContains" verlangt einen Text
-// (oder bei einem Array alle Texte) im Body.
-// Requests an Mocks mit "log": true werden mitgeschrieben (server.requests; mit MOCK_LOG=<datei> auch als JSON-Zeilen),
-// damit Golden-Tests die Anfragen von n8n und filuflow vergleichen können (z. B. Prompts an KI-APIs).
-// Zusätzlich: /echo/* liefert die Anfrage zurück (Methode, Pfad, Query, ausgewählte Header, Body).
-// /oauth-echo/token liefert ein OAuth2-Token, das die Token-Anfrage kodiert enthält (Methode, Header, Body),
-// damit Golden-Tests die Token-Anfrage über den nachfolgenden Authorization-Header vergleichen können.
-// /oauth-echo/token-form antwortet im Format application/x-www-form-urlencoded.
+// "path" matches path + query exactly; "pathPrefix" only the beginning; "bodyContains" requires a text
+// (or, for an array, all texts) in the body.
+// Requests to mocks with "log": true are recorded (server.requests; with MOCK_LOG=<file> also as JSON lines),
+// so golden tests can compare the requests of n8n and filuflow (e.g. prompts to AI APIs).
+// Additionally: /echo/* returns the request (method, path, query, selected headers, body).
+// /oauth-echo/token returns an OAuth2 token that encodes the token request (method, headers, body),
+// so golden tests can compare the token request via the subsequent Authorization header.
+// /oauth-echo/token-form responds in the format application/x-www-form-urlencoded.
 //
-// Aufruf: node scripts/mock-server.mjs <fixtures-verzeichnis> <port>
+// Usage: node scripts/mock-server.mjs <fixtures-dir> <port>
 import { createServer } from 'node:http';
 import { readdirSync, readFileSync, existsSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -29,7 +29,7 @@ export function loadMocks(fixturesDir) {
 }
 
 const ECHO_HEADERS = /^(x-|content-type$|authorization$|accept$)/;
-// Header, die bei KI-APIs inhaltlich zählen (keine SDK-Versionen o. ä.)
+// Headers that matter for AI APIs (no SDK versions or the like)
 const LOG_HEADERS = /^(content-type|authorization|x-api-key|x-goog-api-key|anthropic-version|anthropic-beta)$/;
 
 export function startMockServer(fixturesDir, port = 18089) {
@@ -65,7 +65,7 @@ export function startMockServer(fixturesDir, port = 18089) {
         let parsed = body.toString('utf8');
         const ct = String(req.headers['content-type'] ?? '');
         if (ct.includes('application/json')) {
-          try { parsed = JSON.parse(parsed); } catch { /* Rohtext */ }
+          try { parsed = JSON.parse(parsed); } catch { /* raw text */ }
         } else if (ct.includes('multipart/form-data')) {
           parsed = parsed.replace(/-{2,}[\w-]+/g, '--BOUNDARY');
           if (headers['content-type']) headers['content-type'] = 'multipart/form-data; boundary=BOUNDARY';
@@ -87,7 +87,7 @@ export function startMockServer(fixturesDir, port = 18089) {
         try {
           parsedBody = JSON.parse(text);
         } catch {
-          // kein JSON
+          // not JSON
         }
         const headers = {};
         for (const [k, v] of Object.entries(req.headers)) if (LOG_HEADERS.test(k)) headers[k] = v;
@@ -96,13 +96,13 @@ export function startMockServer(fixturesDir, port = 18089) {
         if (process.env.MOCK_LOG) appendFileSync(process.env.MOCK_LOG, `${JSON.stringify(entry)}\n`);
       }
       if (!mock) {
-        // Zur Fehlersuche: nicht passende Anfragen mitschreiben
+        // For debugging: record unmatched requests
         if (process.env.MOCK_UNMATCHED) appendFileSync(process.env.MOCK_UNMATCHED, `${JSON.stringify({ method: req.method, url, body: text })}\n`);
         res.writeHead(404, { 'content-type': 'application/json' });
         res.end(JSON.stringify({ error: 'no mock', method: req.method, url }));
         return;
       }
-      // Feste Header, damit Antworten in Tests und n8n gleich aussehen
+      // Fixed headers so responses look the same in tests and n8n
       const headers = { 'content-type': 'application/json', ...(mock.headers ?? {}) };
       res.writeHead(mock.status ?? 200, headers);
       if (mock.bodyBase64 !== undefined) res.end(Buffer.from(mock.bodyBase64, 'base64'));
@@ -116,5 +116,5 @@ export function startMockServer(fixturesDir, port = 18089) {
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const [dir, port] = process.argv.slice(2);
-  startMockServer(dir, Number(port ?? 18089)).then(() => console.log(`Mock-Server auf 127.0.0.1:${port ?? 18089}`));
+  startMockServer(dir, Number(port ?? 18089)).then(() => console.log(`Mock server on 127.0.0.1:${port ?? 18089}`));
 }

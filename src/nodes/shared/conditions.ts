@@ -1,14 +1,14 @@
-// Hilfen für IF/Filter/Switch (n8n packages/nodes-base/nodes/If/V2/utils.ts)
+// Helpers for IF/Filter/Switch (n8n packages/nodes-base/nodes/If/V2/utils.ts)
 import type { ExecContext } from '../types.js';
 import { NodeOperationError } from '../../errors.js';
 
-/** n8n getTypeValidationParameter: ab `version` Top-Level-Parameter, davor Option */
+/** n8n getTypeValidationParameter: top-level parameter from `version` on, an option before that */
 export function looseTypeValidation(ctx: ExecContext, version: number, itemIndex: number, option: boolean | undefined): boolean | undefined {
   if (ctx.node.typeVersion < version) return option;
   return ctx.getParam<boolean>('looseTypeValidation', itemIndex, false);
 }
 
-/** Fehler mit Node-Name und Item-Index versehen */
+/** Attach node name and item index to an error */
 export function rethrowWithItem(ctx: ExecContext, error: unknown, itemIndex: number): Error {
   if (error instanceof NodeOperationError) {
     if (error.itemIndex === undefined) error.itemIndex = itemIndex;

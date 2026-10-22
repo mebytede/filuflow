@@ -1,5 +1,5 @@
 // HTML, n8n-nodes-base.html (typeVersion 1, 1.1, 1.2)
-// Nachgebaut nach n8n 1.123.0 packages/nodes-base/nodes/Html (Html.node.ts, utils.ts)
+// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/Html (Html.node.ts, utils.ts)
 import * as cheerio from 'cheerio';
 import { convert } from 'html-to-text';
 import lodash from 'lodash';
@@ -18,7 +18,7 @@ interface ValueData {
   returnArray?: boolean;
 }
 
-// cheerio-Auswahl; die Typen der rc-Version sind unhandlich
+// cheerio selection; the types of the rc version are unwieldy
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- cheerio 1.0.0-rc.6 Selection
 type Sel = any;
 
@@ -103,60 +103,60 @@ const capitalizeHeader = (header: string, capitalize?: boolean) =>
         .map((w) => w[0].toUpperCase() + w.slice(1))
         .join(' ');
 
-// Parameter wie Html.node.ts (properties, extractionValuesCollection) und placeholder.ts (Default der Vorlage)
+// Parameters like Html.node.ts (properties, extractionValuesCollection) and placeholder.ts (default of the template)
 function extractionValues(def: unknown, show: ParamSchema['show']): ParamSchema {
   return {
     name: 'extractionValues',
-    label: 'Zu extrahierende Werte',
+    label: 'Extraction Values',
     type: 'fixedCollection',
     default: def,
     multiple: true,
-    addLabel: 'Wert hinzufügen',
+    addLabel: 'Add Value',
     show,
     groups: [
       {
         name: 'values',
-        label: 'Werte',
+        label: 'Values',
         children: [
-          { name: 'key', label: 'Schlüssel', type: 'string', default: '', description: 'Schlüssel, unter dem der Wert gespeichert wird' },
-          { name: 'cssSelector', label: 'CSS-Selektor', type: 'string', default: '', placeholder: '.price', description: 'Zu verwendender CSS-Selektor' },
+          { name: 'key', label: 'Key', type: 'string', default: '', description: 'The key under which the extracted value should be saved' },
+          { name: 'cssSelector', label: 'CSS Selector', type: 'string', default: '', placeholder: '.price', description: 'The CSS selector to use' },
           {
             name: 'returnValue',
-            label: 'Rückgabewert',
+            label: 'Return Value',
             type: 'options',
             default: 'text',
-            description: 'Welche Daten zurückgegeben werden',
+            description: 'What kind of data should be returned',
             options: [
-              { value: 'attribute', label: 'Attribut', description: 'Wert eines Attributs wie "class"' },
-              { value: 'html', label: 'HTML', description: 'Das enthaltene HTML des Elements' },
-              { value: 'text', label: 'Text', description: 'Nur der Textinhalt des Elements' },
-              { value: 'value', label: 'Wert', description: 'Wert eines input, select oder textarea' },
+              { value: 'attribute', label: 'Attribute', description: 'Get an attribute value like "class" from an element' },
+              { value: 'html', label: 'HTML', description: 'Get the HTML the element contains' },
+              { value: 'text', label: 'Text', description: 'Get only the text content of the element' },
+              { value: 'value', label: 'Value', description: 'Get value of an input, select or textarea' },
             ],
           },
           {
             name: 'attribute',
-            label: 'Attribut',
+            label: 'Attribute',
             type: 'string',
             default: '',
             placeholder: 'class',
-            description: 'Name des Attributs, dessen Wert zurückkommt',
+            description: 'The name of the attribute to return the value off',
             show: { returnValue: ['attribute'] },
           },
           {
             name: 'skipSelectors',
-            label: 'Zu überspringende Selektoren',
+            label: 'Skip Selectors',
             type: 'string',
             default: '',
-            placeholder: 'z. B. img, .className, #ItemId',
-            description: 'Kommagetrennte Selektoren, die beim Text ausgelassen werden',
+            placeholder: 'e.g. img, .className, #ItemId',
+            description: 'Comma-separated list of selectors to skip in the text extraction',
             show: { returnValue: ['text'], '@version': [{ _cnd: { gt: 1.1 } }] },
           },
           {
             name: 'returnArray',
-            label: 'Als Array zurückgeben',
+            label: 'Return Array',
             type: 'boolean',
             default: false,
-            description: 'Ob mehrere Treffer einzeln als Array statt als ein Text zurückkommen',
+            description: 'Whether to return the values as an array so if multiple ones get found they also get returned separately',
           },
         ],
       },
@@ -165,7 +165,7 @@ function extractionValues(def: unknown, show: ParamSchema['show']): ParamSchema 
 }
 
 function tableAttribute(name: string, label: string, description: string): ParamSchema {
-  return { name, label, type: 'string', default: '', description, placeholder: 'z. B. style="padding:10px"' };
+  return { name, label, type: 'string', default: '', description, placeholder: 'e.g. style="padding:10px"' };
 }
 
 const parameters: ParamSchema[] = [
@@ -176,56 +176,56 @@ const parameters: ParamSchema[] = [
     default: 'generateHtmlTemplate',
     noExpression: true,
     options: [
-      { value: 'generateHtmlTemplate', label: 'HTML-Vorlage erzeugen' },
-      { value: 'extractHtmlContent', label: 'HTML-Inhalt extrahieren' },
-      { value: 'convertToHtmlTable', label: 'In HTML-Tabelle umwandeln' },
+      { value: 'generateHtmlTemplate', label: 'Generate HTML Template' },
+      { value: 'extractHtmlContent', label: 'Extract HTML Content' },
+      { value: 'convertToHtmlTable', label: 'Convert to HTML Table' },
     ],
   },
   {
     name: 'html',
-    label: 'HTML-Vorlage',
+    label: 'HTML Template',
     type: 'code',
     language: 'html',
     default: PLACEHOLDER,
     noExpression: true,
-    description: 'Zu erzeugende HTML-Vorlage',
+    description: 'HTML template to render',
     show: { operation: ['generateHtmlTemplate'] },
   },
   {
     name: 'notice',
-    label: 'Tipp: {{ }} für Expressions und <style>-Tags für CSS verwenden. JS in <script>-Tags wird übernommen, aber nicht ausgeführt.',
+    label: 'Tip: Type ctrl+space for completions. Use {{ }} for expressions and <style> tags for CSS. JS in <script> tags is included but not executed.',
     type: 'notice',
     default: '',
     show: { operation: ['generateHtmlTemplate'] },
   },
   {
     name: 'sourceData',
-    label: 'Quelldaten',
+    label: 'Source Data',
     type: 'options',
     default: 'json',
-    description: 'Ob das HTML aus Binär- oder JSON-Daten gelesen wird',
+    description: 'If HTML should be read from binary or JSON data',
     show: { operation: ['extractHtmlContent'] },
     options: [
-      { value: 'binary', label: 'Binär' },
+      { value: 'binary', label: 'Binary' },
       { value: 'json', label: 'JSON' },
     ],
   },
   {
     name: 'dataPropertyName',
-    label: 'Binärfeld der Eingabe',
+    label: 'Input Binary Field',
     type: 'string',
     default: 'data',
     required: true,
-    description: 'Binärfeld mit der Datei, aus der extrahiert wird',
+    description: 'The name of the input binary field containing the file to be extracted',
     show: { operation: ['extractHtmlContent'], sourceData: ['binary'] },
   },
   {
     name: 'dataPropertyName',
-    label: 'JSON-Eigenschaft',
+    label: 'JSON Property',
     type: 'string',
     default: 'data',
     required: true,
-    description: 'JSON-Eigenschaft mit dem HTML als Text oder Array von Texten',
+    description: 'Name of the JSON property in which the HTML to extract the data from can be found. The property can either contain a string or an array of strings.',
     show: { operation: ['extractHtmlContent'], sourceData: ['json'] },
   },
   extractionValues({}, { operation: ['extractHtmlContent'], '@version': [1] }),
@@ -235,43 +235,43 @@ const parameters: ParamSchema[] = [
   ),
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     show: { operation: ['extractHtmlContent'] },
     children: [
       {
         name: 'trimValues',
-        label: 'Werte trimmen',
+        label: 'Trim Values',
         type: 'boolean',
         default: true,
-        description: 'Ob Leerzeichen und Zeilenumbrüche am Anfang und Ende entfernt werden',
+        description: 'Whether to remove automatically all spaces and newlines from the beginning and end of the values',
       },
       {
         name: 'cleanUpText',
-        label: 'Text bereinigen',
+        label: 'Clean Up Text',
         type: 'boolean',
         default: true,
-        description: 'Ob Ränder getrimmt, Zeilenumbrüche entfernt und Leerraum zusammengefasst wird',
+        description: 'Whether to remove leading and trailing whitespaces, line breaks (newlines) and condense multiple consecutive whitespaces into a single space',
       },
     ],
   },
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     show: { operation: ['convertToHtmlTable'] },
     children: [
-      { name: 'capitalize', label: 'Überschriften großschreiben', type: 'boolean', default: false, description: 'Ob die Spaltenköpfe großgeschrieben werden' },
-      { name: 'customStyling', label: 'Eigenes Styling', type: 'boolean', default: false, description: 'Ob das Standard-Styling entfällt' },
-      { name: 'caption', label: 'Beschriftung', type: 'string', default: '', description: 'Beschriftung der Tabelle' },
-      tableAttribute('tableAttributes', 'Tabellenattribute', 'Attribute für das table-Element'),
-      tableAttribute('headerAttributes', 'Kopfattribute', 'Attribute für den Tabellenkopf'),
-      tableAttribute('rowAttributes', 'Zeilenattribute', 'Attribute für jede Tabellenzeile'),
-      tableAttribute('cellAttributes', 'Zellattribute', 'Attribute für jede Tabellenzelle'),
+      { name: 'capitalize', label: 'Capitalize Headers', type: 'boolean', default: false, description: 'Whether to capitalize the headers' },
+      { name: 'customStyling', label: 'Custom Styling', type: 'boolean', default: false, description: 'Whether to use custom styling' },
+      { name: 'caption', label: 'Caption', type: 'string', default: '', description: 'Caption to add to the table' },
+      tableAttribute('tableAttributes', 'Table Attributes', 'Attributes to attach to the table'),
+      tableAttribute('headerAttributes', 'Header Attributes', 'Attributes to attach to the table header'),
+      tableAttribute('rowAttributes', 'Row Attributes', 'Attributes to attach to the table row'),
+      tableAttribute('cellAttributes', 'Cell Attributes', 'Attributes to attach to the table cell'),
     ],
   },
 ];

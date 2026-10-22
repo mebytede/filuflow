@@ -1,6 +1,6 @@
 // Recursive Character Text Splitter, @n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter (typeVersion 1)
-// Nachgebaut nach n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/text_splitters/TextSplitterRecursiveCharacterTextSplitter:
-// Trenner \n\n, \n, Leerzeichen, nichts; keepSeparator aus; mit "Split Code" die Trenner der Sprache.
+// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/text_splitters/TextSplitterRecursiveCharacterTextSplitter:
+// Separators \n\n, \n, space, empty string; keepSeparator off; with "Split Code" the separators of that language.
 import type { NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
 import { LANGUAGE_SEPARATORS, RecursiveCharacterTextSplitter } from '../ai/documents.js';
@@ -9,16 +9,16 @@ import { loggedSplitter } from './textSplitterCharacterTextSplitter.js';
 const LANGUAGES = ['cpp', 'go', 'java', 'js', 'php', 'proto', 'python', 'rst', 'ruby', 'rust', 'scala', 'swift', 'markdown', 'latex', 'html'];
 
 const parameters: ParamSchema[] = [
-  { name: 'notice', label: 'Dieser Node muss mit einem Document Loader verbunden werden.', type: 'notice', default: '' },
-  { name: 'chunkSize', label: 'Stückgröße', type: 'number', default: 1000 },
-  { name: 'chunkOverlap', label: 'Überlappung', type: 'number', default: 0 },
+  { name: 'notice', label: 'This node must be connected to a document loader.', type: 'notice', default: '' },
+  { name: 'chunkSize', label: 'Chunk Size', type: 'number', default: 1000 },
+  { name: 'chunkOverlap', label: 'Chunk Overlap', type: 'number', default: 0 },
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
-    children: [{ name: 'splitCode', label: 'Code aufteilen', type: 'options', default: 'markdown', options: LANGUAGES.map((l) => ({ value: l, label: l })) }],
+    addLabel: 'Add Option',
+    children: [{ name: 'splitCode', label: 'Split Code', type: 'options', default: 'markdown', options: LANGUAGES.map((l) => ({ value: l, label: l })) }],
   },
 ];
 

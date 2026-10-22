@@ -1,11 +1,11 @@
-// HTTP Digest Auth (Credential-Typ httpDigestAuth: user, password) für den HTTP-Request-Node.
-// n8n 1.123.0 HttpRequestV3.node.ts setzt `auth: { user, pass, sendImmediately: false }` und überlässt den Ablauf der
-// Bibliothek "request": erst ohne Anmeldung senden, bei 401 mit "WWW-Authenticate: Digest" die Antwort berechnen und
-// erneut senden (qop "auth", nc 00000001, zufällige cnonce). Eigene Umsetzung nach RFC 7616 (MD5, MD5-sess,
-// zusätzlich SHA-256 und SHA-256-sess).
+// HTTP Digest Auth (credential type httpDigestAuth: user, password) for the HTTP Request node.
+// n8n 1.123.0 HttpRequestV3.node.ts sets `auth: { user, pass, sendImmediately: false }` and leaves the flow to the
+// "request" library: first send without authentication, on 401 with "WWW-Authenticate: Digest" compute the response and
+// send again (qop "auth", nc 00000001, random cnonce). Own implementation per RFC 7616 (MD5, MD5-sess,
+// additionally SHA-256 and SHA-256-sess).
 import { createHash, randomBytes } from 'node:crypto';
 
-/** Parameter aus "WWW-Authenticate: Digest realm="…", nonce="…", …" */
+/** Parameters from "WWW-Authenticate: Digest realm="...", nonce="...", ..." */
 export function parseDigestChallenge(header: string | string[] | undefined): Record<string, string> | undefined {
   const value = (Array.isArray(header) ? header : [header ?? '']).find((h) => /^\s*digest\s/i.test(h));
   if (!value) return undefined;
@@ -15,7 +15,7 @@ export function parseDigestChallenge(header: string | string[] | undefined): Rec
   return params.nonce ? params : undefined;
 }
 
-/** Authorization-Header für die Antwort auf eine Digest-Challenge */
+/** Authorization header for the response to a digest challenge */
 export function digestAuthorization(o: { user: string; password: string; method: string; url: string; challenge: Record<string, string>; cnonce?: string }): string {
   const { challenge } = o;
   const algorithm = challenge.algorithm ?? 'MD5';

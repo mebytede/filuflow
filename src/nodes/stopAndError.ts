@@ -1,5 +1,5 @@
 // Stop and Error, n8n-nodes-base.stopAndError (typeVersion 1)
-// Nachgebaut nach n8n 1.123.0 packages/nodes-base/nodes/StopAndError (StopAndError.node.ts, utils.ts)
+// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/StopAndError (StopAndError.node.ts, utils.ts)
 import type { NodeType } from './types.js';
 import { StopAndErrorError } from '../errors.js';
 import { jsonParse } from './shared/utils.js';
@@ -7,35 +7,35 @@ import type { ParamSchema } from './params.js';
 
 const isString = (v: unknown): v is string => typeof v === 'string' && v.length > 0;
 
-// Parameter wie packages/nodes-base/nodes/StopAndError/StopAndError.node.ts
+// Parameters as in packages/nodes-base/nodes/StopAndError/StopAndError.node.ts
 const parameters: ParamSchema[] = [
   {
     name: 'errorType',
-    label: 'Art des Fehlers',
+    label: 'Error Type',
     type: 'options',
     default: 'errorMessage',
     options: [
-      { value: 'errorMessage', label: 'Fehlermeldung' },
-      { value: 'errorObject', label: 'Fehlerobjekt' },
+      { value: 'errorMessage', label: 'Error Message' },
+      { value: 'errorObject', label: 'Error Object' },
     ],
-    description: 'Welche Art Fehler ausgelöst wird',
+    description: 'Type of error to throw',
   },
   {
     name: 'errorMessage',
-    label: 'Fehlermeldung',
+    label: 'Error Message',
     type: 'string',
     default: '',
-    placeholder: 'Ein Fehler ist aufgetreten!',
+    placeholder: 'An error occurred!',
     required: true,
     show: { errorType: ['errorMessage'] },
   },
   {
     name: 'errorObject',
-    label: 'Fehlerobjekt',
+    label: 'Error Object',
     type: 'json',
     default: '',
     placeholder: '{\n\t"code": "404",\n\t"description": "The resource could not be fetched"\n}',
-    description: 'Objekt mit den Eigenschaften des Fehlers',
+    description: 'Object containing error properties',
     required: true,
     show: { errorType: ['errorObject'] },
   },

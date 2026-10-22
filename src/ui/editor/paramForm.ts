@@ -1,7 +1,8 @@
-// Formular für Node-Parameter. n8n beschreibt Parameter im eigenen Code (INodeProperties); filuflow kennt diese
-// Beschreibungen nicht, daher bearbeitet das Formular den Parameterbaum direkt: Texte, Zahlen, Ja/Nein, Objekte
-// und Listen. Texte mit führendem "=" sind Expressions (wie in n8n).
+// Form for node parameters. n8n describes parameters in its own code (INodeProperties); filuflow does not know these
+// descriptions, so the form edits the parameter tree directly: texts, numbers, yes/no, objects
+// and lists. Texts with a leading "=" are expressions (as in n8n).
 import { h } from '../dom.js';
+import { t } from '../i18n.js';
 import { icon } from '../icons.js';
 import { newId } from './model.js';
 import type { ParamSchema } from '../types.js';
@@ -26,13 +27,13 @@ function emptyOf(kind: Kind): unknown {
   return { string: '', number: 0, boolean: false, object: {}, array: [], null: null }[kind];
 }
 
-const KIND_LABELS: Record<Kind, string> = { string: 'Text', number: 'Zahl', boolean: 'Ja/Nein', object: 'Objekt', array: 'Liste', null: 'leer' };
+const KIND_LABELS: Record<Kind, string> = { string: 'Text', number: 'Number', boolean: 'Yes/No', object: 'Object', array: 'List', null: 'empty' };
 
 function kindSelect(value: Kind, onChange: (k: Kind) => void): HTMLSelectElement {
   const sel = h(
     'select',
-    { class: 'kind-select', title: 'Typ', onchange: () => onChange(sel.value as Kind) },
-    (['string', 'number', 'boolean', 'object', 'array'] as Kind[]).map((k) => h('option', { value: k, selected: k === value }, KIND_LABELS[k])),
+    { class: 'kind-select', title: t('Type'), onchange: () => onChange(sel.value as Kind) },
+    (['string', 'number', 'boolean', 'object', 'array'] as Kind[]).map((k) => h('option', { value: k, selected: k === value }, t(KIND_LABELS[k]))),
   );
   return sel;
 }
@@ -47,7 +48,7 @@ interface Ctx {
   onChange: ParamChange;
 }
 
-/** Editor für einen Wert; set schreibt den neuen Wert in den Elternknoten */
+/** Editor for one value; set writes the new value into the parent */
 function valueEditor(value: unknown, path: string, key: string, set: (v: unknown) => void, ctx: Ctx): HTMLElement {
   const kind = kindOf(value);
   if (kind === 'boolean') {
@@ -81,8 +82,8 @@ function valueEditor(value: unknown, path: string, key: string, set: (v: unknown
     });
   }
   if (kind === 'object' || kind === 'array') return tree(value as Record<string, unknown> | unknown[], path, ctx);
-  if (kind === 'null') return h('span', { class: 'param-null' }, 'leer');
-  // Text bzw. Expression
+  if (kind === 'null') return h('span', { class: 'param-null' }, t('empty'));
+  // Text or expression
   const text = String(value);
   const isExpression = text.startsWith('=');
   const multiline = text.includes('\n') || text.length > 60 || MULTILINE_KEYS.test(key);
@@ -95,7 +96,7 @@ function valueEditor(value: unknown, path: string, key: string, set: (v: unknown
     {
       type: 'button',
       class: `fx${isExpression ? ' on' : ''}`,
-      title: isExpression ? 'Expression (Klick: fester Wert)' : 'Fester Wert (Klick: Expression)',
+      title: isExpression ? t('Expression (click: fixed value)') : t('Fixed value (click: expression)'),
       disabled: ctx.readonly,
       onclick: () => {
         const v = field.value;
@@ -152,8 +153,8 @@ function tree(container: Record<string, unknown> | unknown[], path: string, ctx:
               {
                 type: 'button',
                 class: 'icon-btn',
-                title: 'Entfernen',
-                'aria-label': `${label} entfernen`,
+                title: t('Remove'),
+                'aria-label': t('Remove {name}', { name: label }),
                 onclick: () => {
                   if (Array.isArray(container)) container.splice(Number(key), 1);
                   else delete (container as Record<string, unknown>)[key as string];
@@ -184,19 +185,19 @@ function tree(container: Record<string, unknown> | unknown[], path: string, ctx:
               class: 'btn btn-small',
               onclick: () => {
                 const k = kindSel.value as Kind;
-                // Neuer Eintrag mit der Struktur des letzten (häufig bei Regeln, Feldern, Bedingungen)
+                // New entry with the structure of the last one (common for rules, fields, conditions)
                 const last = container[container.length - 1];
                 container.push(k === kindOf(last) && (k === 'object' || k === 'array') ? structuredBlank(last) : emptyOf(k));
                 ctx.onChange(`${path}#add`);
                 rerender();
               },
             },
-            'Eintrag hinzufügen',
+            t('Add entry'),
           ),
         ),
       );
     } else {
-      const nameInput = h('input', { type: 'text', class: 'param-input param-new-key', placeholder: 'Neuer Parameter', 'aria-label': 'Name des neuen Parameters' });
+      const nameInput = h('input', { type: 'text', class: 'param-input param-new-key', placeholder: t('New parameter'), 'aria-label': t('Name of the new parameter') });
       const kindSel = kindSelect('string', () => undefined);
       const add = () => {
         const name = nameInput.value.trim();
@@ -211,13 +212,13 @@ function tree(container: Record<string, unknown> | unknown[], path: string, ctx:
       nameInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') add();
       });
-      box.append(h('div', { class: 'param-add' }, nameInput, kindSel, h('button', { type: 'button', class: 'icon-btn', title: 'Parameter hinzufügen', 'aria-label': 'Parameter hinzufügen', onclick: add }, icon('plus', 16))));
+      box.append(h('div', { class: 'param-add' }, nameInput, kindSel, h('button', { type: 'button', class: 'icon-btn', title: t('Add parameter'), 'aria-label': t('Add parameter'), onclick: add }, icon('plus', 16))));
     }
   }
   return box;
 }
 
-/** Leere Kopie mit gleicher Struktur (Texte leer, Zahlen 0, IDs neu) */
+/** Empty copy with the same structure (texts empty, numbers 0, new IDs) */
 function structuredBlank(value: unknown): unknown {
   if (Array.isArray(value)) return value.length ? [structuredBlank(value[0])] : [];
   if (value && typeof value === 'object') {
@@ -228,10 +229,10 @@ function structuredBlank(value: unknown): unknown {
   return emptyOf(kindOf(value));
 }
 
-/** Zuletzt gewählte Ansicht (gilt für alle Knoten) */
+/** Last chosen view (applies to all nodes) */
 let preferredMode: 'schema' | 'form' | 'json' = 'schema';
 
-/** Parameterformular: Formular aus der Beschreibung des Knotentyps (falls vorhanden), Baum oder JSON */
+/** Parameter form: form from the node type description (if available), tree or JSON */
 export function paramEditor(
   params: Record<string, unknown>,
   opts: { readonly: boolean; onChange: ParamChange; onReplace: (p: Record<string, unknown>) => void; schema?: ParamSchema[]; nodeType?: string; version?: number },
@@ -245,7 +246,7 @@ export function paramEditor(
     h('button', { type: 'button', role: 'tab', class: mode === m ? 'on' : '', 'aria-selected': String(mode === m), onclick: () => ((mode = m), (preferredMode = m), renderBody()) }, label);
   const renderBody = () => {
     body.replaceChildren();
-    tabs.replaceChildren(...(hasSchema ? [tab('schema', 'Formular'), tab('form', 'Baum')] : [tab('form', 'Formular')]), tab('json', 'JSON'));
+    tabs.replaceChildren(...(hasSchema ? [tab('schema', t('Form')), tab('form', t('Tree'))] : [tab('form', t('Form'))]), tab('json', 'JSON'));
     if (mode === 'schema' && opts.schema) {
       const sync = () => syncFilterOptions(params, opts.schema!, opts.nodeType ?? '', opts.version ?? 1);
       body.append(
@@ -264,16 +265,16 @@ export function paramEditor(
       return;
     }
     if (mode === 'form') {
-      body.append(Object.keys(params).length || !opts.readonly ? tree(params, 'parameters', ctx) : h('p', { class: 'muted' }, 'Keine Parameter'));
+      body.append(Object.keys(params).length || !opts.readonly ? tree(params, 'parameters', ctx) : h('p', { class: 'muted' }, t('No parameters')));
       return;
     }
-    const ta = h('textarea', { class: 'param-input json-editor', spellcheck: false, disabled: opts.readonly, 'aria-label': 'Parameter als JSON' });
+    const ta = h('textarea', { class: 'param-input json-editor', spellcheck: false, disabled: opts.readonly, 'aria-label': t('Parameters as JSON') });
     ta.value = JSON.stringify(params, null, 2);
     const status = h('div', { class: 'json-status' });
     ta.addEventListener('input', () => {
       try {
         const parsed = JSON.parse(ta.value) as unknown;
-        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Parameter müssen ein Objekt sein');
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error(t('Parameters must be an object'));
         status.textContent = '';
         ta.classList.remove('invalid');
         opts.onReplace(parsed as Record<string, unknown>);

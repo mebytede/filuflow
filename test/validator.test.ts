@@ -17,29 +17,29 @@ const codes = (wf: unknown, creds?: StaticCredentialProvider) =>
   validateWorkflow(wf, { registry: fakeRegistry(), credentials: creds }).issues.map((i) => i.code);
 
 describe('validateWorkflow', () => {
-  it('akzeptiert einen gültigen Workflow', () => {
+  it('accepts a valid workflow', () => {
     const r = validateWorkflow(base(), { registry: fakeRegistry() });
     expect(r.issues).toEqual([]);
     expect(r.valid).toBe(true);
   });
 
-  it('meldet Strukturfehler', () => {
+  it('reports structure errors', () => {
     expect(codes(null)).toEqual(['json.structure']);
     expect(codes({ name: 'x', settings: { executionOrder: 'v1' } })).toContain('json.structure');
   });
 
-  it('meldet doppelte Namen und kaputte Verbindungen gesammelt', () => {
+  it('reports duplicate names and broken connections together', () => {
     const wf = base();
     wf.nodes.push({ ...wf.nodes[1], id: '3' });
     (wf.connections as Record<string, unknown>).Ghost = { main: [[{ node: 'A', type: 'main', index: 0 }]] };
-    (wf.connections.Start.main[0] as unknown[]).push({ node: 'Nirgendwo', type: 'main', index: 0 });
+    (wf.connections.Start.main[0] as unknown[]).push({ node: 'Nowhere', type: 'main', index: 0 });
     const c = codes(wf);
     expect(c).toContain('node.duplicateName');
     expect(c).toContain('connection.unknownSource');
     expect(c).toContain('connection.unknownTarget');
   });
 
-  it('meldet unbekannte Typen, Versionen und Parameterwerte', () => {
+  it('reports unknown types, versions and parameter values', () => {
     const wf = base();
     wf.nodes.push({ id: '4', name: 'U', type: 'n8n-nodes-base.gmail', typeVersion: 2, position: [0, 0], parameters: {} });
     wf.nodes.push({ id: '5', name: 'V', type: 'test.pass', typeVersion: 9, position: [0, 0], parameters: {} });
@@ -48,7 +48,7 @@ describe('validateWorkflow', () => {
     expect(c).toEqual(expect.arrayContaining(['node.unknownType', 'node.unsupportedVersion', 'node.unsupportedParameter']));
   });
 
-  it('meldet unbekannte Typen an deaktivierten Nodes nur als Warnung', () => {
+  it('reports unknown types on disabled nodes only as a warning', () => {
     const wf = base();
     wf.nodes.push({ id: '4', name: 'U', type: 'x.y', typeVersion: 1, position: [0, 0], parameters: {}, disabled: true } as never);
     const r = validateWorkflow(wf, { registry: fakeRegistry() });
@@ -56,7 +56,7 @@ describe('validateWorkflow', () => {
     expect(r.issues[0]).toMatchObject({ severity: 'warning', code: 'node.unknownType' });
   });
 
-  it('meldet fehlende oder v0-Ausführungsreihenfolge', () => {
+  it('reports missing or v0 execution order', () => {
     const wf = base() as Record<string, unknown>;
     delete wf.settings;
     expect(codes(wf)).toContain('settings.executionOrder.missing');
@@ -67,34 +67,34 @@ describe('validateWorkflow', () => {
     expect(codes(wf)).toContain('settings.executionOrder.unsupported');
   });
 
-  it('prüft Expressions syntaktisch und Node-Referenzen', () => {
+  it('checks expression syntax and node references', () => {
     const wf = base();
     wf.nodes[1].parameters = {
       a: '={{ $json.x + }}',
-      b: { nested: ["={{ $('Start').item.json.x }} und {{ $node[\"Fehlt\"].json.y }}"] },
+      b: { nested: ["={{ $('Start').item.json.x }} and {{ $node[\"Missing\"].json.y }}"] },
       c: '={{ { a: 1 } }}',
     };
     const r = validateWorkflow(wf, { registry: fakeRegistry() });
     expect(r.issues.map((i) => i.code)).toEqual(['expression.syntax', 'expression.unknownNode']);
-    expect(r.issues[1].message).toContain('Fehlt');
+    expect(r.issues[1].message).toContain('Missing');
     expect(r.issues[1].path).toBe('parameters.b.nested[0]');
   });
 
-  it('meldet fehlende Credentials', () => {
+  it('reports missing credentials', () => {
     const wf = base();
     wf.nodes[1].parameters = { auth: true };
     expect(codes(wf, new StaticCredentialProvider())).toContain('credentials.notAssigned');
-    (wf.nodes[1] as Record<string, unknown>).credentials = { httpHeaderAuth: { id: 'x1', name: 'Mein Key' } };
+    (wf.nodes[1] as Record<string, unknown>).credentials = { httpHeaderAuth: { id: 'x1', name: 'My Key' } };
     expect(codes(wf, new StaticCredentialProvider())).toContain('credentials.missing');
-    const ok = new StaticCredentialProvider([{ name: 'Mein Key', data: { name: 'a', value: 'b' } }]);
+    const ok = new StaticCredentialProvider([{ name: 'My Key', data: { name: 'a', value: 'b' } }]);
     expect(codes(wf, ok)).toEqual([]);
-    const byId = new StaticCredentialProvider([{ name: 'anders', id: 'x1', data: {} }]);
+    const byId = new StaticCredentialProvider([{ name: 'other', id: 'x1', data: {} }]);
     expect(codes(wf, byId)).toEqual([]);
   });
 });
 
 describe('findNodeReferences', () => {
-  it('findet alle Referenzformen', () => {
+  it('finds all reference forms', () => {
     expect(findNodeReferences(`$('A').item; $("B c").all(); $node["D"].json; $node.E.json; $items('F')`).sort()).toEqual(
       ['A', 'B c', 'D', 'E', 'F'],
     );

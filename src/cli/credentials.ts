@@ -1,24 +1,24 @@
-// filuflow credentials encrypt <credentials.json> [--out <datei>]
-// filuflow credentials decrypt <credentials.json> [--out <datei>]
+// filuflow credentials encrypt <credentials.json> [--out <file>]
+// filuflow credentials decrypt <credentials.json> [--out <file>]
 // filuflow credentials check [<credentials.json>]
-// filuflow credentials import <n8n-export.json> [--n8n-key <schlüssel>] [--out <datei> | --managed <datei>]
-// Schlüssel aus FILUFLOW_ENCRYPTION_KEY (AES-256-GCM, Schlüssel = SHA-256 des Werts).
+// filuflow credentials import <n8n-export.json> [--n8n-key <key>] [--out <file> | --managed <file>]
+// Key from FILUFLOW_ENCRYPTION_KEY (AES-256-GCM, key = SHA-256 of the value).
 import { parseArgs } from 'node:util';
 import { readFile, writeFile } from 'node:fs/promises';
 import { StaticCredentialProvider, decryptCredentialsFile, encryptCredentialsFile, loadDefaultCredentials } from '../credentials/store.js';
 import { LayeredCredentialProvider } from '../credentials/managed.js';
 import { n8nKeyFromEnv, readN8nExport } from '../credentials/n8nCipher.js';
 
-const USAGE = `Aufruf:
-  filuflow credentials encrypt <credentials.json> [--out <datei>]   Werte je Eintrag verschlüsseln
-  filuflow credentials decrypt <credentials.json> [--out <datei>]   zum Bearbeiten entschlüsseln
-  filuflow credentials check [<credentials.json>]                    laden, Env-Referenzen prüfen, Namen auflisten
-  filuflow credentials import <n8n-export.json> [--n8n-key <k>] [--out <datei> | --managed <datei>]
-                                         Export von "n8n export:credentials" (auch verschlüsselt) übernehmen
+const USAGE = `Usage:
+  filuflow credentials encrypt <credentials.json> [--out <file>]     encrypt the values of each entry
+  filuflow credentials decrypt <credentials.json> [--out <file>]     decrypt for editing
+  filuflow credentials check [<credentials.json>]                    load, check env references, list names
+  filuflow credentials import <n8n-export.json> [--n8n-key <k>] [--out <file> | --managed <file>]
+                                         import an export from "n8n export:credentials" (also encrypted)
 
-Ohne --out wird nach stdout geschrieben. Schlüssel: FILUFLOW_ENCRYPTION_KEY.
-import: n8n-Schlüssel aus --n8n-key oder N8N_ENCRYPTION_KEY; Ausgabe im filuflow-Format (mit FILUFLOW_ENCRYPTION_KEY
-verschlüsselt) oder mit --managed in die Datei der Oberfläche (credentials.managed.json), IDs bleiben erhalten.
+Without --out, output goes to stdout. Key: FILUFLOW_ENCRYPTION_KEY.
+import: n8n key from --n8n-key or N8N_ENCRYPTION_KEY; output in filuflow format (encrypted with FILUFLOW_ENCRYPTION_KEY)
+or with --managed into the interface's file (credentials.managed.json), IDs are preserved.
 `;
 
 export async function cmdCredentials(args: string[]): Promise<number> {
@@ -41,10 +41,10 @@ export async function cmdCredentials(args: string[]): Promise<number> {
           process.stdout.write(`OK      ${entry.name}${entry.type ? ` (${entry.type})` : ''}\n`);
         } catch (error) {
           ok = false;
-          process.stdout.write(`FEHLER  ${entry.name}: ${(error as Error).message}\n`);
+          process.stdout.write(`ERROR   ${entry.name}: ${(error as Error).message}\n`);
         }
       }
-      if (provider.size === 0) process.stdout.write('Keine Credentials gefunden.\n');
+      if (provider.size === 0) process.stdout.write('No credentials found.\n');
       return ok ? 0 : 1;
     } catch (error) {
       process.stderr.write(`${(error as Error).message}\n`);
@@ -58,7 +58,7 @@ export async function cmdCredentials(args: string[]): Promise<number> {
         const layered = await new LayeredCredentialProvider(new StaticCredentialProvider(), values.managed).load();
         for (const e of entries) {
           await layered.set(e.name, { type: e.type, data: e.data, ...(e.id ? { id: e.id } : {}) });
-          process.stderr.write(`übernommen: ${e.name} (${e.type})\n`);
+          process.stderr.write(`imported: ${e.name} (${e.type})\n`);
         }
         return 0;
       }
@@ -67,7 +67,7 @@ export async function cmdCredentials(args: string[]): Promise<number> {
       const text = `${JSON.stringify(key ? encryptCredentialsFile(out, key) : out, null, 2)}\n`;
       if (values.out) {
         await writeFile(values.out, text, { mode: 0o600 });
-        process.stderr.write(`${entries.length} Credentials geschrieben: ${values.out}${key ? '' : ' (unverschlüsselt, FILUFLOW_ENCRYPTION_KEY fehlt)'}\n`);
+        process.stderr.write(`${entries.length} credentials written: ${values.out}${key ? '' : ' (unencrypted, FILUFLOW_ENCRYPTION_KEY is missing)'}\n`);
       } else process.stdout.write(text);
       return 0;
     } catch (error) {
@@ -81,7 +81,7 @@ export async function cmdCredentials(args: string[]): Promise<number> {
   }
   const key = process.env.FILUFLOW_ENCRYPTION_KEY;
   if (!key) {
-    process.stderr.write('FILUFLOW_ENCRYPTION_KEY ist nicht gesetzt\n');
+    process.stderr.write('FILUFLOW_ENCRYPTION_KEY is not set\n');
     return 1;
   }
   try {
@@ -90,7 +90,7 @@ export async function cmdCredentials(args: string[]): Promise<number> {
     const text = `${JSON.stringify(result, null, 2)}\n`;
     if (values.out) {
       await writeFile(values.out, text, { mode: 0o600 });
-      process.stderr.write(`geschrieben: ${values.out}\n`);
+      process.stderr.write(`written: ${values.out}\n`);
     } else {
       process.stdout.write(text);
     }

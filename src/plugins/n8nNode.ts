@@ -1,11 +1,11 @@
-// Knoten aus n8n-Paketen (Community-Nodes, eigene Knoten im n8n-Format) als filuflow-Knotentyp (M24).
-// Unterstützt programmatische Knoten mit execute(this: IExecuteFunctions) und versionierte Knoten (nodeVersions).
-// Der Kontext bildet die gängigen Funktionen von IExecuteFunctions nach (n8n 1.123.0
-// packages/core/src/execution-engine/node-execution-context/execute-context.ts, node-execution-context.ts und
-// utils/*): getInputData, getNodeParameter (mit Defaults wie getNodeParameters), getCredentials, continueOnFail,
-// helpers.httpRequest/request (mit und ohne Authentifizierung), returnJsonArray, constructExecutionMetaData und
-// Binärdaten. Deklarative Knoten (routing, ohne execute) führt src/plugins/routingNode.ts aus (M29), Poll- und
-// Trigger-Knoten src/plugins/triggerNode.ts (M31), Webhook-Knoten src/plugins/webhookNode.ts (M32).
+// Nodes from n8n packages (community nodes, custom nodes in n8n format) as a filuflow node type (M24).
+// Supports programmatic nodes with execute(this: IExecuteFunctions) and versioned nodes (nodeVersions).
+// The context rebuilds the common functions of IExecuteFunctions (n8n 1.123.0
+// packages/core/src/execution-engine/node-execution-context/execute-context.ts, node-execution-context.ts and
+// utils/*): getInputData, getNodeParameter (with defaults like getNodeParameters), getCredentials, continueOnFail,
+// helpers.httpRequest/request (with and without authentication), returnJsonArray, constructExecutionMetaData and
+// binary data. Declarative nodes (routing, without execute) are run by src/plugins/routingNode.ts (M29), poll and
+// trigger nodes by src/plugins/triggerNode.ts (M31), webhook nodes by src/plugins/webhookNode.ts (M32).
 import type { ExecContext, NodeIssue, NodeType } from '../nodes/types.js';
 import type { NodeOutput, WorkflowNode } from '../types.js';
 import { NodeOperationError, ApplicationError } from './n8nWorkflowShim.js';
@@ -17,7 +17,7 @@ import { isDeclarative, runRoutingNode, withRequestOptions } from './routingNode
 import { activateTrigger, executeTrigger, withPollTimes, type N8nTriggerImpl } from './triggerNode.js';
 import { hasPackageWebhooks, packageWebhooks, type N8nWebhookImpl } from './webhookNode.js';
 
-/** Ausschnitt aus INodeType */
+/** Excerpt of INodeType */
 export interface N8nNodeInstance {
   description: N8nNodeDescription;
   execute?: (this: unknown) => Promise<unknown>;
@@ -31,22 +31,22 @@ export interface N8nNodeInstance {
   currentVersion?: number;
 }
 
-/** Grund, warum ein Knoten nicht geladen werden kann (undefined: unterstützt) */
+/** Reason why a node cannot be loaded (undefined: supported) */
 export function unsupportedReason(node: N8nNodeInstance): string | undefined {
   const versions = node.nodeVersions ? Object.values(node.nodeVersions) : [node];
   for (const v of versions) {
     if (typeof v.execute === 'function' || isDeclarative(v)) continue;
     if (hasPackageWebhooks(v as N8nWebhookImpl)) continue;
-    if (v.webhook || v.description.webhooks?.length) return 'Webhook-Knoten ohne webhook-Methode oder ohne Beschreibung der Webhooks';
+    if (v.webhook || v.description.webhooks?.length) return 'Webhook node without a webhook method or without a description of the webhooks';
     if (typeof v.poll === 'function' || typeof v.trigger === 'function') continue;
-    if (v.description.polling) return 'Poll-Knoten ohne poll-Methode';
-    if (v.supplyData) return 'KI-Sub-Nodes aus n8n-Paketen werden noch nicht unterstützt';
-    return 'der Knoten hat keine execute-Methode';
+    if (v.description.polling) return 'Poll node without a poll method';
+    if (v.supplyData) return 'AI sub-nodes from n8n packages are not supported yet';
+    return 'the node has no execute method';
   }
   return undefined;
 }
 
-/** Anzahl Main-Verbindungen aus inputs/outputs ('main', { type: 'main' } oder Expression) */
+/** Number of main connections from inputs/outputs ('main', { type: 'main' } or expression) */
 function mainCount(value: unknown, fallback: number): number {
   if (!Array.isArray(value)) return fallback;
   return value.filter((v) => v === 'main' || (v && typeof v === 'object' && (v as { type?: string }).type === 'main')).length;
@@ -59,7 +59,7 @@ function mainNames(value: unknown, description: N8nNodeDescription): string[] | 
   return names.length && names.some(Boolean) ? names : undefined;
 }
 
-/** this-Kontext für execute (IExecuteFunctions, Ausschnitt) */
+/** this context for execute (IExecuteFunctions, excerpt) */
 export function executeFunctions(ctx: ExecContext, description: N8nNodeDescription): Record<string, unknown> {
   const node = ctx.node;
   const defaults = withDefaults(description.properties, node.parameters ?? {}, node.typeVersion);
@@ -104,7 +104,7 @@ export function executeFunctions(ctx: ExecContext, description: N8nNodeDescripti
   };
 }
 
-/** this-Kontext je Item für deklarative Knoten (IExecuteSingleFunctions, Ausschnitt; execute-single-context.ts) */
+/** this context per item for declarative nodes (IExecuteSingleFunctions, excerpt; execute-single-context.ts) */
 export function executeSingleFunctions(ctx: ExecContext, description: N8nNodeDescription, itemIndex: number): Record<string, unknown> {
   const base = executeFunctions(ctx, description);
   const getNodeParameter = base.getNodeParameter as (name: string, itemIndex: number, fallbackValue?: unknown, options?: Record<string, unknown>) => unknown;
@@ -121,14 +121,14 @@ export function executeSingleFunctions(ctx: ExecContext, description: N8nNodeDes
   };
 }
 
-/** Typname wie n8n: <Paket>.<description.name>, eigene Ordner "CUSTOM" */
+/** Type name as in n8n: <package>.<description.name>, custom folders "CUSTOM" */
 export function n8nNodeType(packageName: string, instance: N8nNodeInstance): NodeType {
   const base = instance.description;
   const versions = instance.nodeVersions
     ? Object.keys(instance.nodeVersions).map(Number).sort((a, b) => a - b)
     : (Array.isArray(base.version) ? base.version : [base.version]).map(Number);
   const forVersion = (version: number): N8nNodeInstance => (instance.nodeVersions ? (instance.nodeVersions[version] ?? instance.nodeVersions[Math.max(...versions)]) : instance);
-  // Deklarative Knoten bekommen wie in n8n die Einstellung "Request Options"
+  // Declarative nodes get the "Request Options" setting as in n8n
   const describe = (impl: N8nNodeInstance) => (isDeclarative(impl) ? withRequestOptions(impl.description) : withPollTimes(impl.description));
   const isTriggerImpl = (impl: N8nNodeInstance) => typeof impl.execute !== 'function' && (typeof impl.poll === 'function' || typeof impl.trigger === 'function');
   const isWebhookImpl = (impl: N8nNodeInstance) => typeof impl.execute !== 'function' && hasPackageWebhooks(impl as N8nWebhookImpl);
@@ -140,7 +140,7 @@ export function n8nNodeType(packageName: string, instance: N8nNodeInstance): Nod
     type: `${packageName}.${base.name}`,
     displayName: base.displayName,
     versions,
-    group: 'Erweiterungen',
+    group: 'Extensions',
     ...(allVersions.some((v) => isTriggerImpl(v) || isWebhookImpl(v)) ? { isTrigger: true } : {}),
     ...(allVersions.some(isWebhookImpl)
       ? {
@@ -170,9 +170,9 @@ export function n8nNodeType(packageName: string, instance: N8nNodeInstance): Nod
       const impl = forVersion(ctx.node.typeVersion);
       if (typeof impl.execute !== 'function' && isDeclarative(impl)) return runRoutingNode(ctx, impl.description);
       if (isTriggerImpl(impl)) return executeTrigger(impl as N8nTriggerImpl, ctx);
-      // workflow-execute.ts runNode: Webhook-Knoten geben die Daten des Aufrufs weiter
+      // workflow-execute.ts runNode: webhook nodes pass on the data of the call
       if (isWebhookImpl(impl)) return ctx.inputs.length ? ctx.inputs : [[{ json: {} }]];
-      if (typeof impl.execute !== 'function') throw new NodeOperationError(ctx.node, unsupportedReason(impl) ?? 'Knoten ohne execute');
+      if (typeof impl.execute !== 'function') throw new NodeOperationError(ctx.node, unsupportedReason(impl) ?? 'Node without execute');
       const result = await impl.execute.call(executeFunctions(ctx, impl.description));
       if (result === null || result === undefined) return null;
       return result as NodeOutput;

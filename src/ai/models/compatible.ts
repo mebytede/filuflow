@@ -1,9 +1,9 @@
-// Chat-Modelle mit dem Format der OpenAI Chat Completions (M26):
-//   Groq wie n8n 1.123.0 LmChatGroq (ChatGroq aus @langchain/groq 1.0.2: invocationParams mit stop: [],
-//   max_completion_tokens, Temperatur-Default 0.7, convertMessagesToGroqParams)
-//   Azure OpenAI wie LmChatAzureOpenAi (AzureChatOpenAI aus @langchain/openai 1.1.3: utils/azure.js getEndpoint,
-//   Header api-key, Query api-version)
-// DeepSeek und OpenRouter nutzen in n8n ChatOpenAI mit eigener Basis-URL und brauchen keine eigene Klasse.
+// Chat models with the format of the OpenAI Chat Completions (M26):
+//   Groq as in n8n 1.123.0 LmChatGroq (ChatGroq from @langchain/groq 1.0.2: invocationParams with stop: [],
+//   max_completion_tokens, temperature default 0.7, convertMessagesToGroqParams)
+//   Azure OpenAI as in LmChatAzureOpenAi (AzureChatOpenAI from @langchain/openai 1.1.3: utils/azure.js getEndpoint,
+//   header api-key, query api-version)
+// DeepSeek and OpenRouter use ChatOpenAI with their own base URL in n8n and need no class of their own.
 import type { ExecContext } from '../../nodes/types.js';
 import type { ChatMessage } from '../messages.js';
 import type { ModelCallOptions } from './base.js';
@@ -13,11 +13,11 @@ export class GroqChatModel extends OpenAiChatModel {
   override readonly provider = 'groq';
 
   constructor(ctx: ExecContext, opts: OpenAiOptions) {
-    // ChatGroq: temperature = 0.7, wenn n8n keinen Wert übergibt
+    // ChatGroq: temperature = 0.7 if n8n passes no value
     super(ctx, { ...opts, temperature: opts.temperature ?? 0.7, baseURL: opts.baseURL ?? 'https://api.groq.com/openai/v1' });
   }
 
-  /** convertMessagesToGroqParams: Rollen ohne developer, Tool-Aufrufe im OpenAI-Format */
+  /** convertMessagesToGroqParams: roles without developer, tool calls in OpenAI format */
   protected override completionMessages(messages: ChatMessage[]): unknown[] {
     return messages.map((m) => {
       const out: Record<string, unknown> = { role: m.role === 'human' ? 'user' : m.role === 'ai' ? 'assistant' : m.role, content: m.content };
@@ -52,9 +52,9 @@ export class GroqChatModel extends OpenAiChatModel {
 }
 
 export interface AzureOptions extends OpenAiOptions {
-  /** Resource Name (Instanz) */
+  /** Resource name (instance) */
   instanceName?: string;
-  /** Endpoint, z. B. https://beispiel.openai.azure.com */
+  /** Endpoint, e.g. https://example.openai.azure.com */
   endpoint?: string;
   apiVersion: string;
   deployment: string;
@@ -70,7 +70,7 @@ export class AzureOpenAiChatModel extends OpenAiChatModel {
     super(ctx, azure);
   }
 
-  /** getEndpoint: Endpoint mit Deployment, sonst https://<Instanz>.openai.azure.com/openai/deployments/<Deployment> */
+  /** getEndpoint: endpoint with deployment, otherwise https://<instance>.openai.azure.com/openai/deployments/<deployment> */
   protected override requestUrl(): string {
     const a = this.azure;
     const base = a.endpoint ? `${a.endpoint.replace(/\/+$/, '')}/openai/deployments/${a.deployment}` : `https://${a.instanceName}.openai.azure.com/openai/deployments/${a.deployment}`;

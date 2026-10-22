@@ -1,6 +1,6 @@
 // Mistral Cloud Chat Model, @n8n/n8n-nodes-langchain.lmChatMistralCloud (typeVersion 1)
-// Nachgebaut nach n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/llms/LmChatMistralCloud/LmChatMistralCloud.node.ts:
-// ChatMistralAI mit ...options (safeMode ist dort veraltet und wirkt nicht, randomSeed wird zu random_seed).
+// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/llms/LmChatMistralCloud/LmChatMistralCloud.node.ts:
+// ChatMistralAI with ...options (safeMode is deprecated there and has no effect, randomSeed becomes random_seed).
 import type { NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
 import { MistralChatModel } from '../ai/models/mistral.js';
@@ -11,17 +11,17 @@ const parameters: ParamSchema[] = [
   modelParam('mistral-small'),
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     children: [
-      { name: 'maxTokens', label: 'Höchstzahl Token', type: 'number', default: -1, max: 32768, description: 'Maximale Zahl erzeugter Token (-1 ohne Grenze)' },
-      { name: 'temperature', label: 'Temperatur', type: 'number', default: 0.7, min: 0, max: 1, precision: 1 },
-      { name: 'maxRetries', label: 'Höchstzahl Wiederholungen', type: 'number', default: 2 },
+      { name: 'maxTokens', label: 'Maximum Number of Tokens', type: 'number', default: -1, max: 32768, description: 'The maximum number of tokens to generate (-1 for no limit)' },
+      { name: 'temperature', label: 'Sampling Temperature', type: 'number', default: 0.7, min: 0, max: 1, precision: 1 },
+      { name: 'maxRetries', label: 'Max Retries', type: 'number', default: 2 },
       { name: 'topP', label: 'Top P', type: 'number', default: 1, min: 0, max: 1, precision: 1 },
-      { name: 'safeMode', label: 'Safe Mode', type: 'boolean', default: false, description: 'Sicherheitshinweis vor den Nachrichten (bei n8n ohne Wirkung)' },
-      { name: 'randomSeed', label: 'Zufalls-Seed', type: 'number', description: 'Seed für reproduzierbare Antworten' },
+      { name: 'safeMode', label: 'Safe Mode', type: 'boolean', default: false, description: 'Whether to inject a safety prompt before all conversations (has no effect in n8n)' },
+      { name: 'randomSeed', label: 'Random Seed', type: 'number', description: 'The seed to use for random sampling; set it to get deterministic results' },
     ],
   },
 ];
@@ -41,7 +41,7 @@ export const lmChatMistralCloudNode: NodeType = {
   },
   async supplyData(ctx, itemIndex) {
     const credentials = await ctx.getCredentials('mistralCloudApi', itemIndex);
-    // n8n: Default-Optionen nur, wenn "options" ganz fehlt
+    // n8n: default options only if "options" is missing entirely
     const options = ctx.getParam<Record<string, unknown>>('options', itemIndex, { maxRetries: 2, topP: 1, temperature: 0.7, maxTokens: -1, safeMode: false });
     return new MistralChatModel(ctx, {
       apiKey: String(credentials.apiKey ?? ''),

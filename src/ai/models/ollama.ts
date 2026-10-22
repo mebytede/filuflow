@@ -1,7 +1,7 @@
-// Ollama Chat Model wie n8n 1.123.0 LmChatOllama mit ChatOllama aus @langchain/ollama 1.0.2
-// (dist/chat_models.js: invocationParams, _generate über _streamResponseChunks; dist/utils.js: convertToOllamaMessages,
-// convertOllamaMessagesToLangChain). Eigene Umsetzung des beobachtbaren Verhaltens. ChatOllama ruft immer
-// POST <baseUrl>/api/chat mit stream: true auf und liest die Antwort als JSON-Zeilen.
+// Ollama Chat Model as in n8n 1.123.0 LmChatOllama with ChatOllama from @langchain/ollama 1.0.2
+// (dist/chat_models.js: invocationParams, _generate via _streamResponseChunks; dist/utils.js: convertToOllamaMessages,
+// convertOllamaMessagesToLangChain). Own implementation of the observable behavior. ChatOllama always calls
+// POST <baseUrl>/api/chat with stream: true and reads the response as JSON lines.
 import type { ExecContext } from '../../nodes/types.js';
 import type { ChatMessage, ContentPart, ToolCall } from '../messages.js';
 import { ChatModel, LlmHttpError, type ChatResult, type ModelCallOptions } from './base.js';
@@ -10,16 +10,16 @@ export interface OllamaOptions {
   baseUrl: string;
   model: string;
   apiKey?: string;
-  /** "json" oder undefined */
+  /** "json" or undefined */
   format?: string;
   keepAlive?: string;
-  /** options-Objekt an Ollama (num_ctx, temperature …) in der Reihenfolge von invocationParams */
+  /** options object for Ollama (num_ctx, temperature, ...) in the order of invocationParams */
   modelOptions: Record<string, unknown>;
 }
 
-/** n8n-Optionen (ChatOllamaInput) auf die Felder von invocationParams.options abbilden */
+/** Map n8n options (ChatOllamaInput) to the fields of invocationParams.options */
 export function ollamaModelOptions(o: Record<string, unknown>): Record<string, unknown> {
-  // n8n nennt die Optionen useMLock/useMMap, ChatOllama liest useMlock/useMmap: sie kommen deshalb nicht an
+  // n8n names the options useMLock/useMMap, ChatOllama reads useMlock/useMmap: so they do not arrive
   return {
     num_ctx: o.numCtx,
     num_batch: o.numBatch,
@@ -51,7 +51,7 @@ export class OllamaChatModel extends ChatModel {
     super(ctx, opts.model, { model: opts.model, baseUrl: opts.baseUrl, ...Object.fromEntries(Object.entries(opts.modelOptions).filter(([, v]) => v !== undefined)) });
   }
 
-  /** convertToOllamaMessages (AI-Nachrichten mit Text verlieren dabei ihre Tool-Aufrufe, wie in @langchain/ollama) */
+  /** convertToOllamaMessages (AI messages with text lose their tool calls here, as in @langchain/ollama) */
   private toMessages(messages: ChatMessage[]): unknown[] {
     return messages.flatMap((m): unknown[] => {
       if (m.role === 'tool') {
@@ -92,7 +92,7 @@ export class OllamaChatModel extends ChatModel {
       inputTokens += rest.prompt_eval_count ?? 0;
       outputTokens += rest.eval_count ?? 0;
       last = rest;
-      // convertOllamaMessagesToLangChain: thinking hat Vorrang vor content
+      // convertOllamaMessagesToLangChain: thinking takes precedence over content
       const piece = message?.thinking ?? message?.content ?? '';
       if (piece) {
         text += piece;
@@ -118,7 +118,7 @@ export class OllamaChatModel extends ChatModel {
     const raw = res.body.toString('utf8');
     if (res.statusCode >= 400) throw new LlmHttpError(this.errorMessage(url, res.statusCode, res.statusMessage, raw), res.statusCode, raw);
     if (!text && !toolCalls.length && !Object.keys(last).length) {
-      // HTTP-Client ohne Teilantworten: Zeilen aus dem ganzen Body
+      // HTTP client without partial responses: lines from the whole body
       for (const line of raw.split('\n')) handleLine(line);
     } else if (buffer) handleLine(buffer);
     const lcKwargs: Record<string, unknown> = {

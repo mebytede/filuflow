@@ -1,5 +1,5 @@
-// Umwandlung von Tool-Schemas in die Formate der Anbieter.
-// Gemini: @langchain/google-genai utils/zod_to_genai_parameters.js (removeAdditionalProperties, ohne $schema).
+// Conversion of tool schemas into the providers' formats.
+// Gemini: @langchain/google-genai utils/zod_to_genai_parameters.js (removeAdditionalProperties, without $schema).
 import type { JsonSchema } from '../schema.js';
 
 function removeAdditionalProperties(value: unknown): unknown {
@@ -17,7 +17,7 @@ export function toGeminiParameters(schema: JsonSchema): JsonSchema {
   return removeAdditionalProperties(schema) as JsonSchema;
 }
 
-/** Tool ohne Parameter: Gemini bekommt kein "parameters"-Feld */
+/** Tool without parameters: Gemini gets no "parameters" field */
 export function hasNoParameters(schema: JsonSchema): boolean {
   return schema.type === 'object' && typeof schema.properties === 'object' && Object.keys(schema.properties as object).length === 0;
 }

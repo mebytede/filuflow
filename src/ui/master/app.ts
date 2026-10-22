@@ -1,4 +1,4 @@
-// Weboberfläche im Master-Modus: Anmeldung (Sitzung), Navigation, Projekte, Editor, Verwaltung.
+// Web interface in master mode: sign-in (session), navigation, projects, editor, administration.
 import { ApiError, setUnauthorizedHandler } from '../api.js';
 import { h, toast } from '../dom.js';
 import type { NodeTypeInfo } from '../types.js';
@@ -13,8 +13,10 @@ import { auditPage, overviewPage, rolesPage, settingsPage, sharedCredentialsPage
 import type { AuthStatus, User } from './types.js';
 import { icon } from '../icons.js';
 import { editorLayout, sidebarLayout, type NavItem } from '../shell.js';
+import { applyLocale, t } from '../i18n.js';
 
 export function startMaster(app: HTMLElement): void {
+  applyLocale();
   let status: AuthStatus | undefined;
   let current: { editor?: Editor } = {};
   let types: NodeTypeInfo[] | undefined;
@@ -28,7 +30,7 @@ export function startMaster(app: HTMLElement): void {
   const loadTypes = async () => (types ??= await mapi.nodeTypes());
 
   const logout = async () => {
-    if (current.editor?.isDirty && !window.confirm('Ungespeicherte Änderungen verwerfen?')) return;
+    if (current.editor?.isDirty && !window.confirm(t('Discard unsaved changes?'))) return;
     current.editor?.destroy();
     current = {};
     await mapi.logout().catch(() => undefined);
@@ -41,30 +43,30 @@ export function startMaster(app: HTMLElement): void {
   const nav = (): NavItem[] => {
     const u = user()!;
     return [
-      { key: 'projects', label: 'Projekte', icon: 'folder', href: '#/projects' },
-      { key: 'executions', label: 'Ausführungen', icon: 'list-checks', href: '#/executions' },
-      { key: 'supervisor', label: 'Aufseher', icon: 'scan-eye', href: '#/supervisor' },
-      ...(u.role === 'admin' ? [{ key: 'admin', label: 'Verwaltung', icon: 'building-2', href: '#/admin/overview' }] : []),
+      { key: 'projects', label: t('Projects'), icon: 'folder', href: '#/projects' },
+      { key: 'executions', label: t('Executions'), icon: 'list-checks', href: '#/executions' },
+      { key: 'supervisor', label: t('Supervisor'), icon: 'scan-eye', href: '#/supervisor' },
+      ...(u.role === 'admin' ? [{ key: 'admin', label: t('Administration'), icon: 'building-2', href: '#/admin/overview' }] : []),
     ];
   };
-  const navBottom = (): NavItem[] => [{ key: 'profile', label: 'Profil', icon: 'user', href: '#/profile' }];
+  const navBottom = (): NavItem[] => [{ key: 'profile', label: t('Profile'), icon: 'user', href: '#/profile' }];
 
-  /** Fuß der Seitenleiste: angemeldete Person, Instanz, Kompatibilität, Impressum, Abmelden */
+  /** Sidebar footer: signed-in person, instance, compatibility, legal notice, sign out */
   const footer = (): Array<Node | null> => {
     const u = user()!;
     return [
       h('div', { class: 'foot-row', title: u.email }, icon('user', 16), h('span', { class: 'ellipsis' }, u.name || u.email)),
       h('div', { class: 'foot-row' }, icon('server', 16), `Master ${status?.instance ?? ''}`),
-      h('div', null, 'Kompatibel mit n8n 1.123'),
+      h('div', null, t('Compatible with n8n {version}', { version: '1.123' })),
       status?.imprintUrl || status?.privacyUrl
         ? h(
             'div',
             { class: 'foot-links' },
-            status.imprintUrl ? h('a', { href: status.imprintUrl, target: '_blank', rel: 'noopener' }, 'Impressum') : null,
-            status.privacyUrl ? h('a', { href: status.privacyUrl, target: '_blank', rel: 'noopener' }, 'Datenschutz') : null,
+            status.imprintUrl ? h('a', { href: status.imprintUrl, target: '_blank', rel: 'noopener' }, t('Legal notice')) : null,
+            status.privacyUrl ? h('a', { href: status.privacyUrl, target: '_blank', rel: 'noopener' }, t('Privacy')) : null,
           )
         : null,
-      h('button', { type: 'button', class: 'link', onclick: () => void logout() }, 'Abmelden'),
+      h('button', { type: 'button', class: 'link', onclick: () => void logout() }, t('Sign out')),
     ];
   };
 
@@ -90,7 +92,7 @@ export function startMaster(app: HTMLElement): void {
     void route();
   };
 
-  /** Anmeldung bzw. Einrichtung anzeigen (ohne Kopfzeile) */
+  /** Show sign-in or setup (without header) */
   const showAuth = (notice?: string) => {
     current.editor?.destroy();
     current = {};
@@ -103,7 +105,7 @@ export function startMaster(app: HTMLElement): void {
     app.replaceChildren(loginPage(status, () => void afterLogin(), notice ?? params.get('error') ?? undefined));
   };
 
-  const notFound = () => h('section', { class: 'page' }, h('h1', null, 'Seite nicht gefunden'), h('a', { href: '#/projects' }, 'Zu den Projekten'));
+  const notFound = () => h('section', { class: 'page' }, h('h1', null, t('Page not found')), h('a', { href: '#/projects' }, t('Go to projects')));
 
   async function route(): Promise<void> {
     const seq = ++routeSeq;
@@ -143,7 +145,7 @@ export function startMaster(app: HTMLElement): void {
           await profilePage(status, (changed) => {
             const blockedBefore = totpBlocked();
             status = { ...status!, user: changed };
-            if (blockedBefore && !totpBlocked()) toast('Danke, die Oberfläche ist wieder freigeschaltet', 'success');
+            if (blockedBefore && !totpBlocked()) toast(t('Thank you, the interface is unlocked again'), 'success');
             const name = app.querySelector<HTMLElement>('.sidebar-foot .foot-row .ellipsis');
             if (name) name.textContent = changed.name || changed.email;
           }),
@@ -172,7 +174,7 @@ export function startMaster(app: HTMLElement): void {
       }
       setPage(
         parts[0] === 'admin' ? 'admin' : 'projects',
-        h('section', { class: 'page' }, h('h1', null, error instanceof ApiError && error.status === 404 ? 'Nicht gefunden' : 'Fehler'), h('p', { class: 'error-text' }, (error as Error).message), h('a', { href: '#/projects' }, 'Zu den Projekten')),
+        h('section', { class: 'page' }, h('h1', null, error instanceof ApiError && error.status === 404 ? t('Not found') : t('Error')), h('p', { class: 'error-text' }, (error as Error).message), h('a', { href: '#/projects' }, t('Go to projects'))),
         undefined,
         seq,
       );
@@ -180,13 +182,13 @@ export function startMaster(app: HTMLElement): void {
   }
 
   setUnauthorizedHandler(() => {
-    // Fehlgeschlagene Anmeldeversuche auf der Anmeldeseite nicht als abgelaufene Sitzung behandeln
+    // Do not treat failed sign-in attempts on the sign-in page as an expired session
     if (!status?.authenticated) return;
     void mapi
       .status()
       .then((s) => {
         status = s;
-        if (!s.authenticated) showAuth('Sitzung abgelaufen, bitte erneut anmelden.');
+        if (!s.authenticated) showAuth(t('Session expired, please sign in again.'));
       })
       .catch(() => undefined);
   });
@@ -197,7 +199,7 @@ export function startMaster(app: HTMLElement): void {
       lastHash = location.hash;
       return;
     }
-    if (current.editor?.isDirty && !window.confirm('Ungespeicherte Änderungen verwerfen?')) {
+    if (current.editor?.isDirty && !window.confirm(t('Discard unsaved changes?'))) {
       skipNextRoute = true;
       location.hash = lastHash;
       return;

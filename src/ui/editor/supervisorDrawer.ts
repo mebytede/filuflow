@@ -1,17 +1,18 @@
-// Aufseher im Editor (M37): Gespräch über den geöffneten Workflow oder über einen neuen. Antworten kommen als Text,
-// Änderungen und neue Workflows als Vorschlag mit Diff, den die Person hier annimmt oder verwirft. Der Aufseher speichert
-// nie selbst; Vorschläge beziehen sich auf den gespeicherten Stand.
+// Supervisor in the editor (M37): conversation about the open workflow or about a new one. Answers arrive as text,
+// changes and new workflows as a proposal with a diff that the person accepts or rejects here. The supervisor never
+// saves on its own; proposals refer to the saved state.
 import { confirmDialog, h, toast } from '../dom.js';
+import { getLocale, t } from '../i18n.js';
 import { button, iconButton } from '../shell.js';
 import type { SupervisorChatMessage, SupervisorFinding, SupervisorProposal } from '../types.js';
 import { diffList } from '../views/supervisorProposals.js';
 import { severityWord } from '../views/supervisor.js';
 
 export interface SupervisorChatBackend {
-  chat(body: { messages: Array<{ role: 'user' | 'assistant'; content: string }>; workflowId?: string }): Promise<{ reply: string; proposals: SupervisorProposal[] }>;
+  chat(body: { messages: Array<{ role: 'user' | 'assistant'; content: string }>; workflowId?: string; language?: 'en' | 'de' }): Promise<{ reply: string; proposals: SupervisorProposal[] }>;
   findings(workflowId: string): Promise<SupervisorFinding[]>;
   proposalAction(p: SupervisorProposal, action: 'accept' | 'reject'): Promise<SupervisorProposal>;
-  /** Link zur Seite "Aufseher" */
+  /** Link to the "Supervisor" page */
   supervisorHref: string;
   canAccept?: boolean;
 }
@@ -21,11 +22,11 @@ export interface SupervisorDrawerOptions {
   workflowId?: string;
   isDirty(): boolean;
   close(): void;
-  /** Nach dem Annehmen: Editor neu laden bzw. neuen Workflow öffnen */
+  /** After accepting: reload the editor or open the new workflow */
   onAccepted(p: SupervisorProposal): void;
 }
 
-/** Gespräche bleiben je Workflow erhalten, solange die Seite offen ist */
+/** Conversations are kept per workflow while the page is open */
 const conversations = new Map<string, SupervisorChatMessage[]>();
 
 export class SupervisorDrawer {
@@ -45,8 +46,8 @@ export class SupervisorDrawer {
     this.input = h('textarea', {
       class: 'chat-input',
       rows: 1,
-      placeholder: o.workflowId ? 'Fragen Sie zum Workflow oder wünschen Sie eine Änderung' : 'Beschreiben Sie den Workflow, den Sie brauchen',
-      'aria-label': 'Nachricht an den Aufseher',
+      placeholder: o.workflowId ? t('Ask about the workflow or request a change') : t('Describe the workflow you need'),
+      'aria-label': t('Message to the supervisor'),
       onkeydown: (e: KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {
           e.preventDefault();
@@ -54,28 +55,28 @@ export class SupervisorDrawer {
         }
       },
     });
-    this.send = h('button', { type: 'submit', class: 'chat-send' }, 'Senden');
+    this.send = h('button', { type: 'submit', class: 'chat-send' }, t('Send'));
     const form = h('form', { class: 'chat-form', onsubmit: (e: Event) => (e.preventDefault(), void this.submit()) }, this.input, this.send);
-    const reset = iconButton('refresh-cw', 'Neues Gespräch', () => {
+    const reset = iconButton('refresh-cw', t('New conversation'), () => {
       this.messages.length = 0;
       this.render();
     });
     this.el = h(
       'aside',
-      { class: 'chat-drawer supervisor-drawer', 'aria-label': 'Aufseher' },
+      { class: 'chat-drawer supervisor-drawer', 'aria-label': t('Supervisor') },
       h(
         'div',
         { class: 'chat-view' },
         h(
           'div',
           { class: 'chat-head' },
-          h('div', { class: 'chat-titles' }, h('p', { class: 'chat-title' }, 'Aufseher'), h('p', { class: 'chat-subtitle' }, o.workflowId ? 'Fragen, Änderungen als Vorschlag' : 'Neuen Workflow entwerfen')),
+          h('div', { class: 'chat-titles' }, h('p', { class: 'chat-title' }, t('Supervisor')), h('p', { class: 'chat-subtitle' }, o.workflowId ? t('Questions, changes as proposals') : t('Draft a new workflow'))),
           reset,
-          iconButton('x', 'Aufseher schließen', () => o.close()),
+          iconButton('x', t('Close supervisor'), () => o.close()),
         ),
         this.list,
         form,
-        h('p', { class: 'chat-hint' }, 'Der Aufseher ändert nichts selbst. Vorschläge beziehen sich auf den gespeicherten Stand und warten auf Ihre Zustimmung.'),
+        h('p', { class: 'chat-hint' }, t('The supervisor never changes anything on its own. Proposals refer to the saved state and wait for your approval.')),
       ),
     );
     this.render();
@@ -95,13 +96,13 @@ export class SupervisorDrawer {
       this.findingsBox = h(
         'div',
         { class: 'supervisor-findings' },
-        h('span', { class: 'label' }, `Offene Hinweise (${list.length})`),
+        h('span', { class: 'label' }, t('Open findings ({count})', { count: list.length })),
         h('ul', null, list.slice(0, 5).map((f) => h('li', null, severityWord(f.severity), ' ', f.title))),
-        h('a', { href: `${this.o.backend.supervisorHref}/findings?workflow=${encodeURIComponent(id)}` }, 'Alle Hinweise ansehen'),
+        h('a', { href: `${this.o.backend.supervisorHref}/findings?workflow=${encodeURIComponent(id)}` }, t('View all findings')),
       );
       this.render();
     } catch {
-      // Hinweise sind nur Zusatz
+      // Findings are only an extra
     }
   }
 
@@ -114,8 +115,8 @@ export class SupervisorDrawer {
           'p',
           { class: 'muted small' },
           this.o.workflowId
-            ? 'Zum Beispiel: "Warum ist der letzte Lauf fehlgeschlagen?" oder "Wiederhole den HTTP Request bei Fehlern dreimal."'
-            : 'Zum Beispiel: "Jeden Montag um 8 Uhr die offenen Tickets aus unserer API holen und als Liste per Webhook an Teams senden."',
+            ? t('For example: "Why did the last run fail?" or "Retry the HTTP Request three times on errors."')
+            : t('For example: "Every Monday at 8 am, fetch the open tickets from our API and send them as a list to Teams via webhook."'),
         ),
       );
     }
@@ -124,7 +125,7 @@ export class SupervisorDrawer {
       const p = m.proposalId ? this.proposals.get(m.proposalId) : undefined;
       if (p) items.push(this.proposalBox(p));
     }
-    if (this.busy) items.push(h('div', { class: 'chat-msg chat-bot chat-pending' }, h('div', { class: 'chat-bubble' }, 'Der Aufseher denkt nach …')));
+    if (this.busy) items.push(h('div', { class: 'chat-msg chat-bot chat-pending' }, h('div', { class: 'chat-bubble' }, t('The supervisor is thinking …'))));
     this.list.replaceChildren(...items);
     this.list.scrollTop = this.list.scrollHeight;
     this.send.disabled = this.busy;
@@ -136,9 +137,9 @@ export class SupervisorDrawer {
       if (action === 'accept') {
         const text =
           p.kind === 'new'
-            ? `Der Workflow "${p.workflowName}" wird inaktiv angelegt und im Editor geöffnet.`
-            : `Der gespeicherte Workflow wird mit den ${p.diff.length} Änderungen überschrieben.${this.o.isDirty() ? ' Ihre ungespeicherten Änderungen im Editor gehen dabei verloren.' : ''}`;
-        if (!(await confirmDialog('Vorschlag annehmen', text, 'Annehmen'))) return;
+            ? t('The workflow "{name}" will be created inactive and opened in the editor.', { name: p.workflowName })
+            : `${t('The saved workflow will be overwritten with the {count} changes.', { count: p.diff.length })}${this.o.isDirty() ? ` ${t('Your unsaved changes in the editor will be lost.')}` : ''}`;
+        if (!(await confirmDialog(t('Accept proposal'), text, t('Accept')))) return;
       }
       btn.setAttribute('disabled', '');
       try {
@@ -146,7 +147,7 @@ export class SupervisorDrawer {
         this.proposals.set(p.id, r);
         this.render();
         if (action === 'accept') {
-          toast(r.kind === 'new' ? `Workflow "${r.workflowName}" angelegt (inaktiv)` : 'Vorschlag übernommen und gespeichert', 'success');
+          toast(r.kind === 'new' ? t('Workflow "{name}" created (inactive)', { name: r.workflowName }) : t('Proposal applied and saved'), 'success');
           this.o.onAccepted(r);
         }
       } catch (error) {
@@ -156,21 +157,21 @@ export class SupervisorDrawer {
     };
     if (p.status === 'open') {
       if (this.o.backend.canAccept !== false) {
-        const accept: HTMLElement = button('Annehmen', { variant: 'primary', size: 's', icon: 'check', onclick: () => void act(accept, 'accept') });
+        const accept: HTMLElement = button(t('Accept'), { variant: 'primary', size: 's', icon: 'check', onclick: () => void act(accept, 'accept') });
         actions.append(accept);
       }
-      const reject: HTMLElement = button('Verwerfen', { size: 's', onclick: () => void act(reject, 'reject') });
+      const reject: HTMLElement = button(t('Reject'), { size: 's', onclick: () => void act(reject, 'reject') });
       actions.append(reject);
     }
     const pending = p.validation.issues.filter((i) => i.severity === 'error');
-    const state = p.status === 'open' ? null : h('span', { class: `status status-${p.status === 'accepted' ? 'success' : 'muted'}` }, p.status === 'accepted' ? 'Angenommen' : p.status === 'stale' ? 'Veraltet' : 'Verworfen');
+    const state = p.status === 'open' ? null : h('span', { class: `status status-${p.status === 'accepted' ? 'success' : 'muted'}` }, p.status === 'accepted' ? t('Accepted') : p.status === 'stale' ? t('Outdated') : t('Rejected'));
     return h(
       'div',
       { class: 'supervisor-proposal', 'data-proposal': p.id },
-      h('div', { class: 'finding-head' }, h('span', { class: 'label' }, p.kind === 'new' ? 'Neuer Workflow' : 'Vorschlag'), state),
+      h('div', { class: 'finding-head' }, h('span', { class: 'label' }, p.kind === 'new' ? t('New workflow') : t('Proposal')), state),
       h('strong', null, p.title),
       diffList(p.diff),
-      pending.length ? h('p', { class: 'small status-warning' }, `Vor dem Annehmen: ${pending.map((i) => i.message).join('; ')}`) : null,
+      pending.length ? h('p', { class: 'small status-warning' }, t('Before accepting: {issues}', { issues: pending.map((i) => i.message).join('; ') })) : null,
       actions,
     );
   }
@@ -183,11 +184,11 @@ export class SupervisorDrawer {
     this.busy = true;
     this.render();
     try {
-      const res = await this.o.backend.chat({ messages: this.messages.map((m) => ({ role: m.role, content: m.content })), ...(this.o.workflowId ? { workflowId: this.o.workflowId } : {}) });
+      const res = await this.o.backend.chat({ messages: this.messages.map((m) => ({ role: m.role, content: m.content })), ...(this.o.workflowId ? { workflowId: this.o.workflowId } : {}), language: getLocale() });
       for (const p of res.proposals) this.proposals.set(p.id, p);
       const [first, ...rest] = res.proposals;
-      this.messages.push({ role: 'assistant', content: res.reply || (first ? 'Ich habe einen Vorschlag erstellt.' : 'Keine Antwort.'), ...(first ? { proposalId: first.id } : {}) });
-      for (const p of rest) this.messages.push({ role: 'assistant', content: `Außerdem: ${p.title}`, proposalId: p.id });
+      this.messages.push({ role: 'assistant', content: res.reply || (first ? t('I have created a proposal.') : t('No answer.')), ...(first ? { proposalId: first.id } : {}) });
+      for (const p of rest) this.messages.push({ role: 'assistant', content: t('Also: {title}', { title: p.title }), proposalId: p.id });
     } catch (error) {
       this.messages.pop();
       this.input.value = text;

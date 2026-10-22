@@ -1,19 +1,19 @@
-// Anmeldung im Master: Passwörter (scrypt), TOTP (RFC 6238), Sitzungs- und API-Tokens, Verschlüsselung
-// gespeicherter Geheimnisse (TOTP-Schlüssel, Worker-Tokens) mit FILUFLOW_ENCRYPTION_KEY.
+// Master authentication: passwords (scrypt), TOTP (RFC 6238), session and API tokens, encryption
+// of stored secrets (TOTP keys, worker tokens) with FILUFLOW_ENCRYPTION_KEY.
 import { createHash, createHmac, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { decryptValue, encryptValue } from '../credentials/store.js';
 
 const scryptAsync = promisify(scrypt) as (password: string, salt: Buffer, keylen: number, options: { N: number; r: number; p: number; maxmem: number }) => Promise<Buffer>;
 
-// scrypt mit N=2^15, r=8, p=1 (OWASP-Empfehlung), 64 Byte Schlüssel
+// scrypt with N=2^15, r=8, p=1 (OWASP recommendation), 64 byte key
 const SCRYPT = { N: 32768, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
 
 export const MIN_PASSWORD_LENGTH = 12;
 
 export function checkPasswordPolicy(password: string): string | undefined {
-  if (typeof password !== 'string' || password.length < MIN_PASSWORD_LENGTH) return `Passwort muss mindestens ${MIN_PASSWORD_LENGTH} Zeichen haben`;
-  if (password.length > 1024) return 'Passwort ist zu lang';
+  if (typeof password !== 'string' || password.length < MIN_PASSWORD_LENGTH) return `Password must be at least ${MIN_PASSWORD_LENGTH} characters long`;
+  if (password.length > 1024) return 'Password is too long';
   return undefined;
 }
 
@@ -38,7 +38,7 @@ export async function verifyPassword(password: string, stored: string | null): P
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
-/** Gleicher Zeitaufwand bei unbekannten Benutzern (kein Rückschluss auf vorhandene Konten) */
+/** Same time cost for unknown users (no inference about existing accounts) */
 let dummyHash: Promise<string> | undefined;
 export async function burnPasswordCheck(password: string): Promise<void> {
   dummyHash ??= hashPassword('filuflow-dummy-password');
@@ -63,7 +63,7 @@ export function safeEqual(a: string, b: string): boolean {
 }
 
 // -----------------------------------------------------------------------------------------------
-// TOTP (RFC 6238, SHA-1, 30 s, 6 Stellen) wie Google Authenticator & Co.
+// TOTP (RFC 6238, SHA-1, 30 s, 6 digits) like Google Authenticator and others.
 
 const BASE32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 
@@ -90,7 +90,7 @@ export function base32Decode(text: string): Buffer {
   const out: number[] = [];
   for (const ch of clean) {
     const idx = BASE32.indexOf(ch);
-    if (idx < 0) throw new Error('Ungültiger Base32-Schlüssel');
+    if (idx < 0) throw new Error('Invalid Base32 key');
     value = (value << 5) | idx;
     bits += 5;
     if (bits >= 8) {
@@ -119,8 +119,8 @@ export function totpCounter(time = Date.now()): number {
 }
 
 /**
- * Prüft einen Code (Zeitfenster ±1 Schritt). Liefert den Zähler des Treffers, damit derselbe Code nicht
- * zweimal genutzt werden kann (lastCounter), sonst undefined.
+ * Verifies a code (time window ±1 step). Returns the counter of the match so the same code cannot
+ * be used twice (lastCounter), otherwise undefined.
  */
 export function verifyTotp(secret: string, code: string, lastCounter: number | null, time = Date.now()): number | undefined {
   const clean = String(code ?? '').replace(/\s/g, '');
@@ -138,11 +138,11 @@ export function totpUri(secret: string, account: string, issuer = 'filuflow'): s
 }
 
 // -----------------------------------------------------------------------------------------------
-// Geheimnisse in der Datenbank
+// Secrets in the database
 
 export class SecretBox {
   constructor(private readonly key: string) {
-    if (!key || key.length < 16) throw new Error('FILUFLOW_ENCRYPTION_KEY fehlt oder ist kürzer als 16 Zeichen (Pflicht im Master-Modus)');
+    if (!key || key.length < 16) throw new Error('FILUFLOW_ENCRYPTION_KEY is missing or shorter than 16 characters (required in master mode)');
   }
 
   seal(value: string): string {

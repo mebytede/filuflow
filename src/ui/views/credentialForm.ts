@@ -1,7 +1,8 @@
-// Formular für ein Credential (Einzelbetrieb und Master). Felder nach der Beschreibung des Typs; für eigene Typen
-// freie Felder. Geheime Werte kommen nie vom Server zurück: ein leeres Feld behält den gespeicherten Wert.
+// Form for a credential (standalone mode and master). Fields follow the type description; free fields for custom
+// types. Secret values never come back from the server: an empty field keeps the stored value.
 import { dialog, h, toast } from '../dom.js';
 import { iconButton } from '../shell.js';
+import { t, tl } from '../i18n.js';
 import type { CredentialDetail, CredentialField, CredentialInfo, CredentialSaveBody, CredentialTypeCatalog, CredentialTypeSchema } from '../types.js';
 
 export interface CredentialFormBackend {
@@ -11,19 +12,19 @@ export interface CredentialFormBackend {
 }
 
 export interface CredentialFormOptions {
-  /** vorhandenes Credential bearbeiten */
+  /** edit an existing credential */
   name?: string;
-  /** Typ vorgeben (z. B. aus dem Editor); nicht änderbar */
+  /** preset type (e.g. from the editor); cannot be changed */
   type?: string;
-  /** Hinweis, wo gespeichert wird */
+  /** note on where it is stored */
   note?: string;
   confirm?: string;
-  /** Zusätzliche Felder (z. B. Auswahl der Worker im Master); collect liefert Teile des Speicher-Bodys oder einen Fehler */
+  /** Additional fields (e.g. worker selection in the master); collect returns parts of the save body or an error */
   extra?: { element: HTMLElement; collect(): Partial<CredentialSaveBody> | string };
 }
 
 const OTHER = '__other__';
-const KEPT = 'gespeichert, leer lassen = unverändert';
+const KEPT = (): string => t('stored, leave empty = unchanged');
 
 function visible(schema: CredentialTypeSchema, field: CredentialField, values: Record<string, unknown>): boolean {
   if (!field.show) return true;
@@ -40,22 +41,22 @@ function fieldBox(label: string, input: HTMLElement, hint?: string, required?: b
   return h('label', { class: 'field' }, h('span', null, label, required ? ' *' : ''), input, hint ? h('span', { class: 'muted small' }, hint) : null);
 }
 
-/** Öffnet das Formular; liefert das gespeicherte Credential oder null bei Abbruch */
+/** Opens the form; returns the saved credential or null on cancel */
 export async function credentialFormDialog(backend: CredentialFormBackend, o: CredentialFormOptions = {}): Promise<CredentialInfo | null> {
   const [catalog, detail] = await Promise.all([backend.types(), o.name ? backend.get(o.name) : Promise.resolve(undefined)]);
   const types = catalog.data;
   const secretsSet = new Set(detail?.secretsSet ?? []);
   const originalType = detail?.type ?? o.type;
 
-  const nameInput = h('input', { type: 'text', class: 'param-input', value: detail?.name ?? '', placeholder: 'z. B. Kunden-API', autocomplete: 'off', 'aria-label': 'Name' });
-  const known = (t: string | undefined) => types.find((x) => x.name === t);
+  const nameInput = h('input', { type: 'text', class: 'param-input', value: detail?.name ?? '', placeholder: t('e.g. Customer API'), autocomplete: 'off', 'aria-label': t('Name') });
+  const known = (name: string | undefined) => types.find((x) => x.name === name);
   const typeSelect = h(
     'select',
-    { class: 'param-input', 'aria-label': 'Typ', disabled: !!o.type },
-    types.map((t) => h('option', { value: t.name }, `${t.label} (${t.name})`)),
-    h('option', { value: OTHER }, 'Anderer Typ'),
+    { class: 'param-input', 'aria-label': t('Type'), disabled: !!o.type },
+    types.map((ct) => h('option', { value: ct.name }, `${tl(ct.label)} (${ct.name})`)),
+    h('option', { value: OTHER }, t('Other type')),
   );
-  const otherType = h('input', { type: 'text', class: 'param-input', placeholder: 'Typname, z. B. slackApi', 'aria-label': 'Anderer Typ' });
+  const otherType = h('input', { type: 'text', class: 'param-input', placeholder: t('Type name, e.g. slackApi'), 'aria-label': t('Other type') });
   if (originalType && known(originalType)) typeSelect.value = originalType;
   else if (originalType) {
     typeSelect.value = OTHER;
@@ -65,9 +66,9 @@ export async function credentialFormDialog(backend: CredentialFormBackend, o: Cr
 
   const description = h('p', { class: 'muted small', style: { margin: '-8px 0 16px' } });
   const fieldsBox = h('div');
-  const otherBox = fieldBox('Typname', otherType);
+  const otherBox = fieldBox(t('Type name'), otherType);
 
-  // Aktuelle Werte je Typ (beim Wechsel zurück bleiben Eingaben erhalten)
+  // Current values per type (inputs are kept when switching back)
   const values: Record<string, unknown> = { ...(detail?.data ?? {}) };
   let collect: () => { data: Record<string, unknown>; keep: string[] } | string = () => ({ data: {}, keep: [] });
 
@@ -75,7 +76,7 @@ export async function credentialFormDialog(backend: CredentialFormBackend, o: Cr
   const sameType = () => currentType() === detail?.type;
 
   const renderKnown = (schema: CredentialTypeSchema) => {
-    // Versteckte Felder (feste URLs, Scopes) haben keine Eingabe; ihre Defaults gelten beim Laden
+    // Hidden fields (fixed URLs, scopes) have no input; their defaults apply when loading
     const formFields = schema.fields.filter((f) => f.kind !== 'hidden');
     const inputs = new Map<string, HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>();
     const boxes = new Map<string, HTMLElement>();
@@ -95,7 +96,7 @@ export async function credentialFormDialog(backend: CredentialFormBackend, o: Cr
         input = h(
           'select',
           { class: 'param-input', onchange: () => set(input.value) },
-          (f.options ?? []).map((x) => h('option', { value: x.value, selected: x.value === initial }, x.label)),
+          (f.options ?? []).map((x) => h('option', { value: x.value, selected: x.value === initial }, tl(x.label))),
         );
       } else if (f.kind === 'boolean') {
         input = h('input', { type: 'checkbox', checked: initial === true, onchange: () => set((input as HTMLInputElement).checked) });
@@ -104,7 +105,7 @@ export async function credentialFormDialog(backend: CredentialFormBackend, o: Cr
           class: `param-input${f.kind === 'json' ? ' json-editor' : ''}`,
           rows: 5,
           spellcheck: false,
-          placeholder: stored ? KEPT : (f.placeholder ?? ''),
+          placeholder: stored ? KEPT() : (tl(f.placeholder) ?? ''),
           oninput: () => (values[f.name] = input.value),
         });
         if (!isSecret(f)) input.value = typeof initial === 'string' ? initial : initial === undefined ? '' : JSON.stringify(initial, null, 2);
@@ -113,40 +114,40 @@ export async function credentialFormDialog(backend: CredentialFormBackend, o: Cr
           type: isSecret(f) ? 'password' : 'text',
           class: 'param-input',
           autocomplete: isSecret(f) ? 'new-password' : 'off',
-          placeholder: stored ? KEPT : (f.placeholder ?? ''),
+          placeholder: stored ? KEPT() : (tl(f.placeholder) ?? ''),
           oninput: () => (values[f.name] = input.value),
         });
         if (!isSecret(f)) input.value = initial === undefined ? '' : String(initial);
       }
-      input.setAttribute('aria-label', f.label);
+      input.setAttribute('aria-label', tl(f.label));
       inputs.set(f.name, input);
       const box =
         f.kind === 'boolean'
-          ? h('div', { class: 'field' }, h('label', { class: 'check' }, input, ` ${f.label}`), f.hint ? h('span', { class: 'muted small' }, f.hint) : null)
-          : fieldBox(f.label, input, f.hint, f.required);
+          ? h('div', { class: 'field' }, h('label', { class: 'check' }, input, ` ${tl(f.label)}`), f.hint ? h('span', { class: 'muted small' }, tl(f.hint)) : null)
+          : fieldBox(tl(f.label), input, tl(f.hint), f.required);
       boxes.set(f.name, box);
       fieldsBox.append(box);
     }
-    // OAuth2 mit Authorization Code / PKCE: Redirect-URL zum Eintragen beim Anbieter
+    // OAuth2 with authorization code / PKCE: redirect URL to enter at the provider
     if ((schema.oauth === 2 || schema.name === 'oAuth2Api') && catalog.oauthCallbackUrl) {
       const box = h(
         'div',
         { class: 'field' },
-        h('span', null, 'Redirect-URL'),
+        h('span', null, t('Redirect URL')),
         h('code', { class: 'mono', style: { wordBreak: 'break-all' } }, catalog.oauthCallbackUrl),
-        h('span', { class: 'muted small' }, 'Beim Anbieter als Redirect-URL eintragen. Nach dem Speichern verbinden Sie das Credential in der Liste mit "Verbinden".'),
+        h('span', { class: 'muted small' }, t('Enter this as the redirect URL at the provider. After saving, connect the credential in the list with "Connect".')),
       );
       boxes.set('__redirect', box);
       fieldsBox.append(box);
     }
-    // OAuth1: Rückleitung, die filuflow als oauth_callback mitschickt; manche Anbieter verlangen sie vorab
+    // OAuth1: callback that filuflow sends as oauth_callback; some providers require it in advance
     if ((schema.oauth === 1 || schema.name === 'oAuth1Api') && catalog.oauth1CallbackUrl) {
       const box = h(
         'div',
         { class: 'field' },
-        h('span', null, 'Callback-URL'),
+        h('span', null, t('Callback URL')),
         h('code', { class: 'mono', style: { wordBreak: 'break-all' } }, catalog.oauth1CallbackUrl),
-        h('span', { class: 'muted small' }, 'Falls der Anbieter es verlangt, dort als Callback-URL eintragen. Nach dem Speichern verbinden Sie das Credential in der Liste mit "Verbinden".'),
+        h('span', { class: 'muted small' }, t('If the provider requires it, enter this there as the callback URL. After saving, connect the credential in the list with "Connect".')),
       );
       boxes.set('__redirect', box);
       fieldsBox.append(box);
@@ -172,17 +173,17 @@ export async function credentialFormDialog(backend: CredentialFormBackend, o: Cr
         const v = input.value;
         if (isSecret(f) && v === '') {
           if (sameType() && secretsSet.has(f.name)) keep.push(f.name);
-          else if (f.required) return `${f.label} fehlt`;
+          else if (f.required) return t('{field} is missing', { field: tl(f.label) });
           continue;
         }
         if (f.kind === 'json' && v.trim() && !/\{\{\s*env\./.test(v)) {
           try {
             JSON.parse(v);
           } catch (err) {
-            return `${f.label}: JSON ungültig (${(err as Error).message})`;
+            return t('{field}: invalid JSON ({message})', { field: tl(f.label), message: (err as Error).message });
           }
         }
-        if (f.required && !v.trim()) return `${f.label} fehlt`;
+        if (f.required && !v.trim()) return t('{field} is missing', { field: tl(f.label) });
         data[f.name] = v;
       }
       return { data, keep };
@@ -192,10 +193,10 @@ export async function credentialFormDialog(backend: CredentialFormBackend, o: Cr
   const renderOther = () => {
     const rows = h('div', { class: 'kv-rows' });
     const addRow = (k = '', v = '', stored = false) => {
-      const key = h('input', { type: 'text', class: 'param-input', value: k, placeholder: 'Feld, z. B. apiKey', 'aria-label': 'Feld' });
-      const value = h('input', { type: 'password', class: 'param-input', value: v, placeholder: stored ? KEPT : 'Wert', autocomplete: 'new-password', 'aria-label': 'Wert' });
-      const show = iconButton('eye', 'Wert zeigen', () => (value.type = value.type === 'password' ? 'text' : 'password'));
-      const row = h('div', { class: 'kv-row kv-row-3' }, key, value, show, iconButton('x', 'Feld entfernen', () => row.remove()));
+      const key = h('input', { type: 'text', class: 'param-input', value: k, placeholder: t('Field, e.g. apiKey'), 'aria-label': t('Field') });
+      const value = h('input', { type: 'password', class: 'param-input', value: v, placeholder: stored ? KEPT() : t('Value'), autocomplete: 'new-password', 'aria-label': t('Value') });
+      const show = iconButton('eye', t('Show value'), () => (value.type = value.type === 'password' ? 'text' : 'password'));
+      const row = h('div', { class: 'kv-row kv-row-3' }, key, value, show, iconButton('x', t('Remove field'), () => row.remove()));
       row.dataset.stored = stored ? '1' : '';
       rows.append(row);
     };
@@ -205,8 +206,8 @@ export async function credentialFormDialog(backend: CredentialFormBackend, o: Cr
     }
     if (!rows.childElementCount) addRow();
     fieldsBox.replaceChildren(
-      h('div', { class: 'field' }, h('span', null, 'Felder'), rows, h('button', { type: 'button', class: 'btn btn-small', onclick: () => addRow() }, 'Feld hinzufügen')),
-      h('p', { class: 'muted small' }, 'Feldnamen wie im Credential-Typ von n8n, z. B. apiKey oder accessToken. Werte sind immer Zeichenketten.'),
+      h('div', { class: 'field' }, h('span', null, t('Fields')), rows, h('button', { type: 'button', class: 'btn btn-small', onclick: () => addRow() }, t('Add field'))),
+      h('p', { class: 'muted small' }, t('Field names as in the n8n credential type, e.g. apiKey or accessToken. Values are always strings.')),
     );
     collect = () => {
       const data: Record<string, unknown> = {};
@@ -218,7 +219,7 @@ export async function credentialFormDialog(backend: CredentialFormBackend, o: Cr
         if (v.value === '' && row.dataset.stored === '1' && sameType()) keep.push(key);
         else data[key] = v.value;
       }
-      if (!Object.keys(data).length && !keep.length) return 'Mindestens ein Feld ist nötig';
+      if (!Object.keys(data).length && !keep.length) return t('At least one field is required');
       return { data, keep };
     };
   };
@@ -226,7 +227,7 @@ export async function credentialFormDialog(backend: CredentialFormBackend, o: Cr
   const render = () => {
     const schema = typeSelect.value === OTHER ? undefined : known(typeSelect.value);
     otherBox.hidden = !!schema;
-    description.textContent = schema?.description ?? 'Eigener oder hier nicht beschriebener Typ: Felder frei angeben.';
+    description.textContent = tl(schema?.description) ?? t('Custom type or type not described here: enter fields freely.');
     if (schema) renderKnown(schema);
     else renderOther();
   };
@@ -237,12 +238,12 @@ export async function credentialFormDialog(backend: CredentialFormBackend, o: Cr
   render();
 
   return dialog<CredentialInfo>(
-    detail ? `Credential "${detail.name}" bearbeiten` : 'Neues Credential',
+    detail ? t('Edit credential "{name}"', { name: detail.name }) : t('New credential'),
     h(
       'form',
       { class: 'form', onsubmit: (e: Event) => e.preventDefault(), autocomplete: 'off' },
-      fieldBox('Name', nameInput, 'So wählen Workflows das Credential aus.', true),
-      fieldBox('Typ', typeSelect),
+      fieldBox(t('Name'), nameInput, t('Workflows select the credential by this name.'), true),
+      fieldBox(t('Type'), typeSelect),
       description,
       otherBox,
       fieldsBox,
@@ -250,18 +251,18 @@ export async function credentialFormDialog(backend: CredentialFormBackend, o: Cr
       h(
         'p',
         { class: 'muted small' },
-        o.note ?? 'Geheime Werte werden auf dem Server gespeichert und nie wieder angezeigt.',
-        ' Verweise auf Umgebungsvariablen wie {{ env.API_KEY }} sind möglich.',
+        o.note ?? t('Secret values are stored on the server and never shown again.'),
+        ` ${t('References to environment variables like {{ env.API_KEY }} are possible.')}`,
       ),
     ),
     {
-      confirm: o.confirm ?? 'Speichern',
+      confirm: o.confirm ?? t('Save'),
       wide: true,
       onConfirm: async () => {
         const name = nameInput.value.trim();
         const type = currentType();
-        if (!name) return void toast('Name fehlt', 'error');
-        if (!type) return void toast('Typ fehlt', 'error');
+        if (!name) return void toast(t('Name is missing'), 'error');
+        if (!type) return void toast(t('Type is missing'), 'error');
         const result = collect();
         if (typeof result === 'string') return void toast(result, 'error');
         const extra = o.extra?.collect() ?? {};

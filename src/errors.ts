@@ -1,5 +1,5 @@
-// Fehlerklassen. Namen (`name`) entsprechen den n8n-Klassen, damit
-// serialisierte Fehler im runData gleich aussehen (packages/workflow/src/errors).
+// Error classes. Names (`name`) match the n8n classes so that
+// serialized errors look the same in runData (packages/workflow/src/errors).
 import type { SerializedError } from './types.js';
 
 export interface FiluflowErrorOptions {
@@ -31,7 +31,7 @@ export class FiluflowError extends Error {
   }
 }
 
-/** Fehler bei der Ausführung eines Nodes (n8n: NodeOperationError) */
+/** Error while executing a node (n8n: NodeOperationError) */
 export class NodeOperationError extends FiluflowError {
   constructor(nodeName: string, message: string, options: FiluflowErrorOptions = {}) {
     super(message, options);
@@ -39,7 +39,7 @@ export class NodeOperationError extends FiluflowError {
   }
 }
 
-/** Fehler eines entfernten APIs (n8n: NodeApiError) */
+/** Error from a remote API (n8n: NodeApiError) */
 export class NodeApiError extends NodeOperationError {
   httpCode?: string;
   constructor(nodeName: string, message: string, options: FiluflowErrorOptions & { httpCode?: string } = {}) {
@@ -56,7 +56,7 @@ export interface ExpressionErrorOptions extends FiluflowErrorOptions {
   type?: string;
 }
 
-/** Fehler in einer Expression (n8n: ExpressionError) */
+/** Error in an expression (n8n: ExpressionError) */
 export class ExpressionError extends FiluflowError {
   parameter?: string;
   expression?: string;
@@ -70,7 +70,7 @@ export class ExpressionError extends FiluflowError {
   }
 }
 
-/** Fehler einer Erweiterungsfunktion (n8n: ExpressionExtensionError) */
+/** Error in an extension function (n8n: ExpressionExtensionError) */
 export class ExpressionExtensionError extends ExpressionError {}
 
 export interface ValidationIssue {
@@ -89,14 +89,14 @@ export class WorkflowValidationError extends FiluflowError {
   }
 }
 
-/** Abbruch einer Execution */
+/** Cancellation of an execution */
 export class ExecutionCancelledError extends FiluflowError {
   constructor(executionId: string) {
     super(`The execution was canceled (${executionId})`);
   }
 }
 
-/** Wird von stopAndError geworfen */
+/** Thrown by stopAndError */
 export class StopAndErrorError extends NodeOperationError {}
 
 export function serializeError(error: unknown): SerializedError {

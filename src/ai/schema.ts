@@ -1,13 +1,13 @@
-// JSON-Schema-Werkzeuge für die KI-Nodes, ohne zod und LangChain.
-// Nachgebaut nach n8n 1.123.0:
+// JSON Schema tools for the AI nodes, without zod and LangChain.
+// Rebuilt after n8n 1.123.0:
 //   packages/@n8n/nodes-langchain/utils/schemaParsing.ts (generateSchemaFromExample, makeAllPropertiesRequired)
-//   npm generate-schema 2.6.0 (json): Schema aus einem Beispiel-JSON
+//   npm generate-schema 2.6.0 (json): schema from an example JSON
 //   packages/@n8n/json-schema-to-zod (JSON Schema -> zod)
-//   npm zod-to-json-schema 3.23.3 (zod -> JSON Schema, $ref für mehrfach genutzte Teilschemas)
-//   npm zod 3 (Validierung: unbekannte Schlüssel entfernen, Schlüsselreihenfolge des Schemas, Defaults)
-// Das interne Modell `ZType` bildet die zod-Typen ab, die json-schema-to-zod erzeugt. Damit lassen sich
-// Format-Anweisungen (zodToJsonSchema) und Parser-Ergebnisse (schema.parse) wie in n8n erzeugen.
-// Geprüft gegen das Orakel test/oracle/ai-table.json.gz (scripts/record-ai-oracle.sh).
+//   npm zod-to-json-schema 3.23.3 (zod -> JSON Schema, $ref for sub-schemas used more than once)
+//   npm zod 3 (validation: remove unknown keys, key order of the schema, defaults)
+// The internal model `ZType` represents the zod types that json-schema-to-zod produces. With it,
+// format instructions (zodToJsonSchema) and parser results (schema.parse) can be produced as in n8n.
+// Checked against the oracle test/oracle/ai-table.json.gz (scripts/record-ai-oracle.sh).
 
 export type JsonSchema = Record<string, unknown>;
 
@@ -27,7 +27,7 @@ function propertyType(value: unknown): string {
   return t === 'date' ? 'string' : t;
 }
 
-/** generate-schema getUniqueKeys: Schlüssel, die in allen Objekten eines Arrays vorkommen */
+/** generate-schema getUniqueKeys: keys that occur in all objects of an array */
 function requiredKeys(a: Record<string, unknown>, b: Record<string, unknown>, c: string[] = []): string[] {
   const keysA = Object.keys(a);
   for (const key of Object.keys(b)) {
@@ -128,7 +128,7 @@ function genObject(object: Record<string, unknown>, output?: Record<string, GenS
   return nested ? props : out;
 }
 
-/** generate-schema json(object); ein String als Eingabe ist dort der Titel (Typ "undefined") */
+/** generate-schema json(object); a string as input is the title there (type "undefined") */
 export function generateJsonSchema(value: unknown): JsonSchema {
   const out: GenSchema = { $schema: 'http://json-schema.org/draft-04/schema#' };
   let object = value;
@@ -175,7 +175,7 @@ export function generateSchemaFromExample(exampleJson: string, allFieldsRequired
 }
 
 // ---------------------------------------------------------------------------
-// Internes zod-Modell
+// Internal zod model
 
 interface Base {
   description?: string;
@@ -216,7 +216,7 @@ type NumberCheck =
 
 const STRING_FORMATS = new Set(['email', 'ip', 'ipv4', 'ipv6', 'uri', 'uuid', 'date-time', 'time', 'date', 'binary', 'duration']);
 
-/** @n8n/json-schema-to-zod parseSchema (ohne $ref, patternProperties, if/then/else, not) */
+/** @n8n/json-schema-to-zod parseSchema (without $ref, patternProperties, if/then/else, not) */
 export function jsonSchemaToZod(schema: unknown, seen = new Map<object, ZType>()): ZType {
   if (typeof schema !== 'object' || schema === null) return schema ? { kind: 'any' } : { kind: 'never' };
   const cached = seen.get(schema);
@@ -358,7 +358,7 @@ const ZOD_STRING_FORMAT: Record<string, string> = {
   ipv6: 'ipv6',
 };
 
-/** zod isOptional(): safeParse(undefined) gelingt (bei default nur, wenn der Default-Wert gültig ist) */
+/** zod isOptional(): safeParse(undefined) succeeds (for default only if the default value is valid) */
 function isOptional(z: ZType): boolean {
   if (z.kind === 'default') {
     try {
@@ -389,7 +389,7 @@ export function zodToJsonSchema(root: ZType): JsonSchema {
       seen.set(z, path);
     }
     const out = convert(z, path);
-    // zod-to-json-schema addMeta: Beschreibung des jeweiligen Typs (auch bei optional) ans Ende
+    // zod-to-json-schema addMeta: description of the respective type (also for optional) at the end
     if (z.description) out.description = z.description;
     return out;
   };
@@ -496,7 +496,7 @@ export function zodToJsonSchema(root: ZType): JsonSchema {
 }
 
 // ---------------------------------------------------------------------------
-// zod-Validierung
+// zod validation
 
 export interface ZIssue {
   code: string;
@@ -521,7 +521,7 @@ function receivedType(v: unknown): string {
   return typeof v;
 }
 
-// zod 3: Regex-Muster der Format-Prüfungen
+// zod 3: regex patterns of the format checks
 const EMAIL_RE = /^(?!\.)(?!.*\.\.)([A-Z0-9_'+\-.]*)[A-Z0-9_+-]@([A-Z0-9][A-Z0-9-]*\.)+[A-Z]{2,}$/i;
 const UUID_RE = /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/i;
 const DATE_RE = /^((\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-((0[13578]|1[02])-(0[1-9]|[12]\d|3[01])|(0[469]|11)-(0[1-9]|[12]\d|30)|(02)-(0[1-9]|1\d|2[0-8])))$/;
@@ -567,10 +567,10 @@ function checkFormat(format: string, v: string): boolean {
   }
 }
 
-const NO_VALUE = Symbol('kein Wert');
+const NO_VALUE = Symbol('no value');
 type Result = unknown | typeof NO_VALUE;
 
-/** zod parse: liefert den bereinigten Wert oder wirft ZValidationError */
+/** zod parse: returns the cleaned value or throws ZValidationError */
 export function zodParse(z: ZType, value: unknown): unknown {
   const issues: ZIssue[] = [];
   const out = run(z, value, [], issues);

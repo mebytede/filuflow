@@ -1,5 +1,5 @@
 // Sort, n8n-nodes-base.sort (typeVersion 1)
-// Nachgebaut nach n8n 1.123.0 packages/nodes-base/nodes/Transform/Sort (Sort.node.ts, utils.ts)
+// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/Transform/Sort (Sort.node.ts, utils.ts)
 import vm from 'node:vm';
 import { randomInt } from 'node:crypto';
 import lodash from 'lodash';
@@ -15,28 +15,28 @@ function shuffleArray<T>(array: T[]): void {
   }
 }
 
-// Parameter wie Sort.node.ts (properties); der Code-Default ist wörtlich übernommen (mit den Tabs aus n8n)
+// Parameters as in Sort.node.ts (properties); the code default is copied verbatim (including the tabs from n8n)
 const parameters: ParamSchema[] = [
   {
     name: 'type',
-    label: 'Art',
+    label: 'Type',
     type: 'options',
     default: 'simple',
-    description: 'Art der Sortierung',
+    description: 'The type of sorting to perform',
     options: [
-      { value: 'simple', label: 'Einfach' },
-      { value: 'random', label: 'Zufällig' },
+      { value: 'simple', label: 'Simple' },
+      { value: 'random', label: 'Random' },
       { value: 'code', label: 'Code' },
     ],
   },
   {
     name: 'sortFieldsUi',
-    label: 'Sortieren nach Feldern',
+    label: 'Fields To Sort By',
     type: 'fixedCollection',
     default: {},
     multiple: true,
-    addLabel: 'Feld hinzufügen',
-    description: 'Felder der Eingabe-Items, nach denen sortiert wird',
+    addLabel: 'Add Field To Sort By',
+    description: 'The fields of the input items to sort by',
     show: { type: ['simple'] },
     groups: [
       {
@@ -45,22 +45,22 @@ const parameters: ParamSchema[] = [
         children: [
           {
             name: 'fieldName',
-            label: 'Feldname',
+            label: 'Field Name',
             type: 'string',
             default: '',
             required: true,
-            placeholder: 'z. B. id',
-            description: 'Feld, nach dem sortiert wird',
+            placeholder: 'e.g. id',
+            description: 'The field to sort by',
           },
           {
             name: 'order',
-            label: 'Reihenfolge',
+            label: 'Order',
             type: 'options',
             default: 'ascending',
-            description: 'Sortierrichtung',
+            description: 'The order to sort by',
             options: [
-              { value: 'ascending', label: 'Aufsteigend' },
-              { value: 'descending', label: 'Absteigend' },
+              { value: 'ascending', label: 'Ascending' },
+              { value: 'descending', label: 'Descending' },
             ],
           },
         ],
@@ -75,23 +75,23 @@ const parameters: ParamSchema[] = [
     rows: 10,
     default:
       "// The two items to compare are in the variables a and b\n\t// Access the fields in a.json and b.json\n\t// Return -1 if a should go before b\n\t// Return 1 if b should go before a\n\t// Return 0 if there's no difference\n\n\tfieldName = 'myField';\n\n\tif (a.json[fieldName] < b.json[fieldName]) {\n\treturn -1;\n\t}\n\tif (a.json[fieldName] > b.json[fieldName]) {\n\treturn 1;\n\t}\n\treturn 0;",
-    description: 'JavaScript-Code, der die Reihenfolge zweier Items bestimmt',
+    description: 'JavaScript code to determine the order of any two items',
     show: { type: ['code'] },
   },
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     show: { type: ['simple'] },
     children: [
       {
         name: 'disableDotNotation',
-        label: 'Punktnotation deaktivieren',
+        label: 'Disable Dot Notation',
         type: 'boolean',
         default: false,
-        description: 'Ob Unterfelder per "parent.child" nicht angesprochen werden können',
+        description: 'Whether to disallow referencing child fields using `parent.child` in the field name',
       },
     ],
   },

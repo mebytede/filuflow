@@ -1,5 +1,5 @@
-// Instanz des Structured Output Parsers, die ein Eltern-Node über ai_outputParser bekommt.
-// parse() schreibt wie n8n einen Lauf ins runData des Parser-Nodes (action "parse").
+// Instance of the Structured Output Parser that a parent node receives via ai_outputParser.
+// parse() writes a run into the runData of the parser node like n8n (action "parse").
 import type { ExecContext } from '../nodes/types.js';
 import { StructuredOutputParser } from './outputParser.js';
 import type { JsonSchema } from './schema.js';

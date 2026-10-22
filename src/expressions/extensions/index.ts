@@ -1,5 +1,5 @@
-// Dispatcher für Erweiterungsfunktionen.
-// Verhalten nachgebaut nach n8n 1.123.0 packages/workflow/src/extensions/expression-extension.ts
+// Dispatcher for extension functions.
+// Behavior rebuilt after n8n 1.123.0 packages/workflow/src/extensions/expression-extension.ts
 // (findExtendedFunction, extend, extendOptional).
 import { DateTime } from 'luxon';
 import { ExpressionExtensionError } from '../../errors.js';
@@ -52,8 +52,8 @@ interface Found {
   fn: (...args: unknown[]) => unknown;
 }
 
-// n8n wandelt ISO-Datumsstrings nur für die Suche in Date um; aufgerufen wird mit dem
-// ursprünglichen Wert (expression-extension.ts findExtendedFunction/extend). Bewusst übernommen.
+// n8n converts ISO date strings to Date only for the lookup; the call uses the
+// original value (expression-extension.ts findExtendedFunction/extend). Deliberately kept.
 function findExtendedFunction(input: unknown, name: string): Found | undefined {
   let fn: ExtensionFunction | undefined;
   if (Array.isArray(input)) {

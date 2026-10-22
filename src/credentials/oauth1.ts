@@ -1,9 +1,9 @@
-// OAuth 1.0a (RFC 5849) für das Credential oAuth1Api, wie n8n 1.123.0:
+// OAuth 1.0a (RFC 5849) for the oAuth1Api credential, as in n8n 1.123.0:
 //   packages/core/src/execution-engine/node-execution-context/utils/request-helper-functions.ts requestOAuth1
-//   packages/cli/src/controllers/oauth/oauth1-credential.controller.ts (Request-Token, Rückleitung, Access-Token)
-// Die Signatur folgt dem Verhalten der Bibliothek oauth-1.0a, die n8n nutzt: Nonce aus 32 Zeichen, Zeitstempel in
-// Sekunden, Parameter aus oauth_*, Request-Daten und Query der URL, je Schlüssel und Wert prozentkodiert und sortiert;
-// Basis-String METHODE&URL&PARAMETER, Schlüssel consumerSecret&tokenSecret, HMAC-SHA1/256/512 als Base64.
+//   packages/cli/src/controllers/oauth/oauth1-credential.controller.ts (request token, redirect, access token)
+// The signature follows the behavior of the oauth-1.0a library that n8n uses: nonce of 32 characters, timestamp in
+// seconds, parameters from oauth_*, request data and URL query, each key and value percent-encoded and sorted;
+// base string METHOD&URL&PARAMETERS, key consumerSecret&tokenSecret, HMAC-SHA1/256/512 as Base64.
 import { createHmac, randomInt } from 'node:crypto';
 import type { HttpClient } from '../http.js';
 import { getOAuth2TokenStore } from './oauth2.js';
@@ -22,7 +22,7 @@ export interface OAuth1Options {
   consumerSecret: string;
   signatureMethod?: string;
   token?: { key: string; secret: string };
-  /** Für Tests feste Werte */
+  /** Fixed values for tests */
   nonce?: string;
   timestamp?: number;
 }
@@ -33,7 +33,7 @@ function algorithm(method: string | undefined): string {
   return 'sha1';
 }
 
-/** Query der URL als Schlüssel-Werte (oauth-1.0a deParamUrl) */
+/** URL query as key-value pairs (oauth-1.0a deParamUrl) */
 function urlParams(url: string): Array<[string, string]> {
   const q = url.split('?')[1];
   if (!q) return [];
@@ -47,7 +47,7 @@ function urlParams(url: string): Array<[string, string]> {
     });
 }
 
-/** oauth-1.0a authorize: oauth_*-Parameter mit Signatur */
+/** oauth-1.0a authorize: oauth_* parameters with signature */
 export function authorizeOAuth1(request: { method: string; url: string; data?: Record<string, unknown> }, o: OAuth1Options): Record<string, string> {
   const oauth: Record<string, string> = {
     oauth_consumer_key: o.consumerKey,
@@ -57,7 +57,7 @@ export function authorizeOAuth1(request: { method: string; url: string; data?: R
     oauth_version: '1.0',
   };
   if (o.token?.key) oauth.oauth_token = o.token.key;
-  // Parameter: oauth_*, Request-Daten (qs und Formular), Query der URL; alle Werte als Text, Listen einzeln
+  // Parameters: oauth_*, request data (qs and form), URL query; all values as text, lists one by one
   const pairs: Array<[string, string]> = [];
   const add = (k: string, v: unknown) => {
     if (Array.isArray(v)) for (const x of v) pairs.push([k, String(x)]);
@@ -74,7 +74,7 @@ export function authorizeOAuth1(request: { method: string; url: string; data?: R
   return oauth;
 }
 
-/** oauth-1.0a toHeader: nur oauth_*-Parameter, sortiert */
+/** oauth-1.0a toHeader: only oauth_* parameters, sorted */
 export function oauth1Header(oauth: Record<string, unknown>): string {
   const parts = Object.keys(oauth)
     .filter((k) => k.startsWith('oauth_'))
@@ -87,7 +87,7 @@ export function oauth1TokenKey(ref: { name: string; id?: string }): string {
   return `oauth1-cred:${ref.id || ref.name}`;
 }
 
-/** Token-Daten eines verbundenen Credentials: gespeichert (Server) oder aus dem Credential (n8n-Export) */
+/** Token data of a connected credential: stored (server) or from the credential (n8n export) */
 export function connectedOAuth1TokenData(cred: Record<string, unknown>, ref?: { name: string; id?: string }): Record<string, unknown> | undefined {
   const stored = ref ? getOAuth2TokenStore()?.get<Record<string, unknown>>(oauth1TokenKey(ref)) : undefined;
   if (stored && Object.keys(stored).length) return stored;
@@ -96,23 +96,23 @@ export function connectedOAuth1TokenData(cred: Record<string, unknown>, ref?: { 
   return undefined;
 }
 
-/** Request-Token holen (oauth1-credential.controller.ts getAuthUri); liefert die Autorisierungs-URL */
+/** Fetch the request token (oauth1-credential.controller.ts getAuthUri); returns the authorization URL */
 export async function oauth1AuthorizationUrl(http: HttpClient, cred: Record<string, unknown>, callbackUrl: string): Promise<string> {
   const data = { oauth_callback: callbackUrl };
   const url = String(cred.requestTokenUrl ?? '');
   const oauth = authorizeOAuth1({ method: 'POST', url, data }, { consumerKey: String(cred.consumerKey ?? ''), consumerSecret: String(cred.consumerSecret ?? ''), signatureMethod: String(cred.signatureMethod ?? 'HMAC-SHA1') });
-  // n8n übergibt die Daten an axios (JSON-Body) und setzt nur die oauth_*-Werte der Signatur in den Header.
-  // filuflow nimmt oauth_callback zusätzlich in den Header auf (RFC 5849 2.1), da viele Anbieter keinen JSON-Body lesen;
-  // die Signatur ist dieselbe.
+  // n8n passes the data to axios (JSON body) and puts only the oauth_* values of the signature into the header.
+  // filuflow additionally puts oauth_callback into the header (RFC 5849 2.1), since many providers do not read a JSON body;
+  // the signature is the same.
   const res = await http.request({ method: 'POST', url, headers: { authorization: oauth1Header({ ...oauth, ...data }), 'content-type': 'application/json' }, body: JSON.stringify(data) });
   const text = res.body.toString('utf8');
-  if (res.statusCode >= 400) throw new Error(`Request-Token fehlgeschlagen (${res.statusCode}): ${text}`);
+  if (res.statusCode >= 400) throw new Error(`Request token failed (${res.statusCode}): ${text}`);
   const token = new URLSearchParams(text).get('oauth_token');
-  if (!token) throw new Error('Antwort ohne oauth_token');
+  if (!token) throw new Error('Response without oauth_token');
   return `${String(cred.authUrl ?? '')}?oauth_token=${token}`;
 }
 
-/** Access-Token mit dem Verifier holen (handleCallback): Formular-Body ohne Signatur, Antwort als Formular */
+/** Fetch the access token with the verifier (handleCallback): form body without signature, response as form */
 export async function oauth1AccessToken(http: HttpClient, cred: Record<string, unknown>, query: { oauth_token: string; oauth_verifier: string }): Promise<Record<string, string>> {
   const res = await http.request({
     method: 'POST',
@@ -121,6 +121,6 @@ export async function oauth1AccessToken(http: HttpClient, cred: Record<string, u
     body: new URLSearchParams({ oauth_token: query.oauth_token, oauth_verifier: query.oauth_verifier }).toString(),
   });
   const text = res.body.toString('utf8');
-  if (res.statusCode >= 400) throw new Error(`Access-Token fehlgeschlagen (${res.statusCode}): ${text}`);
+  if (res.statusCode >= 400) throw new Error(`Access token failed (${res.statusCode}): ${text}`);
   return Object.fromEntries(new URLSearchParams(text).entries());
 }

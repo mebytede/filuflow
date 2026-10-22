@@ -1,4 +1,4 @@
-// Prompt-Quelle der KI-Nodes (n8n packages/@n8n/nodes-langchain/utils/helpers.ts getPromptInputByType).
+// Prompt source of the AI nodes (n8n packages/@n8n/nodes-langchain/utils/helpers.ts getPromptInputByType).
 import type { ExecContext } from '../nodes/types.js';
 import { NodeOperationError } from '../errors.js';
 

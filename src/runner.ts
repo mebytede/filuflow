@@ -1,5 +1,5 @@
-// Gemeinsamer Ausführungsrahmen für CLI, Server und Tests:
-// Workflow-Verzeichnis (für Unter-Workflows), Credentials, Variablen, Logs.
+// Shared execution framework for CLI, server and tests:
+// workflow directory (for sub-workflows), credentials, variables, logs.
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -20,11 +20,11 @@ import type { BinaryStore } from './binary.js';
 import type { Logger } from './logger.js';
 
 export interface WorkflowSource {
-  /** Sucht einen Workflow per ID, dann per Name */
+  /** Looks up a workflow by ID, then by name */
   find(idOrName: string): Promise<Workflow | undefined>;
 }
 
-/** Workflows aus einem Verzeichnis (*.json), mit Cache */
+/** Workflows from a directory (*.json), with cache */
 export class DirectoryWorkflowSource implements WorkflowSource {
   private cache?: Workflow[];
   constructor(private readonly dir: string) {}
@@ -65,9 +65,9 @@ export interface RunnerOptions {
   logger?: Logger;
   timezone?: string;
   webhookWaitingBaseUrl?: string;
-  /** Wird für jede (auch Unter-)Execution aufgerufen */
+  /** Called for every execution (including sub-executions) */
   onExecutionFinished?: (execution: Execution, workflow: Workflow) => void | Promise<void>;
-  /** Maximale Verschachtelung von Unter-Workflows */
+  /** Maximum nesting depth of sub-workflows */
   maxDepth?: number;
 }
 
@@ -82,17 +82,17 @@ export interface RunOptions {
   signal?: AbortSignal;
   hooks?: RunHooks;
   staticData?: Record<string, Record<string, unknown>>;
-  /** Callback, sobald der Executor existiert (z. B. für Abbruch) */
+  /** Callback as soon as the executor exists (e.g. for cancellation) */
   onStart?: (executor: WorkflowExecutor) => void;
-  /** Execution darf dauerhaft warten (nur Server); Unter-Workflows nie */
+  /** Execution may wait persistently (server only); sub-workflows never */
   canWait?: boolean;
-  /** Wartende Execution fortsetzen */
+  /** Resume a waiting execution */
   resume?: ResumeData;
-  /** Nur bis zu diesem Knoten (Editor) */
+  /** Only up to this node (editor) */
   destinationNode?: string;
 }
 
-/** Start-Node für Unter-Workflows (n8n findSubworkflowStart): executeWorkflowTrigger, sonst ein Start-Typ */
+/** Start node for sub-workflows (n8n findSubworkflowStart): executeWorkflowTrigger, otherwise a start type */
 const STARTING_NODE_TYPES = ['n8n-nodes-base.manualTrigger', 'n8n-nodes-base.executeWorkflowTrigger', 'n8n-nodes-base.errorTrigger', 'n8n-nodes-base.start'];
 
 function findSubworkflowStart(workflow: Workflow): string {
@@ -151,12 +151,12 @@ export class Runner {
     return execution;
   }
 
-  /** Kontext eines Knotens ohne Ausführung, z. B. für aktivierte Poll- und Trigger-Knoten (M31) */
+  /** Context of a node without execution, e.g. for activated poll and trigger nodes (M31) */
   activationContext(run: RunOptions, nodeName: string): ExecContext {
     return new WorkflowExecutor(this.executorOptions(run, 0)).contextFor(nodeName);
   }
 
-  /** Prüft vorab, ob ein Start-Node bestimmbar ist (für klare CLI-Fehler) */
+  /** Checks in advance whether a start node can be determined (for clear CLI errors) */
   checkStart(workflow: Workflow, startNodeName?: string): string {
     return findStartNode(new WorkflowGraph(workflow), this.registry, startNodeName).name;
   }
@@ -166,7 +166,7 @@ export class Runner {
     depth: number,
   ): Promise<ExecuteWorkflowResult> {
     if (depth > (this.options.maxDepth ?? 20)) {
-      throw new NodeOperationError(req.parentNode.name, 'Maximale Verschachtelungstiefe für Unter-Workflows erreicht');
+      throw new NodeOperationError(req.parentNode.name, 'Maximum nesting depth for sub-workflows reached');
     }
     let workflow: Workflow | undefined;
     if (req.workflowJson !== undefined) {
@@ -194,7 +194,7 @@ export class Runner {
     }
     const execution = await this.run(run, depth);
     if (execution.status !== 'success') {
-      const err = new Error(execution.error?.message ?? 'Unter-Workflow fehlgeschlagen');
+      const err = new Error(execution.error?.message ?? 'Sub-workflow failed');
       Object.assign(err, { description: execution.error?.description, node: execution.error?.node });
       throw err;
     }
@@ -205,11 +205,11 @@ export class Runner {
   }
 }
 
-/** vars.json laden (für $vars), leer wenn nicht vorhanden */
+/** Loads vars.json (for $vars), empty if not present */
 export async function loadVars(path?: string): Promise<Record<string, unknown>> {
   const file = path ?? process.env.FILUFLOW_VARS ?? 'vars.json';
   if (!existsSync(file)) {
-    if (path || process.env.FILUFLOW_VARS) throw new Error(`Variablen-Datei ${file} nicht gefunden`);
+    if (path || process.env.FILUFLOW_VARS) throw new Error(`Variables file ${file} not found`);
     return {};
   }
   return JSON.parse(await readFile(file, 'utf8')) as Record<string, unknown>;

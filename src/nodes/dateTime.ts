@@ -1,7 +1,7 @@
 // Date & Time, n8n-nodes-base.dateTime (typeVersion 2)
-// Nachgebaut nach n8n 1.123.0 packages/nodes-base/nodes/DateTime/V2 (DateTimeV2.node.ts, GenericFunctions.ts)
-// n8n parst Datumsstrings mit moment(date); hier nachgebaut mit luxon in der System-Zeitzone
-// (ISO 8601, dann RFC 2822, dann Date.parse), siehe parseLikeMoment.
+// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/DateTime/V2 (DateTimeV2.node.ts, GenericFunctions.ts)
+// n8n parses date strings with moment(date); rebuilt here with luxon in the system time zone
+// (ISO 8601, then RFC 2822, then Date.parse), see parseLikeMoment.
 import { DateTime, type DateTimeUnit, type DurationUnit } from 'luxon';
 import type { ExecContext, NodeType } from './types.js';
 import type { DisplayRule, ParamSchema } from './params.js';
@@ -48,26 +48,26 @@ export function parseDate(ctx: ExecContext, input: unknown, options: { timezone?
   return parsed;
 }
 
-// Parameter wie DateTime/V2: DateTimeV2.node.ts (operation), CurrentDateDescription.ts, AddToDateDescription.ts,
+// Parameters like DateTime/V2: DateTimeV2.node.ts (operation), CurrentDateDescription.ts, AddToDateDescription.ts,
 // SubtractFromDateDescription.ts, FormatDateDescription.ts, RoundDateDescription.ts, GetTimeBetweenDates.ts,
-// ExtractDateDescription.ts und common.descriptions.ts (includeInputFields)
+// ExtractDateDescription.ts and common.descriptions.ts (includeInputFields)
 const op = (operation: string): DisplayRule => ({ operation: [operation] });
 
 const includeInputFields: ParamSchema = {
   name: 'includeInputFields',
-  label: 'Eingabefelder übernehmen',
+  label: 'Include Input Fields',
   type: 'boolean',
   default: false,
-  description: 'Ob alle Felder des Eingabe-Items in das Ausgabe-Item kommen',
+  description: 'Whether to include all fields of the input item in the output item',
 };
 
 function outputField(operation: string, def: string): ParamSchema {
   return {
     name: 'outputFieldName',
-    label: 'Name des Ausgabefelds',
+    label: 'Output Field Name',
     type: 'string',
     default: def,
-    description: 'Feld, in das das Ergebnis geschrieben wird',
+    description: 'Name of the field to put the output in',
     show: op(operation),
   };
 }
@@ -75,10 +75,10 @@ function outputField(operation: string, def: string): ParamSchema {
 function options(operation: string, extra: ParamSchema[] = []): ParamSchema {
   return {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     show: op(operation),
     children: [includeInputFields, ...extra],
   };
@@ -89,25 +89,25 @@ function notice(operation: string, text: string): ParamSchema {
 }
 
 const timeUnits: ParamSchema['options'] = [
-  { value: 'years', label: 'Jahre' },
-  { value: 'quarters', label: 'Quartale' },
-  { value: 'months', label: 'Monate' },
-  { value: 'weeks', label: 'Wochen' },
-  { value: 'days', label: 'Tage' },
-  { value: 'hours', label: 'Stunden' },
-  { value: 'minutes', label: 'Minuten' },
-  { value: 'seconds', label: 'Sekunden' },
-  { value: 'milliseconds', label: 'Millisekunden' },
+  { value: 'years', label: 'Years' },
+  { value: 'quarters', label: 'Quarters' },
+  { value: 'months', label: 'Months' },
+  { value: 'weeks', label: 'Weeks' },
+  { value: 'days', label: 'Days' },
+  { value: 'hours', label: 'Hours' },
+  { value: 'minutes', label: 'Minutes' },
+  { value: 'seconds', label: 'Seconds' },
+  { value: 'milliseconds', label: 'Milliseconds' },
 ];
 
 const dateParts: NonNullable<ParamSchema['options']> = [
-  { value: 'year', label: 'Jahr' },
-  { value: 'month', label: 'Monat' },
-  { value: 'week', label: 'Woche' },
-  { value: 'day', label: 'Tag' },
-  { value: 'hour', label: 'Stunde' },
+  { value: 'year', label: 'Year' },
+  { value: 'month', label: 'Month' },
+  { value: 'week', label: 'Week' },
+  { value: 'day', label: 'Day' },
+  { value: 'hour', label: 'Hour' },
   { value: 'minute', label: 'Minute' },
-  { value: 'second', label: 'Sekunde' },
+  { value: 'second', label: 'Second' },
 ];
 
 const parameters: ParamSchema[] = [
@@ -118,110 +118,110 @@ const parameters: ParamSchema[] = [
     default: 'getCurrentDate',
     noExpression: true,
     options: [
-      { value: 'addToDate', label: 'Zu einem Datum addieren' },
-      { value: 'extractDate', label: 'Teil eines Datums auslesen' },
-      { value: 'formatDate', label: 'Datum formatieren' },
-      { value: 'getCurrentDate', label: 'Aktuelles Datum' },
-      { value: 'getTimeBetweenDates', label: 'Zeit zwischen zwei Daten' },
-      { value: 'roundDate', label: 'Datum runden' },
-      { value: 'subtractFromDate', label: 'Von einem Datum abziehen' },
+      { value: 'addToDate', label: 'Add to a Date' },
+      { value: 'extractDate', label: 'Extract Part of a Date' },
+      { value: 'formatDate', label: 'Format a Date' },
+      { value: 'getCurrentDate', label: 'Get Current Date' },
+      { value: 'getTimeBetweenDates', label: 'Get Time Between Dates' },
+      { value: 'roundDate', label: 'Round a Date' },
+      { value: 'subtractFromDate', label: 'Subtract From a Date' },
     ],
   },
 
   // getCurrentDate
-  notice('getCurrentDate', 'Das aktuelle Datum steht in Expressions auch als {{ $now }} oder {{ $today }} bereit.'),
+  notice('getCurrentDate', 'You can also refer to the current date in n8n expressions by using {{ $now }} or {{ $today }}.'),
   {
     name: 'includeTime',
-    label: 'Aktuelle Uhrzeit einbeziehen',
+    label: 'Include Current Time',
     type: 'boolean',
     default: true,
-    description: 'Ausgeschaltet wird die Uhrzeit auf Mitternacht gesetzt',
+    description: 'When deactivated, the time will be set to midnight',
     show: op('getCurrentDate'),
   },
   outputField('getCurrentDate', 'currentDate'),
   options('getCurrentDate', [
     {
       name: 'timezone',
-      label: 'Zeitzone',
+      label: 'Timezone',
       type: 'string',
       default: '',
       placeholder: 'America/New_York',
-      description: 'Zu verwendende Zeitzone, leer bedeutet die des Workflows; "GMT" für +00:00',
+      description: 'The timezone to use; empty means the workflow timezone; use "GMT" for +00:00',
     },
   ]),
 
   // addToDate
-  notice('addToDate', "Das geht auch per Expression, z. B. {{ your_date.plus(5, 'minutes') }}."),
+  notice('addToDate', "You can also do this using an expression, e.g. {{ your_date.plus(5, 'minutes') }}."),
   {
     name: 'magnitude',
-    label: 'Datum, zu dem addiert wird',
+    label: 'Date to Add To',
     type: 'string',
     default: '',
     required: true,
-    description: 'Das zu ändernde Datum',
+    description: 'The date that you want to change',
     show: op('addToDate'),
   },
   {
     name: 'timeUnit',
-    label: 'Zu addierende Zeiteinheit',
+    label: 'Time Unit to Add',
     type: 'options',
     default: 'days',
     required: true,
-    description: 'Zeiteinheit für die Dauer unten',
+    description: 'Time unit for Duration parameter below',
     show: op('addToDate'),
     options: timeUnits,
   },
   {
     name: 'duration',
-    label: 'Dauer',
+    label: 'Duration',
     type: 'number',
     default: 0,
-    description: 'Anzahl der Zeiteinheiten, die addiert werden',
+    description: 'The number of time units to add to the date',
     show: op('addToDate'),
   },
   outputField('addToDate', 'newDate'),
   options('addToDate'),
 
   // subtractFromDate
-  notice('subtractFromDate', "Das geht auch per Expression, z. B. {{ your_date.minus(5, 'minutes') }}."),
+  notice('subtractFromDate', "You can also do this using an expression, e.g. {{ your_date.minus(5, 'minutes') }}."),
   {
     name: 'magnitude',
-    label: 'Datum, von dem abgezogen wird',
+    label: 'Date to Subtract From',
     type: 'string',
     default: '',
     required: true,
-    description: 'Das zu ändernde Datum',
+    description: 'The date that you want to change',
     show: op('subtractFromDate'),
   },
   {
     name: 'timeUnit',
-    label: 'Abzuziehende Zeiteinheit',
+    label: 'Time Unit to Subtract',
     type: 'options',
     default: 'days',
     required: true,
-    description: 'Zeiteinheit für die Dauer unten',
+    description: 'Time unit for Duration parameter below',
     show: op('subtractFromDate'),
     options: timeUnits,
   },
   {
     name: 'duration',
-    label: 'Dauer',
+    label: 'Duration',
     type: 'number',
     default: 0,
-    description: 'Anzahl der Zeiteinheiten, die abgezogen werden',
+    description: 'The number of time units to subtract from the date',
     show: op('subtractFromDate'),
   },
   outputField('subtractFromDate', 'newDate'),
   options('subtractFromDate'),
 
   // formatDate
-  notice('formatDate', "Das geht auch per Expression, z. B. {{ your_date.format('yyyy-MM-dd') }}."),
+  notice('formatDate', "You can also do this using an expression, e.g. {{ your_date.format('yyyy-MM-dd') }}."),
   {
     name: 'date',
-    label: 'Datum',
+    label: 'Date',
     type: 'string',
     default: '',
-    description: 'Das zu formatierende Datum',
+    description: 'The date that you want to format',
     show: op('formatDate'),
   },
   {
@@ -229,70 +229,70 @@ const parameters: ParamSchema[] = [
     label: 'Format',
     type: 'options',
     default: 'MM/dd/yyyy',
-    description: 'Zielformat des Datums',
+    description: 'The format to convert the date to',
     show: op('formatDate'),
     options: [
-      { value: 'custom', label: 'Eigenes Format' },
-      { value: 'MM/dd/yyyy', label: 'MM/DD/YYYY', description: 'Beispiel: 09/04/1986' },
-      { value: 'yyyy/MM/dd', label: 'YYYY/MM/DD', description: 'Beispiel: 1986/04/09' },
-      { value: 'MMMM dd yyyy', label: 'MMMM DD YYYY', description: 'Beispiel: April 09 1986' },
-      { value: 'MM-dd-yyyy', label: 'MM-DD-YYYY', description: 'Beispiel: 09-04-1986' },
-      { value: 'yyyy-MM-dd', label: 'YYYY-MM-DD', description: 'Beispiel: 1986-04-09' },
-      { value: 'X', label: 'Unix-Zeitstempel', description: 'Beispiel: 1672531200' },
-      { value: 'x', label: 'Unix-Zeitstempel in ms', description: 'Beispiel: 1674691200000' },
+      { value: 'custom', label: 'Custom Format' },
+      { value: 'MM/dd/yyyy', label: 'MM/DD/YYYY', description: 'Example: 09/04/1986' },
+      { value: 'yyyy/MM/dd', label: 'YYYY/MM/DD', description: 'Example: 1986/04/09' },
+      { value: 'MMMM dd yyyy', label: 'MMMM DD YYYY', description: 'Example: April 09 1986' },
+      { value: 'MM-dd-yyyy', label: 'MM-DD-YYYY', description: 'Example: 09-04-1986' },
+      { value: 'yyyy-MM-dd', label: 'YYYY-MM-DD', description: 'Example: 1986-04-09' },
+      { value: 'X', label: 'Unix Timestamp', description: 'Example: 1672531200' },
+      { value: 'x', label: 'Unix Timestamp in Ms', description: 'Example: 1674691200000' },
     ],
   },
   {
     name: 'customFormat',
-    label: 'Eigenes Format',
+    label: 'Custom Format',
     type: 'string',
     default: '',
     placeholder: 'yyyy-MM-dd',
-    description: 'Format mit luxon-Tokens',
+    description: 'Format using luxon tokens',
     show: { format: ['custom'], operation: ['formatDate'] },
   },
   outputField('formatDate', 'formattedDate'),
   options('formatDate', [
     {
       name: 'fromFormat',
-      label: 'Eingabeformat',
+      label: 'From Date Format',
       type: 'string',
       default: 'e.g yyyyMMdd',
-      description: 'Format des Eingabedatums mit luxon-Tokens, falls es nicht erkannt wird (Groß-/Kleinschreibung beachten)',
+      description: 'Format of the input date in luxon tokens, in case it is not recognized (case sensitive)',
     },
     {
       name: 'timezone',
-      label: 'Zeitzone des Workflows verwenden',
+      label: 'Use Workflow Timezone',
       type: 'boolean',
       default: false,
-      description: 'Ob die Zeitzone des Workflows statt der des Eingabedatums gilt',
+      description: 'Whether to use the timezone of the workflow instead of the one of the input date',
     },
   ]),
 
   // roundDate
-  notice('roundDate', "Das geht auch per Expression, z. B. {{ your_date.beginningOf('month') }} oder {{ your_date.endOfMonth() }}."),
+  notice('roundDate', "You can also do this using an expression, e.g. {{ your_date.beginningOf('month') }} or {{ your_date.endOfMonth() }}."),
   {
     name: 'date',
-    label: 'Datum',
+    label: 'Date',
     type: 'string',
     default: '',
-    description: 'Das zu rundende Datum',
+    description: 'The date that you want to round',
     show: op('roundDate'),
   },
   {
     name: 'mode',
-    label: 'Modus',
+    label: 'Mode',
     type: 'options',
     default: 'roundDown',
     show: op('roundDate'),
     options: [
-      { value: 'roundDown', label: 'Abrunden' },
-      { value: 'roundUp', label: 'Aufrunden' },
+      { value: 'roundDown', label: 'Round Down' },
+      { value: 'roundUp', label: 'Round Up' },
     ],
   },
   {
     name: 'toNearest',
-    label: 'Auf',
+    label: 'To Nearest',
     type: 'options',
     default: 'month',
     show: { operation: ['roundDate'], mode: ['roundDown'] },
@@ -300,50 +300,50 @@ const parameters: ParamSchema[] = [
   },
   {
     name: 'to',
-    label: 'Auf',
+    label: 'To Nearest',
     type: 'options',
     default: 'month',
     show: { operation: ['roundDate'], mode: ['roundUp'] },
-    options: [{ value: 'month', label: 'Monatsende' }],
+    options: [{ value: 'month', label: 'End of Month' }],
   },
   outputField('roundDate', 'roundedDate'),
   options('roundDate'),
 
   // getTimeBetweenDates
-  { name: 'startDate', label: 'Startdatum', type: 'string', default: '', show: op('getTimeBetweenDates') },
-  { name: 'endDate', label: 'Enddatum', type: 'string', default: '', show: op('getTimeBetweenDates') },
+  { name: 'startDate', label: 'Start Date', type: 'string', default: '', show: op('getTimeBetweenDates') },
+  { name: 'endDate', label: 'End Date', type: 'string', default: '', show: op('getTimeBetweenDates') },
   {
     name: 'units',
-    label: 'Einheiten',
+    label: 'Units',
     type: 'multiOptions',
     default: ['day'],
     show: op('getTimeBetweenDates'),
-    options: [...dateParts, { value: 'millisecond', label: 'Millisekunde' }],
+    options: [...dateParts, { value: 'millisecond', label: 'Millisecond' }],
   },
   outputField('getTimeBetweenDates', 'timeDifference'),
   options('getTimeBetweenDates', [
     {
       name: 'isoString',
-      label: 'Als ISO-String ausgeben',
+      label: 'Output as ISO String',
       type: 'boolean',
       default: false,
-      description: 'Ob die Dauer als ISO-String ausgegeben wird',
+      description: 'Whether to output the date as ISO string or not',
     },
   ]),
 
   // extractDate
-  notice('extractDate', 'Das geht auch per Expression, z. B. {{ your_date.extract("month") }}.'),
+  notice('extractDate', 'You can also do this using an expression, e.g. {{ your_date.extract("month") }}.'),
   {
     name: 'date',
-    label: 'Datum',
+    label: 'Date',
     type: 'string',
     default: '',
-    description: 'Das Datum, aus dem ein Teil gelesen wird',
+    description: 'The date you want to extract a part from',
     show: op('extractDate'),
   },
   {
     name: 'part',
-    label: 'Teil',
+    label: 'Part',
     type: 'options',
     default: 'month',
     show: op('extractDate'),

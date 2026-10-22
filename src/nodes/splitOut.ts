@@ -1,5 +1,5 @@
 // Split Out, n8n-nodes-base.splitOut (typeVersion 1)
-// Nachgebaut nach n8n 1.123.0 packages/nodes-base/nodes/Transform/SplitOut/SplitOut.node.ts
+// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/Transform/SplitOut/SplitOut.node.ts
 import lodash from 'lodash';
 import type { NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
@@ -8,65 +8,65 @@ import { NodeOperationError } from '../errors.js';
 import { deepCopy } from './shared/utils.js';
 import { prepareFieldsArray } from './shared/fields.js';
 
-// Parameter wie SplitOut.node.ts (properties)
+// Parameters as in SplitOut.node.ts (properties)
 const parameters: ParamSchema[] = [
   {
     name: 'fieldToSplitOut',
-    label: 'Aufzuteilende Felder',
+    label: 'Fields To Split Out',
     type: 'string',
     default: '',
     required: true,
-    placeholder: 'Felder links herüberziehen oder Namen eingeben',
-    description: 'Felder, die in einzelne Items aufgeteilt werden, kommagetrennt; für Binärdaten $binary',
+    placeholder: 'Drag fields from the left or type their names',
+    description: 'The fields to split out into separate items, comma-separated; use $binary for binary data',
   },
   {
     name: 'include',
-    label: 'Aufnehmen',
+    label: 'Include',
     type: 'options',
     default: 'noOtherFields',
-    description: 'Ob weitere Felder in die neuen Items kopiert werden',
+    description: 'Whether to copy any other fields into the new items',
     options: [
-      { value: 'noOtherFields', label: 'Keine anderen Felder' },
-      { value: 'allOtherFields', label: 'Alle anderen Felder' },
-      { value: 'selectedOtherFields', label: 'Ausgewählte andere Felder' },
+      { value: 'noOtherFields', label: 'No Other Fields' },
+      { value: 'allOtherFields', label: 'All Other Fields' },
+      { value: 'selectedOtherFields', label: 'Selected Other Fields' },
     ],
   },
   {
     name: 'fieldsToInclude',
-    label: 'Aufzunehmende Felder',
+    label: 'Fields To Include',
     type: 'string',
     default: '',
-    placeholder: 'z. B. email, name',
-    description: 'Felder der Eingabe-Items, die mitkopiert werden',
+    placeholder: 'e.g. email, name',
+    description: 'Fields of the input items to copy along',
     show: { include: ['selectedOtherFields'] },
   },
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     children: [
       {
         name: 'disableDotNotation',
-        label: 'Punktnotation deaktivieren',
+        label: 'Disable Dot Notation',
         type: 'boolean',
         default: false,
-        description: 'Ob Unterfelder per "parent.child" nicht angesprochen werden können',
+        description: 'Whether to disallow referencing child fields using `parent.child` in the field name',
       },
       {
         name: 'destinationFieldName',
-        label: 'Name des Zielfelds',
+        label: 'Destination Field Name',
         type: 'string',
         default: '',
-        description: 'Feld in der Ausgabe für den aufgeteilten Inhalt',
+        description: 'The field in the output under which to put the split field contents',
       },
       {
         name: 'includeBinary',
-        label: 'Binärdaten übernehmen',
+        label: 'Include Binary',
         type: 'boolean',
         default: false,
-        description: 'Ob die Binärdaten in die neuen Items kommen',
+        description: 'Whether to include the binary data in the new items',
       },
     ],
   },

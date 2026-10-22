@@ -1,8 +1,8 @@
-// Dokumente für Vektorspeicher und Retrieval (M27), Verhalten wie die LangChain-Pakete in n8n 1.123.0:
+// Documents for vector stores and retrieval (M27), behavior as the LangChain packages in n8n 1.123.0:
 //   @langchain/core 1.1.0 documents (Document: pageContent, metadata, id)
-//   @langchain/classic 1.0.5 document_loaders/fs/text.js (TextLoader) und json.js (JSONLoader mit jsonpointer)
+//   @langchain/classic 1.0.5 document_loaders/fs/text.js (TextLoader) and json.js (JSONLoader with jsonpointer)
 //   @langchain/textsplitters 1.0.1 text_splitter.js (TextSplitter, CharacterTextSplitter, RecursiveCharacterTextSplitter)
-// Eigene Umsetzung des Verhaltens; die Trenner je Sprache sind Daten aus @langchain/textsplitters (MIT-Lizenz).
+// Own implementation of the behavior; the separators per language are data from @langchain/textsplitters (MIT license).
 
 export interface Document {
   pageContent: string;
@@ -10,12 +10,12 @@ export interface Document {
   id?: string;
 }
 
-/** new Document(...): Felder in der Reihenfolge pageContent, metadata, id (JSON ohne id, wenn sie fehlt) */
+/** new Document(...): fields in the order pageContent, metadata, id (JSON without id if it is missing) */
 export function makeDocument(pageContent: string, metadata: Record<string, unknown> = {}, id?: string): Document {
   return id === undefined ? { pageContent, metadata } : { pageContent, metadata, id };
 }
 
-/** TextLoader(blob).load(): ein Dokument, metadata { source: "blob", blobType } */
+/** TextLoader(blob).load(): one document, metadata { source: "blob", blobType } */
 export function loadText(text: string, blobType: string): Document[] {
   return textDocuments([text], { source: 'blob', blobType });
 }
@@ -24,7 +24,7 @@ function textDocuments(parsed: string[], metadata: Record<string, unknown>): Doc
   return parsed.map((pageContent, i) => makeDocument(pageContent, parsed.length === 1 ? metadata : { ...metadata, line: i + 1 }));
 }
 
-/** RFC 6901 wie das Paket jsonpointer: "" ist das ganze Dokument, "~1" steht für "/", "~0" für "~" */
+/** RFC 6901 like the jsonpointer package: "" is the whole document, "~1" stands for "/", "~0" for "~" */
 function pointerGet(json: unknown, pointer: string): unknown {
   if (pointer === '') return json;
   if (!pointer.startsWith('/')) throw new Error('Invalid JSON pointer: ' + pointer);
@@ -40,7 +40,7 @@ function pointerGet(json: unknown, pointer: string): unknown {
   return current;
 }
 
-/** JSONLoader.extractArrayStringsFromObject, einschließlich der Wiederholungen bei verschachtelten Werten */
+/** JSONLoader.extractArrayStringsFromObject, including the repetitions for nested values */
 function extractStrings(json: unknown, pointers: string[], extractAll = false, keyFound = false): string[] {
   if (!json) return [];
   if (typeof json === 'string' && extractAll) return [json];
@@ -61,7 +61,7 @@ function extractStrings(json: unknown, pointers: string[], extractAll = false, k
   return [];
 }
 
-/** JSONLoader(blob, pointers).load(): je Text ein Dokument (bei mehreren mit line) */
+/** JSONLoader(blob, pointers).load(): one document per text (with line if there are several) */
 export function loadJson(raw: string, pointers: string[], blobType = 'application/json'): Document[] {
   const json = JSON.parse(raw.trim()) as unknown;
   const parsed = extractStrings(json, pointers, !(pointers.length > 0));
@@ -74,14 +74,14 @@ export interface TextSplitterOptions {
   keepSeparator?: boolean;
 }
 
-/** Hook für das Protokoll am Splitter-Knoten (logWrapper: splitText) */
+/** Hook for the log on the splitter node (logWrapper: splitText) */
 export type SplitHook = (text: string, split: (text: string) => string[]) => string[];
 
 export abstract class TextSplitter {
   readonly chunkSize: number;
   readonly chunkOverlap: number;
   keepSeparator: boolean;
-  /** Protokoll je splitText (n8n logWrapper) */
+  /** Log per splitText (n8n logWrapper) */
   onSplit?: SplitHook;
 
   constructor(o: TextSplitterOptions = {}) {
@@ -112,7 +112,7 @@ export abstract class TextSplitter {
     return (text.slice(start, end).match(/\n/g) ?? []).length;
   }
 
-  /** createDocuments: Zeilenangaben in metadata.loc.lines */
+  /** createDocuments: line numbers in metadata.loc.lines */
   createDocuments(texts: string[], metadatas: Array<Record<string, unknown>> = []): Document[] {
     const metas: Array<Record<string, unknown>> = metadatas.length > 0 ? metadatas : texts.map(() => ({}));
     const documents: Document[] = [];
@@ -238,7 +238,7 @@ export class RecursiveCharacterTextSplitter extends TextSplitter {
   constructor(o: TextSplitterOptions & { separators?: string[] } = {}) {
     super(o);
     this.separators = o.separators ?? ['\n\n', NL, ' ', ''];
-    // RecursiveCharacterTextSplitter: keepSeparator ist hier standardmäßig an
+    // RecursiveCharacterTextSplitter: keepSeparator is on by default here
     this.keepSeparator = o.keepSeparator ?? true;
   }
 
@@ -281,7 +281,7 @@ export class RecursiveCharacterTextSplitter extends TextSplitter {
   }
 }
 
-/** formatDocuments mit DEFAULT_DOCUMENT_PROMPT "{page_content}" und Trenner "\n\n" (createStuffDocumentsChain, StuffDocumentsChain) */
+/** formatDocuments with DEFAULT_DOCUMENT_PROMPT "{page_content}" and separator "\n\n" (createStuffDocumentsChain, StuffDocumentsChain) */
 export function stuffDocuments(documents: Document[]): string {
   return documents.map((d) => d.pageContent).join('\n\n');
 }

@@ -8,7 +8,7 @@ export default tseslint.config(
   {
     files: ['**/*.ts'],
     rules: {
-      // any nur mit Begründungskommentar (eslint-disable-next-line + Grund)
+      // any only with a justification comment (eslint-disable-next-line + reason)
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       'no-console': 'error',

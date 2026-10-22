@@ -1,43 +1,43 @@
 // Google Gemini Chat Model, @n8n/n8n-nodes-langchain.lmChatGoogleGemini (typeVersion 1)
-// Nachgebaut nach n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/llms/LmChatGoogleGemini/LmChatGoogleGemini.node.ts
-// Sub-Node: liefert ein Chat-Modell, das der Eltern-Node über ai_languageModel aufruft.
+// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/llms/LmChatGoogleGemini/LmChatGoogleGemini.node.ts
+// Sub-node: supplies a chat model that the parent node calls via ai_languageModel.
 import type { NodeType } from './types.js';
 import { GeminiChatModel } from '../ai/models/gemini.js';
 import type { ParamSchema } from './params.js';
 
-// Parameter wie LmChatGoogleGemini.node.ts (properties) und gemini-common/additional-options.ts sowie
-// gemini-common/safety-options.ts (getAdditionalOptions ohne Thinking-Budget, n8n 1.123.0).
-// n8n lädt die Modelle per API (loadOptions); hier ist das Modell eine freie Eingabe.
-// Der Default der Kategorie (HARM_CATEGORY_UNSPECIFIED) fehlt in den n8n-Optionen; hier als eigene Option.
+// Parameters like LmChatGoogleGemini.node.ts (properties) and gemini-common/additional-options.ts as well as
+// gemini-common/safety-options.ts (getAdditionalOptions without thinking budget, n8n 1.123.0).
+// n8n loads the models via API (loadOptions); here the model is a free input.
+// The category default (HARM_CATEGORY_UNSPECIFIED) is missing from the n8n options; here it is its own option.
 const parameters: ParamSchema[] = [
-  { name: 'notice', label: 'Dieser Node muss mit einer AI Chain oder einem AI Agent verbunden werden.', type: 'notice', default: '' },
+  { name: 'notice', label: 'This node must be connected to an AI chain or AI agent.', type: 'notice', default: '' },
   {
     name: 'modelName',
-    label: 'Modell',
+    label: 'Model',
     type: 'string',
     default: 'models/gemini-2.5-flash',
-    placeholder: 'z. B. models/gemini-2.5-flash',
-    description: 'Modell, das die Antwort erzeugt',
+    placeholder: 'e.g. models/gemini-2.5-flash',
+    description: 'The model which will generate the completion',
   },
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    placeholder: 'Option hinzufügen',
-    addLabel: 'Option hinzufügen',
-    description: 'Weitere Optionen',
+    placeholder: 'Add Option',
+    addLabel: 'Add Option',
+    description: 'Additional options to add',
     children: [
-      { name: 'maxOutputTokens', label: 'Höchstzahl Token', type: 'number', default: 2048, description: 'Maximale Zahl erzeugter Token' },
+      { name: 'maxOutputTokens', label: 'Maximum Number of Tokens', type: 'number', default: 2048, description: 'The maximum number of tokens to generate in the completion' },
       {
         name: 'temperature',
-        label: 'Temperatur',
+        label: 'Sampling Temperature',
         type: 'number',
         default: 0.4,
         min: 0,
         max: 1,
         precision: 1,
-        description: 'Steuert die Zufälligkeit; niedrige Werte machen die Antwort deterministischer.',
+        description: 'Controls randomness: lowering results in less random completions.',
       },
       {
         name: 'topK',
@@ -47,7 +47,7 @@ const parameters: ParamSchema[] = [
         min: -1,
         max: 40,
         precision: 1,
-        description: 'Entfernt unwahrscheinliche Antworten; -1 schaltet es aus.',
+        description: 'Used to remove "long tail" low probability responses; -1 disables it.',
       },
       {
         name: 'topP',
@@ -57,47 +57,47 @@ const parameters: ParamSchema[] = [
         min: 0,
         max: 1,
         precision: 1,
-        description: 'Nucleus Sampling; besser dies oder die Temperatur ändern, nicht beides.',
+        description: 'Controls diversity via nucleus sampling; we generally recommend altering this or temperature but not both.',
       },
       {
         name: 'safetySettings',
-        label: 'Sicherheitseinstellungen',
+        label: 'Safety Settings',
         type: 'fixedCollection',
         multiple: true,
         default: { values: { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'HARM_BLOCK_THRESHOLD_UNSPECIFIED' } },
-        placeholder: 'Option hinzufügen',
-        addLabel: 'Einstellung hinzufügen',
+        placeholder: 'Add Option',
+        addLabel: 'Add Safety Setting',
         groups: [
           {
             name: 'values',
-            label: 'Werte',
+            label: 'Values',
             children: [
               {
                 name: 'category',
-                label: 'Kategorie',
+                label: 'Safety Category',
                 type: 'options',
                 default: 'HARM_CATEGORY_UNSPECIFIED',
-                description: 'Kategorie schädlicher Inhalte, die blockiert wird',
+                description: 'The category of harmful content to block',
                 options: [
-                  { value: 'HARM_CATEGORY_UNSPECIFIED', label: 'Nicht angegeben' },
-                  { value: 'HARM_CATEGORY_HARASSMENT', label: 'Belästigung' },
-                  { value: 'HARM_CATEGORY_HATE_SPEECH', label: 'Hassrede' },
-                  { value: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', label: 'Sexuell explizit' },
-                  { value: 'HARM_CATEGORY_DANGEROUS_CONTENT', label: 'Gefährliche Inhalte' },
+                  { value: 'HARM_CATEGORY_UNSPECIFIED', label: 'Unspecified' },
+                  { value: 'HARM_CATEGORY_HARASSMENT', label: 'Harassment' },
+                  { value: 'HARM_CATEGORY_HATE_SPEECH', label: 'Hate Speech' },
+                  { value: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', label: 'Sexually Explicit' },
+                  { value: 'HARM_CATEGORY_DANGEROUS_CONTENT', label: 'Dangerous Content' },
                 ],
               },
               {
                 name: 'threshold',
-                label: 'Schwelle',
+                label: 'Safety Threshold',
                 type: 'options',
                 default: 'HARM_BLOCK_THRESHOLD_UNSPECIFIED',
-                description: 'Ab welcher Stufe Inhalte blockiert werden',
+                description: 'The threshold of harmful content to block',
                 options: [
-                  { value: 'HARM_BLOCK_THRESHOLD_UNSPECIFIED', label: 'Nicht angegeben' },
-                  { value: 'BLOCK_LOW_AND_ABOVE', label: 'Ab niedrig blockieren' },
-                  { value: 'BLOCK_MEDIUM_AND_ABOVE', label: 'Ab mittel blockieren' },
-                  { value: 'BLOCK_ONLY_HIGH', label: 'Nur hoch blockieren' },
-                  { value: 'BLOCK_NONE', label: 'Nichts blockieren' },
+                  { value: 'HARM_BLOCK_THRESHOLD_UNSPECIFIED', label: 'Unspecified' },
+                  { value: 'BLOCK_LOW_AND_ABOVE', label: 'Low and Above' },
+                  { value: 'BLOCK_MEDIUM_AND_ABOVE', label: 'Medium and Above' },
+                  { value: 'BLOCK_ONLY_HIGH', label: 'Only High' },
+                  { value: 'BLOCK_NONE', label: 'None' },
                 ],
               },
             ],

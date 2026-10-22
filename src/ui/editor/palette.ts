@@ -1,21 +1,22 @@
-// Knoten-Auswahl: klappt am Knopf "Knoten" oben links im Canvas auf. Suche und Gruppen; Klick fügt ein,
-// Ziehen legt auf dem Canvas ab.
+// Node picker: opens from the "Nodes" button at the top left of the canvas. Search and groups; a click inserts,
+// dragging drops onto the canvas.
 import { appendAll, h } from '../dom.js';
+import { t as tr, tl } from '../i18n.js';
 import type { NodeTypeInfo } from '../types.js';
 import { icon } from '../icons.js';
 import { iconButton } from '../shell.js';
 import { nodeLook } from './nodeStyle.js';
 
-const GROUP_ORDER = ['Trigger', 'Kern', 'KI', 'KI: Sub-Nodes', 'Erweiterungen', 'Sonstiges'];
+const GROUP_ORDER = ['Trigger', 'Core', 'AI', 'AI: Sub-nodes', 'Extensions', 'Other'];
 
 export function palette(types: NodeTypeInfo[], onAdd: (type: string) => void, onClose: () => void): HTMLElement {
-  const search = h('input', { type: 'search', class: 'palette-search', placeholder: 'Knoten suchen', 'aria-label': 'Knoten suchen' });
+  const search = h('input', { type: 'search', class: 'palette-search', placeholder: tr('Search nodes'), 'aria-label': tr('Search nodes') });
   const list = h('div', { class: 'palette-list' });
   const render = () => {
     const q = search.value.trim().toLowerCase();
     list.replaceChildren();
     const matches = types.filter((t) => !q || t.displayName.toLowerCase().includes(q) || t.type.toLowerCase().includes(q));
-    // Unbekannte Gruppen (z. B. aus Plugins) vor "Sonstiges"
+    // Unknown groups (e.g. from plugins) before "Other"
     const extra = [...new Set(matches.map((t) => t.group).filter((g) => !GROUP_ORDER.includes(g)))].sort();
     const order = [...GROUP_ORDER.slice(0, -1), ...extra, GROUP_ORDER[GROUP_ORDER.length - 1]];
     for (const group of order) {
@@ -23,7 +24,7 @@ export function palette(types: NodeTypeInfo[], onAdd: (type: string) => void, on
       if (!inGroup.length) continue;
       appendAll(
         list,
-        h('div', { class: 'palette-group' }, group),
+        h('div', { class: 'palette-group' }, tl(group)),
         inGroup.map((t) =>
           h(
             'button',
@@ -44,7 +45,7 @@ export function palette(types: NodeTypeInfo[], onAdd: (type: string) => void, on
         ),
       );
     }
-    if (!list.childElementCount) list.append(h('p', { class: 'muted', style: { padding: '0 16px' } }, 'Nichts gefunden.'));
+    if (!list.childElementCount) list.append(h('p', { class: 'muted', style: { padding: '0 16px' } }, tr('Nothing found.')));
   };
   search.addEventListener('input', render);
   search.addEventListener('keydown', (e) => {
@@ -52,5 +53,5 @@ export function palette(types: NodeTypeInfo[], onAdd: (type: string) => void, on
     if (e.key === 'Escape') onClose();
   });
   render();
-  return h('aside', { class: 'palette', 'aria-label': 'Knoten' }, h('div', { class: 'palette-head' }, search, iconButton('x', 'Schließen', onClose)), list);
+  return h('aside', { class: 'palette', 'aria-label': tr('Nodes') }, h('div', { class: 'palette-head' }, search, iconButton('x', tr('Close'), onClose)), list);
 }

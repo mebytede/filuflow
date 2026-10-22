@@ -1,12 +1,12 @@
-// Datentypen der Master-API (siehe src/master/routes/*).
+// Data types of the master API (see src/master/routes/*).
 import type { Workflow } from '../types.js';
 
 export type GlobalRole = 'admin' | 'member';
-/** Eingebaute Projektrollen; eigene Rollen (M34) heißen "custom:<id>" */
+/** Built-in project roles; custom roles (M34) are named "custom:<id>" */
 export type ProjectRole = 'admin' | 'editor' | 'viewer' | `custom:${string}`;
-/** Rolle im Projekt aus Sicht des Benutzers; 'guest': nur über einzelne Workflows */
+/** Role in the project from the user's point of view; 'guest': only via individual workflows */
 export type AccessRole = ProjectRole | 'guest';
-/** Rolle für einen einzelnen Workflow; 'none' sperrt */
+/** Role for a single workflow; 'none' blocks access */
 export type WorkflowRole = ProjectRole | 'none';
 export type ProjectAction =
   | 'project.read'
@@ -95,24 +95,24 @@ export interface MasterWorkflow {
   updatedBy: { id: string; email: string; name: string } | null;
   deployment: { version: number | null; workerId: string | null; at: string | null; error: string | null; upToDate: boolean };
   workflow?: Workflow;
-  /** Effektive Rolle des Benutzers für diesen Workflow (Liste im Projekt) */
+  /** Effective role of the user for this workflow (list in the project) */
   role?: ProjectRole;
-  /** Workflow hat eigene Rollen */
+  /** Workflow has its own roles */
   restricted?: boolean;
 }
 
-/** Eintrag in der Rollenübersicht eines Workflows */
+/** Entry in a workflow's role overview */
 export interface WorkflowMember {
   userId: string;
   email: string;
   name: string;
-  /** null: kein Mitglied des Projekts (nur über den Workflow) */
+  /** null: not a member of the project (only via the workflow) */
   projectRole: ProjectRole | null;
   workflowRole?: WorkflowRole;
   role: WorkflowRole;
 }
 
-/** Treffer der zentralen Ausführungssuche */
+/** Hit of the central execution search */
 export interface CentralExecution {
   id: string;
   workflowId?: string;
@@ -204,7 +204,7 @@ export interface AuditEntry {
   details: unknown;
 }
 
-/** Gemeinsames Credential im Master (M33), ohne Werte */
+/** Shared credential in the master (M33), without values */
 export interface SharedCredential {
   id: string;
   name: string;
@@ -215,7 +215,7 @@ export interface SharedCredential {
   errors?: string[];
 }
 
-/** Rolle aus GET /api/roles (eingebaut oder eigene) */
+/** Role from GET /api/roles (built-in or custom) */
 export interface RoleInfo {
   id: ProjectRole;
   name: string;

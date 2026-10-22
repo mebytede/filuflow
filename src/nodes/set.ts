@@ -1,7 +1,7 @@
 // Edit Fields (Set), n8n-nodes-base.set
-// Nachgebaut nach n8n 1.123.0 packages/nodes-base/nodes/Set:
+// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/Set:
 //   v1/SetV1.node.ts (typeVersion 1, 2), v2/SetV2.node.ts + manual.mode.ts + raw.mode.ts +
-//   helpers/utils.ts (typeVersion 3 bis 3.4).
+//   helpers/utils.ts (typeVersion 3 to 3.4).
 import lodash from 'lodash';
 import type { NodeType, ExecContext } from './types.js';
 import type { DisplayRule, ParamSchema } from './params.js';
@@ -36,7 +36,7 @@ interface SetField {
   objectValue?: unknown;
 }
 
-/** Defaults der fixedCollection "fields.values" (manual.mode.ts, v3 bis 3.2) */
+/** Defaults of the fixedCollection "fields.values" (manual.mode.ts, v3 to 3.2) */
 function fieldWithDefaults(entry: Partial<SetField>): SetField {
   return {
     name: '',
@@ -174,7 +174,7 @@ function validateEntry(
   return { name, value: result.newValue ?? null };
 }
 
-/** Set-Node nimmt Expressions roh und wertet {{ }} einzeln aus (n8n resolveRawData) */
+/** The Set node takes expressions raw and evaluates each {{ }} separately (n8n resolveRawData) */
 function resolveRawData(ctx: ExecContext, rawData: string, i: number): string {
   let out = rawData;
   for (const resolvable of getResolvables(rawData)) {
@@ -276,7 +276,7 @@ export async function executeManual(
     return returnItem;
   } catch (error) {
     if (ctx.continueOnFail()) {
-      // n8n legt pairedItem hier (fehlerhaft) in json ab; bewusst übernommen
+      // n8n puts pairedItem into json here (a bug); adopted deliberately
       return { json: { error: (error as Error).message, pairedItem: { item: i } } };
     }
     throw new NodeOperationError(node.name, (error as Error).message, {
@@ -347,9 +347,9 @@ async function executeV2(ctx: ExecContext): Promise<Item[][]> {
   return [out];
 }
 
-// Parameter wie v1/SetV1.node.ts (typeVersion 1, 2) sowie v2/SetV2.node.ts, v2/manual.mode.ts und v2/raw.mode.ts
-// (typeVersion 3 bis 3.4). n8n beschreibt beide Fassungen getrennt; hier trennt die Regel "@version" sie. Wo n8n
-// "hide @version [3, 3.1, 3.2]" nutzt, steht hier gleichwertig "show @version >= 3.3".
+// Parameters as in v1/SetV1.node.ts (typeVersion 1, 2) and v2/SetV2.node.ts, v2/manual.mode.ts and v2/raw.mode.ts
+// (typeVersion 3 to 3.4). n8n describes both variants separately; here the "@version" rule separates them. Where n8n
+// uses "hide @version [3, 3.1, 3.2]", the equivalent "show @version >= 3.3" is used here.
 const V1: DisplayRule = { '@version': [1, 2] };
 const V3: DisplayRule = { '@version': [{ _cnd: { gte: 3 } }] };
 const V33 = { _cnd: { gte: 3.3 } };
@@ -364,7 +364,7 @@ function v1ValueGroup(name: string, label: string, value: ParamSchema): { name: 
         label: 'Name',
         type: 'string',
         default: 'propertyName',
-        description: 'Name der Eigenschaft, unterstützt Punktnotation wie "data.person[0].name"',
+        description: 'Name of the property to write data to. Supports dot-notation, e.g. "data.person[0].name"',
       },
       value,
     ],
@@ -375,78 +375,78 @@ const parameters: ParamSchema[] = [
   // typeVersion 1, 2
   {
     name: 'keepOnlySet',
-    label: 'Nur gesetzte Werte behalten',
+    label: 'Keep Only Set',
     type: 'boolean',
     default: false,
-    description: 'Ob alle anderen Werte entfernt werden',
+    description: 'Whether only the values set on this node should be kept and all others removed',
     show: V1,
   },
   {
     name: 'values',
-    label: 'Zu setzende Werte',
+    label: 'Values to Set',
     type: 'fixedCollection',
     default: {},
     multiple: true,
-    addLabel: 'Wert hinzufügen',
-    description: 'Die zu setzenden Werte',
+    addLabel: 'Add Value',
+    description: 'The value to set',
     show: V1,
     groups: [
-      v1ValueGroup('boolean', 'Boolean', { name: 'value', label: 'Wert', type: 'boolean', default: false, description: 'Der zu schreibende Boolean-Wert' }),
-      v1ValueGroup('number', 'Zahl', { name: 'value', label: 'Wert', type: 'number', default: 0, description: 'Die zu schreibende Zahl' }),
-      v1ValueGroup('string', 'Text', { name: 'value', label: 'Wert', type: 'string', default: '', description: 'Der zu schreibende Text' }),
+      v1ValueGroup('boolean', 'Boolean', { name: 'value', label: 'Value', type: 'boolean', default: false, description: 'The boolean value to write in the property' }),
+      v1ValueGroup('number', 'Number', { name: 'value', label: 'Value', type: 'number', default: 0, description: 'The number value to write in the property' }),
+      v1ValueGroup('string', 'String', { name: 'value', label: 'Value', type: 'string', default: '', description: 'The string value to write in the property' }),
     ],
   },
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     show: V1,
     children: [
       {
         name: 'dotNotation',
-        label: 'Punktnotation',
+        label: 'Dot Notation',
         type: 'boolean',
         default: true,
-        description: 'Ob "a.b" die Eigenschaft "b" unter "a" setzt statt den Schlüssel "a.b"',
+        description: 'Whether "a.b" sets the property "b" underneath "a" instead of the key "a.b"',
       },
     ],
   },
 
-  // typeVersion 3 bis 3.4
+  // typeVersion 3 to 3.4
   {
     name: 'mode',
-    label: 'Modus',
+    label: 'Mode',
     type: 'options',
     default: 'manual',
     noExpression: true,
     show: V3,
     options: [
-      { value: 'manual', label: 'Manuelle Zuordnung', description: 'Felder einzeln bearbeiten' },
-      { value: 'raw', label: 'JSON', description: 'Ausgabe als JSON festlegen' },
+      { value: 'manual', label: 'Manual Mapping', description: 'Edit item fields one by one' },
+      { value: 'raw', label: 'JSON', description: 'Customize item output with JSON' },
     ],
   },
   {
     name: 'duplicateItem',
-    label: 'Item duplizieren',
+    label: 'Duplicate Item',
     type: 'boolean',
     default: false,
-    description: 'Ob das Item mehrfach ausgegeben wird',
+    description: 'Whether the item is output multiple times',
     show: V3,
   },
   {
     name: 'duplicateCount',
-    label: 'Anzahl Duplikate',
+    label: 'Duplicate Item Count',
     type: 'number',
     default: 0,
     min: 0,
-    description: 'Wie oft das Item dupliziert wird, vor allem zum Testen',
+    description: 'How many times the item should be duplicated, mainly used for testing and debugging',
     show: { ...V3, duplicateItem: [true] },
   },
   {
     name: 'duplicateWarning',
-    label: 'Das Duplizieren wirkt nur bei manuellen Ausführungen und wird bei automatischen Läufen ignoriert.',
+    label: 'Item duplication is only applied in manual executions and is ignored in automatic runs.',
     type: 'notice',
     default: '',
     show: { ...V3, duplicateItem: [true] },
@@ -463,183 +463,183 @@ const parameters: ParamSchema[] = [
   // manual.mode.ts
   {
     name: 'fields',
-    label: 'Zu setzende Felder',
+    label: 'Fields to Set',
     type: 'fixedCollection',
     default: {},
     multiple: true,
-    addLabel: 'Feld hinzufügen',
-    description: 'Vorhandene Felder bearbeiten oder neue hinzufügen',
+    addLabel: 'Add Field',
+    description: 'Edit existing fields or add new ones to modify the output data',
     show: { '@version': [3, 3.1, 3.2], mode: ['manual'] },
     groups: [
       {
         name: 'values',
-        label: 'Werte',
+        label: 'Values',
         children: [
           {
             name: 'name',
             label: 'Name',
             type: 'string',
             default: '',
-            placeholder: 'z. B. fieldName',
-            description: 'Name des Felds, unterstützt Punktnotation wie data.person[0].name',
+            placeholder: 'e.g. fieldName',
+            description: 'Name of the field to set the value of. Supports dot-notation, e.g. data.person[0].name',
           },
           {
             name: 'type',
-            label: 'Typ',
+            label: 'Type',
             type: 'options',
             default: 'stringValue',
-            description: 'Der Typ des Werts',
+            description: 'The field value type',
             options: [
-              { value: 'stringValue', label: 'Text' },
-              { value: 'numberValue', label: 'Zahl' },
+              { value: 'stringValue', label: 'String' },
+              { value: 'numberValue', label: 'Number' },
               { value: 'booleanValue', label: 'Boolean' },
               { value: 'arrayValue', label: 'Array' },
-              { value: 'objectValue', label: 'Objekt' },
+              { value: 'objectValue', label: 'Object' },
             ],
           },
-          { name: 'stringValue', label: 'Wert', type: 'string', default: '', show: { type: ['stringValue'] } },
-          { name: 'numberValue', label: 'Wert', type: 'string', default: '', show: { type: ['numberValue'] } },
+          { name: 'stringValue', label: 'Value', type: 'string', default: '', show: { type: ['stringValue'] } },
+          { name: 'numberValue', label: 'Value', type: 'string', default: '', show: { type: ['numberValue'] } },
           {
             name: 'booleanValue',
-            label: 'Wert',
+            label: 'Value',
             type: 'options',
             default: 'true',
             show: { type: ['booleanValue'] },
             options: [
-              { value: 'true', label: 'Wahr' },
-              { value: 'false', label: 'Falsch' },
+              { value: 'true', label: 'True' },
+              { value: 'false', label: 'False' },
             ],
           },
           {
             name: 'arrayValue',
-            label: 'Wert',
+            label: 'Value',
             type: 'string',
             default: '',
-            placeholder: 'z. B. [ arrayItem1, arrayItem2, arrayItem3 ]',
+            placeholder: 'e.g. [ arrayItem1, arrayItem2, arrayItem3 ]',
             show: { type: ['arrayValue'] },
           },
-          { name: 'objectValue', label: 'Wert', type: 'json', default: '={}', rows: 2, show: { type: ['objectValue'] } },
+          { name: 'objectValue', label: 'Value', type: 'json', default: '={}', rows: 2, show: { type: ['objectValue'] } },
         ],
       },
     ],
   },
   {
     name: 'assignments',
-    label: 'Zu setzende Felder',
+    label: 'Fields to Set',
     type: 'assignments',
     default: {},
     show: { '@version': [V33], mode: ['manual'] },
   },
   {
     name: 'include',
-    label: 'In Ausgabe aufnehmen',
+    label: 'Include in Output',
     type: 'options',
     default: 'all',
-    description: 'Welche Eingabefelder in die Ausgabe-Items kommen',
+    description: 'How to select the fields you want to include in your output items',
     show: { '@version': [3, 3.1, 3.2] },
     options: [
-      { value: 'all', label: 'Alle Eingabefelder', description: 'Auch alle unveränderten Eingabefelder übernehmen' },
-      { value: 'none', label: 'Keine Eingabefelder', description: 'Nur die oben gesetzten Felder ausgeben' },
-      { value: 'selected', label: 'Ausgewählte Eingabefelder', description: 'Auch die Felder aus "Aufzunehmende Felder" übernehmen' },
-      { value: 'except', label: 'Alle Eingabefelder außer', description: 'Die Felder aus "Auszuschließende Felder" weglassen' },
+      { value: 'all', label: 'All Input Fields', description: 'Also include all unchanged fields from the input' },
+      { value: 'none', label: 'No Input Fields', description: 'Include only the fields specified above' },
+      { value: 'selected', label: 'Selected Input Fields', description: 'Also include the fields listed in the parameter "Fields to Include"' },
+      { value: 'except', label: 'All Input Fields Except', description: 'Exclude the fields listed in the parameter "Fields to Exclude"' },
     ],
   },
   {
     name: 'includeOtherFields',
-    label: 'Andere Eingabefelder übernehmen',
+    label: 'Include Other Input Fields',
     type: 'boolean',
     default: false,
-    description: 'Ob neben den gesetzten Feldern auch alle Eingabefelder ausgegeben werden',
+    description: 'Whether to pass all input fields to the output, along with the fields set in "Fields to Set"',
     show: { '@version': [V33] },
   },
   {
     name: 'include',
-    label: 'Aufzunehmende Eingabefelder',
+    label: 'Input Fields to Include',
     type: 'options',
     default: 'all',
-    description: 'Welche Eingabefelder in die Ausgabe-Items kommen',
+    description: 'How to select the fields you want to include in your output items',
     show: { '@version': [V33] },
     hide: { '/includeOtherFields': [false] },
     options: [
-      { value: 'all', label: 'Alle', description: 'Auch alle unveränderten Eingabefelder übernehmen' },
-      { value: 'selected', label: 'Ausgewählte', description: 'Auch die Felder aus "Aufzunehmende Felder" übernehmen' },
-      { value: 'except', label: 'Alle außer', description: 'Die Felder aus "Auszuschließende Felder" weglassen' },
+      { value: 'all', label: 'All', description: 'Also include all unchanged fields from the input' },
+      { value: 'selected', label: 'Selected', description: 'Also include the fields listed in the parameter "Fields to Include"' },
+      { value: 'except', label: 'All Except', description: 'Exclude the fields listed in the parameter "Fields to Exclude"' },
     ],
   },
   {
     name: 'includeFields',
-    label: 'Aufzunehmende Felder',
+    label: 'Fields to Include',
     type: 'string',
     default: '',
-    placeholder: 'z. B. fieldToInclude1,fieldToInclude2',
-    description: 'Kommagetrennte Liste der Feldnamen, die in die Ausgabe kommen',
+    placeholder: 'e.g. fieldToInclude1,fieldToInclude2',
+    description: 'Comma-separated list of the field names you want to include in the output',
     show: { include: ['selected'], '@version': [3, 3.1, 3.2] },
   },
   {
     name: 'excludeFields',
-    label: 'Auszuschließende Felder',
+    label: 'Fields to Exclude',
     type: 'string',
     default: '',
-    placeholder: 'z. B. fieldToExclude1,fieldToExclude2',
-    description: 'Kommagetrennte Liste der Feldnamen, die nicht in die Ausgabe kommen',
+    placeholder: 'e.g. fieldToExclude1,fieldToExclude2',
+    description: 'Comma-separated list of the field names you want to exclude from the output',
     show: { include: ['except'], '@version': [3, 3.1, 3.2] },
   },
   {
     name: 'includeFields',
-    label: 'Aufzunehmende Felder',
+    label: 'Fields to Include',
     type: 'string',
     default: '',
-    placeholder: 'z. B. fieldToInclude1,fieldToInclude2',
-    description: 'Kommagetrennte Liste der Feldnamen, die in die Ausgabe kommen',
+    placeholder: 'e.g. fieldToInclude1,fieldToInclude2',
+    description: 'Comma-separated list of the field names you want to include in the output',
     show: { include: ['selected'], '/includeOtherFields': [true], '@version': [V33] },
   },
   {
     name: 'excludeFields',
-    label: 'Auszuschließende Felder',
+    label: 'Fields to Exclude',
     type: 'string',
     default: '',
-    placeholder: 'z. B. fieldToExclude1,fieldToExclude2',
-    description: 'Kommagetrennte Liste der Feldnamen, die nicht in die Ausgabe kommen',
+    placeholder: 'e.g. fieldToExclude1,fieldToExclude2',
+    description: 'Comma-separated list of the field names you want to exclude from the output',
     show: { include: ['except'], '/includeOtherFields': [true], '@version': [V33] },
   },
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     show: V3,
     children: [
       {
         name: 'includeBinary',
-        label: 'Binärdatei übernehmen',
+        label: 'Include Binary File',
         type: 'boolean',
         default: true,
-        description: 'Ob vorhandene Binärdaten des Eingabe-Items übernommen werden',
+        description: 'Whether binary data should be included if present in the input item',
         hide: { '@version': [{ _cnd: { gte: 3.4 } }] },
       },
       {
         name: 'stripBinary',
-        label: 'Binärdaten entfernen',
+        label: 'Strip Binary Data',
         type: 'boolean',
         default: true,
-        description: 'Ob Binärdaten entfernt werden, gilt nur mit "Andere Eingabefelder übernehmen"',
+        description: 'Whether binary data should be stripped from the input item. Only applies when "Include Other Input Fields" is enabled.',
         show: { '@version': [{ _cnd: { gte: 3.4 } }], '/includeOtherFields': [true] },
       },
       {
         name: 'ignoreConversionErrors',
-        label: 'Typfehler ignorieren',
+        label: 'Ignore Type Conversion Errors',
         type: 'boolean',
         default: false,
-        description: 'Ob Typfehler ignoriert und weniger strikt umgewandelt wird',
+        description: 'Whether to ignore field type errors and apply a less strict type conversion',
         show: { '/mode': ['manual'] },
       },
       {
         name: 'dotNotation',
-        label: 'Punktnotation unterstützen',
+        label: 'Support Dot Notation',
         type: 'boolean',
         default: true,
-        description: 'Ob "a.b" die Eigenschaft "b" unter "a" setzt statt den Schlüssel "a.b"',
+        description: 'Whether "a.b" sets the property "b" underneath "a" instead of the key "a.b"',
       },
     ],
   },

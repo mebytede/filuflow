@@ -1,6 +1,6 @@
-# Prüfung bei jedem Pull Request und Push auf main: Lint und Typen, Tests (inklusive Browser-Tests mit Chromium),
-# Golden-Tests gegen fixtures/ und ein Probe-Build des Docker-Images. Auf main wird das Image zusätzlich in die
-# GitHub Container Registry geschoben (ghcr.io/<owner>/filuflow, Tags main und Commit-SHA).
+# Checks on every pull request and push to main: lint and types, tests (including browser tests with Chromium),
+# golden tests against fixtures/ and a trial build of the Docker image. On main the image is also pushed to the
+# GitHub Container Registry (ghcr.io/<owner>/filuflow, tags main and commit SHA).
 name: CI
 
 on:
@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   test:
-    name: Lint und Tests
+    name: Lint and tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -27,7 +27,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # Chromium für die Browser-Tests (ohne Browser würden sie übersprungen)
+      # Chromium for the browser tests (without a browser they would be skipped)
       - run: node node_modules/playwright-core/cli.js install --with-deps chromium
       - run: npm run lint
       - run: npm test
@@ -35,7 +35,7 @@ jobs:
       - run: npm run build
 
   docker:
-    name: Docker-Image
+    name: Docker image
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: test
@@ -44,18 +44,18 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
-      - name: Image bauen
+      - name: Build image
         run: docker build -t filuflow:ci .
-      - name: Image starten und Healthcheck prüfen
+      - name: Start image and check health
         run: |
-          docker run -d --name filuflow-ci -p 5678:5678 -e FILUFLOW_API_KEY=ci-schluessel filuflow:ci
+          docker run -d --name filuflow-ci -p 5678:5678 -e FILUFLOW_API_KEY=ci-key filuflow:ci
           for i in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:5678/healthz; then echo; docker rm -f filuflow-ci; exit 0; fi
             sleep 2
           done
           docker logs filuflow-ci
           exit 1
-      - name: In die GitHub Container Registry schieben
+      - name: Push to GitHub Container Registry
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           IMAGE=ghcr.io/$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')/filuflow

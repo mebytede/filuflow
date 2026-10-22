@@ -1,5 +1,5 @@
-// Gemeinsamer Ablauf von Information Extractor, Text Classifier und Sentiment Analysis:
-// System-Prompt (f-string-Vorlage) + Text als Human-Nachricht, Modell aufrufen, Antwort parsen.
+// Shared flow of Information Extractor, Text Classifier and Sentiment Analysis:
+// system prompt (f-string template) + text as human message, call the model, parse the response.
 import type { ChatMessage } from './messages.js';
 import { formatTemplate, textOf } from './messages.js';
 import type { ChatModel } from './models/base.js';

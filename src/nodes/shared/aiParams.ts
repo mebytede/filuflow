@@ -1,28 +1,28 @@
-// Gemeinsame Parameterbeschreibungen der KI-Knoten (Agent, Chains, Structured Output Parser) für die Formulare im Editor.
-// Nachgebaut nach n8n 1.123.0 packages/@n8n/nodes-langchain/utils/descriptions.ts (promptTypeOptions, textInput,
+// Shared parameter descriptions of the AI nodes (Agent, Chains, Structured Output Parser) for the editor forms.
+// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/utils/descriptions.ts (promptTypeOptions, textInput,
 // textFromPreviousNode, textFromGuardrailsNode, schemaTypeField, buildJsonSchemaExampleField,
-// buildJsonSchemaExampleNotice, buildInputSchemaField) und utils/sharedFields.ts (getBatchingOptionFields).
-// Hinweisfelder (callout) und Verweise auf n8n-Vorlagen sind nicht übernommen, sie speichern keinen Wert.
+// buildJsonSchemaExampleNotice, buildInputSchemaField) and utils/sharedFields.ts (getBatchingOptionFields).
+// Callout fields and links to n8n templates are not included, they store no value.
 import type { DisplayRule, ParamOption, ParamSchema } from '../params.js';
 
-/** promptTypeOptions: Quelle des Prompts (Default "auto") */
+/** promptTypeOptions: source of the prompt (default "auto") */
 export const promptTypeParam: ParamSchema = {
   name: 'promptType',
-  label: 'Quelle für Prompt (User Message)',
+  label: 'Source for Prompt (User Message)',
   type: 'options',
   default: 'auto',
   options: [
-    { value: 'auto', label: 'Verbundener Chat Trigger', description: "Nimmt das Feld 'chatInput' vom direkt verbundenen Chat Trigger" },
+    { value: 'auto', label: 'Connected Chat Trigger Node', description: "Looks for an input field called 'chatInput' that is coming from a directly connected Chat Trigger" },
     {
       value: 'guardrails',
-      label: 'Verbundener Guardrails-Knoten',
-      description: "Nimmt das Feld 'guardrailsInput' vom direkt verbundenen Guardrails-Knoten",
+      label: 'Connected Guardrails Node',
+      description: "Looks for an input field called 'guardrailsInput' that is coming from a directly connected Guardrails Node",
     },
-    { value: 'define', label: 'Unten festlegen', description: 'Expression auf Daten vorheriger Knoten oder fester Text' },
+    { value: 'define', label: 'Define below', description: 'Use an expression to reference data in previous nodes or enter static text' },
   ],
 };
 
-/** textFromGuardrailsNode (in n8n bei promptType "guardrails" gesperrt) */
+/** textFromGuardrailsNode (locked in n8n for promptType "guardrails") */
 export const textFromGuardrailsParam: ParamSchema = {
   name: 'text',
   label: 'Prompt (User Message)',
@@ -30,10 +30,10 @@ export const textFromGuardrailsParam: ParamSchema = {
   required: true,
   default: '={{ $json.guardrailsInput }}',
   rows: 2,
-  description: 'Kommt aus dem Feld guardrailsInput des verbundenen Guardrails-Knotens',
+  description: 'Comes from the guardrailsInput field of the connected Guardrails node',
 };
 
-/** textFromPreviousNode (in n8n bei promptType "auto" gesperrt) */
+/** textFromPreviousNode (locked in n8n for promptType "auto") */
 export const textFromPreviousNodeParam: ParamSchema = {
   name: 'text',
   label: 'Prompt (User Message)',
@@ -41,33 +41,33 @@ export const textFromPreviousNodeParam: ParamSchema = {
   required: true,
   default: '={{ $json.chatInput }}',
   rows: 2,
-  description: 'Kommt aus dem Feld chatInput des verbundenen Chat Triggers',
+  description: 'Comes from the chatInput field of the connected Chat Trigger',
 };
 
-/** textInput: Prompt frei festlegen */
+/** textInput: define the prompt freely */
 export const textInputParam: ParamSchema = {
   name: 'text',
   label: 'Prompt (User Message)',
   type: 'string',
   required: true,
   default: '',
-  placeholder: 'z. B. Hallo, wobei kannst du mir helfen?',
+  placeholder: 'e.g. Hello, how can you help me?',
   rows: 2,
 };
 
-/** Hinweis bei hasOutputParser = true (Agent V2/V3, ChainLlm) */
+/** Notice for hasOutputParser = true (Agent V2/V3, ChainLlm) */
 export const outputParserNoticeParam: ParamSchema = {
   name: 'notice',
-  label: 'Einen Output Parser im Canvas verbinden, um das gewünschte Ausgabeformat festzulegen',
+  label: 'Connect an output parser on the canvas to specify the output format you require',
   type: 'notice',
   default: '',
   show: { hasOutputParser: [true] },
 };
 
-/** Hinweis bei needsFallback = true (Agent V2/V3, ChainLlm) */
+/** Notice for needsFallback = true (Agent V2/V3, ChainLlm) */
 export const fallbackNoticeParam: ParamSchema = {
   name: 'fallbackNotice',
-  label: 'Ein weiteres Sprachmodell im Canvas verbinden, es springt ein, wenn das Hauptmodell fehlschlägt',
+  label: 'Connect an additional language model on the canvas to use it as a fallback if the main model fails',
   type: 'notice',
   default: '',
   show: { needsFallback: [true] },
@@ -77,55 +77,55 @@ export const fallbackNoticeParam: ParamSchema = {
 export function batchingParam(show: DisplayRule | undefined, defaultBatchSize = 5): ParamSchema {
   return {
     name: 'batching',
-    label: 'Stapelverarbeitung',
+    label: 'Batch Processing',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
-    description: 'Optionen zur Begrenzung der Anfragerate',
+    addLabel: 'Add Option',
+    description: 'Batch processing options for rate limiting',
     ...(show ? { show } : {}),
     children: [
       {
         name: 'batchSize',
-        label: 'Stapelgröße',
+        label: 'Batch Size',
         type: 'number',
         default: defaultBatchSize,
-        description: 'Wie viele Items parallel verarbeitet werden',
+        description: 'How many items to process in parallel',
       },
       {
         name: 'delayBetweenBatches',
-        label: 'Pause zwischen Stapeln',
+        label: 'Delay Between Batches',
         type: 'number',
         default: 0,
-        description: 'Pause zwischen den Stapeln in Millisekunden',
+        description: 'Delay in milliseconds between batches',
       },
     ],
   };
 }
 
-/** Optionen von schemaTypeField */
+/** Options of schemaTypeField */
 export const schemaTypeOptions: ParamOption[] = [
-  { value: 'fromJson', label: 'Aus JSON-Beispiel erzeugen', description: 'Schema aus einem JSON-Beispielobjekt erzeugen' },
-  { value: 'manual', label: 'Mit JSON Schema festlegen', description: 'JSON Schema von Hand festlegen' },
+  { value: 'fromJson', label: 'Generate From JSON Example', description: 'Generate a schema from an example JSON object' },
+  { value: 'manual', label: 'Define using JSON Schema', description: 'Define the JSON schema manually' },
 ];
 
 /** schemaTypeField (Default "fromJson") */
 export const schemaTypeParam: ParamSchema = {
   name: 'schemaType',
-  label: 'Art des Schemas',
+  label: 'Schema Type',
   type: 'options',
   noExpression: true,
   default: 'fromJson',
   options: schemaTypeOptions,
-  description: 'Wie das Schema angegeben wird',
+  description: 'How to specify the schema for the desired output',
 };
 
-/** Beispiel aus OutputParserStructured und InformationExtractor (überschreibt den Default von jsonSchemaExampleField) */
+/** Example from OutputParserStructured and InformationExtractor (overrides the default of jsonSchemaExampleField) */
 export const STATE_CITIES_EXAMPLE = `{
 \t"state": "California",
 \t"cities": ["Los Angeles", "San Francisco", "San Diego"]
 }`;
 
-/** Schema aus OutputParserStructured und InformationExtractor (überschreibt den Default von inputSchemaField) */
+/** Schema from OutputParserStructured and InformationExtractor (overrides the default of inputSchemaField) */
 export const STATE_CITIES_INPUT_SCHEMA = `{
 \t"type": "object",
 \t"properties": {
@@ -141,17 +141,17 @@ export const STATE_CITIES_INPUT_SCHEMA = `{
 \t}
 }`;
 
-/** buildJsonSchemaExampleField mit dem Default des Knotens */
+/** buildJsonSchemaExampleField with the node's default */
 export function jsonSchemaExampleParam(defaultValue: string): ParamSchema {
   return {
     name: 'jsonSchemaExample',
-    label: 'JSON-Beispiel',
+    label: 'JSON Example',
     type: 'json',
     default: defaultValue,
     noExpression: true,
     rows: 10,
     show: { schemaType: ['fromJson'] },
-    description: 'JSON-Beispielobjekt, aus dem das Schema erzeugt wird',
+    description: 'Example JSON object to use to generate the schema',
   };
 }
 
@@ -159,14 +159,14 @@ export function jsonSchemaExampleParam(defaultValue: string): ParamSchema {
 export function jsonSchemaExampleNoticeParam(showExtra: DisplayRule): ParamSchema {
   return {
     name: 'notice',
-    label: "Alle Eigenschaften sind Pflicht. Für optionale Eigenschaften die Art 'JSON Schema' wählen",
+    label: "All properties will be required. To make them optional, use the 'JSON Schema' schema type instead",
     type: 'notice',
     default: '',
     show: { ...showExtra, schemaType: ['fromJson'] },
   };
 }
 
-/** buildInputSchemaField mit dem Default des Knotens (Expressions erlaubt) */
+/** buildInputSchemaField with the node's default (expressions allowed) */
 export function inputSchemaParam(defaultValue: string): ParamSchema {
   return {
     name: 'inputSchema',
@@ -175,6 +175,6 @@ export function inputSchemaParam(defaultValue: string): ParamSchema {
     default: defaultValue,
     rows: 10,
     show: { schemaType: ['manual'] },
-    description: 'Schema im Format JSON Schema, $ref wird nicht unterstützt',
+    description: 'Schema to use for the function, in JSON Schema format; $ref is not supported',
   };
 }

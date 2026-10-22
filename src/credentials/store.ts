@@ -1,17 +1,17 @@
-// Credentials aus credentials.json oder einem Verzeichnis (eine JSON-Datei je Credential).
+// Credentials from credentials.json or a directory (one JSON file per credential).
 //
-// Format je Eintrag (Schlüssel = Credential-Name wie im Workflow):
+// Format per entry (key = credential name as in the workflow):
 //   { "type": "httpHeaderAuth", "id": "abc", "data": { "name": "X-Key", "value": "{{ env.MY_KEY }}" } }
-// Kurzform ohne "data": das Objekt selbst sind die Felder.
-// Verschlüsselte Einträge oder Dateien: { "encrypted": "<base64(iv|tag|ciphertext)>" }
-// mit AES-256-GCM, Schlüssel = SHA-256(FILUFLOW_ENCRYPTION_KEY).
+// Short form without "data": the object itself holds the fields.
+// Encrypted entries or files: { "encrypted": "<base64(iv|tag|ciphertext)>" }
+// with AES-256-GCM, key = SHA-256(FILUFLOW_ENCRYPTION_KEY).
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { join, basename } from 'node:path';
 import { isSecretField, PUBLIC_KEY, SECRET_KEY } from './types.js';
 import { decryptN8nCredential, n8nKeyFromEnv } from './n8nCipher.js';
 
-/** Name und ID des Credentials an aufgelösten Daten (executor.getCredentials), z. B. für OAuth2-Tokens */
+/** Name and ID of the credential attached to resolved data (executor.getCredentials), e.g. for OAuth2 tokens */
 export const CREDENTIAL_REF = Symbol('filuflow.credentialRef');
 
 export function credentialRefOf(data: Record<string, unknown>): { name: string; id?: string; type: string } | undefined {
@@ -26,13 +26,13 @@ export interface CredentialEntry {
 }
 
 export interface CredentialProvider {
-  /** Sucht nach Name, dann nach ID. Liefert undefined, wenn nicht vorhanden. */
+  /** Looks up by name, then by ID. Returns undefined if not present. */
   find(ref: { name: string; id?: string | null }, type?: string): CredentialEntry | undefined;
-  /** Werte mit aufgelösten Env-Referenzen */
+  /** Values with resolved env references */
   resolve(entry: CredentialEntry): Record<string, unknown>;
-  /** Alle geheimen Werte (für Maskierung in Ausgaben und Execution-Log) */
+  /** All secret values (for masking in output and execution log) */
   secretValues?(): string[];
-  /** Alle Einträge (Editor: Auswahl nach Name und Typ, ohne Werte) */
+  /** All entries (editor: selection by name and type, without values) */
   list?(): CredentialEntry[];
 }
 
@@ -58,12 +58,12 @@ export function decryptValue(encoded: string, secret: string): unknown {
     decipher.setAuthTag(tag);
     plain = Buffer.concat([decipher.update(ct), decipher.final()]).toString('utf8');
   } catch {
-    throw new Error('Entschlüsselung fehlgeschlagen: falscher FILUFLOW_ENCRYPTION_KEY oder beschädigte Daten');
+    throw new Error('Decryption failed: wrong FILUFLOW_ENCRYPTION_KEY or corrupted data');
   }
   return JSON.parse(plain);
 }
 
-/** Verschlüsselt eine Credential-Datei (filuflow-Format oder n8n-Export) je Eintrag; Namen, IDs und Typen bleiben lesbar */
+/** Encrypts a credentials file (filuflow format or n8n export) per entry; names, IDs and types stay readable */
 export function encryptCredentialsFile(raw: unknown, secret: string): unknown {
   const encryptEntry = (entry: unknown): unknown => {
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return entry;
@@ -82,10 +82,10 @@ export function encryptCredentialsFile(raw: unknown, secret: string): unknown {
     if (typeof obj.encrypted === 'string' && Object.keys(obj).length === 1) return obj;
     return Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, encryptEntry(v)]));
   }
-  throw new Error('Credential-Datei: erwartet ein Objekt oder ein Array');
+  throw new Error('Credentials file: expected an object or an array');
 }
 
-/** Gegenstück zu encryptCredentialsFile */
+/** Counterpart of encryptCredentialsFile */
 export function decryptCredentialsFile(raw: unknown, secret: string): unknown {
   const dec = (v: unknown): unknown => {
     if (v && typeof v === 'object' && !Array.isArray(v)) {
@@ -108,7 +108,7 @@ function maybeDecrypt(value: unknown, where: string): unknown {
     const obj = value as Record<string, unknown>;
     if (typeof obj.encrypted === 'string' && Object.keys(obj).length === 1) {
       const key = process.env.FILUFLOW_ENCRYPTION_KEY;
-      if (!key) throw new Error(`${where}: verschlüsselt, aber FILUFLOW_ENCRYPTION_KEY ist nicht gesetzt`);
+      if (!key) throw new Error(`${where}: encrypted, but FILUFLOW_ENCRYPTION_KEY is not set`);
       return decryptValue(obj.encrypted, key);
     }
   }
@@ -122,12 +122,12 @@ export function resolveEnvRefs(value: unknown, env: NodeJS.ProcessEnv = process.
     const whole = /^\{\{\s*env\.([A-Za-z_][A-Za-z0-9_]*)\s*\}\}$/.exec(value);
     if (whole) {
       const v = env[whole[1]];
-      if (v === undefined) throw new Error(`Umgebungsvariable ${whole[1]} ist nicht gesetzt`);
+      if (v === undefined) throw new Error(`Environment variable ${whole[1]} is not set`);
       return v;
     }
     return value.replace(ENV_REF, (_m, name: string) => {
       const v = env[name];
-      if (v === undefined) throw new Error(`Umgebungsvariable ${name} ist nicht gesetzt`);
+      if (v === undefined) throw new Error(`Environment variable ${name} is not set`);
       return v;
     });
   }
@@ -141,19 +141,19 @@ export function resolveEnvRefs(value: unknown, env: NodeJS.ProcessEnv = process.
 function toEntry(name: string, raw: unknown, where: string): CredentialEntry {
   const value = maybeDecrypt(raw, where);
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error(`${where}: Credential "${name}" ist kein Objekt`);
+    throw new Error(`${where}: credential "${name}" is not an object`);
   }
   const obj = value as Record<string, unknown>;
   if (typeof obj.data === 'string' && obj.type) {
-    // n8n-Export ohne --decrypted: mit N8N_ENCRYPTION_KEY entschlüsseln (n8nCipher.ts)
+    // n8n export without --decrypted: decrypt with N8N_ENCRYPTION_KEY (n8nCipher.ts)
     const n8nKey = n8nKeyFromEnv();
     if (!n8nKey) {
-      throw new Error(`${where}: Credential "${name}" ist mit dem n8n-Schlüssel verschlüsselt; N8N_ENCRYPTION_KEY setzen oder mit "n8n export:credentials --decrypted" exportieren`);
+      throw new Error(`${where}: credential "${name}" is encrypted with the n8n key; set N8N_ENCRYPTION_KEY or export with "n8n export:credentials --decrypted"`);
     }
     try {
       obj.data = decryptN8nCredential(obj.data, n8nKey);
     } catch (error) {
-      throw new Error(`${where}: Credential "${name}": ${(error as Error).message}`, { cause: error });
+      throw new Error(`${where}: credential "${name}": ${(error as Error).message}`, { cause: error });
     }
   }
   if (obj.data && typeof obj.data === 'object') {
@@ -168,9 +168,9 @@ function toEntry(name: string, raw: unknown, where: string): CredentialEntry {
 }
 
 /**
- * Geheime Felder (in n8n die Felder mit typeOptions.password der Credential-Typen, z. B. password, value,
- * token, clientSecret, privateKey). Nur diese werden in Ausgaben und im Execution-Log maskiert: nach dem
- * Schema des Typs (types.ts) und zusätzlich nach Feldnamen.
+ * Secret fields (in n8n the fields with typeOptions.password of the credential types, e.g. password, value,
+ * token, clientSecret, privateKey). Only these are masked in output and in the execution log: by the
+ * schema of the type (types.ts) and additionally by field name.
  */
 
 export class StaticCredentialProvider implements CredentialProvider {
@@ -217,16 +217,16 @@ export class StaticCredentialProvider implements CredentialProvider {
       try {
         walk(this.resolve(e), false, e.type ?? '');
       } catch {
-        // nicht auflösbare Env-Referenzen: nur Rohwerte maskieren
+        // unresolvable env references: mask raw values only
         walk(e.data, false, e.type ?? '');
       }
     }
-    // Kurze Werte (z. B. "1", "true") würden zu viel maskieren
+    // Short values (e.g. "1", "true") would mask too much
     return [...out].filter((s) => s.length >= 4).sort((a, b) => b.length - a.length);
   }
 }
 
-/** Lädt credentials.json oder ein Verzeichnis mit *.json (Dateiname = Credential-Name) */
+/** Loads credentials.json or a directory of *.json (file name = credential name) */
 export async function loadCredentials(path: string): Promise<StaticCredentialProvider> {
   const info = await stat(path);
   const entries: CredentialEntry[] = [];
@@ -239,14 +239,14 @@ export async function loadCredentials(path: string): Promise<StaticCredentialPro
   } else {
     const parsed = maybeDecrypt(JSON.parse(await readFile(path, 'utf8')), path);
     if (Array.isArray(parsed)) {
-      // Export von `n8n export:credentials --decrypted`: [{ id, name, type, data }]
+      // Export from `n8n export:credentials --decrypted`: [{ id, name, type, data }]
       for (const [i, raw] of parsed.entries()) {
         const name = (raw as { name?: unknown })?.name;
-        if (typeof name !== 'string') throw new Error(`${path}: Eintrag ${i} hat keinen Namen`);
+        if (typeof name !== 'string') throw new Error(`${path}: entry ${i} has no name`);
         entries.push(toEntry(name, raw, path));
       }
     } else if (!parsed || typeof parsed !== 'object') {
-      throw new Error(`${path}: erwartet ein Objekt { "<Name>": {...} } oder einen n8n-Export (Array)`);
+      throw new Error(`${path}: expected an object { "<name>": {...} } or an n8n export (array)`);
     } else {
       for (const [name, raw] of Object.entries(parsed)) entries.push(toEntry(name, raw, path));
     }
@@ -254,7 +254,7 @@ export async function loadCredentials(path: string): Promise<StaticCredentialPro
   return new StaticCredentialProvider(entries);
 }
 
-/** Pfad aus Umgebung/Default; liefert leeren Provider, wenn nichts existiert */
+/** Path from environment/default; returns an empty provider if nothing exists */
 export async function loadDefaultCredentials(explicit?: string): Promise<StaticCredentialProvider> {
   const candidate = explicit ?? process.env.FILUFLOW_CREDENTIALS ?? 'credentials.json';
   try {
@@ -266,7 +266,7 @@ export async function loadDefaultCredentials(explicit?: string): Promise<StaticC
   }
 }
 
-/** Maskiert Credential-Werte in einer beliebigen JSON-Struktur (liefert eine Kopie) */
+/** Masks credential values in any JSON structure (returns a copy) */
 export function maskDeep<T>(value: T, secrets: string[]): T {
   if (secrets.length === 0) return value;
   const mask = (v: unknown): unknown => {
@@ -281,7 +281,7 @@ export function maskDeep<T>(value: T, secrets: string[]): T {
   return mask(value) as T;
 }
 
-/** Maskiert Credential-Werte in beliebigen Strukturen (für Logs) */
+/** Masks credential values in arbitrary text (for logs) */
 export function maskSecrets(text: string, secrets: Iterable<string>): string {
   let out = text;
   for (const s of secrets) {

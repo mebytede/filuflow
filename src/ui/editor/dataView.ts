@@ -1,5 +1,6 @@
-// Anzeige von Items (Ergebnis eines Node-Laufs): Tabelle oder JSON.
+// Display of items (result of a node run): table or JSON.
 import { h } from '../dom.js';
+import { t } from '../i18n.js';
 import type { Item } from '../types.js';
 
 function cell(value: unknown): string {
@@ -10,7 +11,7 @@ function cell(value: unknown): string {
 }
 
 export function itemsView(items: Item[], mode: 'table' | 'json'): HTMLElement {
-  if (!items.length) return h('p', { class: 'muted' }, 'Keine Items');
+  if (!items.length) return h('p', { class: 'muted' }, t('No items'));
   if (mode === 'json') {
     const view = items.map((i) => {
       const out: Record<string, unknown> = { json: i.json };
@@ -29,7 +30,7 @@ export function itemsView(items: Item[], mode: 'table' | 'json'): HTMLElement {
     h(
       'table',
       { class: 'data-table' },
-      h('thead', null, h('tr', null, h('th', null, '#'), columns.map((c) => h('th', null, c)), hasBinary && h('th', null, 'Binär'))),
+      h('thead', null, h('tr', null, h('th', null, '#'), columns.map((c) => h('th', null, c)), hasBinary && h('th', null, t('Binary')))),
       h(
         'tbody',
         null,

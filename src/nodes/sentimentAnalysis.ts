@@ -1,6 +1,6 @@
 // Sentiment Analysis, @n8n/n8n-nodes-langchain.sentimentAnalysis (typeVersion 1, 1.1)
-// Nachgebaut nach n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/chains/SentimentAnalysis/SentimentAnalysis.node.ts.
-// Der Prompt enthält wie in n8n Tabulatoren (Batch-Pfad vier, sequenzieller Pfad drei).
+// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/chains/SentimentAnalysis/SentimentAnalysis.node.ts.
+// As in n8n the prompt contains tabs (batch path four, sequential path three).
 import type { ExecContext, NodeType } from './types.js';
 import type { Item, WorkflowNode } from '../types.js';
 import { NodeOperationError } from '../errors.js';
@@ -15,61 +15,61 @@ const DEFAULT_SYSTEM_PROMPT_TEMPLATE =
   'You are highly intelligent and accurate sentiment analyzer. Analyze the sentiment of the provided text. Categorize it into one of the following: {categories}. Use the provided formatting instructions. Only output the JSON.';
 const DEFAULT_CATEGORIES = 'Positive, Neutral, Negative';
 
-// Parameter wie chains/SentimentAnalysis/SentimentAnalysis.node.ts (properties), Batching aus utils/sharedFields.ts
+// Parameters as in chains/SentimentAnalysis/SentimentAnalysis.node.ts (properties), batching from utils/sharedFields.ts
 const parameters: ParamSchema[] = [
   {
     name: 'inputText',
-    label: 'Zu analysierender Text',
+    label: 'Text to Analyze',
     type: 'string',
     required: true,
     default: '',
     rows: 2,
-    description: 'Expression auf Daten vorheriger Knoten oder fester Text',
+    description: 'Use an expression to reference data in previous nodes or enter static text',
   },
   {
     name: 'detailedResultsNotice',
-    label: 'Die Werte sind Schätzungen des LLM, keine statistisch belastbaren Messungen, und nur als grobe Hinweise geeignet',
+    label: 'Note that the strength and confidence values are LLM estimates, not statistically rigorous measurements, and should only be used as rough indicators',
     type: 'notice',
     default: '',
     show: { '/options.includeDetailedResults': [true] },
   },
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     children: [
       {
         name: 'categories',
-        label: 'Stimmungskategorien',
+        label: 'Sentiment Categories',
         type: 'string',
         default: DEFAULT_CATEGORIES,
         noExpression: true,
         rows: 2,
-        description: 'Kommagetrennte Liste der Kategorien',
+        description: 'A comma-separated list of categories to analyze',
       },
       {
         name: 'systemPromptTemplate',
-        label: 'Vorlage für den System-Prompt',
+        label: 'System Prompt Template',
         type: 'string',
         default: DEFAULT_SYSTEM_PROMPT_TEMPLATE,
         rows: 6,
-        description: 'Wird direkt als Vorlage für den System-Prompt genutzt',
+        description: 'String to use directly as the system prompt template',
       },
       {
         name: 'includeDetailedResults',
-        label: 'Ausführliche Ergebnisse',
+        label: 'Include Detailed Results',
         type: 'boolean',
         default: false,
-        description: 'Ob Stärke und Konfidenz der Stimmung mit ausgegeben werden',
+        description: 'Whether to include sentiment strength and confidence scores in the output',
       },
       {
         name: 'enableAutoFixing',
-        label: 'Automatische Korrektur',
+        label: 'Enable Auto-Fixing',
         type: 'boolean',
         default: true,
-        description: 'Ob fehlerhafte Ausgaben korrigiert werden, ggf. mit einem weiteren LLM-Aufruf',
+        description: 'Whether to enable auto-fixing (may trigger an additional LLM call if output is broken)',
       },
       batchingParam({ '@version': [{ _cnd: { gte: 1.1 } }] }),
     ],

@@ -1,5 +1,5 @@
-// REST-Endpunkte des Aufsehers (Einzelbetrieb und Worker; im API-Scope mit X-API-Key).
-// M35: Status, Einstellungen, Hinweise (verwerfen, wieder öffnen, analysieren), Prüfung, Berichte, Verbrauch.
+// REST endpoints of the supervisor (standalone and worker; in the API scope with X-API-Key).
+// M35: status, settings, findings (dismiss, reopen, analyze), check, reports, usage.
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { ProposalError, type Supervisor } from './supervisor.js';
 import { OperationError } from './operations.js';
@@ -14,7 +14,7 @@ export interface SupervisorApiOptions {
 
 const STATUSES = ['open', 'dismissed', 'resolved', 'all'];
 
-/** Fehler des Modells: Budget 429, sonst 502 (Anbieter) bzw. 400 (Einstellung) */
+/** Model errors: budget 429, otherwise 502 (provider) or 400 (setting) */
 export function modelErrorReply(reply: FastifyReply, error: unknown): FastifyReply {
   if (error instanceof ProposalError) return reply.code(error.statusCode).send({ message: error.message, ...(error.issues ? { issues: error.issues } : {}) });
   if (error instanceof OperationError) return reply.code(400).send({ message: error.message });
@@ -23,7 +23,7 @@ export function modelErrorReply(reply: FastifyReply, error: unknown): FastifyRep
   return reply.code(500).send({ message: (error as Error).message });
 }
 
-/** Liste ohne vollständigen Workflow und Operationen */
+/** List without the complete workflow and operations */
 export function proposalSummary(p: Proposal): Omit<Proposal, 'workflow' | 'operations'> {
   const { workflow: _w, operations: _o, ...rest } = p;
   return rest;
@@ -35,7 +35,7 @@ export async function registerSupervisorApi(api: FastifyInstance, o: SupervisorA
   const p = o.prefix;
   const sup = (reply: FastifyReply): Supervisor | undefined => {
     const s = o.supervisor();
-    if (!s) void reply.code(404).send({ message: 'Der Aufseher ist abgeschaltet (FILUFLOW_SUPERVISOR=false)' });
+    if (!s) void reply.code(404).send({ message: 'The supervisor is disabled (FILUFLOW_SUPERVISOR=false)' });
     return s;
   };
 
@@ -66,7 +66,7 @@ export async function registerSupervisorApi(api: FastifyInstance, o: SupervisorA
     const s = sup(reply);
     if (!s) return reply;
     const q = request.query as { status?: string; workflow?: string; severity?: string; limit?: string };
-    if (q.status && !STATUSES.includes(q.status)) return reply.code(400).send({ message: `Unbekannter Status: ${q.status}` });
+    if (q.status && !STATUSES.includes(q.status)) return reply.code(400).send({ message: `Unknown status: ${q.status}` });
     return {
       data: s.store.listFindings({ status: (q.status as FindingStatus | 'all') ?? 'open', workflowId: q.workflow || undefined, severity: q.severity || undefined, limit: q.limit ? Number(q.limit) : undefined }),
       counts: s.store.counts(),
@@ -77,7 +77,7 @@ export async function registerSupervisorApi(api: FastifyInstance, o: SupervisorA
     const s = sup(reply);
     if (!s) return reply;
     const f = s.store.getFinding((request.params as { id: string }).id);
-    if (!f) return reply.code(404).send({ message: 'Hinweis nicht gefunden' });
+    if (!f) return reply.code(404).send({ message: 'Finding not found' });
     return f;
   });
 
@@ -89,7 +89,7 @@ export async function registerSupervisorApi(api: FastifyInstance, o: SupervisorA
       const s = sup(reply);
       if (!s) return reply;
       const id = (request.params as { id: string }).id;
-      if (!s.store.getFinding(id)) return reply.code(404).send({ message: 'Hinweis nicht gefunden' });
+      if (!s.store.getFinding(id)) return reply.code(404).send({ message: 'Finding not found' });
       return s.store.setFindingStatus(id, status);
     });
   }
@@ -98,8 +98,8 @@ export async function registerSupervisorApi(api: FastifyInstance, o: SupervisorA
     const s = sup(reply);
     if (!s) return reply;
     const id = (request.params as { id: string }).id;
-    if (!s.store.getFinding(id)) return reply.code(404).send({ message: 'Hinweis nicht gefunden' });
-    if (!s.settings().model) return reply.code(400).send({ message: 'Für den Aufseher ist kein Modell eingestellt (Aufseher, Einstellungen)' });
+    if (!s.store.getFinding(id)) return reply.code(404).send({ message: 'Finding not found' });
+    if (!s.settings().model) return reply.code(400).send({ message: 'No model is configured for the supervisor (Supervisor, Settings)' });
     try {
       return await s.analyze(id);
     } catch (error) {
@@ -107,11 +107,11 @@ export async function registerSupervisorApi(api: FastifyInstance, o: SupervisorA
     }
   });
 
-  // Vorschläge (M36)
+  // Proposals (M36)
   api.post(`${p}/findings/:id/propose`, async (request, reply) => {
     const s = sup(reply);
     if (!s) return reply;
-    if (!s.settings().model) return reply.code(400).send({ message: 'Für den Aufseher ist kein Modell eingestellt (Aufseher, Einstellungen)' });
+    if (!s.settings().model) return reply.code(400).send({ message: 'No model is configured for the supervisor (Supervisor, Settings)' });
     try {
       return reply.code(201).send(await s.propose((request.params as { id: string }).id));
     } catch (error) {
@@ -123,7 +123,7 @@ export async function registerSupervisorApi(api: FastifyInstance, o: SupervisorA
     const s = sup(reply);
     if (!s) return reply;
     const q = request.query as { status?: string; workflow?: string; limit?: string };
-    if (q.status && !PROPOSAL_STATUSES.includes(q.status)) return reply.code(400).send({ message: `Unbekannter Status: ${q.status}` });
+    if (q.status && !PROPOSAL_STATUSES.includes(q.status)) return reply.code(400).send({ message: `Unknown status: ${q.status}` });
     await s.refreshProposals();
     return { data: s.store.listProposals({ status: (q.status as ProposalStatus | 'all') ?? 'open', workflowId: q.workflow || undefined, limit: q.limit ? Number(q.limit) : undefined }).map(proposalSummary) };
   });
@@ -132,7 +132,7 @@ export async function registerSupervisorApi(api: FastifyInstance, o: SupervisorA
     const s = sup(reply);
     if (!s) return reply;
     const proposal = s.store.getProposal((request.params as { id: string }).id);
-    if (!proposal) return reply.code(404).send({ message: 'Vorschlag nicht gefunden' });
+    if (!proposal) return reply.code(404).send({ message: 'Proposal not found' });
     return proposal;
   });
 
@@ -156,12 +156,12 @@ export async function registerSupervisorApi(api: FastifyInstance, o: SupervisorA
     }
   });
 
-  // Vom Master entschieden (M38): Status setzen, nichts speichern
+  // Decided by the master (M38): set the status, save nothing
   api.post(`${p}/proposals/:id/decided`, async (request, reply) => {
     const s = sup(reply);
     if (!s) return reply;
     const b = (request.body ?? {}) as { status?: unknown; by?: unknown; result?: { workflowId?: unknown; version?: unknown } };
-    if (b.status !== 'accepted' && b.status !== 'rejected') return reply.code(400).send({ message: 'status muss accepted oder rejected sein' });
+    if (b.status !== 'accepted' && b.status !== 'rejected') return reply.code(400).send({ message: 'status must be accepted or rejected' });
     const result = b.result && typeof b.result.workflowId === 'string' ? { workflowId: b.result.workflowId, ...(typeof b.result.version === 'number' ? { version: b.result.version } : {}) } : undefined;
     try {
       return s.markDecided((request.params as { id: string }).id, { status: b.status, ...(typeof b.by === 'string' ? { by: b.by.slice(0, 200) } : {}), ...(result ? { result } : {}) });
@@ -180,14 +180,14 @@ export async function registerSupervisorApi(api: FastifyInstance, o: SupervisorA
     }
   });
 
-  // Gespräch im Editor (M37)
+  // Conversation in the editor (M37)
   api.post(`${p}/chat`, async (request, reply) => {
     const s = sup(reply);
     if (!s) return reply;
-    if (!s.settings().model) return reply.code(400).send({ message: 'Für den Aufseher ist kein Modell eingestellt (Aufseher, Einstellungen)' });
-    const body = (request.body ?? {}) as { messages?: unknown; workflowId?: unknown };
+    if (!s.settings().model) return reply.code(400).send({ message: 'No model is configured for the supervisor (Supervisor, Settings)' });
+    const body = (request.body ?? {}) as { messages?: unknown; workflowId?: unknown; language?: unknown };
     try {
-      const result = await s.chat({ messages: body.messages as Array<{ role: string; content: string }>, ...(typeof body.workflowId === 'string' && body.workflowId ? { workflowId: body.workflowId } : {}) });
+      const result = await s.chat({ messages: body.messages as Array<{ role: string; content: string }>, ...(typeof body.workflowId === 'string' && body.workflowId ? { workflowId: body.workflowId } : {}), ...(body.language === 'en' || body.language === 'de' ? { language: body.language } : {}) });
       return { reply: result.reply, tokens: result.tokens, proposals: result.proposals.map(proposalSummary) };
     } catch (error) {
       return modelErrorReply(reply, error);
@@ -197,7 +197,7 @@ export async function registerSupervisorApi(api: FastifyInstance, o: SupervisorA
   api.post(`${p}/scan`, async (_request, reply) => {
     const s = sup(reply);
     if (!s) return reply;
-    if (!s.settings().enabled) return reply.code(409).send({ message: 'Der Aufseher ist in den Einstellungen ausgeschaltet' });
+    if (!s.settings().enabled) return reply.code(409).send({ message: 'The supervisor is turned off in the settings' });
     s.scan();
     return { counts: s.store.counts(), lastScan: s.lastScan };
   });

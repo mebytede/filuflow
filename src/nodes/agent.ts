@@ -1,7 +1,7 @@
-// AI Agent, @n8n/n8n-nodes-langchain.agent (Tools Agent, typeVersion 2 bis 3)
-// Nachgebaut nach n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/agents/Agent:
-//   V2/AgentV2.node.ts (2, 2.1, 2.2: AgentExecutor, Tools direkt), V3/AgentV3.node.ts (3: Tools über die Engine)
-// Die Logik steht in src/ai/agent.ts. typeVersion 1.x (Agent-Typen wie ReAct, SQL) wird nicht unterstützt.
+// AI Agent, @n8n/n8n-nodes-langchain.agent (Tools Agent, typeVersion 2 to 3)
+// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/agents/Agent:
+//   V2/AgentV2.node.ts (2, 2.1, 2.2: AgentExecutor, tools directly), V3/AgentV3.node.ts (3: tools via the engine)
+// The logic lives in src/ai/agent.ts. typeVersion 1.x (agent types like ReAct, SQL) is not supported.
 import type { NodeIssue, NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
 import { executeAgentV2, executeAgentV3, SYSTEM_MESSAGE } from '../ai/agent.js';
@@ -15,7 +15,7 @@ import {
   textInputParam,
 } from './shared/aiParams.js';
 
-// commonOptions aus agents/ToolsAgent/options.ts (Default der System Message aus agents/ToolsAgent/prompt.ts)
+// commonOptions from agents/ToolsAgent/options.ts (default of the system message from agents/ToolsAgent/prompt.ts)
 const commonOptions: ParamSchema[] = [
   {
     name: 'systemMessage',
@@ -23,43 +23,43 @@ const commonOptions: ParamSchema[] = [
     type: 'string',
     default: SYSTEM_MESSAGE,
     rows: 6,
-    description: 'Nachricht an den Agenten vor Beginn des Gesprächs',
+    description: 'The message that will be sent to the agent before the conversation starts',
   },
   {
     name: 'maxIterations',
-    label: 'Höchstzahl Durchläufe',
+    label: 'Max Iterations',
     type: 'number',
     default: 10,
-    description: 'Nach so vielen Durchläufen hält der Agent an',
+    description: 'The maximum number of iterations the agent will run before stopping',
   },
   {
     name: 'returnIntermediateSteps',
-    label: 'Zwischenschritte ausgeben',
+    label: 'Return Intermediate Steps',
     type: 'boolean',
     default: false,
-    description: 'Ob die Ausgabe die Zwischenschritte des Agenten enthält',
+    description: 'Whether or not the output should include intermediate steps the agent took',
   },
   {
     name: 'passthroughBinaryImages',
-    label: 'Binäre Bilder automatisch weitergeben',
+    label: 'Automatically Passthrough Binary Images',
     type: 'boolean',
     default: true,
-    description: 'Ob binäre Bilder als Bildnachrichten an den Agenten gehen',
+    description: 'Whether or not binary images should be automatically passed through to the agent as image type messages',
   },
 ];
 
 const enableStreamingOption: ParamSchema = {
   name: 'enableStreaming',
-  label: 'Streaming aktivieren',
+  label: 'Enable Streaming',
   type: 'boolean',
   default: true,
-  description: 'Ob der Agent die Antwort schon während der Erzeugung streamt',
+  description: 'Whether this agent will stream the response in real-time as it generates text',
 };
 
-// Parameter wie V2/AgentV2.node.ts (2, 2.1, 2.2) und V3/AgentV3.node.ts (3), Optionen aus
-// agents/ToolsAgent/V2/description.ts und agents/ToolsAgent/V3/description.ts. Die Hinweise (callout) fehlen.
-// n8n trennt die Optionen in V2 mit "hide/show @version < 2.2"; da V2 und V3 hier zusammen beschrieben sind,
-// stehen die Versionen ausdrücklich in der Regel.
+// Parameters like V2/AgentV2.node.ts (2, 2.1, 2.2) and V3/AgentV3.node.ts (3), options from
+// agents/ToolsAgent/V2/description.ts and agents/ToolsAgent/V3/description.ts. The callouts are missing.
+// n8n separates the options in V2 with "hide/show @version < 2.2"; since V2 and V3 are described together here,
+// the versions are stated explicitly in the rule.
 const parameters: ParamSchema[] = [
   promptTypeParam,
   { ...textFromGuardrailsParam, show: { promptType: ['guardrails'] } },
@@ -67,7 +67,7 @@ const parameters: ParamSchema[] = [
   { ...textInputParam, show: { promptType: ['define'] } },
   {
     name: 'hasOutputParser',
-    label: 'Bestimmtes Ausgabeformat verlangen',
+    label: 'Require Specific Output Format',
     type: 'boolean',
     default: false,
     noExpression: true,
@@ -75,43 +75,43 @@ const parameters: ParamSchema[] = [
   outputParserNoticeParam,
   {
     name: 'needsFallback',
-    label: 'Fallback-Modell aktivieren',
+    label: 'Enable Fallback Model',
     type: 'boolean',
     default: false,
     noExpression: true,
-    // V2: ab 2.1; V3: immer
+    // V2: from 2.1; V3: always
     show: { '@version': [{ _cnd: { gte: 2.1 } }] },
   },
   fallbackNoticeParam,
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     show: { '@version': [3] },
     children: [
       ...commonOptions,
       enableStreamingOption,
       batchingParam(undefined, 1),
-      { name: 'maxTokensFromMemory', label: 'Höchstzahl Tokens aus dem Memory', type: 'hidden', default: 0, description: 'Bei 0 wird der ganze Verlauf gelesen' },
+      { name: 'maxTokensFromMemory', label: 'Max Tokens To Read From Memory', type: 'hidden', default: 0, description: 'With 0, the whole history is read' },
     ],
   },
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     show: { '@version': [2.2] },
     children: [...commonOptions, batchingParam(undefined, 1), enableStreamingOption],
   },
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     show: { '@version': [2, 2.1] },
     children: [...commonOptions, batchingParam(undefined, 1)],
   },
@@ -136,7 +136,7 @@ export const agentNode: NodeType = {
     if (options.maxTokensFromMemory !== undefined) {
       issues.push({
         code: 'node.unsupportedParameter',
-        message: 'AI Agent: "maxTokensFromMemory" wird nicht unterstützt',
+        message: 'AI Agent: "maxTokensFromMemory" is not supported',
         path: 'parameters.options.maxTokensFromMemory',
       });
     }

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Erzeugt test/oracle/filter-table.json: Ergebnisse von n8n executeFilterCondition (n8n-workflow aus dem
-# gepinnten n8n-Image) für alle Fälle aus scripts/oracle-cases.mjs.
+# Generates test/oracle/filter-table.json: results of n8n executeFilterCondition (n8n-workflow from the
+# pinned n8n image) for all cases from scripts/oracle-cases.mjs.
 set -euo pipefail
 N8N_IMAGE="${N8N_IMAGE:-n8nio/n8n:1.123.0}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -8,7 +8,7 @@ WORK="$(mktemp -d)"; chmod 777 "$WORK"; trap 'rm -rf "$WORK"' EXIT
 node --input-type=module -e "
 import { filterCases } from '$ROOT/scripts/oracle-cases.mjs';
 import { writeFileSync } from 'node:fs';
-// undefined überlebt JSON nicht: als Marker kodieren
+// undefined does not survive JSON: encode it as a marker
 const enc = (v) => (v === undefined ? { __undef: true } : v);
 writeFileSync('$WORK/cases.json', JSON.stringify(filterCases().map((c) => ({ ...c, condition: { ...c.condition, leftValue: enc(c.condition.leftValue), rightValue: enc(c.condition.rightValue) } }))));
 "
@@ -31,5 +31,5 @@ const fs=require('fs');
 const cases=JSON.parse(fs.readFileSync('$WORK/cases.json','utf8'));
 const results=JSON.parse(fs.readFileSync('$WORK/results.json','utf8'));
 fs.writeFileSync('$ROOT/test/oracle/filter-table.json.gz', require('zlib').gzipSync(JSON.stringify(cases.map((c,i)=>({...c, expected: results[i]}))), { level: 9 }));
-console.log('Fälle:', cases.length);
+console.log('Cases:', cases.length);
 "

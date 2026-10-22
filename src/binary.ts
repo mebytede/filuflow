@@ -1,7 +1,7 @@
-// Binärdaten. Kleine Dateien (<= 1 MB) liegen base64 im Item, größere im Dateispeicher.
-// Feldnamen und Formate wie n8n 1.123.0:
+// Binary data. Small files (<= 1 MB) are stored as base64 in the item, larger ones in the file store.
+// Field names and formats as in n8n 1.123.0:
 //   packages/core/src/execution-engine/node-execution-context/utils/binary-helper-functions.ts
-//   packages/core/src/binary-data/binary-data.service.ts (fileSize über pretty-bytes)
+//   packages/core/src/binary-data/binary-data.service.ts (fileSize via pretty-bytes)
 import { mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { join, parse as parsePath } from 'node:path';
@@ -10,7 +10,7 @@ import type { BinaryRef } from './types.js';
 
 export const INLINE_LIMIT = 1024 * 1024;
 const STORE_PREFIX = 'filuflow-fs:';
-/** Präfix vor der Umbenennung in filuflow; ältere Ausführungen verweisen noch darauf */
+/** Prefix before the rename to filuflow; older executions still reference it */
 const LEGACY_STORE_PREFIX = 'flowlite-fs:';
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -55,7 +55,7 @@ export function fileTypeFromMimeType(mimeType: string): string | undefined {
   return undefined;
 }
 
-/** Verhalten wie das npm-Paket pretty-bytes (Basis 1000, drei signifikante Stellen) */
+/** Behaves like the npm package pretty-bytes (base 1000, three significant digits) */
 export function prettyBytes(size: number): string {
   if (size < 1) return `${size} B`;
   const units = ['B', 'kB', 'MB', 'GB', 'TB', 'PB'];
@@ -66,8 +66,8 @@ export function prettyBytes(size: number): string {
 
 export interface PrepareOptions {
   /**
-   * Wie n8n copyBinaryFile (Webhook-Uploads): Dateiname unverändert übernehmen,
-   * Endung nur aus dem MIME-Typ, kein directory
+   * Like n8n copyBinaryFile (webhook uploads): keep the file name unchanged,
+   * extension only from the MIME type, no directory
    */
   copy?: boolean;
 }
@@ -75,7 +75,7 @@ export interface PrepareOptions {
 export interface BinaryStore {
   prepare(data: Buffer, fileName?: string, mimeType?: string, options?: PrepareOptions): Promise<BinaryRef>;
   getBuffer(ref: BinaryRef): Promise<Buffer>;
-  /** Für Logs und Execution-Store: große Daten werden nur referenziert */
+  /** For logs and the execution store: large data is only referenced */
   cleanup?(): Promise<void>;
 }
 
@@ -121,7 +121,7 @@ export class FileBinaryStore implements BinaryStore {
     return ref;
   }
 
-  /** ID der Datei im Speicher (auch mit altem Präfix), sonst undefined */
+  /** ID of the file in the store (also with the old prefix), otherwise undefined */
   private storeId(ref: BinaryRef): string | undefined {
     for (const prefix of [STORE_PREFIX, LEGACY_STORE_PREFIX]) if (ref.id?.startsWith(prefix)) return ref.id.slice(prefix.length);
     return undefined;
@@ -130,7 +130,7 @@ export class FileBinaryStore implements BinaryStore {
   async getBuffer(ref: BinaryRef): Promise<Buffer> {
     const id = this.storeId(ref);
     if (id !== undefined) {
-      if (!/^[0-9a-f-]{36}$/.test(id)) throw new Error(`Ungültige Binär-ID ${ref.id}`);
+      if (!/^[0-9a-f-]{36}$/.test(id)) throw new Error(`Invalid binary ID ${ref.id}`);
       return readFile(join(this.dir, id));
     }
     return Buffer.from(ref.data ?? '', 'base64');

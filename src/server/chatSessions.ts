@@ -1,9 +1,9 @@
-// Chat mit Antwortknoten (Chat Trigger responseMode "responseNodes", Human in the Loop).
-// Ablauf wie n8n 1.123.0 packages/cli/src/chat/chat-service.ts und utils.ts: Die Chat-Seite verbindet sich mit einer
-// Ausführung, der Server schickt die Nachricht des wartenden Knotens (sendMessage am Item), setzt bei Respond to Webhook
-// und "Auf Antwort warten: aus" sofort fort ("continue") und sonst mit der nächsten Nachricht des Nutzers. Endet die
-// Ausführung, schließt der Kanal. n8n nutzt eine WebSocket unter /chat; filuflow nimmt Server-Sent Events für den Weg
-// zur Seite (GET /chat/<id>/events) und POST /chat/<id> für Antworten. Zugriff nur mit der sessionId der Ausführung.
+// Chat with response nodes (Chat Trigger responseMode "responseNodes", human in the loop).
+// Flow as in n8n 1.123.0 packages/cli/src/chat/chat-service.ts and utils.ts: the chat page connects to an
+// execution, the server sends the message of the waiting node (sendMessage on the item), resumes immediately
+// ("continue") for Respond to Webhook and "Wait for reply: off", and otherwise with the user's next message. When the
+// execution ends, the channel closes. n8n uses a WebSocket under /chat; filuflow uses Server-Sent Events towards
+// the page (GET /chat/<id>/events) and POST /chat/<id> for replies. Access only with the execution's sessionId.
 import type { Execution, Item, Workflow, WorkflowNode } from '../types.js';
 import type { ExecutionStore } from './store.js';
 import { ResumeError, type ExecutionManager } from './executions.js';
@@ -24,7 +24,7 @@ export class ChatSessionError extends Error {
 
 type StoredWithData = Execution & { workflow?: Workflow };
 
-/** utils.ts getMessage: sendMessage am ersten Item eines Ausgangs des zuletzt ausgeführten Knotens */
+/** utils.ts getMessage: sendMessage on the first item of an output of the last executed node */
 export function getChatMessage(execution: StoredWithData): string | undefined {
   const last = execution.lastNodeExecuted;
   if (typeof last !== 'string') return undefined;
@@ -45,7 +45,7 @@ export function shouldResumeImmediately(node: WorkflowNode | undefined): boolean
   return ((node.parameters?.options ?? {}) as Record<string, unknown>)[CHAT_WAIT_USER_REPLY] === false;
 }
 
-/** sessionId der Chat-Nachricht, mit der die Ausführung startete */
+/** sessionId of the chat message that started the execution */
 function executionSessionId(execution: StoredWithData): string | undefined {
   const trigger = execution.workflow?.nodes.find((n) => n.type === CHAT_TRIGGER_TYPE && execution.runData?.[n.name]);
   const json = trigger ? execution.runData?.[trigger.name]?.[0]?.data?.main?.[0]?.[0]?.json : undefined;
@@ -56,7 +56,7 @@ interface Session {
   stream: ChunkStream;
   timer: NodeJS.Timeout;
   processing: boolean;
-  /** Knoten, der auf eine Antwort des Nutzers wartet (n8n nodeWaitingForChatResponse) */
+  /** Node waiting for a reply from the user (n8n nodeWaitingForChatResponse) */
   waitingNode?: string;
 }
 
@@ -64,7 +64,7 @@ export interface ChatSessionsOptions {
   manager: ExecutionManager;
   store: ExecutionStore;
   logger: Logger;
-  /** Abfrageintervall (n8n CHECK_FOR_RESPONSE_INTERVAL 3000 ms) */
+  /** Polling interval (n8n CHECK_FOR_RESPONSE_INTERVAL 3000 ms) */
   pollMs?: number;
 }
 
@@ -80,11 +80,11 @@ export class ChatSessions {
   private check(executionId: string, sessionId: string): StoredWithData {
     const execution = this.load(executionId);
     if (!execution) throw new ChatSessionError(`Execution with id "${executionId}" does not exist`, 404);
-    if (!sessionId || executionSessionId(execution) !== sessionId) throw new ChatSessionError('Die Sitzung gehört nicht zu dieser Ausführung', 403);
+    if (!sessionId || executionSessionId(execution) !== sessionId) throw new ChatSessionError('The session does not belong to this execution', 403);
     return execution;
   }
 
-  /** Kanal zur Chat-Seite öffnen: Ereignisse message, continue, end, error als Server-Sent Events */
+  /** Open the channel to the chat page: events message, continue, end, error as Server-Sent Events */
   open(executionId: string, sessionId: string): ChunkStream {
     this.check(executionId, sessionId);
     const key = `${sessionId}|${executionId}`;
@@ -93,8 +93,8 @@ export class ChatSessions {
     const session: Session = { stream, processing: false, timer: setInterval(() => void this.poll(key, executionId, sessionId), this.o.pollMs ?? 500) };
     session.timer.unref?.();
     this.sessions.set(key, session);
-    // Kommentarzeile hält Proxys offen und zeigt dem Browser die Verbindung
-    stream.push(': verbunden\n\n');
+    // Comment line keeps proxies open and shows the browser the connection
+    stream.push(': connected\n\n');
     void this.poll(key, executionId, sessionId);
     return stream;
   }
@@ -126,7 +126,7 @@ export class ChatSessions {
       if (!execution) return this.close(key);
       const lastNode = execution.workflow?.nodes.find((n) => n.name === execution.lastNodeExecuted);
       if (session.waitingNode) {
-        // waitForChatResponseOrContinue: anderer Knoten wartet jetzt, also keine Eingabe mehr nötig
+        // waitForChatResponseOrContinue: another node is waiting now, so no more input is needed
         if (execution.status === 'waiting' && lastNode?.name !== session.waitingNode) {
           this.send(session, 'continue', {});
           session.waitingNode = undefined;
@@ -148,7 +148,7 @@ export class ChatSessions {
       }
       this.finish(key, session, execution);
     } catch (error) {
-      this.o.logger.error({ err: (error as Error).message, executionId }, 'Chat-Sitzung: Fehler beim Senden');
+      this.o.logger.error({ err: (error as Error).message, executionId }, 'Chat session: error while sending');
     } finally {
       const active = this.sessions.get(key);
       if (active) active.processing = false;
@@ -158,7 +158,7 @@ export class ChatSessions {
   private finish(key: string, session: Session, execution: StoredWithData): void {
     if (execution.status === 'success') this.send(session, 'end', {});
     else if (execution.status === 'error' || execution.status === 'crashed' || execution.status === 'canceled') {
-      this.send(session, 'error', { message: execution.error?.message ?? `Ausführung ${execution.status}` });
+      this.send(session, 'error', { message: execution.error?.message ?? `Execution ${execution.status}` });
     } else return;
     this.close(key);
   }
@@ -168,10 +168,10 @@ export class ChatSessions {
     this.o.manager.resume(executionId, { chatMessage: message });
   }
 
-  /** Antwort des Nutzers (incomingMessageHandler): setzt die wartende Ausführung fort */
+  /** User reply (incomingMessageHandler): resumes the waiting execution */
   reply(executionId: string, sessionId: string, chatInput: string): void {
     const execution = this.check(executionId, sessionId);
-    if (execution.status !== 'waiting') throw new ChatSessionError('Die Ausführung wartet nicht auf eine Antwort', 409);
+    if (execution.status !== 'waiting') throw new ChatSessionError('The execution is not waiting for a reply', 409);
     try {
       this.resume(executionId, sessionId, chatInput);
     } catch (error) {

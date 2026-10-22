@@ -1,7 +1,7 @@
 // Vector Store Retriever, @n8n/n8n-nodes-langchain.retrieverVectorStore (typeVersion 1)
-// Nachgebaut nach n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/retrievers/RetrieverVectorStore: vectorStore.asRetriever(topK).
-// n8n protokolliert am Retriever nichts (logWrapper fängt getRelevantDocuments ab, das es in @langchain/core 1.1 nicht mehr
-// gibt); die Suche erscheint am Vector Store und am Embeddings-Knoten.
+// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/retrievers/RetrieverVectorStore: vectorStore.asRetriever(topK).
+// n8n logs nothing on the retriever (logWrapper intercepts getRelevantDocuments, which no longer exists in
+// @langchain/core 1.1); the search shows up on the vector store and on the embeddings node.
 import type { NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
 import { NodeOperationError } from '../errors.js';
@@ -13,7 +13,7 @@ export interface Retriever {
   getRelevantDocuments(query: string): Promise<Document[]>;
 }
 
-const parameters: ParamSchema[] = [{ name: 'topK', label: 'Anzahl', type: 'number', default: 4, description: 'Höchstzahl Treffer' }];
+const parameters: ParamSchema[] = [{ name: 'topK', label: 'Limit', type: 'number', default: 4, description: 'The maximum number of results to return' }];
 
 export const retrieverVectorStoreNode: NodeType = {
   type: '@n8n/n8n-nodes-langchain.retrieverVectorStore',

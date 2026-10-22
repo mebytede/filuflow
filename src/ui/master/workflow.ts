@@ -1,5 +1,5 @@
-// Master: Workflow im Editor. Speichern mit Basisversion (Konflikt bei gleichzeitiger Bearbeitung), Prüfen und
-// Ausführen beim Worker des Projekts, Versionen ansehen und wiederherstellen.
+// Master: workflow in the editor. Saving with a base version (conflict on concurrent editing), inspecting and
+// running on the project's worker, viewing and restoring versions.
 import { ApiError } from '../api.js';
 import { dialog, formatDate, h, toast } from '../dom.js';
 import type { CredentialInfo, NodeTypeInfo, Workflow, WorkflowStatus } from '../types.js';
@@ -12,10 +12,11 @@ import type { MasterWorkflow, User } from './types.js';
 import { credentialFormDialog } from '../views/credentialForm.js';
 import { WORKER_CREDENTIAL_NOTE, workerCredentialBackend } from './admin.js';
 import { masterChatBackend } from './supervisor.js';
+import { t } from '../i18n.js';
 
 const e = encodeURIComponent;
 
-/** Antwort des Masters in den Status des Editors übersetzen */
+/** Translate the master's response into the editor status */
 function toStatus(w: MasterWorkflow): Partial<WorkflowStatus> & { id: string; saveWarning?: string } {
   const error = w.deployment.error ?? undefined;
   return {
@@ -47,14 +48,14 @@ export async function masterWorkflowView(id: string, types: NodeTypeInfo[], user
           if (!(err instanceof ApiError && err.status === 409)) throw err;
           const current = (err.body as { currentVersion?: number } | undefined)?.currentVersion;
           const choice = await dialog<'overwrite' | 'reload'>(
-            'Workflow wurde inzwischen geändert',
+            t('Workflow has been changed in the meantime'),
             h(
               'div',
               { class: 'form' },
               h('p', null, err.message),
-              h('p', { class: 'muted small' }, 'Überschreiben speichert Ihren Stand als neue Version (die andere Änderung bleibt in den Versionen erhalten). Abbrechen lässt Ihre Änderungen ungespeichert im Editor.'),
+              h('p', { class: 'muted small' }, t('Overwrite saves your state as a new version (the other change is kept in the versions). Cancel leaves your changes unsaved in the editor.')),
             ),
-            { confirm: 'Überschreiben', cancel: 'Abbrechen', onConfirm: () => 'overwrite' },
+            { confirm: t('Overwrite'), cancel: t('Cancel'), onConfirm: () => 'overwrite' },
           );
           if (choice !== 'overwrite') return null;
           base = current;
@@ -74,7 +75,7 @@ export async function masterWorkflowView(id: string, types: NodeTypeInfo[], user
     const list = h(
       'table',
       { class: 'list-table' },
-      h('thead', null, h('tr', null, h('th', { class: 'num' }, 'Version'), h('th', null, 'Gespeichert'), h('th', null, 'Von'), h('th', null, ''))),
+      h('thead', null, h('tr', null, h('th', { class: 'num' }, t('Version')), h('th', null, t('Saved')), h('th', null, t('By')), h('th', null, ''))),
       h(
         'tbody',
         null,
@@ -82,7 +83,7 @@ export async function masterWorkflowView(id: string, types: NodeTypeInfo[], user
           h(
             'tr',
             null,
-            h('td', { class: 'num strong' }, String(v.version), v.version === version ? h('span', { class: 'muted small' }, ' aktuell') : null),
+            h('td', { class: 'num strong' }, String(v.version), v.version === version ? h('span', { class: 'muted small' }, ` ${t('current')}`) : null),
             h('td', null, formatDate(v.createdAt)),
             h('td', null, v.createdBy ?? ''),
             h(
@@ -96,7 +97,7 @@ export async function masterWorkflowView(id: string, types: NodeTypeInfo[], user
                   onclick: async () => {
                     const data = await mapi.version(id, v.version);
                     const pre = h('pre', { class: 'json-view' }, JSON.stringify(data.workflow, null, 2));
-                    await dialog(`Version ${v.version}`, pre, { confirm: '', cancel: 'Schließen', wide: true });
+                    await dialog(t('Version {version}', { version: v.version }), pre, { confirm: '', cancel: t('Close'), wide: true });
                   },
                 },
                 'JSON',
@@ -110,12 +111,12 @@ export async function masterWorkflowView(id: string, types: NodeTypeInfo[], user
                       onclick: async () => {
                         const data = await mapi.version(id, v.version);
                         editor.replaceWith(data.workflow as Workflow);
-                        // Versionsdialog schließen (erster Knopf = Schließen)
+                        // Close the versions dialog (first button = Close)
                         document.querySelector<HTMLButtonElement>('.modal-backdrop .modal-actions .btn')?.click();
-                        toast(`Version ${v.version} geladen. Speichern übernimmt sie als neue Version.`, 'info');
+                        toast(t('Version {version} loaded. Saving stores it as a new version.', { version: v.version }), 'info');
                       },
                     },
-                    'Wiederherstellen',
+                    t('Restore'),
                   )
                 : null,
             ),
@@ -123,7 +124,7 @@ export async function masterWorkflowView(id: string, types: NodeTypeInfo[], user
         ),
       ),
     );
-    await dialog('Versionen', h('div', { class: 'table-wrap' }, list), { confirm: '', cancel: 'Schließen', wide: true });
+    await dialog(t('Versions'), h('div', { class: 'table-wrap' }, list), { confirm: '', cancel: t('Close'), wide: true });
   };
 
   const editor: Editor = new Editor({
@@ -132,28 +133,28 @@ export async function masterWorkflowView(id: string, types: NodeTypeInfo[], user
     status: { ...(toStatus(detail) as WorkflowStatus), issues: [] },
     types,
     credentials,
-    // Credentials beim Worker anlegen dürfen nur globale Administratoren
+    // Only global administrators may create credentials on the worker
     ...(user?.role === 'admin' && project.worker
       ? {
-          // Im Projekt angelegt: zunächst nur für dieses Projekt freigegeben
+          // Created in the project: initially shared with this project only
           createCredential: (type: string) => {
             const backend = workerCredentialBackend(project.worker!.id);
-            return credentialFormDialog({ ...backend, save: (name, body) => backend.save(name, { ...body, project: project.id }) }, { type, note: WORKER_CREDENTIAL_NOTE, confirm: 'Beim Worker speichern' });
+            return credentialFormDialog({ ...backend, save: (name, body) => backend.save(name, { ...body, project: project.id }) }, { type, note: WORKER_CREDENTIAL_NOTE, confirm: t('Save on worker') });
           },
         }
       : {}),
-    webhookBaseUrl: project.worker?.webhookBaseUrl ?? '<Worker-Adresse>/',
+    webhookBaseUrl: project.worker?.webhookBaseUrl ?? t('<worker address>/'),
     readonly: !can(detail, 'workflow.edit'),
-    readonlyNote: 'nur lesen',
+    readonlyNote: t('read only'),
     backend,
-    // Aufseher-Fenster (M38): mit dem Recht "Aufseher nutzen"
+    // Supervisor window (M38): with the "Use supervisor" permission
     ...(can(detail, 'supervisor.use') && project.worker
       ? {
           supervisor: {
             ...masterChatBackend(project.id, can(detail, 'workflow.edit')),
             onAccepted: (p: { kind: string; result?: { workflowId: string } }) => {
               const target = p.result?.workflowId ?? id;
-              // Neu laden: Hash neu setzen löst das Routing aus, auch für denselben Workflow
+              // Reload: setting the hash again triggers routing, even for the same workflow
               if (location.hash === `#/workflow/${e(target)}`) window.dispatchEvent(new HashChangeEvent('hashchange'));
               else location.hash = `#/workflow/${e(target)}`;
             },
@@ -162,15 +163,15 @@ export async function masterWorkflowView(id: string, types: NodeTypeInfo[], user
       : {}),
     brandHref: '#/projects',
     crumbs: [
-      { label: 'Projekte', href: '#/projects' },
+      { label: t('Projects'), href: '#/projects' },
       { label: project.name, href: `#/project/${e(project.id)}` },
     ],
     savedAt: detail.updatedAt,
     executionsHref: (wid) => `#/project/${e(project.id)}/executions?workflow=${e(wid)}`,
     toolbarExtras: () => [
       workerBadge(project),
-      button('Versionen', { icon: 'history', title: 'Gespeicherte Versionen', onclick: () => void versionsDialog() }),
-      button('Rollen', { icon: 'users', title: 'Wer diesen Workflow sehen und bearbeiten darf', onclick: () => void workflowAccessDialog({ id, name: detail.name }) }),
+      button(t('Versions'), { icon: 'history', title: t('Saved versions'), onclick: () => void versionsDialog() }),
+      button(t('Roles'), { icon: 'users', title: t('Who may view and edit this workflow'), onclick: () => void workflowAccessDialog({ id, name: detail.name }) }),
     ],
   });
   return { el: editor.el, editor };

@@ -1,34 +1,34 @@
-// Schnittstelle für eigene filuflow-Plugins (M24). Ein Plugin ist ein ES-Modul, das als default ein Plugin-Objekt oder
-// eine Funktion exportiert, die die API erhält und das Plugin-Objekt liefert:
+// Interface for custom filuflow plugins (M24). A plugin is an ES module that exports as default a plugin object or
+// a function that receives the API and returns the plugin object:
 //
 //   export default (api) => ({
-//     name: 'firma-knoten',
+//     name: 'acme-nodes',
 //     nodes: [{
-//       type: 'firma.begruessung', displayName: 'Begrüßung', versions: [1],
+//       type: 'acme.greeting', displayName: 'Greeting', versions: [1],
 //       parameters: [{ name: 'name', label: 'Name', type: 'string', default: '' }],
 //       async execute(ctx) {
-//         return [ctx.items.map((item, i) => ({ json: { ...item.json, gruss: `Hallo ${ctx.getParam('name', i, '')}` } }))];
+//         return [ctx.items.map((item, i) => ({ json: { ...item.json, greeting: `Hello ${ctx.getParam('name', i, '')}` } }))];
 //       },
 //     }],
 //   });
 //
-// Knoten nutzen die Schnittstelle der eingebauten Knoten (src/nodes/types.ts NodeType, ExecContext); stabil zugesagt
-// sind type, displayName, versions, parameters, inputs, outputs, outputNames, credentialTypes, validate, execute sowie
-// am Kontext items, inputs, node, getParam, getCredentials, continueOnFail, helpers.http, helpers.binary, logger, signal.
+// Nodes use the interface of the built-in nodes (src/nodes/types.ts NodeType, ExecContext); guaranteed stable
+// are type, displayName, versions, parameters, inputs, outputs, outputNames, credentialTypes, validate, execute, and
+// on the context items, inputs, node, getParam, getCredentials, continueOnFail, helpers.http, helpers.binary, logger, signal.
 import { NodeApiError, NodeOperationError } from '../errors.js';
 import type { NodeType } from '../nodes/types.js';
 import type { CredentialTypeSchema } from '../credentials/types.js';
 
 export interface FiluflowPlugin {
   name?: string;
-  /** Knotentypen; outputs darf fehlen (dann ein Ausgang) */
+  /** Node types; outputs may be missing (then one output) */
   nodes?: Array<Omit<NodeType, 'outputs'> & { outputs?: NodeType['outputs'] }>;
-  /** Credential-Typen für das Formular in der Oberfläche */
+  /** Credential types for the form in the web interface */
   credentialTypes?: CredentialTypeSchema[];
 }
 
 export interface PluginApi {
-  /** Version der Plugin-Schnittstelle */
+  /** Version of the plugin interface */
   apiVersion: 1;
   NodeOperationError: typeof NodeOperationError;
   NodeApiError: typeof NodeApiError;
@@ -36,7 +36,7 @@ export interface PluginApi {
 
 export const pluginApi: PluginApi = { apiVersion: 1, NodeOperationError, NodeApiError };
 
-/** Hilfe für Plugin-Autoren mit Typprüfung (in JavaScript: liefert das Objekt unverändert) */
+/** Helper for plugin authors with type checking (in JavaScript: returns the object unchanged) */
 export function definePlugin(plugin: FiluflowPlugin | ((api: PluginApi) => FiluflowPlugin)): FiluflowPlugin | ((api: PluginApi) => FiluflowPlugin) {
   return plugin;
 }

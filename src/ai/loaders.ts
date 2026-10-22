@@ -1,8 +1,8 @@
-// Dokument-Loader des Default Data Loader (M27) wie n8n 1.123.0 utils/N8nJsonLoader.ts und N8nBinaryLoader.ts:
-// JSON-Daten (ganzes Item als JSON oder ein Ausdruck als Text) und Binärdaten (Text, JSON, CSV), optional mit einem
-// Text Splitter, Metadaten aus options.metadata. Protokoll am Loader-Knoten wie n8n logWrapper (processItem:
-// Eingang [[item]], Ausgang { response } mit pairedItem). PDF, DOCX und EPUB brauchen Bibliotheken, die filuflow nicht
-// mitbringt; sie werden mit einer klaren Meldung abgelehnt.
+// Document loaders of the Default Data Loader (M27) as in n8n 1.123.0 utils/N8nJsonLoader.ts and N8nBinaryLoader.ts:
+// JSON data (whole item as JSON or an expression as text) and binary data (text, JSON, CSV), optionally with a
+// text splitter, metadata from options.metadata. Log on the loader node like n8n logWrapper (processItem:
+// input [[item]], output { response } with pairedItem). PDF, DOCX and EPUB need libraries that filuflow does not
+// ship; they are rejected with a clear message.
 import type { ExecContext } from '../nodes/types.js';
 import type { Item } from '../types.js';
 import { NodeOperationError } from '../errors.js';
@@ -14,7 +14,7 @@ export interface DocumentProcessor {
   processAll(items: Item[]): Promise<Document[]>;
 }
 
-/** helpers.ts getMetadataFiltersValues (Metadaten-Liste oder searchFilterJson) */
+/** helpers.ts getMetadataFiltersValues (metadata list or searchFilterJson) */
 export function metadataValues(ctx: ExecContext, itemIndex: number): Record<string, unknown> | undefined {
   const options = ctx.getParam<Record<string, unknown>>('options', itemIndex, {});
   const meta = options.metadata as { metadataValues?: Array<{ name: string; value: string }> } | undefined;
@@ -57,7 +57,7 @@ function logged(ctx: ExecContext, processItem: (item: Item, itemIndex: number) =
   return processor;
 }
 
-/** N8nJsonLoader mit optionsPrefix "options." */
+/** N8nJsonLoader with optionsPrefix "options." */
 export function jsonLoader(ctx: ExecContext, splitter?: TextSplitter): DocumentProcessor {
   return logged(ctx, async (item, itemIndex) => {
     const mode = ctx.getParam<string>('jsonMode', itemIndex, 'allInputData');
@@ -75,7 +75,7 @@ export function jsonLoader(ctx: ExecContext, splitter?: TextSplitter): DocumentP
       else if (typeof data === 'string') docs = loadText(data, 'text/plain');
       else throw new NodeOperationError(ctx.node.name, 'Document loader is not initialized');
     }
-    // Wie n8n: metadata ist ohne Angabe ein leeres Array und wird trotzdem eingemischt (ohne Wirkung)
+    // Like n8n: without a setting metadata is an empty array and is merged in anyway (without effect)
     return withMetadata(split(splitter, docs), metadata as Record<string, unknown>);
   });
 }
@@ -90,7 +90,7 @@ const SUPPORTED_MIME_TYPES: Record<string, string[]> = {
   jsonLoader: ['application/json'],
 };
 
-/** d3-dsv dsvFormat(separator).parse: Kopfzeile, Anführungszeichen mit "" als Escape */
+/** d3-dsv dsvFormat(separator).parse: header row, quotes with "" as escape */
 function parseDsv(text: string, separator: string): Array<Record<string, string>> {
   const rows: string[][] = [];
   let row: string[] = [];
@@ -125,7 +125,7 @@ function parseDsv(text: string, separator: string): Array<Record<string, string>
   return data.map((r) => Object.fromEntries(header.map((h, i) => [h, r[i] ?? ''])));
 }
 
-/** CSVLoader (@langchain/community): je Zeile "Spalte: Wert" oder nur eine Spalte */
+/** CSVLoader (@langchain/community): per row "column: value" or only one column */
 function loadCsv(raw: string, blobType: string, column: string | undefined, separator: string): Document[] {
   const parsed = parseDsv(raw.trim(), separator);
   let texts: string[];
@@ -162,14 +162,14 @@ export function binaryLoader(ctx: ExecContext, binaryDataKey: string, splitter?:
       const column = ctx.getParam<string | null>('options.column', itemIndex, null);
       docs = loadCsv(raw, mimeType, column ?? undefined, ctx.getParam<string>('options.separator', itemIndex, ','));
     } else if (['application/pdf', 'application/epub+zip', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(mimeType)) {
-      throw new NodeOperationError(ctx.node.name, `Dateien vom Typ ${mimeType} kann filuflow noch nicht lesen`, { description: 'Unterstützt sind Text, Markdown, JSON und CSV.' });
+      throw new NodeOperationError(ctx.node.name, `filuflow cannot read files of type ${mimeType} yet`, { description: 'Supported are text, Markdown, JSON and CSV.' });
     } else docs = loadText(raw, mimeType);
     return withMetadata(split(splitter, docs), metadata);
   };
   return logged(ctx, async (item, itemIndex) => {
     const mode = ctx.getParam<string>('binaryMode', itemIndex, 'allInputData');
     if (mode !== 'allInputData') return byKey(item, itemIndex, binaryDataKey);
-    // Wie n8n: alle Binärfelder aller Eingangs-Items, gelesen jeweils vom aktuellen Item
+    // Like n8n: all binary fields of all input items, each read from the current item
     const docs: Document[] = [];
     for (const data of ctx.items) for (const key of Object.keys(data.binary ?? {})) docs.push(...(await byKey(item, itemIndex, key)));
     return docs;

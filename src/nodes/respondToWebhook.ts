@@ -1,8 +1,8 @@
-// Respond to Webhook, n8n-nodes-base.respondToWebhook (typeVersion 1 bis 1.5)
-// Nachgebaut nach n8n 1.123.0 packages/nodes-base/nodes/RespondToWebhook/RespondToWebhook.node.ts,
-// utils/binary.ts, utils/outputs.ts. Die Antwort geht über ctx.sendWebhookResponse an den Server
-// (n8n: sendResponse-Hook, nur die erste Antwort zählt). Ab v1.5 zusätzlich Teile einer gestreamten Antwort
-// (begin/item/end), wenn der Webhook mit responseMode "streaming" läuft.
+// Respond to Webhook, n8n-nodes-base.respondToWebhook (typeVersion 1 to 1.5)
+// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/RespondToWebhook/RespondToWebhook.node.ts,
+// utils/binary.ts, utils/outputs.ts. The response goes to the server via ctx.sendWebhookResponse
+// (n8n: sendResponse hook, only the first response counts). From v1.5 also parts of a streamed response
+// (begin/item/end) when the webhook runs with responseMode "streaming".
 import { createHmac, createPrivateKey, sign as cryptoSign } from 'node:crypto';
 import lodash from 'lodash';
 import type { NodeType, WebhookResponse } from './types.js';
@@ -24,7 +24,7 @@ function base64Url(data: Buffer | string): string {
   return Buffer.from(data).toString('base64').replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
 }
 
-/** jsonwebtoken.sign(payload, key, { algorithm }): Header {alg, typ}, ergänzt iat */
+/** jsonwebtoken.sign(payload, key, { algorithm }): header {alg, typ}, adds iat */
 export function signJwt(payload: Record<string, unknown>, key: string, algorithm: string): string {
   const header = base64Url(JSON.stringify({ alg: algorithm, typ: 'JWT' }));
   const body = base64Url(JSON.stringify({ ...payload, iat: payload.iat ?? Math.floor(Date.now() / 1000) }));
@@ -47,7 +47,7 @@ export function signJwt(payload: Record<string, unknown>, key: string, algorithm
   return `${input}.${base64Url(signature)}`;
 }
 
-/** formatPrivateKey (nodes-base utils/utilities.ts), vereinfacht: PEM-Zeilenumbrüche wiederherstellen */
+/** formatPrivateKey (nodes-base utils/utilities.ts), simplified: restore PEM line breaks */
 function formatPrivateKey(key: string): string {
   if (!key || /\n/.test(key)) return key;
   const m = /^(-----BEGIN [A-Z ]+-----)(.*)(-----END [A-Z ]+-----)$/.exec(key.trim());
@@ -60,26 +60,26 @@ function outputCount(version: number, enableResponseOutput: unknown): number {
   return version === 1.3 || (version >= 1.4 && enableResponseOutput === true) ? 2 : 1;
 }
 
-// Parameter wie n8n RespondToWebhook.node.ts (properties, respondWithProperty). Der Parameter "credentials" (Typ
-// credentials, bei respondWith jwt) fehlt: Zugangsdaten wählt der Editor über die Credential-Zuordnung (jwtAuth).
+// Parameters as in n8n RespondToWebhook.node.ts (properties, respondWithProperty). The parameter "credentials" (type
+// credentials, with respondWith jwt) is missing: the editor selects credentials via the credential assignment (jwtAuth).
 function respondWithParam(show: ParamSchema['show'], noExpression?: boolean): ParamSchema {
   return {
     name: 'respondWith',
-    label: 'Antworten mit',
+    label: 'Respond With',
     type: 'options',
     default: 'firstIncomingItem',
-    description: 'Welche Daten zurückgegeben werden',
+    description: 'The data that should be returned',
     ...(noExpression ? { noExpression } : {}),
     show,
     options: [
-      { value: 'allIncomingItems', label: 'Alle eingehenden Items', description: 'Alle JSON-Items der Eingabe' },
-      { value: 'binary', label: 'Binärdatei', description: 'Binärdaten der Eingabe als Datei' },
-      { value: 'firstIncomingItem', label: 'Erstes eingehendes Item', description: 'Das erste JSON-Item der Eingabe' },
-      { value: 'json', label: 'JSON', description: 'Eigener JSON-Body' },
-      { value: 'jwt', label: 'JWT-Token', description: 'Ein signiertes JWT-Token' },
-      { value: 'noData', label: 'Keine Daten', description: 'Leerer Body' },
-      { value: 'redirect', label: 'Weiterleitung', description: 'Weiterleitung auf eine URL' },
-      { value: 'text', label: 'Text', description: 'Einfacher Text als Body' },
+      { value: 'allIncomingItems', label: 'All Incoming Items', description: 'Respond with all input JSON items' },
+      { value: 'binary', label: 'Binary File', description: 'Respond with incoming file binary data' },
+      { value: 'firstIncomingItem', label: 'First Incoming Item', description: 'Respond with the first input JSON item' },
+      { value: 'json', label: 'JSON', description: 'Respond with a custom JSON body' },
+      { value: 'jwt', label: 'JWT Token', description: 'Respond with a JWT token' },
+      { value: 'noData', label: 'No Data', description: 'Respond with an empty body' },
+      { value: 'redirect', label: 'Redirect', description: 'Respond with a redirect to a given URL' },
+      { value: 'text', label: 'Text', description: 'Respond with a simple text message body' },
     ],
   };
 }
@@ -87,15 +87,15 @@ function respondWithParam(show: ParamSchema['show'], noExpression?: boolean): Pa
 const parameters: ParamSchema[] = [
   {
     name: 'enableResponseOutput',
-    label: 'Ausgang mit der Antwort',
+    label: 'Enable Response Output Branch',
     type: 'boolean',
     default: false,
-    description: 'Ob ein zusätzlicher Ausgang die gesendete Antwort liefert',
+    description: 'Whether to provide an additional output branch with the response sent to the webhook',
     show: { '@version': [{ _cnd: { gte: 1.4 } }] },
   },
   {
     name: 'generalNotice',
-    label: "Im Webhook-Knoten muss 'Antworten' auf 'Über Knoten Respond to Webhook' stehen.",
+    label: "Verify that the Webhook node's 'Respond' parameter is set to 'Using Respond to Webhook Node'.",
     type: 'notice',
     default: '',
   },
@@ -103,28 +103,28 @@ const parameters: ParamSchema[] = [
   respondWithParam({ '@version': [{ _cnd: { gte: 1.2 } }] }, true),
   {
     name: 'webhookNotice',
-    label: 'Mit Expressions läuft dieser Knoten nur für das erste Item der Eingabe.',
+    label: 'When using expressions, note that this node will only run for the first item in the input data.',
     type: 'notice',
     default: '',
     show: { respondWith: ['json', 'text', 'jwt'] },
   },
   {
     name: 'redirectURL',
-    label: 'Weiterleitungs-URL',
+    label: 'Redirect URL',
     type: 'string',
     default: '',
     required: true,
-    placeholder: 'z. B. https://example.com',
-    description: 'URL, auf die weitergeleitet wird',
+    placeholder: 'e.g. https://example.com',
+    description: 'The URL to redirect to',
     show: { respondWith: ['redirect'] },
   },
   {
     name: 'responseBody',
-    label: 'Antwort-Body',
+    label: 'Response Body',
     type: 'json',
     default: '{\n  "myField": "value"\n}',
     rows: 4,
-    description: 'JSON-Daten der Antwort',
+    description: 'The HTTP response JSON data',
     show: { respondWith: ['json'] },
   },
   {
@@ -133,80 +133,80 @@ const parameters: ParamSchema[] = [
     type: 'json',
     default: '{\n  "myField": "value"\n}',
     rows: 4,
-    description: 'Inhalt des JWT-Tokens',
+    description: 'The payload to include in the JWT token',
     show: { respondWith: ['jwt'] },
   },
   {
     name: 'responseBody',
-    label: 'Antwort-Body',
+    label: 'Response Body',
     type: 'string',
     default: '',
     rows: 2,
-    placeholder: 'z. B. Workflow abgeschlossen',
-    description: 'Text der Antwort',
+    placeholder: 'e.g. Workflow completed',
+    description: 'The HTTP response text data',
     show: { respondWith: ['text'] },
   },
   {
     name: 'responseDataSource',
-    label: 'Quelle der Antwortdaten',
+    label: 'Response Data Source',
     type: 'options',
     default: 'automatically',
     show: { respondWith: ['binary'] },
     options: [
-      { value: 'automatically', label: 'Automatisch aus der Eingabe', description: 'Wenn die Eingabe genau eine Binärdatei enthält' },
-      { value: 'set', label: 'Selbst angeben', description: 'Name des Eingabefelds mit den Binärdaten angeben' },
+      { value: 'automatically', label: 'Choose Automatically From Input', description: 'Use if input data will contain a single piece of binary data' },
+      { value: 'set', label: 'Specify Myself', description: 'Enter the name of the input field the binary data will be in' },
     ],
   },
   {
     name: 'inputFieldName',
-    label: 'Eingabefeld',
+    label: 'Input Field Name',
     type: 'string',
     default: 'data',
     required: true,
-    description: 'Name des Eingabefelds mit den Binärdaten',
+    description: 'The name of the node input field with the binary data',
     show: { respondWith: ['binary'], responseDataSource: ['set'] },
   },
   {
     name: 'contentTypeNotice',
-    label: 'Einen passenden Header "Content-Type" setzen, damit die Antwort richtig ankommt.',
+    label: 'Consider adding a "Content-Type" header with an appropriate value to ensure the response is received correctly.',
     type: 'notice',
     default: '',
     show: { respondWith: ['text'] },
   },
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     children: [
-      { name: 'responseCode', label: 'Antwortcode', type: 'number', default: 200, min: 100, max: 599, description: 'HTTP-Statuscode der Antwort, Standard 200' },
+      { name: 'responseCode', label: 'Response Code', type: 'number', default: 200, min: 100, max: 599, description: 'The HTTP response code to return. Defaults to 200.' },
       {
         name: 'responseHeaders',
-        label: 'Antwort-Header',
+        label: 'Response Headers',
         type: 'fixedCollection',
         default: {},
         multiple: true,
-        addLabel: 'Header hinzufügen',
-        description: 'Zusätzliche Header in der Antwort',
+        addLabel: 'Add Response Header',
+        description: 'Add headers to the webhook response',
         groups: [
           {
             name: 'entries',
-            label: 'Einträge',
+            label: 'Entries',
             children: [
-              { name: 'name', label: 'Name', type: 'string', default: '', description: 'Name des Headers' },
-              { name: 'value', label: 'Wert', type: 'string', default: '', description: 'Wert des Headers' },
+              { name: 'name', label: 'Name', type: 'string', default: '', description: 'Name of the header' },
+              { name: 'value', label: 'Value', type: 'string', default: '', description: 'Value of the header' },
             ],
           },
         ],
       },
       {
         name: 'responseKey',
-        label: 'Antwort in Feld ablegen',
+        label: 'Put Response in Field',
         type: 'string',
         default: '',
-        placeholder: 'z. B. data',
-        description: 'Name des Felds, in das die Items kommen',
+        placeholder: 'e.g. data',
+        description: 'The name of the response field to put all items in',
         show: { '/respondWith': ['allIncomingItems', 'firstIncomingItem'] },
       },
       {
@@ -214,7 +214,7 @@ const parameters: ParamSchema[] = [
         label: 'Streaming',
         type: 'boolean',
         default: true,
-        description: 'Ob die Antwort in eine gestreamte Webhook-Antwort geschrieben wird',
+        description: 'Whether to write the response to a streamed webhook response',
         show: { '/respondWith': ['allIncomingItems', 'firstIncomingItem', 'text', 'json', 'jwt'], '@version': [{ _cnd: { gte: 1.5 } }] },
       },
     ],
@@ -286,7 +286,7 @@ export const respondToWebhookNode: NodeType = {
           throw new NodeOperationError(ctx.node.name, 'Error signing JWT token', { cause: error });
         }
       } else if (respondWith === 'allIncomingItems') {
-        // n8n sendet hier ohne Prüfung von shouldStream (ohne Streaming wirkungslos)
+        // n8n sends here without checking shouldStream (has no effect without streaming)
         const all = items.map((i, index) => (stream(index, i.json), i.json));
         body = options.responseKey ? lodash.set({}, options.responseKey as string, all) : all;
       } else if (respondWith === 'firstIncomingItem') {
@@ -325,8 +325,8 @@ export const respondToWebhookNode: NodeType = {
         throw new NodeOperationError(ctx.node.name, `The Response Data option "${respondWith}" is not supported!`);
       }
 
-      // Chat Trigger mit responseMode "responseNodes": die Antwort geht als Nachricht an die Chat-Seite
-      // (RespondToWebhook.node.ts: sendMessage aus output, text oder message, sonst JSON) und die Ausführung wartet
+      // Chat Trigger with responseMode "responseNodes": the response is sent as a message to the chat page
+      // (RespondToWebhook.node.ts: sendMessage from output, text or message, otherwise JSON) and the execution waits
       const chatTrigger = findChatTrigger(ctx);
       if (chatTrigger && usesResponseNodes(chatTrigger) && ctx.canWait) {
         let message = '';

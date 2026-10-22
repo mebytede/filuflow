@@ -1,6 +1,6 @@
-// Übergang von flowlite zu filuflow: alte Umgebungsvariablen (FLOWLITE_*) gelten weiter, wenn die neue
-// (FILUFLOW_*) nicht gesetzt ist. Wird als erstes Modul der CLI geladen, damit alle anderen Module die
-// neuen Namen schon sehen. Die Liste der übernommenen Namen meldet die CLI beim Start als Warnung.
+// Transition from flowlite to filuflow: old environment variables (FLOWLITE_*) still apply if the new one
+// (FILUFLOW_*) is not set. Loaded as the first module of the CLI so that all other modules already see the
+// new names. The CLI reports the list of taken-over names as a warning at startup.
 export const legacyEnvNames: string[] = applyLegacyEnv(process.env);
 
 export function applyLegacyEnv(env: NodeJS.ProcessEnv): string[] {

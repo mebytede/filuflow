@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// Liest die Executions aus der n8n-SQLite-Datenbank und schreibt expected.json für Webhook-Fixtures:
-// { "responses": [...], "executions": [ <Snapshot je Execution, nach ID sortiert> ] }
-// Aufruf: node scripts/extract-webhook.mjs <database.sqlite> <responses.json> <expected.json>
+// Reads the executions from the n8n SQLite database and writes expected.json for webhook fixtures:
+// { "responses": [...], "executions": [ <snapshot per execution, sorted by ID> ] }
+// Usage: node scripts/extract-webhook.mjs <database.sqlite> <responses.json> <expected.json>
 import { readFileSync, writeFileSync } from 'node:fs';
 import Database from 'better-sqlite3';
 import { flattedParse, resultDataToSnapshot } from './snapshot-lib.mjs';
@@ -17,4 +17,4 @@ const executions = rows.map((row) => {
 });
 const responses = JSON.parse(readFileSync(responsesFile, 'utf8'));
 writeFileSync(output, `${JSON.stringify({ responses, executions }, null, 2)}\n`);
-console.log(`geschrieben: ${output} (${executions.length} Executions)`);
+console.log(`written: ${output} (${executions.length} executions)`);

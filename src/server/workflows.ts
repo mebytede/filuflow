@@ -1,4 +1,4 @@
-// Workflows aus --dir: Laden, Validieren, Aktivieren (Webhooks, Schedules), Hot Reload.
+// Workflows from --dir: loading, validating, activating (webhooks, schedules), hot reload.
 import { watch, existsSync, type FSWatcher } from 'node:fs';
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
@@ -20,9 +20,9 @@ export interface ManagedWorkflow {
   file: string;
   signature: string;
   issues: ValidationIssue[];
-  /** active: true in der Datei */
+  /** active: true in the file */
   wantsActive: boolean;
-  /** tatsächlich aktiv (Webhooks/Schedules registriert) */
+  /** actually active (webhooks/schedules registered) */
   active: boolean;
   activationError?: string;
   webhooks: RegisteredWebhook[];
@@ -34,20 +34,20 @@ export interface WorkflowManagerOptions {
   credentials: CredentialProvider;
   webhooks: WebhookService;
   scheduler: Scheduler;
-  /** Poll- und Trigger-Knoten aus Paketen (M31) */
+  /** Poll and trigger nodes from packages (M31) */
   triggers?: TriggerActivations;
   logger: Logger;
 }
 
 export class WorkflowNotFoundError extends Error {
   constructor(id: string) {
-    super(`Workflow "${id}" nicht gefunden`);
+    super(`Workflow "${id}" not found`);
   }
 }
 
 export class WorkflowConflictError extends Error {}
 
-/** Dateiname aus dem Workflow-Namen: Kleinbuchstaben, Ziffern und Bindestriche */
+/** File name from the workflow name: lowercase letters, digits and hyphens */
 function slugify(name: string | undefined): string {
   return (name ?? '')
     .toLowerCase()
@@ -84,8 +84,8 @@ export class WorkflowManager implements WorkflowSource {
     return this.get(idOrName)?.workflow;
   }
 
-  /** Lädt das Verzeichnis neu und gleicht Aktivierungen ab */
-  /** Zeitpunkt des letzten Ladens des Verzeichnisses (Hot Reload) */
+  /** Reloads the directory and reconciles activations */
+  /** Time of the last directory reload (hot reload) */
   reloadedAt?: string;
 
   get dir(): string {
@@ -96,7 +96,7 @@ export class WorkflowManager implements WorkflowSource {
     this.reloading = this.reloading.then(() => this.doReload()).then(() => {
       this.reloadedAt = new Date().toISOString();
     }).catch((error: unknown) => {
-      this.options.logger.error({ err: (error as Error).message }, 'Neuladen der Workflows fehlgeschlagen');
+      this.options.logger.error({ err: (error as Error).message }, 'Reloading the workflows failed');
     });
     return this.reloading;
   }
@@ -107,29 +107,29 @@ export class WorkflowManager implements WorkflowSource {
     const next = new Map<string, { workflow: Workflow; file: string; signature: string }>();
     for (const entry of loaded) {
       if (!entry.workflow) {
-        logger.error({ file: entry.file, err: entry.error?.message }, 'Workflow-Datei kann nicht geladen werden');
+        logger.error({ file: entry.file, err: entry.error?.message }, 'Workflow file cannot be loaded');
         continue;
       }
       const workflow = entry.workflow;
-      // Ohne ID: Dateiname (ohne .json) als ID
+      // Without an ID: file name (without .json) as ID
       workflow.id ??= basename(entry.file, '.json');
       if (next.has(workflow.id)) {
-        logger.error({ file: entry.file, id: workflow.id }, 'Doppelte Workflow-ID, Datei wird ignoriert');
+        logger.error({ file: entry.file, id: workflow.id }, 'Duplicate workflow ID, file is ignored');
         continue;
       }
       next.set(workflow.id, { workflow, file: entry.file, signature: JSON.stringify(workflow) });
     }
 
-    // Entfernte oder geänderte Workflows deaktivieren
+    // Deactivate removed or changed workflows
     for (const [id, current] of this.items) {
       const n = next.get(id);
       if (!n || n.signature !== current.signature) {
         this.deactivate(current);
         this.items.delete(id);
-        if (!n) logger.info({ workflow: current.workflow.name }, 'Workflow entfernt');
+        if (!n) logger.info({ workflow: current.workflow.name }, 'Workflow removed');
       }
     }
-    // Neue oder geänderte Workflows übernehmen und ggf. aktivieren
+    // Take over new or changed workflows and activate them if needed
     for (const [id, n] of next) {
       if (this.items.has(id)) continue;
       const result = validateWorkflow(n.workflow, {
@@ -152,11 +152,11 @@ export class WorkflowManager implements WorkflowSource {
         try {
           this.options.webhooks.test.add(n.workflow);
         } catch (error) {
-          logger.warn({ workflow: n.workflow.name, err: (error as Error).message }, 'Test-Webhook nicht registriert');
+          logger.warn({ workflow: n.workflow.name, err: (error as Error).message }, 'Test webhook not registered');
         }
       }
       if (managed.wantsActive) await this.activate(managed, result.valid);
-      else logger.info({ workflow: n.workflow.name, file: n.file }, 'Workflow geladen (inaktiv)');
+      else logger.info({ workflow: n.workflow.name, file: n.file }, 'Workflow loaded (inactive)');
     }
   }
 
@@ -167,14 +167,14 @@ export class WorkflowManager implements WorkflowSource {
         .filter((i) => i.severity === 'error')
         .map((i) => `${i.node ? `[${i.node}] ` : ''}${i.message}`)
         .join('; ');
-      logger.error({ workflow: managed.workflow.name, issues: managed.activationError }, 'Workflow wird nicht aktiviert');
+      logger.error({ workflow: managed.workflow.name, issues: managed.activationError }, 'Workflow is not activated');
       return;
     }
     try {
       managed.webhooks = this.options.webhooks.activate(managed.workflow);
       try {
         this.options.scheduler.add(managed.workflow);
-        // Webhooks von Paket-Knoten beim Dienst anmelden (webhookMethods), dann Poll- und Trigger-Knoten
+        // Register webhooks of package nodes with the service (webhookMethods), then poll and trigger nodes
         await this.options.webhooks.runPackageLifecycle(managed.workflow, 'create');
         await this.options.triggers?.activate(managed.workflow);
       } catch (error) {
@@ -187,19 +187,19 @@ export class WorkflowManager implements WorkflowSource {
       managed.activationError = undefined;
       logger.info(
         { workflow: managed.workflow.name, webhooks: managed.webhooks.map((w) => `${w.method} /webhook/${w.path}`) },
-        'Workflow aktiviert',
+        'Workflow activated',
       );
     } catch (error) {
       const description = (error as { description?: string }).description;
       managed.activationError = `${(error as Error).message}${description ? `: ${description}` : ''}`;
-      logger.error({ workflow: managed.workflow.name, err: managed.activationError }, 'Aktivierung fehlgeschlagen');
+      logger.error({ workflow: managed.workflow.name, err: managed.activationError }, 'Activation failed');
     }
   }
 
   private deactivate(managed: ManagedWorkflow): void {
     if (managed.active) {
       void this.options.webhooks.runPackageLifecycle(managed.workflow, 'delete').catch((error: unknown) =>
-        this.options.logger.warn({ workflow: managed.workflow.name, err: (error as Error).message }, 'Webhook konnte beim Dienst nicht abgemeldet werden'),
+        this.options.logger.warn({ workflow: managed.workflow.name, err: (error as Error).message }, 'Webhook could not be deregistered from the service'),
       );
     }
     this.options.webhooks.production.remove(managed.workflow.id, managed.workflow.name);
@@ -209,7 +209,7 @@ export class WorkflowManager implements WorkflowSource {
     managed.active = false;
   }
 
-  /** Dateiinhalt eines Workflows, so wie er auf der Platte steht (Editor) */
+  /** File content of a workflow as it is on disk (editor) */
   async source(id: string): Promise<unknown> {
     const m = this.get(id);
     if (!m) return undefined;
@@ -217,8 +217,8 @@ export class WorkflowManager implements WorkflowSource {
   }
 
   /**
-   * Speichert einen Workflow (Editor). Mit `id` wird die bestehende Datei überschrieben, sonst eine neue
-   * Datei angelegt (Name aus dem Workflow-Namen). Danach wird neu geladen und aktiviert.
+   * Saves a workflow (editor). With `id` the existing file is overwritten, otherwise a new
+   * file is created (name from the workflow name). Afterwards it reloads and activates.
    */
   async save(workflow: Workflow, id?: string): Promise<ManagedWorkflow> {
     let file: string;
@@ -229,7 +229,7 @@ export class WorkflowManager implements WorkflowSource {
       workflow.id = existing.workflow.id;
     } else {
       workflow.id ??= randomBytes(8).toString('hex');
-      if (this.items.has(workflow.id)) throw new WorkflowConflictError(`Workflow-ID "${workflow.id}" ist bereits vergeben`);
+      if (this.items.has(workflow.id)) throw new WorkflowConflictError(`Workflow ID "${workflow.id}" is already taken`);
       const base = slugify(workflow.name) || workflow.id;
       file = join(this.options.dir, `${base}.json`);
       if (existsSync(file)) file = join(this.options.dir, `${base}-${workflow.id}.json`);
@@ -239,11 +239,11 @@ export class WorkflowManager implements WorkflowSource {
     await this.reload();
     const savedId = workflow.id as string;
     const saved = this.get(savedId);
-    if (!saved) throw new Error(`Workflow "${savedId}" wurde gespeichert, aber nicht geladen`);
+    if (!saved) throw new Error(`Workflow "${savedId}" was saved but not loaded`);
     return saved;
   }
 
-  /** Anlegen oder ersetzen unter fester ID (Worker: vom Master verteilt); Datei <id>.json */
+  /** Create or replace under a fixed ID (worker: distributed by the master); file <id>.json */
   async upsert(id: string, workflow: Workflow): Promise<ManagedWorkflow> {
     const existing = this.get(id);
     const file = existing && existing.workflow.id === id ? existing.file : join(this.options.dir, `${id}.json`);
@@ -252,18 +252,18 @@ export class WorkflowManager implements WorkflowSource {
     await writeFile(file, `${JSON.stringify(workflow, null, 2)}\n`, 'utf8');
     await this.reload();
     const saved = this.items.get(id);
-    if (!saved) throw new Error(`Workflow "${id}" wurde gespeichert, aber nicht geladen`);
+    if (!saved) throw new Error(`Workflow "${id}" was saved but not loaded`);
     return saved;
   }
 
-  /** Alle Workflows neu prüfen und aktivieren (z. B. nachdem Credentials geändert wurden) */
+  /** Re-check and activate all workflows (e.g. after credentials changed) */
   async revalidate(): Promise<void> {
     for (const m of this.items.values()) this.deactivate(m);
     this.items.clear();
     await this.reload();
   }
 
-  /** Löscht die Datei eines Workflows (Editor) */
+  /** Deletes the file of a workflow (editor) */
   async remove(id: string): Promise<void> {
     const m = this.get(id);
     if (!m) throw new WorkflowNotFoundError(id);
@@ -271,14 +271,14 @@ export class WorkflowManager implements WorkflowSource {
     await this.reload();
   }
 
-  /** Beobachtet das Verzeichnis (Hot Reload, entprellt) */
+  /** Watches the directory (hot reload, debounced) */
   watch(debounceMs = 300): void {
     if (!existsSync(this.options.dir)) return;
     this.watcher = watch(this.options.dir, (_event, file) => {
       if (file && !String(file).endsWith('.json')) return;
       clearTimeout(this.reloadTimer);
       this.reloadTimer = setTimeout(() => {
-        this.options.logger.info('Änderung im Workflow-Verzeichnis, lade neu');
+        this.options.logger.info('Change in workflow directory, reloading');
         void this.reload();
       }, debounceMs);
     });

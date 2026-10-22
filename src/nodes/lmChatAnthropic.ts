@@ -1,5 +1,5 @@
-// Anthropic Chat Model, @n8n/n8n-nodes-langchain.lmChatAnthropic (typeVersion 1 bis 1.3)
-// Nachgebaut nach n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/llms/LMChatAnthropic/LmChatAnthropic.node.ts
+// Anthropic Chat Model, @n8n/n8n-nodes-langchain.lmChatAnthropic (typeVersion 1 to 1.3)
+// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/llms/LMChatAnthropic/LmChatAnthropic.node.ts
 import type { NodeType } from './types.js';
 import { AnthropicChatModel } from '../ai/models/anthropic.js';
 import type { ParamSchema } from './params.js';
@@ -8,8 +8,8 @@ const MODEL_DEFAULTS: Record<string, string> = { '1': 'claude-2', '1.1': 'claude
 const MIN_THINKING_BUDGET = 1024;
 const DEFAULT_MAX_TOKENS = 4096;
 
-// Parameter wie LmChatAnthropic.node.ts (properties und modelField, n8n 1.123.0).
-// Ab v1.3 lädt n8n die Modelle per API (searchModels); hier ist das Modell dann eine freie Eingabe.
+// Parameters like LmChatAnthropic.node.ts (properties and modelField, n8n 1.123.0).
+// From v1.3 n8n loads the models via API (searchModels); here the model is then a free input.
 const MODEL_OPTIONS = [
   { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet (20241022)' },
   { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus (20240229)' },
@@ -24,17 +24,17 @@ const MODEL_OPTIONS = [
 ];
 const modelField: ParamSchema = {
   name: 'model',
-  label: 'Modell',
+  label: 'Model',
   type: 'options',
   options: MODEL_OPTIONS,
-  description: 'Modell, das die Antwort erzeugt',
+  description: 'The model which will generate the completion',
   default: 'claude-2',
 };
 const HIDE_WHEN_THINKING = { thinking: [true] };
 
 const parameters: ParamSchema[] = [
   // getConnectionHintNoticeField([AiChain, AiChain])
-  { name: 'notice', label: 'Dieser Node muss mit einer AI Chain verbunden werden.', type: 'notice', default: '' },
+  { name: 'notice', label: 'This node must be connected to an AI chain.', type: 'notice', default: '' },
   { ...modelField, show: { '@version': [1] } },
   { ...modelField, default: 'claude-3-sonnet-20240229', show: { '@version': [1.1] } },
   {
@@ -45,42 +45,42 @@ const parameters: ParamSchema[] = [
   },
   {
     name: 'model',
-    label: 'Modell',
+    label: 'Model',
     type: 'resourceLocator',
     default: { mode: 'list', value: 'claude-sonnet-4-5-20250929', cachedResultName: 'Claude Sonnet 4.5' },
     required: true,
     modes: [
-      { name: 'list', label: 'Aus Liste', placeholder: 'z. B. claude-sonnet-4-5-20250929' },
+      { name: 'list', label: 'From List', placeholder: 'e.g. claude-sonnet-4-5-20250929' },
       { name: 'id', label: 'ID', placeholder: 'claude-sonnet-4-5-20250929' },
     ],
-    description: 'Modell aus der Liste oder per ID',
+    description: 'Model from the list or by ID',
     show: { '@version': [{ _cnd: { gte: 1.3 } }] },
   },
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    placeholder: 'Option hinzufügen',
-    addLabel: 'Option hinzufügen',
-    description: 'Weitere Optionen',
+    placeholder: 'Add Option',
+    addLabel: 'Add Option',
+    description: 'Additional options to add',
     children: [
       {
         name: 'maxTokensToSample',
-        label: 'Höchstzahl Token',
+        label: 'Maximum Number of Tokens',
         type: 'number',
         default: 4096,
-        description: 'Maximale Zahl erzeugter Token',
+        description: 'The maximum number of tokens to generate in the completion',
       },
       {
         name: 'temperature',
-        label: 'Temperatur',
+        label: 'Sampling Temperature',
         type: 'number',
         default: 0.7,
         min: 0,
         max: 1,
         precision: 1,
-        description: 'Steuert die Zufälligkeit; niedrige Werte machen die Antwort deterministischer.',
+        description: 'Controls randomness: lowering results in less random completions.',
         hide: HIDE_WHEN_THINKING,
       },
       {
@@ -91,7 +91,7 @@ const parameters: ParamSchema[] = [
         min: -1,
         max: 1,
         precision: 1,
-        description: 'Entfernt unwahrscheinliche Antworten; -1 schaltet es aus.',
+        description: 'Used to remove "long tail" low probability responses; -1 disables it.',
         hide: HIDE_WHEN_THINKING,
       },
       {
@@ -102,16 +102,16 @@ const parameters: ParamSchema[] = [
         min: 0,
         max: 1,
         precision: 1,
-        description: 'Nucleus Sampling; besser dies oder die Temperatur ändern, nicht beides.',
+        description: 'Controls diversity via nucleus sampling; we generally recommend altering this or temperature but not both.',
         hide: HIDE_WHEN_THINKING,
       },
-      { name: 'thinking', label: 'Thinking aktivieren', type: 'boolean', default: false, description: 'Ob das Modell im Thinking-Modus arbeitet' },
+      { name: 'thinking', label: 'Enable Thinking', type: 'boolean', default: false, description: 'Whether to enable thinking mode for the model' },
       {
         name: 'thinkingBudget',
-        label: 'Thinking-Budget (Token)',
+        label: 'Thinking Budget (Tokens)',
         type: 'number',
         default: 1024,
-        description: 'Höchstzahl Token für das Thinking',
+        description: 'The maximum number of tokens to use for thinking',
         show: { thinking: [true] },
       },
     ],
@@ -157,7 +157,7 @@ export const lmChatAnthropicNode: NodeType = {
     if (credentials.header && typeof credentials.headerName === 'string' && credentials.headerName && typeof credentials.headerValue === 'string') {
       headers[credentials.headerName] = credentials.headerValue;
     }
-    // n8n: topP nur, wenn gesetzt; bei gesetztem topP ohne temperature entfällt die Standard-Temperatur
+    // n8n: topP only if set; with topP set and no temperature, the default temperature is omitted
     return new AnthropicChatModel(ctx, {
       apiKey: String(credentials.apiKey ?? ''),
       baseURL: String(credentials.url ?? 'https://api.anthropic.com'),

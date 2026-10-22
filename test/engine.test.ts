@@ -20,8 +20,8 @@ async function run(workflow: ReturnType<typeof wf>, opts: Partial<Parameters<typ
 const out = (exec: Execution, node: string, output = 0, run = 0) =>
   exec.runData[node]?.[run]?.data.main![output]?.map((i) => i.json);
 
-describe('Engine v1-Reihenfolge', () => {
-  it('führt eine lineare Kette aus', async () => {
+describe('Engine v1 order', () => {
+  it('runs a linear chain', async () => {
     const { exec, order } = await run(
       wf(
         [
@@ -39,24 +39,24 @@ describe('Engine v1-Reihenfolge', () => {
     expect(exec.runData.B[0].source).toEqual([{ previousNode: 'A' }]);
   });
 
-  it('sortiert parallele Kinder nach Position und führt Zweige zu Ende', async () => {
+  it('sorts parallel children by position and finishes branches', async () => {
     const { order } = await run(
       wf(
         [
           { name: 'Start', type: T },
-          { name: 'Unten', type: 'test.pass', position: [200, 300] },
-          { name: 'Oben', type: 'test.pass', position: [200, -100] },
-          { name: 'Mitte', type: 'test.pass', position: [200, 100] },
-          { name: 'ObenKind', type: 'test.pass', position: [400, -100] },
-          { name: 'Links', type: 'test.pass', position: [100, 100] },
+          { name: 'Bottom', type: 'test.pass', position: [200, 300] },
+          { name: 'Top', type: 'test.pass', position: [200, -100] },
+          { name: 'Middle', type: 'test.pass', position: [200, 100] },
+          { name: 'TopChild', type: 'test.pass', position: [400, -100] },
+          { name: 'Left', type: 'test.pass', position: [100, 100] },
         ],
-        [['Start', 'Unten'], ['Start', 'Oben'], ['Start', 'Mitte'], ['Oben', 'ObenKind'], ['Start', 'Links']],
+        [['Start', 'Bottom'], ['Start', 'Top'], ['Start', 'Middle'], ['Top', 'TopChild'], ['Start', 'Left']],
       ),
     );
-    expect(order).toEqual(['Start', 'Oben', 'ObenKind', 'Links', 'Mitte', 'Unten']);
+    expect(order).toEqual(['Start', 'Top', 'TopChild', 'Left', 'Middle', 'Bottom']);
   });
 
-  it('wartet bei Merge auf beide Eingänge', async () => {
+  it('Merge waits for both inputs', async () => {
     const { exec, order } = await run(
       wf(
         [
@@ -74,7 +74,7 @@ describe('Engine v1-Reihenfolge', () => {
     expect(exec.runData.Merge[0].source).toEqual([{ previousNode: 'A' }, { previousNode: 'B2' }]);
   });
 
-  it('führt Merge mit nur einem gefüllten Eingang am Ende aus (n8n v1)', async () => {
+  it('runs Merge with only one filled input at the end (n8n v1)', async () => {
     const { exec } = await run(
       wf(
         [
@@ -88,7 +88,7 @@ describe('Engine v1-Reihenfolge', () => {
     expect(out(exec, 'Merge')).toEqual([{}]);
   });
 
-  it('führt Merge mit requiredInputs = alle nicht aus, wenn ein Eingang fehlt', async () => {
+  it('does not run Merge with requiredInputs = all when an input is missing', async () => {
     const { exec } = await run(
       wf(
         [
@@ -102,28 +102,28 @@ describe('Engine v1-Reihenfolge', () => {
     expect(exec.runData.Merge).toBeUndefined();
   });
 
-  it('führt Nachfolger bei 0 Items nicht aus, außer alwaysOutputData', async () => {
+  it('does not run successors with 0 items, unless alwaysOutputData', async () => {
     const { exec, order } = await run(
       wf(
         [
           { name: 'Start', type: T },
           { name: 'E', type: 'test.empty' },
-          { name: 'Nach', type: 'test.pass' },
+          { name: 'After', type: 'test.pass' },
           { name: 'E2', type: 'test.empty', alwaysOutputData: true, position: [0, 200] },
-          { name: 'Nach2', type: 'test.pass', position: [200, 200] },
+          { name: 'After2', type: 'test.pass', position: [200, 200] },
         ],
-        [['Start', 'E'], ['E', 'Nach'], ['Start', 'E2'], ['E2', 'Nach2']],
+        [['Start', 'E'], ['E', 'After'], ['Start', 'E2'], ['E2', 'After2']],
       ),
     );
-    expect(order).toEqual(['Start', 'E', 'E2', 'Nach2']);
+    expect(order).toEqual(['Start', 'E', 'E2', 'After2']);
     expect(exec.runData.E2[0].data.main![0]).toEqual([{ json: {}, pairedItem: [{ item: 0, input: 0 }] }]);
   });
 
-  it('nutzt pinData statt Ausführung (abschaltbar)', async () => {
+  it('uses pinData instead of execution (can be turned off)', async () => {
     const workflow = wf(
       [
         { name: 'Start', type: T },
-        { name: 'A', type: 'test.set', parameters: { field: 'x', value: 'echt' } },
+        { name: 'A', type: 'test.set', parameters: { field: 'x', value: 'real' } },
         { name: 'B', type: 'test.pass' },
       ],
       [['Start', 'A'], ['A', 'B']],
@@ -132,10 +132,10 @@ describe('Engine v1-Reihenfolge', () => {
     const { exec } = await run(workflow);
     expect(out(exec, 'B')).toEqual([{ x: 'pin1' }, { x: 'pin2' }]);
     const { exec: e2 } = await run(workflow, { usePinData: false });
-    expect(out(e2, 'B')).toEqual([{ x: 'echt' }]);
+    expect(out(e2, 'B')).toEqual([{ x: 'real' }]);
   });
 
-  it('reicht deaktivierte Nodes durch', async () => {
+  it('passes disabled nodes through', async () => {
     const { exec } = await run(
       wf(
         [
@@ -151,7 +151,7 @@ describe('Engine v1-Reihenfolge', () => {
     expect(out(exec, 'B')).toEqual([{ in: 1 }]);
   });
 
-  it('executeOnce verarbeitet nur das erste Item', async () => {
+  it('executeOnce processes only the first item', async () => {
     const { exec } = await run(
       wf([{ name: 'Start', type: T }, { name: 'A', type: 'test.set', executeOnce: true, parameters: { field: 'x', value: '={{ $json.n }}' } }], [['Start', 'A']]),
       { triggerItems: [{ json: { n: 1 } }, { json: { n: 2 } }] },
@@ -160,7 +160,7 @@ describe('Engine v1-Reihenfolge', () => {
   });
 });
 
-describe('Fehlerbehandlung', () => {
+describe('Error handling', () => {
   const failing = (extra: Record<string, unknown>) =>
     wf(
       [
@@ -173,29 +173,29 @@ describe('Fehlerbehandlung', () => {
     );
   const items = [{ json: { id: 1 } }, { json: { id: 2, fail: true } }];
 
-  it('stopWorkflow: Execution error, Abbruch', async () => {
+  it('stopWorkflow: execution error, abort', async () => {
     const { exec, order } = await run(failing({}), { triggerItems: items });
     expect(exec.status).toBe('error');
-    expect(exec.error?.message).toBe('kaputt 1');
+    expect(exec.error?.message).toBe('broken 1');
     expect(exec.runData.F[0].executionStatus).toBe('error');
     expect(order).toEqual(['Start', 'F']);
     expect(exec.lastNodeExecuted).toBe('F');
   });
 
-  it('continueRegularOutput: Fehler-Items auf normalem Ausgang', async () => {
+  it('continueRegularOutput: error items on the regular output', async () => {
     const { exec } = await run(failing({ onError: 'continueRegularOutput' }), { triggerItems: items });
     expect(exec.status).toBe('success');
-    expect(out(exec, 'Ok')).toEqual([{ id: 1, ok: true }, { error: 'kaputt 1' }]);
+    expect(out(exec, 'Ok')).toEqual([{ id: 1, ok: true }, { error: 'broken 1' }]);
   });
 
-  it('continueErrorOutput: Fehler-Items auf Fehlerausgang, mit Eingangsdaten angereichert', async () => {
+  it('continueErrorOutput: error items on the error output, enriched with input data', async () => {
     const { exec } = await run(failing({ onError: 'continueErrorOutput' }), { triggerItems: items });
     expect(out(exec, 'F', 0)).toEqual([{ id: 1, ok: true }]);
-    expect(out(exec, 'F', 1)).toEqual([{ id: 2, fail: true, error: 'kaputt 1' }]);
-    expect(out(exec, 'Err')).toEqual([{ id: 2, fail: true, error: 'kaputt 1' }]);
+    expect(out(exec, 'F', 1)).toEqual([{ id: 2, fail: true, error: 'broken 1' }]);
+    expect(out(exec, 'Err')).toEqual([{ id: 2, fail: true, error: 'broken 1' }]);
   });
 
-  it('retryOnFail wiederholt bis maxTries', async () => {
+  it('retryOnFail retries up to maxTries', async () => {
     const staticData = {};
     const { exec } = await run(failing({ retryOnFail: true, maxTries: 3, parameters: { failUntilCall: 2 } }), {
       triggerItems: [{ json: { id: 1 } }],
@@ -205,7 +205,7 @@ describe('Fehlerbehandlung', () => {
     expect((staticData as { global: { calls: number } }).global.calls).toBe(3);
   });
 
-  it('retryOnFail gibt nach maxTries auf', async () => {
+  it('retryOnFail gives up after maxTries', async () => {
     const staticData = {};
     const { exec } = await run(failing({ retryOnFail: true, maxTries: 2, parameters: { failUntilCall: 5 } }), {
       triggerItems: [{ json: { id: 1 } }],
@@ -215,19 +215,19 @@ describe('Fehlerbehandlung', () => {
     expect((staticData as { global: { calls: number } }).global.calls).toBe(2);
   });
 
-  it('lehnt nicht unterstützte Nodes vor dem Start ab', async () => {
+  it('rejects unsupported nodes before the start', async () => {
     await expect(run(wf([{ name: 'Start', type: T }, { name: 'G', type: 'n8n-nodes-base.gmail' }], [['Start', 'G']]))).rejects.toThrow(
-      /nicht unterstützte Nodes/,
+      /Workflow contains unsupported nodes/,
     );
   });
 
-  it('lehnt unbekannte executionOrder ab', async () => {
+  it('rejects an unknown executionOrder', async () => {
     const w = wf([{ name: 'Start', type: T }], []);
     w.settings = { executionOrder: 'v2' as 'v1' };
     await expect(run(w)).rejects.toThrow(/v2/);
   });
 
-  it('kann abgebrochen werden', async () => {
+  it('can be canceled', async () => {
     const ac = new AbortController();
     ac.abort();
     const { exec } = await run(wf([{ name: 'Start', type: T }, { name: 'A', type: 'test.pass' }], [['Start', 'A']]), { signal: ac.signal });
@@ -235,8 +235,8 @@ describe('Fehlerbehandlung', () => {
   });
 });
 
-describe('Paired Items und Expressions', () => {
-  it('$("Node").item folgt Paired Items über Zwischen-Nodes', async () => {
+describe('Paired items and expressions', () => {
+  it('$("Node").item follows paired items across intermediate nodes', async () => {
     const { exec } = await run(
       wf(
         [
@@ -255,7 +255,7 @@ describe('Paired Items und Expressions', () => {
     ]);
   });
 
-  it('meldet fehlende Paired Items wie n8n', async () => {
+  it('reports missing paired items like n8n', async () => {
     const { exec } = await run(
       wf(
         [
@@ -273,7 +273,7 @@ describe('Paired Items und Expressions', () => {
     );
   });
 
-  it('ergänzt pairedItem bei gleicher Itemzahl automatisch', async () => {
+  it('adds pairedItem automatically when the item count is equal', async () => {
     const { exec } = await run(
       wf(
         [
@@ -288,19 +288,19 @@ describe('Paired Items und Expressions', () => {
     expect(out(exec, 'D')).toEqual([{ n: 0, x: 1 }, { n: 1, x: 2 }]);
   });
 
-  it('meldet Zugriff auf nicht ausgeführte Nodes', async () => {
+  it('reports access to nodes that were not executed', async () => {
     const { exec } = await run(
       wf(
         [
           { name: 'Start', type: T },
           { name: 'If', type: 'test.if', parameters: { condition: false } },
-          { name: 'Nie', type: 'test.pass', position: [400, -100] },
-          { name: 'D', type: 'test.set', position: [400, 100], parameters: { field: 'x', value: "={{ $('Nie').first().json }}" } },
+          { name: 'Never', type: 'test.pass', position: [400, -100] },
+          { name: 'D', type: 'test.set', position: [400, 100], parameters: { field: 'x', value: "={{ $('Never').first().json }}" } },
         ],
-        [['Start', 'If'], ['If', 'Nie', 0], ['If', 'D', 1]],
+        [['Start', 'If'], ['If', 'Never', 0], ['If', 'D', 1]],
       ),
     );
-    expect(exec.error?.message).toBe("Node 'Nie' hasn't been executed");
+    expect(exec.error?.message).toBe("Node 'Never' hasn't been executed");
     expect(exec.error?.node).toBe('D');
   });
 
@@ -331,53 +331,53 @@ describe('Paired Items und Expressions', () => {
   });
 });
 
-// Execution-Order v0 nach n8n 1.123.0 packages/core/src/execution-engine/workflow-execute.ts (isLegacyExecutionOrder)
-describe('Engine v0-Reihenfolge', () => {
+// Execution order v0 according to n8n 1.123.0 packages/core/src/execution-engine/workflow-execute.ts (isLegacyExecutionOrder)
+describe('Engine v0 order', () => {
   const v0 = { settings: { executionOrder: 'v0' as const } };
 
-  it('führt Kinder in Verbindungsreihenfolge aus, Breite vor Tiefe', async () => {
+  it('runs children in connection order, breadth before depth', async () => {
     const nodes = [
       { name: 'Start', type: T },
-      { name: 'Unten', type: 'test.pass', position: [200, 300] as [number, number] },
-      { name: 'Oben', type: 'test.pass', position: [200, -100] as [number, number] },
-      { name: 'Mitte', type: 'test.pass', position: [200, 100] as [number, number] },
-      { name: 'ObenKind', type: 'test.pass', position: [400, -100] as [number, number] },
-      { name: 'Links', type: 'test.pass', position: [100, 100] as [number, number] },
+      { name: 'Bottom', type: 'test.pass', position: [200, 300] as [number, number] },
+      { name: 'Top', type: 'test.pass', position: [200, -100] as [number, number] },
+      { name: 'Middle', type: 'test.pass', position: [200, 100] as [number, number] },
+      { name: 'TopChild', type: 'test.pass', position: [400, -100] as [number, number] },
+      { name: 'Left', type: 'test.pass', position: [100, 100] as [number, number] },
     ];
-    const links: Array<[string, string]> = [['Start', 'Unten'], ['Start', 'Oben'], ['Start', 'Mitte'], ['Oben', 'ObenKind'], ['Start', 'Links']];
-    expect((await run(wf(nodes, links, v0))).order).toEqual(['Start', 'Unten', 'Oben', 'Mitte', 'Links', 'ObenKind']);
-    // fehlende Angabe gilt wie in n8n als v0
-    expect((await run(wf(nodes, links, { settings: {} }))).order).toEqual(['Start', 'Unten', 'Oben', 'Mitte', 'Links', 'ObenKind']);
+    const links: Array<[string, string]> = [['Start', 'Bottom'], ['Start', 'Top'], ['Start', 'Middle'], ['Top', 'TopChild'], ['Start', 'Left']];
+    expect((await run(wf(nodes, links, v0))).order).toEqual(['Start', 'Bottom', 'Top', 'Middle', 'Left', 'TopChild']);
+    // a missing setting counts as v0, as in n8n
+    expect((await run(wf(nodes, links, { settings: {} }))).order).toEqual(['Start', 'Bottom', 'Top', 'Middle', 'Left', 'TopChild']);
   });
 
-  it('führt fehlende Vorgänger eines Merge mit aus', async () => {
+  it('also runs missing predecessors of a Merge', async () => {
     const nodes = [
       { name: 'Start', type: T },
       { name: 'A', type: 'test.set', parameters: { field: 'x', value: 'a' } },
-      { name: 'Daten', type: 'test.set', parameters: { field: 'x', value: 'b' } },
+      { name: 'Data', type: 'test.set', parameters: { field: 'x', value: 'b' } },
       { name: 'Merge', type: 'test.merge' },
     ];
-    const links: Array<[string, string, number, number]> = [['Start', 'A', 0, 0], ['A', 'Merge', 0, 0], ['Daten', 'Merge', 0, 1]];
+    const links: Array<[string, string, number, number]> = [['Start', 'A', 0, 0], ['A', 'Merge', 0, 0], ['Data', 'Merge', 0, 1]];
     const legacy = await run(wf(nodes, links, v0));
     expect(legacy.exec.status).toBe('success');
-    expect(legacy.order).toEqual(['Start', 'A', 'Daten', 'Merge']);
+    expect(legacy.order).toEqual(['Start', 'A', 'Data', 'Merge']);
     expect(out(legacy.exec, 'Merge')).toEqual([{ x: 'a' }, { x: 'b' }]);
-    // v1: "Daten" hängt an keinem Trigger und läuft nicht; Merge läuft am Ende mit einem Eingang
+    // v1: "Data" is not attached to any trigger and does not run; Merge runs at the end with one input
     const modern = await run(wf(nodes, links));
     expect(modern.order).toEqual(['Start', 'A', 'Merge']);
     expect(out(modern.exec, 'Merge')).toEqual([{ x: 'a' }]);
   });
 
-  it('nutzt die Daten von Eingang 1 und wartet auf alle Eingänge', async () => {
+  it('uses the data of input 1 and waits for all inputs', async () => {
     const nodes = [
       { name: 'Start', type: T },
-      { name: 'Leer', type: 'test.empty' },
-      { name: 'Voll', type: 'test.set', parameters: { field: 'x', value: 'b' } },
+      { name: 'Empty', type: 'test.empty' },
+      { name: 'Full', type: 'test.set', parameters: { field: 'x', value: 'b' } },
       { name: 'Merge', type: 'test.merge' },
     ];
-    const links: Array<[string, string, number, number]> = [['Start', 'Leer', 0, 0], ['Start', 'Voll', 0, 0], ['Leer', 'Merge', 0, 0], ['Voll', 'Merge', 0, 1]];
+    const links: Array<[string, string, number, number]> = [['Start', 'Empty', 0, 0], ['Start', 'Full', 0, 0], ['Empty', 'Merge', 0, 0], ['Full', 'Merge', 0, 1]];
     const legacy = await run(wf(nodes, links, v0));
-    // Eingang 1 ist leer: in v0 läuft Merge nicht (keine Daten auf Eingang 1)
+    // input 1 is empty: in v0 Merge does not run (no data on input 1)
     expect(legacy.exec.runData.Merge).toBeUndefined();
     const modern = await run(wf(nodes, links));
     expect(out(modern.exec, 'Merge')).toEqual([{ x: 'b' }]);

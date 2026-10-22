@@ -1,5 +1,5 @@
-// Anthropic Messages API wie n8n 1.123.0 mit @langchain/anthropic 1.1 (ChatAnthropic):
-//   chat_models.js (invocationParams: Feldreihenfolge, Default max_tokens je Modell, thinking)
+// Anthropic Messages API as in n8n 1.123.0 with @langchain/anthropic 1.1 (ChatAnthropic):
+//   chat_models.js (invocationParams: field order, default max_tokens per model, thinking)
 //   utils/message_inputs.js (_convertMessagesToAnthropicPayload, _ensureMessageContents, mergeMessages)
 import type { ExecContext } from '../../nodes/types.js';
 import type { ChatMessage, ContentPart, ToolCall } from '../messages.js';
@@ -13,7 +13,7 @@ export interface AnthropicOptions {
   temperature?: number;
   topK?: number;
   topP?: number;
-  /** n8n invocationKwargs (z. B. thinking) */
+  /** n8n invocationKwargs (e.g. thinking) */
   invocationKwargs?: Record<string, unknown>;
   headers?: Record<string, string>;
 }
@@ -60,7 +60,7 @@ export class AnthropicChatModel extends ChatModel {
 
   /** _convertMessagesToAnthropicPayload */
   private toPayload(messages: ChatMessage[]): { messages: AnthropicMessage[]; system?: unknown } {
-    // Tool-Antworten werden zu user-Nachrichten mit tool_result-Blöcken
+    // Tool responses become user messages with tool_result blocks
     const merged: ChatMessage[] = [];
     for (const m of messages) {
       if (m.role === 'tool') {
@@ -86,7 +86,7 @@ export class AnthropicChatModel extends ChatModel {
         }
       }
       if (m.role === 'ai' && Array.isArray(m.raw)) {
-        // Original-Blöcke der Antwort (Text, tool_use)
+        // Original blocks of the response (text, tool_use)
         return {
           role,
           content: (m.raw as Block[]).map((b) =>
@@ -96,7 +96,7 @@ export class AnthropicChatModel extends ChatModel {
       }
       return { role, content: contentBlocks(m.content) };
     });
-    // mergeMessages: aufeinanderfolgende tool_result-Nachrichten zusammenfassen
+    // mergeMessages: combine consecutive tool_result messages
     const result: AnthropicMessage[] = [];
     const isToolResult = (msg: AnthropicMessage) => msg.role === 'user' && Array.isArray(msg.content) && msg.content.every((b) => b.type === 'tool_result');
     for (const msg of formatted) {
@@ -107,7 +107,7 @@ export class AnthropicChatModel extends ChatModel {
     return { messages: result, system };
   }
 
-  /** Messages API mit stream: true; Ereignisse wie die Anthropic-SDK zu einer Nachricht zusammensetzen */
+  /** Messages API with stream: true; assemble events into one message like the Anthropic SDK */
   private async streamMessages(url: string, headers: Record<string, string>, body: Record<string, unknown>, signal: AbortSignal | undefined, onToken: (text: string) => void): Promise<Record<string, unknown>> {
     let message: Record<string, unknown> = {};
     const blocks: Array<Record<string, unknown>> = [];
@@ -160,7 +160,7 @@ export class AnthropicChatModel extends ChatModel {
           message.usage = { ...((message.usage as Record<string, unknown>) ?? {}), ...(ev.usage ?? {}) };
           break;
         case 'error':
-          streamError = ev.error?.message ?? 'Fehler im Stream';
+          streamError = ev.error?.message ?? 'Error in stream';
           break;
         default:
           break;
@@ -205,7 +205,7 @@ export class AnthropicChatModel extends ChatModel {
     const usage = res.usage as
       | { input_tokens?: number; output_tokens?: number; cache_creation_input_tokens?: number; cache_read_input_tokens?: number }
       | undefined;
-    // @langchain/anthropic 1.1 utils/message_outputs.js (anthropicResponseToChatMessages) und chat_models.js (usage_metadata)
+    // @langchain/anthropic 1.1 utils/message_outputs.js (anthropicResponseToChatMessages) and chat_models.js (usage_metadata)
     const { content: _content, ...rest } = res;
     const lcContent = singleText ? String(content[0].text) : content;
     const lcKwargs: Record<string, unknown> = {

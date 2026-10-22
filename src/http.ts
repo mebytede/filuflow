@@ -1,5 +1,5 @@
-// HTTP-Client über undici. Respektiert HTTPS_PROXY/HTTP_PROXY/NO_PROXY
-// (EnvHttpProxyAgent) und erlaubt einen eigenen Dispatcher (MockAgent) für Tests.
+// HTTP client based on undici. Respects HTTPS_PROXY/HTTP_PROXY/NO_PROXY
+// (EnvHttpProxyAgent) and allows a custom dispatcher (MockAgent) for tests.
 import { Agent, EnvHttpProxyAgent, ProxyAgent, request as undiciRequest, type Dispatcher } from 'undici';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -9,19 +9,19 @@ export interface HttpRequest {
   url: string;
   headers?: Record<string, string>;
   body?: string | Buffer | Uint8Array | FormData | URLSearchParams;
-  /** Millisekunden; 0 = kein Timeout */
+  /** Milliseconds; 0 = no timeout */
   timeout?: number;
   followRedirects?: boolean;
   maxRedirects?: number;
   allowUnauthorizedCerts?: boolean;
-  /** Proxy-URL, überschreibt Umgebungsvariablen */
+  /** Proxy URL, overrides environment variables */
   proxy?: string;
   signal?: AbortSignal;
-  /** Eigene TLS-Daten (HTTP Request "SSL Certificates", n8n agentOptions): CA ersetzt die Standard-CAs */
+  /** Custom TLS data (HTTP Request "SSL Certificates", n8n agentOptions): CA replaces the default CAs */
   tls?: { ca?: string; cert?: string; key?: string; passphrase?: string };
   /**
-   * Teilantworten beim Lesen des Bodys (Streaming, z. B. Server-Sent Events der KI-Modelle). Der vollständige Body steht
-   * trotzdem in der Antwort; Clients ohne Streaming dürfen die Option ignorieren.
+   * Partial responses while reading the body (streaming, e.g. server-sent events from AI models). The complete body is
+   * still in the response; clients without streaming may ignore this option.
    */
   onChunk?: (chunk: Buffer) => void;
 }
@@ -40,7 +40,7 @@ export interface HttpClient {
 
 let globalDispatcher: Dispatcher | undefined;
 
-/** Für Tests: alle Requests über diesen Dispatcher (z. B. undici MockAgent) */
+/** For tests: route all requests through this dispatcher (e.g. undici MockAgent) */
 export function setHttpDispatcher(dispatcher: Dispatcher | undefined): void {
   globalDispatcher = dispatcher;
 }
@@ -99,7 +99,7 @@ export class UndiciHttpClient implements HttpClient {
     for (let redirects = 0; ; redirects++) {
       let sendBody: Dispatcher.DispatchOptions['body'];
       if (body instanceof FormData || body instanceof URLSearchParams) {
-        // Über die Response-API serialisieren, damit Content-Type (Boundary) stimmt
+        // Serialize via the Response API so that Content-Type (boundary) is correct
         const r = new Response(body);
         sendBody = Buffer.from(await r.arrayBuffer());
         const ct = r.headers.get('content-type');

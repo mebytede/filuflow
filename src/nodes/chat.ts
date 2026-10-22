@@ -1,10 +1,10 @@
 // Respond to Chat, @n8n/n8n-nodes-langchain.chat (typeVersion 1), Human in the Loop
-// Nachgebaut nach n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/trigger/ChatTrigger/Chat.node.ts und util.ts
+// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/trigger/ChatTrigger/Chat.node.ts and util.ts
 // (configureWaitTillDate, configureInputs):
-//   - nur mit einem Chat Trigger im Modus "Hosted Chat" und responseMode "responseNodes"
-//   - legt die Nachricht als sendMessage am Item ab und lässt die Ausführung warten; der Server schickt sie an die
-//     Chat-Seite und setzt mit der Antwort des Nutzers fort (src/server/chatSessions.ts, n8n chat-service.ts)
-//   - waitUserReply: false setzt sofort fort; options.memoryConnection schreibt Nachrichten ins Simple Memory
+//   - only with a Chat Trigger in mode "Hosted Chat" and responseMode "responseNodes"
+//   - stores the message as sendMessage on the item and lets the execution wait; the server sends it to the
+//     chat page and resumes with the user's reply (src/server/chatSessions.ts, n8n chat-service.ts)
+//   - waitUserReply: false resumes immediately; options.memoryConnection writes messages to the Simple Memory
 import type { ExecContext, NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
 import type { WorkflowNode } from '../types.js';
@@ -19,56 +19,56 @@ export const CHAT_WAIT_USER_REPLY = 'waitUserReply';
 
 const limitWaitTime: ParamSchema = {
   name: 'limitWaitTime',
-  label: 'Wartezeit begrenzen',
+  label: 'Limit Wait Time',
   type: 'fixedCollection',
-  description: 'Ob die Ausführung nach einer bestimmten Zeit auch ohne Antwort weiterläuft',
+  description: 'Whether to limit the time this node should wait for a user response before execution resumes',
   default: { values: { limitType: 'afterTimeInterval', resumeAmount: 45, resumeUnit: 'minutes' } },
   groups: [
     {
       name: 'values',
-      label: 'Werte',
+      label: 'Values',
       children: [
         {
           name: 'limitType',
-          label: 'Art der Begrenzung',
+          label: 'Limit Type',
           type: 'options',
           default: 'afterTimeInterval',
           options: [
-            { value: 'afterTimeInterval', label: 'Nach einer Zeitspanne' },
-            { value: 'atSpecifiedTime', label: 'Zu einem Zeitpunkt' },
+            { value: 'afterTimeInterval', label: 'After Time Interval' },
+            { value: 'atSpecifiedTime', label: 'At Specified Time' },
           ],
         },
-        { name: 'resumeAmount', label: 'Dauer', type: 'number', default: 1, min: 0, precision: 2, show: { limitType: ['afterTimeInterval'] } },
+        { name: 'resumeAmount', label: 'Amount', type: 'number', default: 1, min: 0, precision: 2, show: { limitType: ['afterTimeInterval'] } },
         {
           name: 'resumeUnit',
-          label: 'Einheit',
+          label: 'Unit',
           type: 'options',
           default: 'hours',
           options: [
-            { value: 'minutes', label: 'Minuten' },
-            { value: 'hours', label: 'Stunden' },
-            { value: 'days', label: 'Tage' },
+            { value: 'minutes', label: 'Minutes' },
+            { value: 'hours', label: 'Hours' },
+            { value: 'days', label: 'Days' },
           ],
           show: { limitType: ['afterTimeInterval'] },
         },
-        { name: 'maxDateAndTime', label: 'Spätestens', type: 'dateTime', default: '', show: { limitType: ['atSpecifiedTime'] } },
+        { name: 'maxDateAndTime', label: 'Max Date and Time', type: 'dateTime', default: '', show: { limitType: ['atSpecifiedTime'] } },
       ],
     },
   ],
 };
 
-// Parameter wie Chat.node.ts (properties); die Varianten für die Nutzung als Tool ("@tool") entfallen
+// Parameters like Chat.node.ts (properties); the variants for use as a tool ("@tool") are omitted
 const parameters: ParamSchema[] = [
-  { name: 'generalNotice', label: "Der Chat Trigger muss im Antwortmodus 'Über Antwortknoten' (responseNodes) laufen.", type: 'notice', default: '' },
-  { name: 'message', label: 'Nachricht', type: 'string', default: '', required: true, rows: 6 },
-  { name: CHAT_WAIT_USER_REPLY, label: 'Auf Antwort warten', type: 'boolean', default: true, noExpression: true },
+  { name: 'generalNotice', label: "The Chat Trigger must use the response mode 'Using Response Nodes' (responseNodes).", type: 'notice', default: '' },
+  { name: 'message', label: 'Message', type: 'string', default: '', required: true, rows: 6 },
+  { name: CHAT_WAIT_USER_REPLY, label: 'Wait for User Reply', type: 'boolean', default: true, noExpression: true },
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
-    children: [{ name: 'memoryConnection', label: 'Eingang für Memory', type: 'boolean', default: false, description: 'Nachrichten zusätzlich im angeschlossenen Simple Memory ablegen' }, limitWaitTime],
+    addLabel: 'Add Option',
+    children: [{ name: 'memoryConnection', label: 'Add Memory Input Connection', type: 'boolean', default: false, description: 'Also store messages in the connected Simple Memory' }, limitWaitTime],
   },
 ];
 
@@ -92,7 +92,7 @@ function waitTillDate(ctx: ExecContext): Date {
   return waitTill;
 }
 
-/** Chat Trigger unter den Vorgängern (Respond to Chat und Respond to Webhook im Modus responseNodes) */
+/** Chat Trigger among the predecessors (Respond to Chat and Respond to Webhook in responseNodes mode) */
 export function findChatTrigger(ctx: ExecContext): WorkflowNode | undefined {
   for (const name of ctx.workflow.getParentNodes(ctx.node.name)) {
     const node = ctx.workflow.getNode(name);
@@ -111,7 +111,7 @@ export const chatNode: NodeType = {
   versions: [1],
   parameters,
   outputs: () => 1,
-  /** Chat.node.ts onMessage: ohne Warten auf Antwort die Eingangsdaten, sonst die Nachricht (mit Memory) */
+  /** Chat.node.ts onMessage: without waiting for a reply the input data, otherwise the message (with memory) */
   async onMessage(ctx, data) {
     if (ctx.getParam<boolean>(CHAT_WAIT_USER_REPLY, 0, true) === false) return [ctx.items];
     if (ctx.getParam<boolean>('options.memoryConnection', 0, false)) {
@@ -132,7 +132,7 @@ export const chatNode: NodeType = {
       throw new NodeOperationError(ctx.node.name, '"Response Mode" in the chat trigger node must be set to "Respond Nodes"');
     }
     if (!ctx.canWait) {
-      throw new NodeOperationError(ctx.node.name, 'Respond to Chat braucht den Server (filuflow serve): hier kann die Ausführung nicht auf eine Antwort warten');
+      throw new NodeOperationError(ctx.node.name, 'Respond to Chat needs the server (filuflow serve): here the execution cannot wait for a reply');
     }
     const message = ctx.getParam<string>('message', 0, '') ?? '';
     if (ctx.getParam<boolean>('options.memoryConnection', 0, false)) {

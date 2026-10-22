@@ -1,6 +1,6 @@
-// Zeitgesteuerte Starts für aktive Workflows mit Schedule Trigger.
-// Nachgebaut nach n8n 1.123.0 packages/core/src/execution-engine/scheduled-task-manager.ts
-// (registerCron, deregisterCrons) mit croner statt "cron".
+// Scheduled starts for active workflows with a Schedule Trigger.
+// Modeled on n8n 1.123.0 packages/core/src/execution-engine/scheduled-task-manager.ts
+// (registerCron, deregisterCrons) using croner instead of "cron".
 import { Cron } from 'croner';
 import type { Workflow } from '../types.js';
 import { recurrenceCheck, scheduleItemJson, scheduleRules } from '../nodes/scheduleTrigger.js';
@@ -36,7 +36,7 @@ export class Scheduler {
     return workflow.id ?? workflow.name;
   }
 
-  /** Registriert alle Schedule Trigger eines Workflows; wirft bei ungültigen Regeln */
+  /** Registers all Schedule Triggers of a workflow; throws on invalid rules */
   add(workflow: Workflow): RegisteredSchedule[] {
     const timezone = (workflow.settings?.timezone as string | undefined) || DEFAULT_TIMEZONE;
     const prepared: Array<{ expression: string; summary: string; run: () => void; node: string }> = [];
@@ -67,7 +67,7 @@ export class Scheduler {
     }
     const jobs: Job[] = prepared.map((p) => {
       const cron = new Cron(p.expression, { timezone, protect: false }, () => {
-        this.logger.debug({ workflow: workflow.name, node: p.node }, 'Cron ausgelöst');
+        this.logger.debug({ workflow: workflow.name, node: p.node }, 'Cron fired');
         p.run();
       });
       return {
@@ -78,7 +78,7 @@ export class Scheduler {
     if (jobs.length) {
       this.remove(workflow);
       this.jobs.set(Scheduler.key(workflow), jobs);
-      this.logger.info({ workflow: workflow.name, crons: jobs.map((j) => j.info.summary) }, 'Schedules registriert');
+      this.logger.info({ workflow: workflow.name, crons: jobs.map((j) => j.info.summary) }, 'Schedules registered');
     }
     return jobs.map((j) => this.describe(j));
   }

@@ -1,21 +1,21 @@
-// Python im Code-Node (language "python") mit Pyodide (CPython als WebAssembly), wie n8n 1.123.0:
-//   packages/nodes-base/nodes/Code/Pyodide.ts (LoadPyodide: eine Instanz je Prozess, Sperren nach dem Laden)
-//   packages/nodes-base/nodes/Code/PythonSandbox.ts (Kontext mit "_" statt "$", Code in "async def __main()",
-//   jsproxy_typedict, loadPackagesFromImports, Ergebnis mit toJs, Fehlermeldung ab dem Fehlertyp)
-// Pyodide-Version wie n8n (packages/nodes-base/package.json: "pyodide": "0.28.0").
+// Python in the Code node (language "python") with Pyodide (CPython as WebAssembly), like n8n 1.123.0:
+//   packages/nodes-base/nodes/Code/Pyodide.ts (LoadPyodide: one instance per process, blocks after loading)
+//   packages/nodes-base/nodes/Code/PythonSandbox.ts (context with "_" instead of "$", code in "async def __main()",
+//   jsproxy_typedict, loadPackagesFromImports, result with toJs, error message starting at the error type)
+// Pyodide version as in n8n (packages/nodes-base/package.json: "pyodide": "0.28.0").
 //
-// Eigene Ergänzungen: Timeout (n8n hat im Pyodide-Modus keinen) über den Interrupt-Buffer von Pyodide. Ein
-// Watchdog-Thread setzt ihn nach Ablauf; Python bricht dann mit KeyboardInterrupt ab, auch wenn der Hauptthread
-// in einer Schleife hängt. Läufe werden nacheinander ausgeführt, weil die Instanz geteilt ist.
-// Sicherheit: kein Zugriff auf Node.js (kein require, kein process); das Modul "js" ist gesperrt wie in n8n.
-// Das ist Komfort, keine Sicherheitsgrenze (docs/SECURITY.md).
+// Own additions: timeout (n8n has none in Pyodide mode) via Pyodide's interrupt buffer. A
+// watchdog thread sets it when time is up; Python then aborts with KeyboardInterrupt, even if the main thread
+// is stuck in a loop. Runs are executed one after another because the instance is shared.
+// Security: no access to Node.js (no require, no process); the "js" module is blocked as in n8n.
+// This is a convenience, not a security boundary (docs/SECURITY.md).
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 import { mkdirSync } from 'node:fs';
 import { Worker } from 'node:worker_threads';
 
-/** Ausschnitt der Pyodide-API, den filuflow nutzt (Typen aus dem Paket wären an dessen Version gebunden) */
+/** Subset of the Pyodide API that filuflow uses (types from the package would be tied to its version) */
 interface PyProxyLike {
   toJs?(options: { dict_converter: (entries: Iterable<[string, unknown]>) => unknown; create_proxies: boolean }): unknown;
   destroy?(): void;
@@ -39,7 +39,7 @@ export class PythonTimeoutError extends Error {
   }
 }
 
-/** Fehler aus Python: Meldung ab dem Fehlertyp (n8n PythonSandbox.getPrettyError) */
+/** Error from Python: message starting at the error type (n8n PythonSandbox.getPrettyError) */
 export class PythonCodeError extends Error {
   constructor(
     message: string,
@@ -55,13 +55,13 @@ const TIMEOUT_MARKER = '__filuflow_timeout__';
 let instance: Promise<PyodideLike> | undefined;
 let queue: Promise<unknown> = Promise.resolve();
 
-/** Interrupt-Buffer (Pyodide prüft ihn regelmäßig; 2 = SIGINT) und Generation des laufenden Codes */
+/** Interrupt buffer (Pyodide checks it regularly; 2 = SIGINT) and generation of the running code */
 const interrupt = new Int32Array(new SharedArrayBuffer(4));
 const generation = new Int32Array(new SharedArrayBuffer(4));
 let watchdog: Worker | undefined;
 
-// Der Watchdog läuft in einem eigenen Thread, damit er auch dann auslöst, wenn Python den Hauptthread blockiert.
-// Nach dem ersten Interrupt wiederholt er ihn, falls der Code KeyboardInterrupt selbst abfängt.
+// The watchdog runs in its own thread so that it fires even when Python blocks the main thread.
+// After the first interrupt it repeats it in case the code catches KeyboardInterrupt itself.
 const WATCHDOG_SOURCE = `
 const { parentPort, workerData } = require('node:worker_threads');
 const interrupt = new Int32Array(workerData.interrupt);
@@ -86,13 +86,13 @@ function getWatchdog(): Worker {
   return watchdog;
 }
 
-/** Ablage für nachgeladene Pakete (numpy usw.); n8n nutzt dafür sein Storage-Verzeichnis */
+/** Storage for packages loaded on demand (numpy etc.); n8n uses its storage directory for this */
 function packageCacheDir(): string {
   const dir = process.env.FILUFLOW_PYTHON_PACKAGES_DIR ?? join(homedir(), '.cache', 'filuflow', 'pyodide');
   try {
     mkdirSync(dir, { recursive: true });
   } catch {
-    // ohne beschreibbares Verzeichnis lädt Pyodide Pakete bei Bedarf jedes Mal neu
+    // without a writable directory, Pyodide reloads packages every time they are needed
   }
   return dir;
 }
@@ -101,9 +101,9 @@ async function load(): Promise<PyodideLike> {
   const require = createRequire(import.meta.url);
   const indexURL = `${dirname(require.resolve('pyodide/package.json'))}/`;
   const mod = (await import('pyodide')) as unknown as { loadPyodide(options: Record<string, unknown>): Promise<PyodideLike> };
-  // jsglobals: was Python über das Modul "js" sehen würde (nur bis zur Sperre unten, für Pyodide selbst)
+  // jsglobals: what Python would see via the "js" module (only until the block below, for Pyodide itself)
   const py = await mod.loadPyodide({ indexURL, packageCacheDir: packageCacheDir(), jsglobals: { Object, console, fetch, AbortController, AbortSignal } });
-  // Sperren wie n8n (Pyodide.ts), zusätzlich pyodide_js; danach die Event-Loop gegen entkommene Interrupts sichern
+  // Blocks like n8n (Pyodide.ts), plus pyodide_js; then protect the event loop against escaped interrupts
   await py.runPythonAsync(`
 import os
 
@@ -140,7 +140,7 @@ function getPyodide(): Promise<PyodideLike> {
   return instance;
 }
 
-/** Läufe nacheinander: geteilte Instanz, ein Interrupt-Buffer, eine Ausgabe */
+/** Runs one after another: shared instance, one interrupt buffer, one output */
 function serialized<T>(fn: () => Promise<T>): Promise<T> {
   const run = queue.then(fn, fn);
   queue = run.catch(() => undefined);
@@ -148,18 +148,18 @@ function serialized<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 export interface PythonRunOptions {
-  /** Kontext; Schlüssel mit "$" werden zu "_" (Python erlaubt kein "$" in Namen) */
+  /** Context; keys with "$" become "_" (Python does not allow "$" in names) */
   context: Record<string, unknown>;
   timeoutMs: number;
-  /** print()-Ausgaben */
+  /** print() output */
   onOutput?: (text: string) => void;
 }
 
-/** Python-Code eines Code-Nodes ausführen; liefert das Ergebnis als JS-Wert (dicts als Objekte) */
+/** Execute the Python code of a Code node; returns the result as a JS value (dicts as objects) */
 export function runPython(code: string, o: PythonRunOptions): Promise<unknown> {
   return serialized(async () => {
     const py = await getPyodide();
-    // n8n: jsproxy_typedict, damit JS-Objekte in Python wie dicts nutzbar sind (item.json['x'] und item.json.x)
+    // n8n: jsproxy_typedict so that JS objects can be used like dicts in Python (item.json['x'] and item.json.x)
     await py.runPythonAsync('jsproxy_typedict[0] = type(Object.new().as_object_map())');
     await py.loadPackagesFromImports(code);
 
@@ -191,7 +191,7 @@ __filuflow_result`;
     let timer: NodeJS.Timeout | undefined;
     let result: unknown;
     try {
-      // Zweite Absicherung für Code, der wartet (await) statt rechnet
+      // Second safeguard for code that waits (await) instead of computing
       const timeout = new Promise<never>((_r, reject) => {
         timer = setTimeout(() => reject(new PythonTimeoutError(o.timeoutMs / 1000)), o.timeoutMs + 500);
       });
@@ -214,7 +214,7 @@ __filuflow_result`;
       try {
         globals.destroy?.();
       } catch {
-        // bereits freigegeben
+        // already released
       }
     }
 
@@ -228,7 +228,7 @@ __filuflow_result`;
   });
 }
 
-/** Für Tests: Pyodide laden, ohne Code auszuführen */
+/** For tests: load Pyodide without executing code */
 export async function warmUpPython(): Promise<void> {
   await getPyodide();
 }

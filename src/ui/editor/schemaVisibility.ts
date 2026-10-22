@@ -1,6 +1,6 @@
-// Sichtbarkeit und Defaults der Parameterbeschreibung (M19), ohne DOM, damit Tests sie direkt prüfen können.
-// Wie n8n displayParameter (packages/workflow/src/node-helpers.ts): show verlangt, dass einer der Werte passt, hide
-// blendet aus, sobald einer passt; "@version" prüft die typeVersion, "/name" einen Parameter der obersten Ebene.
+// Visibility and defaults of the parameter description (M19), without DOM so tests can check them directly.
+// Like n8n displayParameter (packages/workflow/src/node-helpers.ts): show requires one of the values to match, hide
+// hides as soon as one matches; "@version" checks the typeVersion, "/name" a top-level parameter.
 import type { DisplayRule, ParamCondition, ParamSchema } from '../types.js';
 
 export type Values = Record<string, unknown>;
@@ -38,14 +38,14 @@ function matchOne(value: unknown, allowed: unknown): boolean {
   return value === allowed;
 }
 
-/** Aktueller Wert eines Parameters der Ebene, sonst der Default der ersten Definition für diese Version */
+/** Current value of a parameter on this level, otherwise the default of the first definition for this version */
 export function valueOf(name: string, level: Level, version: number): unknown {
   if (level.values[name] !== undefined) return level.values[name];
   const def = level.defs.find((d) => d.name === name && versionMatches(d.show, version));
   return def?.default;
 }
 
-/** Wert über einen Pfad ab der obersten Ebene, z. B. "options.includeDetailedResults" */
+/** Value via a path from the top level, e.g. "options.includeDetailedResults" */
 function rootValue(path: string, root: Level, version: number): unknown {
   const [first, ...rest] = path.split('.');
   let value = valueOf(first, root, version);
@@ -59,7 +59,7 @@ function isVisible(def: ParamSchema, level: Level, root: Level, version: number)
     if (!rule) return true;
     for (const [key, allowed] of Object.entries(rule)) {
       const value = key === '@version' ? version : key.startsWith('/') ? rootValue(key.slice(1), root, version) : valueOf(key, level, version);
-      // Expressions lassen sich im Editor nicht auswerten: abhängige Felder bleiben sichtbar
+      // Expressions cannot be evaluated in the editor: dependent fields stay visible
       const values = isExpr(value) ? null : Array.isArray(value) ? value : [value];
       if (mode === 'show') {
         if (values && !values.some((v) => allowed.some((a) => matchOne(v, a)))) return false;
@@ -70,7 +70,7 @@ function isVisible(def: ParamSchema, level: Level, root: Level, version: number)
   return check(def.show, 'show') && check(def.hide, 'hide');
 }
 
-/** Sichtbare Definitionen einer Ebene, je Name die erste */
+/** Visible definitions of a level, the first one per name */
 export function visibleDefs(level: Level, root: Level, version: number): ParamSchema[] {
   const seen = new Set<string>();
   const out: ParamSchema[] = [];
@@ -83,7 +83,7 @@ export function visibleDefs(level: Level, root: Level, version: number): ParamSc
   return out;
 }
 
-/** Default für einen neuen Eintrag einer Gruppe: alle sichtbaren Felder mit Default (wie n8n beim Hinzufügen) */
+/** Default for a new entry of a group: all visible fields with a default (like n8n when adding) */
 export function entryDefaults(children: ParamSchema[], root: Level, version: number): Values {
   const values: Values = {};
   const level = { values, defs: children };
@@ -94,7 +94,7 @@ export function entryDefaults(children: ParamSchema[], root: Level, version: num
   return values;
 }
 
-/** Namen der sichtbaren Parameter der obersten Ebene (für Tests und Hinweise) */
+/** Names of the visible top-level parameters (for tests and hints) */
 export function visibleParameterNames(params: Values, schema: ParamSchema[], version: number): string[] {
   const root: Level = { values: params, defs: schema };
   return visibleDefs(root, root, version)

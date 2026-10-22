@@ -1,6 +1,7 @@
-// Bereich "Letzter Lauf" unter dem Canvas: Kopf mit Execution-ID, Auslöser, Zeit, Status, Dauer und Anzahl der
-// ausgeführten Knoten; Tabelle je Knoten mit Status, Typ, Ausgabe, Dauer und Zeitleiste. Klick wählt den Knoten.
+// "Last run" area below the canvas: header with execution ID, trigger, time, status, duration and number of
+// executed nodes; table per node with status, type, output, duration and timeline. A click selects the node.
 import { h } from '../dom.js';
+import { dateLocale, t } from '../i18n.js';
 import type { Execution, NodeTypeInfo, TaskData, Workflow } from '../types.js';
 import { iconButton, label, statusWord, duration } from '../shell.js';
 import type { NodePorts } from '../types.js';
@@ -24,13 +25,13 @@ interface Row {
 }
 
 const MODES: Record<string, string> = {
-  manual: 'Manuell',
+  manual: 'Manual',
   trigger: 'Trigger',
   webhook: 'Webhook',
   cli: 'CLI',
-  integrated: 'Unter-Workflow',
-  error: 'Fehler-Workflow',
-  test: 'Testlauf',
+  integrated: 'Sub-workflow',
+  error: 'Error workflow',
+  test: 'Test run',
 };
 
 function outputText(task: TaskData, ports: NodePorts | undefined): string {
@@ -40,15 +41,15 @@ function outputText(task: TaskData, ports: NodePorts | undefined): string {
     return main
       .map((items, i) => (items?.length ? `${(ports?.outputNames?.[i] ?? String(i)).toLowerCase()}: ${items.length}` : ''))
       .filter(Boolean)
-      .join(', ') || '0 Items';
+      .join(', ') || t('0 items');
   }
   const n = main[0]?.length ?? 0;
   if (!task.data?.main) {
-    // KI-Sub-Nodes liefern über ihre ai_*-Verbindung
+    // AI sub-nodes deliver via their ai_* connection
     const other = Object.values(task.data ?? {})[0]?.[0];
-    if (other) return `${other.length} ${other.length === 1 ? 'Item' : 'Items'}`;
+    if (other) return other.length === 1 ? t('1 item') : t('{count} items', { count: other.length });
   }
-  return `${n} ${n === 1 ? 'Item' : 'Items'}`;
+  return n === 1 ? t('1 item') : t('{count} items', { count: n });
 }
 
 export class RunPanel {
@@ -58,7 +59,7 @@ export class RunPanel {
   private running = false;
 
   constructor(private readonly host: RunPanelHost) {
-    this.el = h('section', { class: 'run-panel', 'aria-label': 'Letzter Lauf' });
+    this.el = h('section', { class: 'run-panel', 'aria-label': t('Last run') });
     this.render();
   }
 
@@ -73,7 +74,7 @@ export class RunPanel {
     this.render();
   }
 
-  /** Auswahl im Canvas geändert */
+  /** Selection on the canvas changed */
   highlight(): void {
     const sel = this.host.selected();
     for (const row of this.el.querySelectorAll<HTMLElement>('.run-row[data-node]')) row.classList.toggle('on', row.dataset.node === sel);
@@ -107,35 +108,35 @@ export class RunPanel {
     const e = this.execution;
     this.el.replaceChildren();
     this.el.classList.toggle('open', !!e && this.open);
-    const toggle = e ? iconButton(this.open ? 'chevron-down' : 'chevron-right', this.open ? 'Bereich einklappen' : 'Bereich ausklappen', () => ((this.open = !this.open), this.render())) : null;
+    const toggle = e ? iconButton(this.open ? 'chevron-down' : 'chevron-right', this.open ? t('Collapse area') : t('Expand area'), () => ((this.open = !this.open), this.render())) : null;
     if (!e) {
-      this.el.append(h('div', { class: 'run-head' }, label('Letzter Lauf'), h('span', null, this.running ? 'Läuft' : 'Noch nicht gelaufen')));
+      this.el.append(h('div', { class: 'run-head' }, label(t('Last run')), h('span', null, this.running ? t('Running') : t('Not run yet'))));
       return;
     }
     const rows = this.rows();
     const started = new Date(e.startedAt).getTime();
     const total = e.stoppedAt ? Math.max(1, new Date(e.stoppedAt).getTime() - started) : Math.max(1, ...rows.map((r) => r.start + r.ms - started));
     const nodeCount = this.host.workflow().nodes.filter((n) => n.type !== 'n8n-nodes-base.stickyNote').length;
-    const when = new Date(e.startedAt).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const when = new Date(e.startedAt).toLocaleString(dateLocale(), { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
     this.el.append(
       h(
         'div',
         { class: 'run-head' },
-        label('Letzter Lauf'),
+        label(t('Last run')),
         h('span', { class: 'run-id', title: e.id }, e.id.length > 12 ? e.id.slice(0, 8) : e.id),
-        h('span', null, `${MODES[e.mode] ?? e.mode} · ${when.replace(',', '')}`),
+        h('span', null, `${MODES[e.mode] ? t(MODES[e.mode]) : e.mode} · ${when.replace(',', '')}`),
         h(
           'span',
           { class: 'run-right' },
-          this.running ? h('span', { class: 'status status-muted' }, 'Läuft') : statusWord(e.status, e.error?.message),
+          this.running ? h('span', { class: 'status status-muted' }, t('Running')) : statusWord(e.status, e.error?.message),
           h('span', { class: 'strong-mono' }, duration(total)),
-          h('span', null, `${rows.length} von ${nodeCount} Knoten`),
+          h('span', null, t('{count} of {total} nodes', { count: rows.length, total: nodeCount })),
           toggle,
         ),
       ),
     );
     if (!this.open) return;
-    const head = h('div', { class: 'run-row run-row-head' }, h('span', null, 'Status'), h('span', null, 'Knoten'), h('span', null, 'Typ'), h('span', null, 'Ausgabe'), h('span', { class: 'dur' }, 'Dauer'), h('span', null, `Zeitleiste 0 bis ${duration(total)}`));
+    const head = h('div', { class: 'run-row run-row-head' }, h('span', null, t('Status')), h('span', null, t('Node')), h('span', null, t('Type')), h('span', null, t('Output')), h('span', { class: 'dur' }, t('Duration')), h('span', null, t('Timeline 0 to {end}', { end: duration(total) })));
     const selected = this.host.selected();
     const body = rows.map((r) => {
       const left = Math.max(0, Math.min(1, (r.start - started) / total));

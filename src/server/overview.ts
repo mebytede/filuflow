@@ -1,5 +1,5 @@
-// Übersicht der Weboberfläche: Auslöser je Workflow und Kennzahlen (Ausführungen und Fehler der letzten 14 Tage,
-// letzte Ausführung je Workflow, Auslastung, Quelle und Zeitpunkt des letzten Ladens).
+// Overview of the web interface: triggers per workflow and metrics (executions and errors of the last 14 days,
+// last execution per workflow, load, source and time of the last reload).
 import type { FastifyInstance } from 'fastify';
 import { formPath } from '../nodes/formTrigger.js';
 import type { RegisteredSchedule, Scheduler } from './schedules.js';
@@ -15,33 +15,33 @@ export interface TriggerInfo {
 }
 
 const DAYS = 14;
-const WEEKDAYS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 function hhmm(hour?: number, minute?: number): string {
   return `${String(hour ?? 0).padStart(2, '0')}:${String(minute ?? 0).padStart(2, '0')}`;
 }
 
-/** Kurzbeschreibung eines Intervalls des Schedule Triggers, z. B. "täglich 06:00", "alle 6 h", "Mo 07:30" */
+/** Short description of a Schedule Trigger interval, e.g. "daily 06:00", "every 6 h", "Mon 07:30" */
 export function describeInterval(i: ScheduleInterval): string {
   switch (i.field) {
     case 'cronExpression':
       return `Cron ${i.expression}`;
     case 'seconds':
-      return `alle ${i.secondsInterval} s`;
+      return `every ${i.secondsInterval} s`;
     case 'minutes':
-      return `alle ${i.minutesInterval} min`;
+      return `every ${i.minutesInterval} min`;
     case 'hours':
-      return i.hoursInterval === 1 ? `stündlich :${String(i.triggerAtMinute ?? 0).padStart(2, '0')}` : `alle ${i.hoursInterval} h`;
+      return i.hoursInterval === 1 ? `hourly :${String(i.triggerAtMinute ?? 0).padStart(2, '0')}` : `every ${i.hoursInterval} h`;
     case 'days':
-      return `${i.daysInterval === 1 ? 'täglich' : `alle ${i.daysInterval} Tage`} ${hhmm(i.triggerAtHour, i.triggerAtMinute)}`;
+      return `${i.daysInterval === 1 ? 'daily' : `every ${i.daysInterval} days`} ${hhmm(i.triggerAtHour, i.triggerAtMinute)}`;
     case 'weeks':
-      return `${i.weeksInterval > 1 ? `alle ${i.weeksInterval} Wochen ` : ''}${i.triggerAtDay.map((d) => WEEKDAYS[d] ?? d).join(', ')} ${hhmm(i.triggerAtHour, i.triggerAtMinute)}`;
+      return `${i.weeksInterval > 1 ? `every ${i.weeksInterval} weeks ` : ''}${i.triggerAtDay.map((d) => WEEKDAYS[d] ?? d).join(', ')} ${hhmm(i.triggerAtHour, i.triggerAtMinute)}`;
     case 'months':
-      return `${i.monthsInterval > 1 ? `alle ${i.monthsInterval} Monate` : 'monatlich'} am ${i.triggerAtDayOfMonth ?? 1}. ${hhmm(i.triggerAtHour, i.triggerAtMinute)}`;
+      return `${i.monthsInterval > 1 ? `every ${i.monthsInterval} months` : 'monthly'} on day ${i.triggerAtDayOfMonth ?? 1} ${hhmm(i.triggerAtHour, i.triggerAtMinute)}`;
   }
 }
 
-/** Auslöser aus den Trigger-Nodes ableiten (Webhook mit Methode und Pfad, Zeitplan mit Zusammenfassung) */
+/** Derive triggers from the trigger nodes (webhook with method and path, schedule with summary) */
 export function triggersOf(workflow: Workflow, schedules: RegisteredSchedule[] = []): TriggerInfo[] {
   const out: TriggerInfo[] = [];
   for (const node of workflow.nodes ?? []) {
@@ -58,17 +58,17 @@ export function triggersOf(workflow: Workflow, schedules: RegisteredSchedule[] =
       } catch {
         text = schedules.find((x) => x.node === node.name)?.summary ?? '';
       }
-      out.push({ kind: 'schedule', label: `Zeitplan${text ? ` ${text}` : ''}` });
+      out.push({ kind: 'schedule', label: `Schedule${text ? ` ${text}` : ''}` });
     } else if (type === 'n8n-nodes-base.errorTrigger') {
-      out.push({ kind: 'error', label: 'Fehler-Trigger' });
+      out.push({ kind: 'error', label: 'Error trigger' });
     } else if (type === 'n8n-nodes-base.manualTrigger') {
-      out.push({ kind: 'manual', label: 'Manuell' });
+      out.push({ kind: 'manual', label: 'Manual' });
     } else if (type === 'n8n-nodes-base.formTrigger') {
-      out.push({ kind: 'form', label: `Formular /form/${formPath(node)}` });
+      out.push({ kind: 'form', label: `Form /form/${formPath(node)}` });
     } else if (type === '@n8n/n8n-nodes-langchain.chatTrigger') {
-      out.push({ kind: 'chat', label: node.parameters?.public === true ? 'Chat (öffentlich)' : 'Chat' });
+      out.push({ kind: 'chat', label: node.parameters?.public === true ? 'Chat (public)' : 'Chat' });
     } else if (type === 'n8n-nodes-base.executeWorkflowTrigger') {
-      out.push({ kind: 'workflow', label: 'Aufruf durch Workflow' });
+      out.push({ kind: 'workflow', label: 'Called by workflow' });
     } else if (/trigger$/i.test(type)) {
       out.push({ kind: 'other', label: type.split('.').pop() ?? type });
     }

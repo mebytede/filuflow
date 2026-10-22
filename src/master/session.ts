@@ -1,14 +1,14 @@
-// Sitzungen des Masters: Cookie (HttpOnly, SameSite=Lax), Prüfung pro Request, API-Tokens, CSRF-Schutz,
-// Begrenzung von Anmeldeversuchen.
+// Master sessions: cookie (HttpOnly, SameSite=Lax), check per request, API tokens, CSRF protection,
+// rate limiting of login attempts.
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { MasterDb, UserRow } from './db.js';
 import { randomToken, sha256 } from './auth.js';
 
 export const SESSION_COOKIE = 'filuflow_session';
-/** Header, den die Oberfläche bei ändernden Requests mitschickt (fremde Seiten können ihn ohne CORS nicht setzen) */
+/** Header the web interface sends with modifying requests (foreign sites cannot set it without CORS) */
 export const CSRF_HEADER = 'x-filuflow-csrf';
 export const API_TOKEN_PREFIX = 'ffl_';
-/** Präfix der API-Tokens vor der Umbenennung in filuflow (bleiben gültig) */
+/** API token prefix from before the rename to filuflow (still valid) */
 const LEGACY_TOKEN_PREFIX = 'flt_';
 
 export interface AuthContext {
@@ -56,7 +56,7 @@ export class Sessions {
     return new Date(Date.now() + this.opts.idleHours * 3600_000).toISOString();
   }
 
-  /** Neue Sitzung anlegen und Cookie setzen */
+  /** Create a new session and set the cookie */
   start(reply: FastifyReply, request: FastifyRequest, user: UserRow, mfaPending: boolean): void {
     const token = randomToken();
     this.db.createSession({
@@ -77,8 +77,8 @@ export class Sessions {
   }
 
   /**
-   * Anmeldung des Requests über Sitzungs-Cookie oder API-Token (Authorization: Bearer ffl_..., früher flt_...).
-   * allowMfaPending: Sitzungen, die noch auf den TOTP-Code warten, gelten nur für die TOTP-Route.
+   * Authenticate the request via session cookie or API token (Authorization: Bearer ffl_..., formerly flt_...).
+   * allowMfaPending: sessions still waiting for the TOTP code are only valid for the TOTP route.
    */
   authenticate(request: FastifyRequest, allowMfaPending = false): AuthContext | { mfaPending: true; user: UserRow; sessionHash: string } | undefined {
     const authz = request.headers.authorization;
@@ -104,13 +104,13 @@ export class Sessions {
     const user = this.db.getUser(session.user_id);
     if (!user || user.disabled) return undefined;
     if (session.mfa_pending) return allowMfaPending ? { mfaPending: true, user, sessionHash: hash } : undefined;
-    // Nur gelegentlich schreiben (höchstens jede Minute)
+    // Write only occasionally (at most once per minute)
     if (Date.now() - new Date(session.last_seen_at).getTime() > 60_000) this.db.touchSession(hash, this.expiry());
     return { user, via: 'session', sessionHash: hash };
   }
 }
 
-/** Einfache Begrenzung pro Schlüssel (z. B. IP) im Speicher: höchstens `limit` Versuche je Fenster */
+/** Simple in-memory limit per key (e.g. IP): at most `limit` attempts per window */
 export class RateLimiter {
   private readonly hits = new Map<string, { count: number; reset: number }>();
 
@@ -119,7 +119,7 @@ export class RateLimiter {
     private readonly windowMs: number,
   ) {}
 
-  /** true, wenn der Versuch erlaubt ist */
+  /** true if the attempt is allowed */
   hit(key: string): boolean {
     const t = Date.now();
     if (this.hits.size > 10_000) for (const [k, v] of this.hits) if (v.reset < t) this.hits.delete(k);

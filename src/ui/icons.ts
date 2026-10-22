@@ -1,6 +1,6 @@
-// Icons aus Lucide 0.545.0 (lucide-static, ISC-Lizenz, Copyright Lucide Contributors; Teile MIT, Feather/Cole Bemis).
-// Erzeugt aus den SVG-Dateien des Pakets; Strichstärke 1,5 wie im filuflow-Design, Farbe über currentColor.
-// Nicht verwenden (Designregel): Schlösser, Schilde mit Haken, Warndreiecke, gefüllte Icons.
+// Icons from Lucide 0.545.0 (lucide-static, ISC license, copyright Lucide Contributors; parts MIT, Feather/Cole Bemis).
+// Generated from the package's SVG files; stroke width 1.5 as in the filuflow design, color via currentColor.
+// Do not use (design rule): padlocks, shields with check marks, warning triangles, filled icons.
 import { s } from './dom.js';
 
 type IconElement = [string, Record<string, string>];
@@ -93,7 +93,7 @@ const ICONS: Record<string, IconElement[]> = {
 
 export type IconName = keyof typeof ICONS;
 
-/** Inline-SVG-Icon (erbt die Textfarbe) */
+/** Inline SVG icon (inherits the text color) */
 export function icon(name: string, size = 16, extraClass = ''): SVGSVGElement {
   const svg = s('svg', {
     class: `icon${extraClass ? ` ${extraClass}` : ''}`,

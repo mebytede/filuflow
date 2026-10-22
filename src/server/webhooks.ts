@@ -1,12 +1,12 @@
-// Webhook-Registry und Request-Verarbeitung.
-// Nachgebaut nach n8n 1.123.0:
+// Webhook registry and request handling.
+// Modeled on n8n 1.123.0:
 //   packages/cli/src/webhooks/webhook.service.ts (findStaticWebhook, findDynamicWebhook, getWebhookMethods)
-//   packages/cli/src/webhooks/live-webhooks.ts (executeWebhook: Pfad-Parameter)
-//   packages/cli/src/webhooks/webhook-helpers.ts (executeWebhook: Antwortmodi)
+//   packages/cli/src/webhooks/live-webhooks.ts (executeWebhook: path parameters)
+//   packages/cli/src/webhooks/webhook-helpers.ts (executeWebhook: response modes)
 //   packages/cli/src/webhooks/webhook-last-node-response-extractor.ts, webhook-on-received-response-extractor.ts
-//   packages/cli/src/webhooks/webhook-request-handler.ts (Antwort senden, CSP-Header)
-//   packages/cli/src/errors/response-errors/webhook-not-found.error.ts (Meldungen)
-// Antworten werden wie bei Express (res.json / res.send) aufgebaut, siehe toHttpResponse.
+//   packages/cli/src/webhooks/webhook-request-handler.ts (sending the response, CSP header)
+//   packages/cli/src/errors/response-errors/webhook-not-found.error.ts (messages)
+// Responses are built like in Express (res.json / res.send), see toHttpResponse.
 import lodash from 'lodash';
 import type { Execution, Item, TaskData, Workflow, WorkflowNode } from '../types.js';
 import {
@@ -44,17 +44,17 @@ import type { Logger } from '../logger.js';
 
 export interface RegisteredWebhook extends WebhookDescription {
   workflow: Workflow;
-  /** Formular (/form/<Pfad>), getrennt von /webhook/ */
+  /** Form (/form/<path>), separate from /webhook/ */
   form?: boolean;
-  /** Pfad ohne Webhook-ID (dynamische Webhooks), z. B. "user/:id" */
+  /** Path without webhook ID (dynamic webhooks), e.g. "user/:id" */
   webhookPath: string;
   staticSegments: string[];
   pathLength: number;
-  /** Webhook eines Knotens aus einem n8n-Paket (M32): Name aus description.webhooks */
+  /** Webhook of a node from an n8n package (M32): name from description.webhooks */
   packageWebhook?: string;
 }
 
-/** Webhooks eines Paket-Knotens mit vollständigem Pfad (getNodeWebhooks) */
+/** Webhooks of a package node with full path (getNodeWebhooks) */
 export type PackageHookResolver = (workflow: Workflow, node: WorkflowNode) => Array<{ webhook: PackageWebhook; path: string }> | undefined;
 
 /** webhook.service.ts isDynamicPath */
@@ -69,13 +69,13 @@ export interface HttpResponse {
   statusCode: number;
   headers: Record<string, string>;
   body?: string | Buffer;
-  /** Direkt schreiben (n8n res.writeHead/res.end): keine Standard-Header wie Content-Type ergänzen */
+  /** Write directly (n8n res.writeHead/res.end): do not add default headers such as Content-Type */
   raw?: boolean;
-  /** Gestreamte Antwort: Teile werden geschrieben, sobald sie kommen (raw) */
+  /** Streamed response: parts are written as soon as they arrive (raw) */
   stream?: AsyncIterable<string>;
 }
 
-/** Einfache Warteschlange als AsyncIterable für gestreamte Antworten */
+/** Simple queue as an AsyncIterable for streamed responses */
 export class ChunkStream implements AsyncIterable<string> {
   private readonly queue: string[] = [];
   private waiting?: () => void;
@@ -105,7 +105,7 @@ export class ChunkStream implements AsyncIterable<string> {
   }
 }
 
-/** Kopfzeilen einer gestreamten Antwort wie n8n (Webhook.node.ts, ChatTrigger.node.ts) */
+/** Headers of a streamed response as in n8n (Webhook.node.ts, ChatTrigger.node.ts) */
 const STREAM_HEADERS = { 'content-type': 'application/json; charset=utf-8', 'transfer-encoding': 'chunked', 'cache-control': 'no-cache', connection: 'keep-alive' };
 
 const WEBHOOK_SANDBOX_CSP =
@@ -133,12 +133,12 @@ export class WebhookNotFoundError extends Error {
 
 export class WebhookConflictError extends Error {}
 
-/** Registry je Modus (produktiv: aktive Workflows; Test: alle Workflows) */
+/** Registry per mode (production: active workflows; test: all workflows) */
 export class WebhookRegistry {
   private readonly staticHooks = new Map<string, RegisteredWebhook>();
   private readonly dynamicHooks: RegisteredWebhook[] = [];
 
-  /** resolveNode: Expressions in den Parametern des Webhook-Knotens auswerten (Pfad, Methoden) */
+  /** resolveNode: evaluate expressions in the Webhook node's parameters (path, methods) */
   constructor(
     private readonly resolveNode: (workflow: Workflow, node: WorkflowNode) => WorkflowNode = (_w, n) => n,
     private readonly packageHooks?: PackageHookResolver,
@@ -153,7 +153,7 @@ export class WebhookRegistry {
     this.dynamicHooks.length = 0;
   }
 
-  /** Registriert alle Webhook-Nodes eines Workflows; bei Konflikt nichts (wie n8n bei der Aktivierung) */
+  /** Registers all webhook nodes of a workflow; on a conflict nothing (as n8n does on activation) */
   add(workflow: Workflow): RegisteredWebhook[] {
     const hooks: RegisteredWebhook[] = [];
     for (const node of workflow.nodes) {
@@ -163,7 +163,7 @@ export class WebhookRegistry {
         continue;
       }
       if (node.type === CHAT_TRIGGER_TYPE && !node.disabled && node.webhookId) {
-        // Chat Trigger: GET (Seite) und POST (Nachrichten) unter <webhookId>/chat
+        // Chat Trigger: GET (page) and POST (messages) under <webhookId>/chat
         const path = chatWebhookPath(node);
         for (const method of ['GET', 'POST']) hooks.push({ node: node.name, method, path, isDynamic: false, workflow, webhookPath: path, staticSegments: path.split('/'), pathLength: 2 });
         continue;
@@ -194,11 +194,11 @@ export class WebhookRegistry {
       try {
         resolved = this.resolveNode(workflow, node);
       } catch (error) {
-        throw new WebhookConflictError(`Webhook "${node.name}": Pfad oder Methode lassen sich nicht auswerten: ${(error as Error).message}`);
+        throw new WebhookConflictError(`Webhook "${node.name}": path or method cannot be evaluated: ${(error as Error).message}`);
       }
-      // n8n getNodeWebhooks überspringt den Webhook, wenn der Pfad undefined ist; hier ein klarer Aktivierungsfehler
+      // n8n getNodeWebhooks skips the webhook if the path is undefined; here a clear activation error
       if (resolved.parameters.path === undefined || resolved.parameters.path === null) {
-        if (node.parameters.path !== undefined) throw new WebhookConflictError(`Webhook "${node.name}": Pfad oder Methode lassen sich nicht auswerten: die Pfad-Expression liefert keinen Wert`);
+        if (node.parameters.path !== undefined) throw new WebhookConflictError(`Webhook "${node.name}": path or method cannot be evaluated: the path expression returns no value`);
       }
       for (const d of describeWebhooks(resolved)) {
         const webhookPath = d.isDynamic ? d.path.split('/').slice(1).join('/') : d.path;
@@ -218,7 +218,7 @@ export class WebhookRegistry {
         : this.staticHooks.get(WebhookRegistry.key(h.method, h.path, h.form));
       if (conflict) {
         throw new WebhookConflictError(
-          `There is a conflict with one of the webhooks: ${h.method} ${h.path} ist bereits von Workflow "${conflict.workflow.name}" belegt`,
+          `There is a conflict with one of the webhooks: ${h.method} ${h.path} is already used by workflow "${conflict.workflow.name}"`,
         );
       }
     }
@@ -284,7 +284,7 @@ export class WebhookRegistry {
   }
 }
 
-/** Express setCharset: charset-Parameter setzen/ersetzen */
+/** Express setCharset: set/replace the charset parameter */
 function setCharset(type: string, charset: string): string {
   const [base, ...params] = type.split(';').map((s) => s.trim());
   const rest = params.filter((p) => !/^charset=/i.test(p));
@@ -299,7 +299,7 @@ function lowerKeys(headers: Record<string, string | undefined>): Record<string, 
 
 /**
  * res.setHeader(...) + CSP (setResponseHeaders) + res.json/res.send.
- * `sandbox`: setResponseHeaders wurde aufgerufen (CSP, wenn kein oder ein HTML-Content-Type gesetzt ist)
+ * `sandbox`: setResponseHeaders was called (CSP if no content type or an HTML content type is set)
  */
 export function expressResponse(statusCode: number, baseHeaders: Record<string, string>, body: unknown, sandbox: boolean): HttpResponse {
   const headers = { ...baseHeaders };
@@ -317,7 +317,7 @@ export function expressResponse(statusCode: number, baseHeaders: Record<string, 
     headers['content-type'] ??= 'application/octet-stream';
     return { statusCode, headers, body };
   }
-  // res.json: Content-Type nur setzen, wenn noch keiner gesetzt ist; send() ergänzt charset
+  // res.json: only set Content-Type if none is set yet; send() adds charset
   headers['content-type'] = setCharset(headers['content-type'] ?? 'application/json', 'utf-8');
   const text = JSON.stringify(body);
   return { statusCode, headers, body: text === undefined ? '' : text };
@@ -345,19 +345,19 @@ export interface WebhookServiceOptions {
   credentials: CredentialProvider;
   binary: BinaryStore;
   logger: Logger;
-  /** z. B. http://localhost:5678/ */
+  /** e.g. http://localhost:5678/ */
   webhookBaseUrl: string;
-  /** Für wartende Executions (/webhook-waiting/) */
+  /** For waiting executions (/webhook-waiting/) */
   store?: ExecutionStore;
-  /** $vars für Expressions in Webhook-Parametern */
+  /** $vars for expressions in webhook parameters */
   vars?: Record<string, unknown>;
-  /** Knotentypen, für Webhook-Knoten aus n8n-Paketen (M32) */
+  /** Node types, for webhook nodes from n8n packages (M32) */
   registry?: NodeRegistry;
-  /** Statische Daten speichern (nach dem Anmelden von Webhooks beim Dienst) */
+  /** Save static data (after registering webhooks with the service) */
   saveStaticData?: (workflow: Workflow, mode: string) => void;
 }
 
-/** Letzte Ausführung des zuletzt ausgeführten Nodes (WorkflowHelpers.getDataLastExecutedNodeData) */
+/** Last run of the last executed node (WorkflowHelpers.getDataLastExecutedNodeData) */
 function lastNodeTask(execution: Execution): TaskData | undefined {
   const last = execution.lastNodeExecuted;
   if (!last) return undefined;
@@ -374,7 +374,7 @@ export class WebhookService {
   readonly production: WebhookRegistry;
   readonly test: WebhookRegistry;
   private readonly resolveNode: (workflow: Workflow, node: WorkflowNode) => WorkflowNode;
-  /** "Auf Test-Aufruf warten": ungespeicherte Stände aus dem Editor, Vorrang vor den gespeicherten Test-Webhooks */
+  /** "Wait for test call": unsaved versions from the editor, taking precedence over the saved test webhooks */
   private readonly listeners = new Map<string, TestListener>();
 
   constructor(private readonly options: WebhookServiceOptions) {
@@ -383,7 +383,7 @@ export class WebhookService {
     this.test = new WebhookRegistry(this.resolveNode, this.packageHookResolver);
   }
 
-  /** getNodeWebhooks für Knoten aus n8n-Paketen */
+  /** getNodeWebhooks for nodes from n8n packages */
   private readonly packageHookResolver: PackageHookResolver = (workflow, node) => {
     const type = this.options.registry?.getVersioned(node.type, node.typeVersion);
     if (!type?.packageWebhooks) return undefined;
@@ -391,7 +391,7 @@ export class WebhookService {
     return type.packageWebhooks.describe(ctx).map((webhook) => ({ webhook, path: nodeWebhookPath(workflow.id ?? '__UNSAVED__', node, webhook.path, webhook.isFullPath) }));
   };
 
-  /** getNodeWebhookUrl eines Paket-Knotens (Test-URL mit /webhook-test/) */
+  /** getNodeWebhookUrl of a package node (test URL with /webhook-test/) */
   private packageWebhookUrl(workflow: Workflow, node: WorkflowNode, name: string, test: boolean): string | undefined {
     const hook = this.packageHookResolver(workflow, node)?.find((h) => h.webhook.name === name);
     if (!hook) return undefined;
@@ -399,8 +399,8 @@ export class WebhookService {
   }
 
   /**
-   * webhookMethods eines Paket-Knotens für alle seine Webhooks: beim Aktivieren checkExists und bei Bedarf create
-   * (createWebhookIfNotExists), beim Deaktivieren delete. Danach werden die statischen Daten gespeichert.
+   * webhookMethods of a package node for all its webhooks: on activation checkExists and create if needed
+   * (createWebhookIfNotExists), on deactivation delete. Afterwards the static data is saved.
    */
   async runPackageLifecycle(workflow: Workflow, action: 'create' | 'delete', test = false): Promise<void> {
     const registry = this.options.registry;
@@ -428,21 +428,21 @@ export class WebhookService {
   }
 
   /**
-   * Wartet auf den nächsten Aufruf einer Test-URL des Workflows und führt dabei genau diesen (auch ungespeicherten)
-   * Stand aus, wie "Execute workflow" mit Test-Webhook im n8n-Editor. Ein neuer Aufruf für denselben Workflow ersetzt
-   * den alten. Liefert die gestartete Ausführung oder undefined (Zeit abgelaufen, abgebrochen, ersetzt).
+   * Waits for the next call to a test URL of the workflow and runs exactly this (possibly unsaved) version for it,
+   * like "Execute workflow" with a test webhook in the n8n editor. A new call for the same workflow replaces
+   * the old one. Returns the started execution or undefined (timed out, canceled, replaced).
    */
   listen(workflow: Workflow, timeoutMs: number): { promise: Promise<ActiveExecution | undefined>; cancel(): void } {
     const key = workflow.id ?? workflow.name;
     this.listeners.get(key)?.finish(undefined);
     const registry = new WebhookRegistry(this.resolveNode, this.packageHookResolver);
     const hooks = registry.add(workflow);
-    if (!hooks.length) throw new WebhookConflictError('Der Workflow hat keinen Webhook-, Formular- oder Chat-Trigger');
-    // Paket-Knoten mit webhookMethods: Test-Webhook beim Dienst anmelden und nach dem Warten wieder abmelden (n8n
+    if (!hooks.length) throw new WebhookConflictError('The workflow has no webhook, form or chat trigger');
+    // Package nodes with webhookMethods: register the test webhook with the service and deregister it after waiting (n8n
     // test-webhooks.ts needsWebhook/deactivateWebhooks)
     const registered = hooks.some((h) => h.packageWebhook)
       ? this.runPackageLifecycle(workflow, 'create', true).catch((error: unknown) => {
-          this.options.logger.warn({ workflow: workflow.name, err: (error as Error).message }, 'Test-Webhook konnte beim Dienst nicht angemeldet werden');
+          this.options.logger.warn({ workflow: workflow.name, err: (error as Error).message }, 'Test webhook could not be registered with the service');
         })
       : undefined;
     let finish!: (entry: ActiveExecution | undefined) => void;
@@ -453,7 +453,7 @@ export class WebhookService {
         if (registered) {
           void registered
             .then(() => this.runPackageLifecycle(workflow, 'delete', true))
-            .catch((error: unknown) => this.options.logger.warn({ workflow: workflow.name, err: (error as Error).message }, 'Test-Webhook konnte beim Dienst nicht abgemeldet werden'));
+            .catch((error: unknown) => this.options.logger.warn({ workflow: workflow.name, err: (error as Error).message }, 'Test webhook could not be deregistered from the service'));
         }
         resolve(entry);
       };
@@ -464,7 +464,7 @@ export class WebhookService {
     return { promise, cancel: () => finish(undefined) };
   }
 
-  /** Test-URLs: zuerst wartende Editor-Stände, dann die gespeicherten Workflows */
+  /** Test URLs: first waiting editor versions, then the saved workflows */
   private lookup(test: boolean, method: string, path: string, form = false): { registry: WebhookRegistry; found: ReturnType<WebhookRegistry['find']> } {
     if (test) {
       for (const l of this.listeners.values()) {
@@ -482,7 +482,7 @@ export class WebhookService {
     return entry;
   }
 
-  /** webhookUrl im Item: getNodeWebhookUrl, Test-Modus mit /webhook-test/ */
+  /** webhookUrl in the item: getNodeWebhookUrl, test mode with /webhook-test/ */
   private webhookUrl(node: WorkflowNode, test: boolean): string {
     let path = String(node.parameters.path ?? '');
     if (path.startsWith('/')) path = path.slice(1);
@@ -503,7 +503,7 @@ export class WebhookService {
     const original = workflow.nodes.find((n) => n.name === hook.node)!;
     if (original.type === CHAT_TRIGGER_TYPE) return this.handleChat(test, workflow, original, { ...request, params });
     if (hook.packageWebhook) return this.handlePackage(test, hook, original, { ...request, params }, path);
-    // Expressions in den Parametern je Aufruf auswerten (n8n executeWebhook, ohne Items)
+    // Evaluate expressions in the parameters per call (n8n executeWebhook, without items)
     let node: WorkflowNode;
     try {
       node = resolveWebhookNode(workflow, original, this.options.vars);
@@ -536,7 +536,7 @@ export class WebhookService {
         return errorResponse(Object.assign(new Error(error.message), { statusCode: 422, hint: error.hint }));
       }
       const message = error instanceof WebhookConfigurationError ? (error as Error).message : 'Workflow Webhook Error: Workflow could not be started!';
-      this.options.logger.error({ err: (error as Error).message, workflow: workflow.name }, 'Webhook-Fehler');
+      this.options.logger.error({ err: (error as Error).message, workflow: workflow.name }, 'Webhook error');
       return errorResponse(new Error(message));
     }
 
@@ -554,7 +554,7 @@ export class WebhookService {
     );
   }
 
-  /** webhook-helpers.ts executeWebhook für Webhook-Knoten aus n8n-Paketen (M32) */
+  /** webhook-helpers.ts executeWebhook for webhook nodes from n8n packages (M32) */
   private async handlePackage(test: boolean, hook: RegisteredWebhook, node: WorkflowNode, request: IncomingWebhookRequest, path: string): Promise<HttpResponse> {
     const workflow = hook.workflow;
     const type = this.options.registry!.getVersioned(node.type, node.typeVersion)!;
@@ -583,14 +583,14 @@ export class WebhookService {
         webhookUrl: (name) => this.packageWebhookUrl(workflow, node, name, test),
       });
     } catch (error) {
-      this.options.logger.error({ err: (error as Error).message, workflow: workflow.name, node: node.name }, 'Webhook-Fehler');
+      this.options.logger.error({ err: (error as Error).message, workflow: workflow.name, node: node.name }, 'Webhook error');
       return errorResponse(new Error('Workflow Webhook Error: Workflow could not be started!'));
     }
     const responseCode = description?.responseCode ?? 200;
     const start = (hooks: RunHooks) =>
       this.startExecution({ workflow, mode: test ? 'manual' : 'webhook', startNodeName: node.name, triggerOutputs: result.workflowData, usePinData: test, hooks });
     if (result.noWebhookResponse === true) {
-      // Der Knoten hat über getResponseObject selbst geantwortet
+      // The node responded itself via getResponseObject
       if (result.workflowData !== undefined) start({});
       return response.toHttpResponse();
     }
@@ -608,7 +608,7 @@ export class WebhookService {
   }
 
   // ---------------------------------------------------------------------------------------------
-  // Formulare (M17)
+  // Forms (M17)
 
   private formHtml(statusCode: number, body: string): HttpResponse {
     return { statusCode, headers: { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': FORM_CSP }, body, raw: true };
@@ -623,10 +623,10 @@ export class WebhookService {
   }
 
   /**
-   * Antwort auf ein abgeschicktes Formular. Die Seiten sind normale HTML-Formulare: Weiterleitungen gehen als 303
-   * (n8n nutzt 307 mit Skript in der Seite). Modi: onReceived (sofort), lastNode (nach dem Ende), responseNode
-   * (Respond to Webhook mit formSubmittedText oder redirectURL), next (Folgeseite: Weiterleitung des Form-Knotens,
-   * sonst nach dem Ende zur Seite der Ausführung).
+   * Response to a submitted form. The pages are plain HTML forms: redirects are sent as 303
+   * (n8n uses 307 with a script in the page). Modes: onReceived (immediately), lastNode (after the end), responseNode
+   * (Respond to Webhook with formSubmittedText or redirectURL), next (follow-up page: redirect of the Form node,
+   * otherwise after the end to the execution's page).
    */
   private formFlow(
     mode: string,
@@ -653,7 +653,7 @@ export class WebhookService {
           try {
             body = JSON.parse(body);
           } catch {
-            // Text bleibt Text
+            // Text stays text
           }
         }
         const o = (body && typeof body === 'object' ? body : {}) as { formSubmittedText?: unknown; redirectURL?: unknown };
@@ -664,16 +664,16 @@ export class WebhookService {
         entry = start({ sendResponse });
       } catch (error) {
         const status = error instanceof ResumeError ? error.statusCode : 500;
-        return respond(this.formMessage(status, 'Formular', (error as Error).message));
+        return respond(this.formMessage(status, 'Form', (error as Error).message));
       }
       if (mode === 'onReceived') respond(finished());
       entry.promise
         .then((execution) => {
           if (mode === 'next') return respond(this.formRedirect(`/form-waiting/${execution.id}`));
-          if (execution.status === 'error') return respond(this.formMessage(500, 'Fehler', 'There was a problem executing the workflow'));
+          if (execution.status === 'error') return respond(this.formMessage(500, 'Error', 'There was a problem executing the workflow'));
           respond(finished());
         })
-        .catch(() => respond(this.formMessage(500, 'Fehler', 'There was a problem executing the workflow')));
+        .catch(() => respond(this.formMessage(500, 'Error', 'There was a problem executing the workflow')));
     });
   }
 
@@ -683,7 +683,7 @@ export class WebhookService {
     return new Request('http://localhost/', { method: 'POST', headers: { 'content-type': contentType }, body: new Uint8Array(request.rawBody) }).formData();
   }
 
-  /** Basic Auth wie validateWebhookAuthentication; liefert eine Antwort, wenn der Zugriff abgelehnt wird */
+  /** Basic auth like validateWebhookAuthentication; returns a response if access is denied */
   private async formAuth(node: WorkflowNode, authProperty: string, request: Omit<IncomingWebhookRequest, 'params'>): Promise<HttpResponse | undefined> {
     if ((node.parameters as Record<string, unknown>)[authProperty] !== 'basicAuth') return undefined;
     const ref = node.credentials?.httpBasicAuth;
@@ -701,7 +701,7 @@ export class WebhookService {
     return useWorkflowTimezone ? String(workflow.settings?.timezone ?? DEFAULT_TIMEZONE) : 'UTC';
   }
 
-  /** Form Trigger: /form/<Pfad> und /form-test/<Pfad> (formWebhook) */
+  /** Form Trigger: /form/<path> and /form-test/<path> (formWebhook) */
   async handleForm(test: boolean, path: string, request: Omit<IncomingWebhookRequest, 'params'>): Promise<HttpResponse> {
     const method = request.method.toUpperCase();
     const clean = path.replace(/\/+$/, '');
@@ -744,7 +744,7 @@ export class WebhookService {
     try {
       fields = formFieldsOf(p);
     } catch (error) {
-      return this.formMessage(500, 'Formular', (error as Error).message);
+      return this.formMessage(500, 'Form', (error as Error).message);
     }
     const values = options.respondWithOptions?.values;
     const submittedText = values ? (values.respondWith === 'text' ? values.formSubmittedText : undefined) : options.formSubmittedText;
@@ -757,10 +757,10 @@ export class WebhookService {
     try {
       form = await this.formData(request);
     } catch {
-      return this.formMessage(400, title || 'Formular', 'Expected multipart/form-data');
+      return this.formMessage(400, title || 'Form', 'Expected multipart/form-data');
     }
     const invalid = validateSubmission(fields, form);
-    if (invalid) return this.formMessage(400, title || 'Formular', invalid);
+    if (invalid) return this.formMessage(400, title || 'Form', invalid);
     const useWorkflowTimezone = options.useWorkflowTimezone ?? node.typeVersion > 2;
     const item = await formReturnItem({ fields, form, mode: test ? 'test' : 'production', timezone: this.formTimezone(workflow, useWorkflowTimezone), binary: this.options.binary, query: request.query });
     return this.formFlow(
@@ -770,7 +770,7 @@ export class WebhookService {
     );
   }
 
-  /** Abschlussseite eines Form-Knotens (formCompletionUtils.renderFormCompletion) */
+  /** Completion page of a Form node (formCompletionUtils.renderFormCompletion) */
   private async completionResponse(workflow: Workflow, node: WorkflowNode, runData: Record<string, TaskData[]> | undefined): Promise<HttpResponse> {
     const p = node.parameters as Record<string, unknown>;
     const options = (p.options ?? {}) as { formTitle?: string; customCss?: string };
@@ -791,7 +791,7 @@ export class WebhookService {
           return { statusCode: 200, headers: { 'content-type': ref.mimeType ?? 'application/octet-stream', 'content-disposition': `attachment; filename="${(ref.fileName ?? 'file').replace(/"/g, '')}"` }, body: data, raw: true };
         }
       }
-      return this.formMessage(500, 'Formular', `No binary data with field ${field} found.`);
+      return this.formMessage(500, 'Form', `No binary data with field ${field} found.`);
     }
     return this.formHtml(200, renderCompletionPage({ title: String(p.completionTitle ?? ''), message: String(p.completionMessage ?? ''), formTitle, customCss: options.customCss }));
   }
@@ -809,7 +809,7 @@ export class WebhookService {
       .find((n) => isCompletion(n) && !!runData[n!.name]);
   }
 
-  /** Folgeseiten, Wait "On Form Submitted" und Abschluss: /form-waiting/<executionId>[/n8n-execution-status] */
+  /** Follow-up pages, Wait "On Form Submitted" and completion: /form-waiting/<executionId>[/n8n-execution-status] */
   async handleWaitingForm(executionId: string, suffix: string, request: Omit<IncomingWebhookRequest, 'params'>): Promise<HttpResponse> {
     const method = request.method.toUpperCase();
     const stored = this.options.store?.get(executionId);
@@ -822,11 +822,11 @@ export class WebhookService {
       }
       return { statusCode: 200, headers: { 'content-type': 'text/html; charset=utf-8' }, body: status };
     }
-    if (!stored) return this.formMessage(404, 'Nicht gefunden', `The execution "${executionId}" does not exist.`);
-    if (stored.error) return this.formMessage(409, 'Fehler', `The execution "${executionId}" has finished with error.`);
+    if (!stored) return this.formMessage(404, 'Not found', `The execution "${executionId}" does not exist.`);
+    if (stored.error) return this.formMessage(409, 'Error', `The execution "${executionId}" has finished with error.`);
     if (stored.status === 'running' || stored.status === 'new') {
-      // Die Ausführung speichert gerade ihren Wartezustand: kurz neu laden
-      const page = renderCompletionPage({ title: 'Einen Moment', message: 'Die Eingaben werden verarbeitet.' }).replace('<head>', '<head>\n<meta http-equiv="refresh" content="1">');
+      // The execution is currently saving its waiting state: reload shortly
+      const page = renderCompletionPage({ title: 'One moment', message: 'Your input is being processed.' }).replace('<head>', '<head>\n<meta http-equiv="refresh" content="1">');
       return this.formHtml(200, page);
     }
     if (stored.status !== 'waiting') {
@@ -838,7 +838,7 @@ export class WebhookService {
     const record = this.options.store!.loadResume(executionId);
     const workflow = record?.workflow;
     const node = workflow?.nodes.find((n) => n.name === stored.lastNodeExecuted);
-    if (!record || !workflow || !node) return this.formMessage(404, 'Nicht gefunden', `The execution "${executionId}" does not exist.`);
+    if (!record || !workflow || !node) return this.formMessage(404, 'Not found', `The execution "${executionId}" does not exist.`);
     const trigger = workflow.nodes.find((n) => n.type === FORM_TRIGGER_TYPE);
     const triggerJson = trigger ? record.runData[trigger.name]?.[0]?.data?.main?.[0]?.[0]?.json : undefined;
     const mode = triggerJson?.formMode === 'test' ? 'test' : 'production';
@@ -846,15 +846,15 @@ export class WebhookService {
     const isWaitForm = node.type === WAIT_NODE_TYPE && p.resume === 'form';
     if (node.type === FORM_NODE_TYPE && (p.operation ?? 'page') === 'completion') {
       const response = await this.completionResponse(workflow, node, record.runData);
-      // n8n setzt die Ausführung nach dem Anzeigen der Abschlussseite fort (POST aus der Seite); hier direkt
+      // n8n resumes the execution after showing the completion page (POST from the page); here directly
       try {
         this.options.manager.resume(executionId);
       } catch (error) {
-        this.options.logger.warn({ executionId, err: (error as Error).message }, 'Formular-Abschluss nicht fortgesetzt');
+        this.options.logger.warn({ executionId, err: (error as Error).message }, 'Form completion not resumed');
       }
       return response;
     }
-    if (node.type !== FORM_NODE_TYPE && !isWaitForm) return this.formMessage(404, 'Nicht gefunden', `The execution "${executionId}" is not waiting for a form.`);
+    if (node.type !== FORM_NODE_TYPE && !isWaitForm) return this.formMessage(404, 'Not found', `The execution "${executionId}" is not waiting for a form.`);
     if (isWaitForm) {
       const denied = await this.formAuth(node, 'incomingAuthentication', request);
       if (denied) return denied;
@@ -864,7 +864,7 @@ export class WebhookService {
     try {
       fields = formFieldsOf(p, (raw) => JSON.parse(raw.replace(/^=+/, '')));
     } catch (error) {
-      return this.formMessage(500, 'Formular', (error as Error).message);
+      return this.formMessage(500, 'Form', (error as Error).message);
     }
     const title = isWaitForm ? String(p.formTitle ?? '') : options.formTitle || String(trigger?.parameters.formTitle ?? '');
     const description = isWaitForm ? String(p.formDescription ?? '') : (options.formDescription ?? '');
@@ -875,17 +875,17 @@ export class WebhookService {
     try {
       form = await this.formData(request);
     } catch {
-      return this.formMessage(400, title || 'Formular', 'Expected multipart/form-data');
+      return this.formMessage(400, title || 'Form', 'Expected multipart/form-data');
     }
     const invalid = validateSubmission(fields, form);
-    if (invalid) return this.formMessage(400, title || 'Formular', invalid);
+    if (invalid) return this.formMessage(400, title || 'Form', invalid);
     const triggerOptions = (trigger?.parameters.options ?? {}) as { useWorkflowTimezone?: boolean };
     const useWorkflowTimezone = triggerOptions.useWorkflowTimezone ?? (trigger ? trigger.typeVersion > 2 : true);
     const item = await formReturnItem({ fields, form, mode, timezone: this.formTimezone(workflow, useWorkflowTimezone), binary: this.options.binary });
     return this.formFlow('next', (hooks) => this.options.manager.resume(executionId, { webhookData: [[item]], hooks }), { title });
   }
 
-  /** Chat Trigger: Seite, frühere Nachrichten oder Ausführung mit der Nachricht (Antwort lastNode/responseNode) */
+  /** Chat Trigger: page, previous messages or execution with the message (response lastNode/responseNode) */
   private async handleChat(test: boolean, workflow: Workflow, node: WorkflowNode, request: IncomingWebhookRequest): Promise<HttpResponse> {
     const options = ((node.parameters.options ?? {}) as ChatOptions);
     let result;
@@ -904,12 +904,12 @@ export class WebhookService {
         },
       });
     } catch (error) {
-      this.options.logger.error({ err: (error as Error).message, workflow: workflow.name }, 'Chat-Fehler');
+      this.options.logger.error({ err: (error as Error).message, workflow: workflow.name }, 'Chat error');
       return errorResponse(new Error('Workflow Webhook Error: Workflow could not be started!'));
     }
     if (result.directResponse) return { ...result.directResponse, raw: true };
     if (options.responseMode === 'responseNodes') {
-      // handleHostedChatResponse: Start bestätigen, Nachrichten kommen über den Chat-Kanal (chatSessions.ts)
+      // handleHostedChatResponse: confirm the start, messages arrive via the chat channel (chatSessions.ts)
       const entry = this.startExecution({ workflow, mode: test ? 'manual' : 'webhook', startNodeName: node.name, triggerOutputs: result.workflowData, usePinData: test });
       return expressResponse(200, {}, { executionStarted: true, executionId: entry.id }, true);
     }
@@ -921,8 +921,8 @@ export class WebhookService {
   }
 
   /**
-   * Fortsetzen einer wartenden Execution über $execution.resumeUrl (n8n waiting-webhooks.ts): Der zuletzt
-   * ausgeführte Node muss ein Wait-Node mit resume "webhook", passender Methode und passendem webhookSuffix sein.
+   * Resuming a waiting execution via $execution.resumeUrl (n8n waiting-webhooks.ts): the last
+   * executed node must be a Wait node with resume "webhook", a matching method and a matching webhookSuffix.
    */
   async handleWaiting(executionId: string, suffix: string, request: Omit<IncomingWebhookRequest, 'params'>): Promise<HttpResponse> {
     const method = request.method.toUpperCase();
@@ -970,12 +970,12 @@ export class WebhookService {
       if (error instanceof UnprocessableRequestError) {
         return errorResponse(Object.assign(new Error(error.message), { statusCode: 422, hint: error.hint }));
       }
-      this.options.logger.error({ err: (error as Error).message, workflow: workflow.name }, 'Webhook-Fehler beim Fortsetzen');
+      this.options.logger.error({ err: (error as Error).message, workflow: workflow.name }, 'Webhook error while resuming');
       return errorResponse(new Error(error instanceof WebhookConfigurationError ? (error as Error).message : 'Workflow Webhook Error: Workflow could not be started!'));
     }
     if (result.directResponse) return { ...result.directResponse, raw: true };
     try {
-      // Vorab prüfen, damit ein Konflikt (läuft gerade) als 409 statt als Fehler der Execution ankommt
+      // Check in advance so that a conflict (currently running) arrives as 409 instead of an execution error
       return await this.respondWith(opts, result, (hooks) => this.options.manager.resume(executionId, { webhookData: result.workflowData, hooks }));
     } catch (error) {
       if (error instanceof ResumeError) return errorResponse(Object.assign(new Error(error.message), { statusCode: error.statusCode }));
@@ -983,13 +983,13 @@ export class WebhookService {
     }
   }
 
-  /** getNodeWebhookUrl für den Wait-Node: Basis /webhook/, dann webhookId (oder Workflow-ID und Node-Name) und Suffix */
+  /** getNodeWebhookUrl for the Wait node: base /webhook/, then webhookId (or workflow ID and node name) and suffix */
   private waitWebhookUrl(workflow: Workflow, node: WorkflowNode, suffix: string): string {
     const path = node.webhookId ? `${node.webhookId}/${suffix}` : `${workflow.id ?? ''}/${encodeURIComponent(node.name.toLowerCase())}/${suffix}`;
     return `${this.options.webhookBaseUrl}webhook/${path}`;
   }
 
-  /** Antwort je nach responseMode; `start` startet bzw. setzt die Execution fort */
+  /** Response depending on responseMode; `start` starts or resumes the execution */
   private respondWith(opts: WebhookResponseOptions, result: { webhookResponse?: string }, start: (hooks: RunHooks) => ActiveExecution): Promise<HttpResponse> {
     const baseHeaders = Object.fromEntries(opts.responseHeaders);
     let respondEarly: HttpResponse | undefined;
@@ -1005,20 +1005,20 @@ export class WebhookService {
       else respondEarly ??= r;
     };
     if (opts.responseMode === 'streaming') {
-      // Antwort sofort mit Kopfzeilen, dann je Teil eine JSON-Zeile (n8n workflow-runner.ts: sendChunk-Handler);
-      // die Antwort endet mit der Ausführung (active-executions.ts finalizeExecution)
+      // Respond immediately with headers, then one JSON line per part (n8n workflow-runner.ts: sendChunk handler);
+      // the response ends with the execution (active-executions.ts finalizeExecution)
       const stream = new ChunkStream();
       const entry = start({ sendChunk: (chunk) => stream.push(`${JSON.stringify(chunk)}\n`) });
       entry.promise.then(
         () => stream.end(),
         (error: unknown) => {
-          this.options.logger.error({ err: (error as Error).message }, 'Webhook-Execution fehlgeschlagen');
+          this.options.logger.error({ err: (error as Error).message }, 'Webhook execution failed');
           stream.end();
         },
       );
       return Promise.resolve({ statusCode: 200, headers: { ...STREAM_HEADERS }, raw: true, stream });
     }
-    // start() wirft bei Konflikten synchron (Fortsetzen); dann gibt es keine Antwort aus der Execution
+    // start() throws synchronously on conflicts (resume); then there is no response from the execution
     const entry: ActiveExecution = start({ sendResponse });
     return new Promise<HttpResponse>((resolve) => {
       let responded = false;
@@ -1045,20 +1045,20 @@ export class WebhookService {
           return this.afterExecution(execution, opts, baseHeaders).then(respond);
         })
         .catch((error: unknown) => {
-          this.options.logger.error({ err: (error as Error).message }, 'Webhook-Execution fehlgeschlagen');
+          this.options.logger.error({ err: (error as Error).message }, 'Webhook execution failed');
           respond(errorResponse(new Error('There was a problem executing the workflow'), baseHeaders));
         });
     });
   }
 
-  /** webhook-helpers.ts executeWebhook: Antwort nach Ende der Execution (lastNode, Fehler) */
+  /** webhook-helpers.ts executeWebhook: response after the execution ends (lastNode, error) */
   private async afterExecution(execution: Execution, opts: WebhookResponseOptions, headers: Record<string, string>): Promise<HttpResponse> {
     const task = lastNodeTask(execution);
     if (execution.error || task?.error !== undefined) {
       return expressResponse(500, headers, { message: 'Error in workflow' }, false);
     }
     if (opts.responseMode === 'responseNode') {
-      // n8n wartet hier unbegrenzt auf den Respond-Node; filuflow antwortet, damit der Request nicht hängen bleibt
+      // n8n waits indefinitely for the Respond node here; filuflow responds so that the request does not hang
       return expressResponse(200, headers, { message: 'Workflow executed successfully but no Respond to Webhook node was executed' }, false);
     }
     if (task === undefined) {
@@ -1081,7 +1081,7 @@ export class WebhookService {
       const name = opts.responseBinaryPropertyName;
       const ref = item.binary[name];
       if (!ref) return errorResponse(new OperationalError(`The binary property '${name}' which should be returned does not exist`), headers);
-      // n8n sendet Inline-Binärdaten hier über res.json (serialisierter Buffer); filuflow sendet die Bytes mit ihrem MIME-Typ
+      // n8n sends inline binary data here via res.json (serialized Buffer); filuflow sends the bytes with their MIME type
       const content = await this.options.binary.getBuffer(ref);
       return { statusCode: opts.responseCode, headers: { ...headers, 'content-type': ref.mimeType }, body: content };
     }
@@ -1092,8 +1092,8 @@ export class WebhookService {
   }
 
   /**
-   * webhook-request-handler.ts setupCorsHeaders: nur bei Origin-Header. Liefert die Header
-   * (Access-Control-*) für die Antwort; allowedOrigins aus den Optionen des Webhook-Nodes.
+   * webhook-request-handler.ts setupCorsHeaders: only with an Origin header. Returns the headers
+   * (Access-Control-*) for the response; allowedOrigins from the Webhook node's options.
    */
   corsHeaders(test: boolean, rawPath: string, method: string, headers: Record<string, string | string[] | undefined>): Record<string, string> {
     const origin = headers.origin;
@@ -1123,7 +1123,7 @@ export class WebhookService {
     return out;
   }
 
-  /** Registriert produktive Webhooks eines aktiven Workflows */
+  /** Registers production webhooks of an active workflow */
   activate(workflow: Workflow): RegisteredWebhook[] {
     return this.production.add(workflow);
   }

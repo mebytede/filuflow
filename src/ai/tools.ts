@@ -1,7 +1,7 @@
-// Tools für den Agent (statt LangChain Tool/DynamicTool/DynamicStructuredTool).
-// Ein Tool mit Text-Eingabe hat wie in LangChain das Schema { input?: string } und bekommt nur `input`.
-// Läufe im runData: bei Aufruf durch den Agent V2 (inline) ein Lauf je Aufruf am Tool-Node
-// (n8n logWrapper bzw. eigener Log im Code-Tool); beim Agent V3 führt die Engine den Tool-Node aus.
+// Tools for the agent (instead of LangChain Tool/DynamicTool/DynamicStructuredTool).
+// A tool with text input has the schema { input?: string } as in LangChain and receives only `input`.
+// Runs in runData: when called by Agent V2 (inline) one run per call on the tool node
+// (n8n logWrapper or own log in the Code tool); with Agent V3 the engine executes the tool node.
 import type { ExecContext } from '../nodes/types.js';
 import type { JsonSchema, ZType } from './schema.js';
 import { zodParse, zodToJsonSchema } from './schema.js';
@@ -14,9 +14,9 @@ export interface ToolInstance {
   readonly description: string;
   readonly schema: ZType;
   readonly sourceNodeName: string;
-  /** JSON Schema der Argumente (zodToJsonSchema) */
+  /** JSON Schema of the arguments (zodToJsonSchema) */
   jsonSchema(): JsonSchema;
-  /** Argumente aus dem Tool-Aufruf; liefert den Text für das Modell */
+  /** Arguments from the tool call; returns the text for the model */
   invoke(args: unknown): Promise<string>;
 }
 
@@ -28,11 +28,11 @@ export function nodeNameToToolName(name: string): string {
 export interface ToolOptions {
   name: string;
   description: string;
-  /** Struktur-Schema; ohne Schema Text-Eingabe */
+  /** Structure schema; without a schema, text input */
   schema?: ZType;
-  /** Eigentliche Ausführung mit Text (bzw. Objekt bei Schema) */
+  /** Actual execution with text (or object with a schema) */
   func: (query: unknown) => Promise<string>;
-  /** Lauf im runData des Tool-Nodes schreiben (n8n logWrapper) */
+  /** Write a run into the runData of the tool node (n8n logWrapper) */
   log?: { ctx: ExecContext; inputKey: 'input' | 'query' };
 }
 
@@ -47,7 +47,7 @@ export function createTool(ctx: ExecContext, opts: ToolOptions): ToolInstance {
     sourceNodeName: ctx.node.name,
     jsonSchema: () => zodToJsonSchema(schema),
     async invoke(args: unknown): Promise<string> {
-      // LangChain StructuredTool.call: Eingabe mit dem Schema prüfen; Text-Tools bekommen nur "input"
+      // LangChain StructuredTool.call: validate input with the schema; text tools receive only "input"
       let query: unknown;
       if (stringInput) query = typeof args === 'string' ? args : (zodParse(schema, args ?? {}) as { input?: string }).input;
       else query = zodParse(schema, typeof args === 'string' ? JSON.parse(args) : args);

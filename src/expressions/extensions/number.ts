@@ -1,5 +1,5 @@
-// Erweiterungsfunktionen für Zahlen.
-// Verhalten nachgebaut nach n8n 1.123.0 packages/workflow/src/extensions/number-extensions.ts
+// Extension functions for numbers.
+// Behavior rebuilt after n8n 1.123.0 packages/workflow/src/extensions/number-extensions.ts
 import { DateTime } from 'luxon';
 import { ExpressionExtensionError } from '../../errors.js';
 import type { ExtensionFunction, ExtensionMap } from './types.js';
@@ -16,7 +16,7 @@ export function numberToDateTime(value: number, args: unknown[]): DateTime {
   }
   switch (format) {
     case 'excel':
-      // Excel zählt Tage seit 1900 (inkl. des Schaltjahr-Fehlers von 1900)
+      // Excel counts days since 1900 (including the 1900 leap year bug)
       return DateTime.fromSeconds((value - (25567 + 2)) * 86_400);
     case 's':
       return DateTime.fromSeconds(value);

@@ -1,13 +1,13 @@
-// Plugins laden (M24): eigene filuflow-Plugins und Knoten im n8n-Format.
-// Quellen (in dieser Reihenfolge): ~/.filuflow/custom (falls vorhanden), FILUFLOW_CUSTOM_EXTENSIONS bzw.
-// N8N_CUSTOM_EXTENSIONS (mit ";" getrennt, wie n8n) und --nodes <pfad> der Kommandozeile. Ein Pfad ist
-//   - eine Datei: *.node.js / *.credentials.js im n8n-Format, sonst ein filuflow-Plugin (*.js, *.mjs),
-//   - ein Paket (Ordner mit package.json): "n8n": { "nodes", "credentials" } wie n8n-Community-Pakete oder
-//     "filuflow": { "plugin": "<datei>" } (sonst main),
-//   - ein Ordner: wie n8n alle **/*.node.js und **/*.credentials.js (Typ "CUSTOM.<name>"), Pakete in node_modules und
-//     Unterordnern mit package.json, filuflow-Plugins als *.js/*.mjs direkt im Ordner.
-// Wie n8n (packages/core/src/nodes-loader/directory-loader.ts loadClass) heißt die Klasse wie die Datei bis zum ersten
-// Punkt und wird mit new instanziiert; Typnamen sind <Paketname>.<description.name>.
+// Load plugins (M24): custom filuflow plugins and nodes in n8n format.
+// Sources (in this order): ~/.filuflow/custom (if present), FILUFLOW_CUSTOM_EXTENSIONS or
+// N8N_CUSTOM_EXTENSIONS (separated by ";", like n8n) and --nodes <path> on the command line. A path is
+//   - a file: *.node.js / *.credentials.js in n8n format, otherwise a filuflow plugin (*.js, *.mjs),
+//   - a package (folder with package.json): "n8n": { "nodes", "credentials" } like n8n community packages or
+//     "filuflow": { "plugin": "<file>" } (otherwise main),
+//   - a folder: like n8n all **/*.node.js and **/*.credentials.js (type "CUSTOM.<name>"), packages in node_modules and
+//     subfolders with package.json, filuflow plugins as *.js/*.mjs directly in the folder.
+// As in n8n (packages/core/src/nodes-loader/directory-loader.ts loadClass) the class is named like the file up to the first
+// dot and is instantiated with new; type names are <packageName>.<description.name>.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { basename, extname, join, resolve } from 'node:path';
@@ -32,7 +32,7 @@ export interface PluginReport {
 
 const RESERVED = /^(n8n-nodes-base|@n8n\/n8n-nodes-langchain)\./;
 
-/** Pfade aus Umgebung und Standardordner */
+/** Paths from the environment and the default folder */
 export function pluginPathsFromEnv(env: NodeJS.ProcessEnv = process.env): string[] {
   const out: string[] = [];
   const home = join(homedir(), '.filuflow', 'custom');
@@ -42,7 +42,7 @@ export function pluginPathsFromEnv(env: NodeJS.ProcessEnv = process.env): string
   return out;
 }
 
-/** Dateien rekursiv, ohne node_modules und versteckte Ordner */
+/** Files recursively, without node_modules and hidden folders */
 function walk(dir: string, match: (file: string) => boolean, out: string[] = []): string[] {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
@@ -55,13 +55,13 @@ function walk(dir: string, match: (file: string) => boolean, out: string[] = [])
 
 const require = createRequire(import.meta.url);
 
-/** Klasse aus einer CommonJS-Datei wie n8n laden und instanziieren */
+/** Load and instantiate a class from a CommonJS file like n8n */
 function loadClass<T>(file: string): T {
   installN8nWorkflowShim();
   const className = basename(file).split('.')[0];
   const mod = require(file) as Record<string, unknown>;
   const Cls = (mod[className] ?? (mod.default as Record<string, unknown> | undefined)?.[className]) as (new () => T) | undefined;
-  if (typeof Cls !== 'function') throw new Error(`Klasse "${className}" nicht exportiert`);
+  if (typeof Cls !== 'function') throw new Error(`Class "${className}" not exported`);
   return new Cls();
 }
 
@@ -78,7 +78,7 @@ class Loader {
 
   private register(r: PluginReport, type: NodeType): void {
     if (this.registry.has(type.type)) {
-      r.errors.push(`Knotentyp "${type.type}" gibt es bereits`);
+      r.errors.push(`Node type "${type.type}" already exists`);
       return;
     }
     this.registry.register({ ...type, source: r.source });
@@ -115,10 +115,10 @@ class Loader {
       const mod = (await import(pathToFileURL(file).href)) as { default?: unknown; nodes?: unknown; credentialTypes?: unknown };
       const exported = mod.default ?? { nodes: mod.nodes, credentialTypes: mod.credentialTypes };
       const plugin = (typeof exported === 'function' ? await (exported as (api: typeof pluginApi) => unknown)(pluginApi) : exported) as FiluflowPlugin | undefined;
-      if (!plugin || typeof plugin !== 'object') throw new Error('Das Modul exportiert kein Plugin');
+      if (!plugin || typeof plugin !== 'object') throw new Error('The module does not export a plugin');
       for (const c of plugin.credentialTypes ?? []) {
         if (!c?.name || !Array.isArray(c.fields)) {
-          r.errors.push('Credential-Typ ohne name oder fields');
+          r.errors.push('Credential type without name or fields');
           continue;
         }
         registerCredentialType(c);
@@ -127,19 +127,19 @@ class Loader {
       for (const n of plugin.nodes ?? []) {
         const problem =
           !n || typeof n.type !== 'string' || !/^[@a-z0-9][\w@/.-]*\.[A-Za-z][\w-]*$/.test(n.type)
-            ? `ungültiger Typname "${String(n?.type)}" (Form: <paket>.<name>)`
+            ? `invalid type name "${String(n?.type)}" (format: <package>.<name>)`
             : RESERVED.test(n.type)
-              ? `Typname "${n.type}" ist n8n vorbehalten`
+              ? `type name "${n.type}" is reserved for n8n`
               : !Array.isArray(n.versions) || !n.versions.length || n.versions.some((v) => typeof v !== 'number')
-                ? `"${n.type}": versions fehlt`
+                ? `"${n.type}": versions missing`
                 : typeof n.execute !== 'function' && typeof n.supplyData !== 'function'
-                  ? `"${n.type}": execute fehlt`
+                  ? `"${n.type}": execute missing`
                   : undefined;
         if (problem) {
           r.errors.push(problem);
           continue;
         }
-        this.register(r, { group: 'Erweiterungen', ...n, displayName: n.displayName || n.type, outputs: n.outputs ?? (() => 1) });
+        this.register(r, { group: 'Extensions', ...n, displayName: n.displayName || n.type, outputs: n.outputs ?? (() => 1) });
       }
     } catch (error) {
       r.errors.push((error as Error).message);
@@ -161,7 +161,7 @@ class Loader {
     if (pkg.n8n) {
       const r = this.report(dir, 'n8n-package');
       if (!pkg.name || RESERVED.test(`${pkg.name}.x`)) {
-        r.errors.push('Paketname fehlt oder ist n8n vorbehalten');
+        r.errors.push('Package name missing or reserved for n8n');
         return;
       }
       for (const c of pkg.n8n.credentials ?? []) this.n8nCredential(r, resolve(dir, c));
@@ -174,7 +174,7 @@ class Loader {
   async load(path: string): Promise<void> {
     const full = resolve(path);
     if (!existsSync(full)) {
-      this.report(full, 'filuflow').errors.push('Pfad nicht gefunden');
+      this.report(full, 'filuflow').errors.push('Path not found');
       return;
     }
     if (statSync(full).isFile()) {
@@ -187,7 +187,7 @@ class Loader {
       await this.packageDir(full);
       return;
     }
-    // Ordner wie n8n CustomDirectoryLoader, dazu Pakete und filuflow-Plugins
+    // Folder like n8n CustomDirectoryLoader, plus packages and filuflow plugins
     const credentials = walk(full, (f) => f.endsWith('.credentials.js'));
     const nodes = walk(full, (f) => f.endsWith('.node.js'));
     if (credentials.length || nodes.length) {
@@ -210,7 +210,7 @@ class Loader {
             const pkg = JSON.parse(readFileSync(join(d, 'package.json'), 'utf8')) as { n8n?: unknown; filuflow?: unknown };
             if (pkg.n8n || pkg.filuflow) await this.packageDir(d);
           } catch {
-            // kein Paket
+            // not a package
           }
         }
       }
@@ -218,7 +218,7 @@ class Loader {
   }
 }
 
-/** Plugins aus den Pfaden in die Registry laden; Fehler stehen im Bericht, der Rest wird trotzdem geladen */
+/** Load plugins from the paths into the registry; errors are in the report, the rest is loaded anyway */
 export async function loadPlugins(paths: string[], registry: NodeRegistry): Promise<PluginReport[]> {
   const loader = new Loader(registry);
   const seen = new Set<string>();

@@ -1,15 +1,15 @@
 // Error Trigger, n8n-nodes-base.errorTrigger (typeVersion 1)
-// Nachgebaut nach n8n 1.123.0 packages/nodes-base/nodes/ErrorTrigger/ErrorTrigger.node.ts.
-// Der Server startet den Fehler-Workflow mit den Fehlerdaten (execute-error-workflow.ts);
-// im manuellen Modus ohne Daten liefert der Node Beispieldaten wie n8n.
+// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/ErrorTrigger/ErrorTrigger.node.ts.
+// The server starts the error workflow with the error data (execute-error-workflow.ts);
+// in manual mode without data the node returns sample data like n8n.
 import type { NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
 
-// Parameter wie packages/nodes-base/nodes/ErrorTrigger/ErrorTrigger.node.ts (nur ein Hinweis)
+// Parameters like packages/nodes-base/nodes/ErrorTrigger/ErrorTrigger.node.ts (only a notice)
 const parameters: ParamSchema[] = [
   {
     name: 'notice',
-    label: 'Dieser Knoten startet, wenn in einem anderen Workflow ein Fehler auftritt und dieser Workflow dort als Fehler-Workflow eingetragen ist.',
+    label: 'This node will trigger when there is an error in another workflow, as long as that workflow is set up to do so.',
     type: 'notice',
     default: '',
   },

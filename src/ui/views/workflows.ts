@@ -1,57 +1,58 @@
-// Workflow-Übersicht: Kennzahlen, Suche und Filter, Tabelle mit Auslöser, Zustand und letztem Lauf;
-// neu anlegen, n8n-Export importieren, löschen.
+// Workflow overview: KPIs, search and filter, table with trigger, state and last run;
+// create new, import n8n export, delete.
 import { api } from '../api.js';
 import { confirmDialog, dialog, h, toast } from '../dom.js';
 import type { Workflow, WorkflowSummary } from '../types.js';
 import { emptyWorkflow } from '../editor/model.js';
 import { button, kpis, pageHead } from '../shell.js';
 import { workflowTable, type WorkflowRow } from './workflowTable.js';
+import { dateLocale, t } from '../i18n.js';
 
 export async function workflowsView(): Promise<HTMLElement> {
   const [list, overview] = await Promise.all([api.workflows(), api.overview().catch(() => undefined)]);
   const root = h('section', { class: 'page' });
   const importWorkflow = async () => {
-    const ta = h('textarea', { class: 'param-input json-editor', rows: 14, spellcheck: false, placeholder: 'Workflow-JSON aus n8n (Export oder kopierte Nodes)', 'aria-label': 'Workflow-JSON' });
-    const file = h('input', { type: 'file', accept: '.json,application/json', 'aria-label': 'Datei wählen' });
+    const ta = h('textarea', { class: 'param-input json-editor', rows: 14, spellcheck: false, placeholder: t('Workflow JSON from n8n (export or copied nodes)'), 'aria-label': t('Workflow JSON') });
+    const file = h('input', { type: 'file', accept: '.json,application/json', 'aria-label': t('Choose file') });
     file.addEventListener('change', async () => {
       const f = file.files?.[0];
       if (f) ta.value = await f.text();
     });
-    const wf = await dialog<Workflow>('Workflow importieren', h('div', { class: 'form' }, file, ta), {
-      confirm: 'Importieren',
+    const wf = await dialog<Workflow>(t('Import workflow'), h('div', { class: 'form' }, file, ta), {
+      confirm: t('Import'),
       wide: true,
       onConfirm: () => {
         try {
           let data = JSON.parse(ta.value) as unknown;
           if (Array.isArray(data)) data = data[0];
           const w = data as Workflow;
-          if (!w || !Array.isArray(w.nodes)) throw new Error('JSON enthält keine Nodes');
+          if (!w || !Array.isArray(w.nodes)) throw new Error(t('JSON contains no nodes'));
           w.connections ??= {};
-          w.name ??= 'Importierter Workflow';
+          w.name ??= t('Imported workflow');
           w.settings = { ...(w.settings ?? {}), executionOrder: (w.settings?.executionOrder as string | undefined) ?? 'v1' };
           return w;
         } catch (error) {
-          toast(`Ungültiges JSON: ${(error as Error).message}`, 'error');
+          toast(t('Invalid JSON: {message}', { message: (error as Error).message }), 'error');
           return undefined;
         }
       },
     });
     if (!wf) return;
     try {
-      // Import immer als neuer Workflow (IDs aus n8n kollidieren sonst mit vorhandenen Dateien)
+      // Always import as a new workflow (IDs from n8n would otherwise collide with existing files)
       if (wf.id && list.some((w) => w.id === wf.id)) delete wf.id;
       wf.active = false;
       const result = await api.create(wf);
-      toast('Importiert', 'success');
+      toast(t('Imported'), 'success');
       location.hash = `#/workflow/${encodeURIComponent(result.id)}`;
     } catch (error) {
-      toast(`Import fehlgeschlagen: ${(error as Error).message}`, 'error');
+      toast(t('Import failed: {message}', { message: (error as Error).message }), 'error');
     }
   };
-  const head = pageHead('Workflows', 'Alle Workflows dieser Instanz', [
-    button('n8n-Export importieren', { icon: 'upload', size: 'm', onclick: () => void importWorkflow() }),
-    button('Mit dem Aufseher entwerfen', { icon: 'scan-eye', size: 'm', href: '#/new?aufseher=1' }),
-    button('Neuer Workflow', { icon: 'plus', size: 'm', variant: 'primary', href: '#/new' }),
+  const head = pageHead(t('Workflows'), t('All workflows of this instance'), [
+    button(t('Import n8n export'), { icon: 'upload', size: 'm', onclick: () => void importWorkflow() }),
+    button(t('Draft with the supervisor'), { icon: 'scan-eye', size: 'm', href: '#/new?aufseher=1' }),
+    button(t('New workflow'), { icon: 'plus', size: 'm', variant: 'primary', href: '#/new' }),
   ]);
   root.append(head);
   if (!list.length) {
@@ -59,9 +60,9 @@ export async function workflowsView(): Promise<HTMLElement> {
       h(
         'div',
         { class: 'empty' },
-        h('p', null, 'Noch keine Workflows. Legen Sie Workflows als JSON im Verzeichnis an oder importieren Sie einen n8n-Export.'),
-        button('n8n-Export importieren', { icon: 'upload', onclick: () => void importWorkflow() }),
-        button('Neuer Workflow', { icon: 'plus', variant: 'primary', href: '#/new' }),
+        h('p', null, t('No workflows yet. Create workflows as JSON in the directory or import an n8n export.')),
+        button(t('Import n8n export'), { icon: 'upload', onclick: () => void importWorkflow() }),
+        button(t('New workflow'), { icon: 'plus', variant: 'primary', href: '#/new' }),
       ),
     );
     return root;
@@ -69,20 +70,20 @@ export async function workflowsView(): Promise<HTMLElement> {
   const active = list.filter((w) => w.active).length;
   root.append(
     kpis([
-      { label: 'Aktiv', value: `${active} von ${list.length}` },
-      { label: `Ausführungen ${overview?.days ?? 14} Tage`, value: overview ? String(overview.executions) : '' },
-      { label: `Fehler ${overview?.days ?? 14} Tage`, value: overview ? String(overview.errors) : '', tone: overview?.errors ? 'error' : undefined },
-      { label: 'Gleichzeitig', value: overview ? `${overview.running} von ${overview.concurrency}` : '' },
+      { label: t('Active'), value: t('{count} of {total}', { count: active, total: list.length }) },
+      { label: t('Executions {days} days', { days: overview?.days ?? 14 }), value: overview ? String(overview.executions) : '' },
+      { label: t('Errors {days} days', { days: overview?.days ?? 14 }), value: overview ? String(overview.errors) : '', tone: overview?.errors ? 'error' : undefined },
+      { label: t('Concurrent'), value: overview ? t('{count} of {total}', { count: overview.running, total: overview.concurrency }) : '' },
     ]),
   );
   const remove = async (w: WorkflowSummary) => {
-    if (!(await confirmDialog('Workflow löschen', `"${w.name}" wird gelöscht (Datei ${w.file.split(/[\\/]/).pop()}).`))) return;
+    if (!(await confirmDialog(t('Delete workflow'), t('"{name}" will be deleted (file {file}).', { name: w.name, file: w.file.split(/[\\/]/).pop() ?? '' })))) return;
     try {
       await api.remove(w.id);
-      toast('Gelöscht', 'success');
+      toast(t('Deleted'), 'success');
       root.replaceWith(await workflowsView());
     } catch (error) {
-      toast(`Löschen fehlgeschlagen: ${(error as Error).message}`, 'error');
+      toast(t('Delete failed: {message}', { message: (error as Error).message }), 'error');
     }
   };
   const rows: WorkflowRow[] = list.map((w) => ({
@@ -93,21 +94,21 @@ export async function workflowsView(): Promise<HTMLElement> {
     triggers: w.triggers ?? [],
     state: w.valid === false ? 'ungueltig' : w.active ? 'aktiv' : 'inaktiv',
     stateTitle: w.problem,
-    stateWarning: w.valid !== false && w.wantsActive && !w.active ? (w.activationError ?? 'Nicht aktiviert') : undefined,
+    stateWarning: w.valid !== false && w.wantsActive && !w.active ? (w.activationError ?? t('Not activated')) : undefined,
     last: overview?.workflows[w.id]?.last,
     runs: overview ? (overview.workflows[w.id]?.runs ?? 0) : undefined,
     menu: [
-      { label: 'Im Editor öffnen', onclick: () => (location.hash = `#/workflow/${encodeURIComponent(w.id)}`) },
-      { label: 'Ausführungen', onclick: () => (location.hash = `#/executions?workflow=${encodeURIComponent(w.id)}`) },
-      { label: 'Löschen', danger: true, onclick: () => void remove(w) },
+      { label: t('Open in editor'), onclick: () => (location.hash = `#/workflow/${encodeURIComponent(w.id)}`) },
+      { label: t('Executions'), onclick: () => (location.hash = `#/executions?workflow=${encodeURIComponent(w.id)}`) },
+      { label: t('Delete'), danger: true, onclick: () => void remove(w) },
     ],
   }));
-  const reloaded = overview?.reloadedAt ? ` · neu geladen ${new Date(overview.reloadedAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}` : '';
-  root.append(workflowTable(rows, { source: overview ? `Quelle ${shortPath(overview.dir)}${reloaded}` : undefined }));
+  const reloaded = overview?.reloadedAt ? ` · ${t('reloaded {time}', { time: new Date(overview.reloadedAt).toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' }) })}` : '';
+  root.append(workflowTable(rows, { source: overview ? `${t('Source {path}', { path: shortPath(overview.dir) })}${reloaded}` : undefined }));
   return root;
 }
 
-/** Verzeichnis kurz anzeigen (letzte zwei Teile) */
+/** Show the directory briefly (last two parts) */
 function shortPath(dir: string): string {
   const parts = dir.split(/[\\/]/).filter(Boolean);
   return parts.length > 2 ? `…/${parts.slice(-2).join('/')}` : dir;

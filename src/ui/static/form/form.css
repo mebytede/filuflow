@@ -1,5 +1,5 @@
-/* Öffentliche Formularseiten (Form Trigger, Form-Knoten, Wait per Formular). Ohne Skript; hell als Standard,
-   dunkel nach Systemeinstellung. Eigene Gestaltung über "Custom Form Styling". */
+/* Public form pages (Form Trigger, Form node, Wait on form). No script; light by default,
+   dark per system setting. Custom styling via "Custom Form Styling". */
 :root { --f-bg:#F2F6F8; --f-card:#FFFFFF; --f-line:#C3D2DC; --f-text:#0B1219; --f-muted:#4A5A69; --f-accent:#006A86; --f-accent-text:#FFFFFF; --f-error:#B3282F; }
 @media (prefers-color-scheme: dark) {
   :root { --f-bg:#0B1219; --f-card:#101A24; --f-line:#2A3A4A; --f-text:#E8F1F6; --f-muted:#8FA3B4; --f-accent:#5BE1FF; --f-accent-text:#06202A; --f-error:#FF8A8F; }

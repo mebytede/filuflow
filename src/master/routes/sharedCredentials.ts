@@ -1,7 +1,7 @@
-// Gemeinsame Credentials (M33, nur globale Admins): ein Credential im Master, verschlüsselt mit dem Schlüssel des
-// Masters, wird an mehrere Worker verteilt. Beim Speichern wird sofort verteilt, der Abgleich (alle 60 s und beim
-// Prüfen eines Workers) holt Ausfälle nach. Aufgehobene Zuordnungen und gelöschte Credentials werden beim Worker
-// entfernt. Geheime Werte verlassen den Master nur in Richtung der Worker, nie zurück zur Oberfläche.
+// Shared credentials (M33, global admins only): a credential in the master, encrypted with the master's key,
+// is distributed to several workers. Saving distributes immediately; the sync (every 60 s and when a worker
+// is checked) catches up on failures. Revoked assignments and deleted credentials are removed from the worker.
+// Secret values leave the master only towards the workers, never back to the web interface.
 import type { FastifyInstance } from 'fastify';
 import type { MasterContext } from '../app.js';
 import type { SharedCredentialRow } from '../db.js';
@@ -26,7 +26,7 @@ export function registerSharedCredentialRoutes(api: FastifyInstance, ctx: Master
     return { id: c.id, name: c.name, type: c.type, version: c.version, updatedAt: c.updated_at, workers };
   };
 
-  /** Sofort an alle zugeordneten Worker verteilen und Entfernungen ausführen; Fehler je Worker */
+  /** Distribute immediately to all assigned workers and carry out removals; errors per worker */
   const distribute = async (workerIds: string[]): Promise<string[]> => {
     const errors: string[] = [];
     for (const id of workerIds) {
@@ -44,7 +44,7 @@ export function registerSharedCredentialRoutes(api: FastifyInstance, ctx: Master
   api.get('/api/admin/shared-credentials/:name', async (request, reply) => {
     if (!ctx.requireAdmin(request, reply)) return;
     const c = db.getSharedCredential((request.params as { name: string }).name);
-    if (!c) return reply.code(404).send({ message: 'Credential nicht gefunden' });
+    if (!c) return reply.code(404).send({ message: 'Credential not found' });
     const { data, secretsSet } = redactCredentialData(c.type, JSON.parse(secrets.open(c.data_enc)) as Record<string, unknown>);
     return { ...view(c), data, secretsSet };
   });
@@ -53,18 +53,18 @@ export function registerSharedCredentialRoutes(api: FastifyInstance, ctx: Master
     if (!ctx.requireAdmin(request, reply)) return;
     const name = (request.params as { name: string }).name;
     const body = (request.body ?? {}) as { type?: unknown; data?: unknown; keep?: unknown; rename?: unknown; create?: unknown; workers?: unknown };
-    if (!NAME_OK(name)) return reply.code(400).send({ message: 'Ungültiger Name' });
-    if (typeof body.type !== 'string' || !body.type || body.type.length > 200) return reply.code(400).send({ message: 'Typ fehlt' });
-    if (!body.data || typeof body.data !== 'object' || Array.isArray(body.data)) return reply.code(400).send({ message: 'Daten müssen ein Objekt sein' });
+    if (!NAME_OK(name)) return reply.code(400).send({ message: 'Invalid name' });
+    if (typeof body.type !== 'string' || !body.type || body.type.length > 200) return reply.code(400).send({ message: 'Type is missing' });
+    if (!body.data || typeof body.data !== 'object' || Array.isArray(body.data)) return reply.code(400).send({ message: 'Data must be an object' });
     const rename = typeof body.rename === 'string' && body.rename !== name ? body.rename : undefined;
-    if (rename !== undefined && (!NAME_OK(rename) || db.getSharedCredential(rename))) return reply.code(400).send({ message: 'Ungültiger oder schon vergebener neuer Name' });
+    if (rename !== undefined && (!NAME_OK(rename) || db.getSharedCredential(rename))) return reply.code(400).send({ message: 'New name is invalid or already taken' });
     const existing = db.getSharedCredential(name);
-    if (body.create === true && existing) return reply.code(409).send({ message: `Credential "${name}" existiert bereits` });
+    if (body.create === true && existing) return reply.code(409).send({ message: `Credential "${name}" already exists` });
     const workerIds = Array.isArray(body.workers) ? [...new Set(body.workers.filter((w): w is string => typeof w === 'string'))] : existing ? db.sharedCredentialWorkers(existing.id).map((r) => r.worker_id) : [];
     const unknown = workerIds.filter((id) => !db.getWorker(id));
-    if (unknown.length) return reply.code(400).send({ message: `Unbekannte Worker: ${unknown.join(', ')}` });
+    if (unknown.length) return reply.code(400).send({ message: `Unknown workers: ${unknown.join(', ')}` });
 
-    // Geheime Werte, die die Oberfläche nicht kennt, aus dem gespeicherten Stand übernehmen (gleicher Typ)
+    // Take secret values the web interface does not know from the stored state (same type)
     const data = { ...(body.data as Record<string, unknown>) };
     const keep = Array.isArray(body.keep) ? body.keep.filter((k): k is string => typeof k === 'string') : [];
     if (existing && existing.type === body.type) {
@@ -74,7 +74,7 @@ export function registerSharedCredentialRoutes(api: FastifyInstance, ctx: Master
     const schema = credentialType(body.type);
     if (schema) {
       const missing = schema.fields.filter((f) => f.required && f.kind !== 'hidden' && isFieldVisible(schema, f, data) && (data[f.name] === undefined || data[f.name] === null || data[f.name] === ''));
-      if (missing.length) return reply.code(400).send({ message: `Pflichtfelder fehlen: ${missing.map((f) => f.label).join(', ')}` });
+      if (missing.length) return reply.code(400).send({ message: `Required fields missing: ${missing.map((f) => f.label).join(', ')}` });
     }
 
     const previousWorkers = existing ? db.sharedCredentialWorkers(existing.id).map((r) => r.worker_id) : [];
@@ -88,7 +88,7 @@ export function registerSharedCredentialRoutes(api: FastifyInstance, ctx: Master
   api.delete('/api/admin/shared-credentials/:name', async (request, reply) => {
     if (!ctx.requireAdmin(request, reply)) return;
     const c = db.getSharedCredential((request.params as { name: string }).name);
-    if (!c) return reply.code(404).send({ message: 'Credential nicht gefunden' });
+    if (!c) return reply.code(404).send({ message: 'Credential not found' });
     const workerIds = db.sharedCredentialWorkers(c.id).map((r) => r.worker_id);
     db.queueSharedCredentialRemoval(c.id);
     db.deleteSharedCredential(c.id);

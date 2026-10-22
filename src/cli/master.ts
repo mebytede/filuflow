@@ -1,5 +1,5 @@
-// filuflow master: Master-Server (Benutzer, Rechte, Projekte, Mandanten, Worker) und Benutzerverwaltung
-// auf der Kommandozeile (z. B. erster Admin, Notfall-Zugang bei verlorenem TOTP).
+// filuflow master: master server (users, permissions, projects, tenants, workers) and user management
+// on the command line (e.g. first admin, emergency access after a lost TOTP).
 import { parseArgs } from 'node:util';
 import { resolve } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -9,27 +9,27 @@ import { checkPasswordPolicy, hashPassword } from '../master/auth.js';
 import type { OidcConfig } from '../master/oidc.js';
 import { getLogger } from '../logger.js';
 
-const USAGE = `Aufruf: filuflow master [Optionen]
-       filuflow master user add --email <adresse> [--name <name>] [--admin]
+const USAGE = `Usage: filuflow master [options]
+       filuflow master user add --email <address> [--name <name>] [--admin]
        filuflow master user list
-       filuflow master user set-password --email <adresse>
-       filuflow master user reset-totp --email <adresse>
+       filuflow master user set-password --email <address>
+       filuflow master user reset-totp --email <address>
 
-  --port <zahl>      Port (Default: FILUFLOW_PORT oder 5679)
-  --host <adresse>   Adresse (Default: FILUFLOW_HOST oder 0.0.0.0)
-  --db <pfad>        SQLite-Datei des Masters (Default: FILUFLOW_MASTER_DB oder ./master.db)
+  --port <number>    Port (default: FILUFLOW_PORT or 5679)
+  --host <address>   Address (default: FILUFLOW_HOST or 0.0.0.0)
+  --db <path>        SQLite file of the master (default: FILUFLOW_MASTER_DB or ./master.db)
 
-Umgebung:
-  FILUFLOW_ENCRYPTION_KEY   Pflicht: verschlüsselt Worker-Tokens und TOTP-Schlüssel
-  FILUFLOW_PUBLIC_URL       öffentliche Adresse, z. B. https://filuflow.example (Cookies mit Secure bei https)
-  FILUFLOW_ADMIN_EMAIL, FILUFLOW_ADMIN_PASSWORD   erster Admin beim ersten Start (sonst Einrichtungs-Token im Log)
-  FILUFLOW_SESSION_HOURS    Sitzung läuft nach so vielen Stunden ohne Aktivität ab (Default 12)
-  FILUFLOW_SYNC_SECONDS     Abgleich mit den Workern (Default 60, 0 = aus)
-  FILUFLOW_TRUST_PROXY=true X-Forwarded-For auswerten (nur hinter einem Reverse Proxy)
-  FILUFLOW_OIDC_ISSUER, FILUFLOW_OIDC_CLIENT_ID, FILUFLOW_OIDC_CLIENT_SECRET   OIDC-Anmeldung
+Environment:
+  FILUFLOW_ENCRYPTION_KEY   required: encrypts worker tokens and TOTP secrets
+  FILUFLOW_PUBLIC_URL       public address, e.g. https://filuflow.example (cookies with Secure for https)
+  FILUFLOW_ADMIN_EMAIL, FILUFLOW_ADMIN_PASSWORD   first admin on first start (otherwise a setup token in the log)
+  FILUFLOW_SESSION_HOURS    session expires after this many hours without activity (default 12)
+  FILUFLOW_SYNC_SECONDS     sync with the workers (default 60, 0 = off)
+  FILUFLOW_TRUST_PROXY=true evaluate X-Forwarded-For (only behind a reverse proxy)
+  FILUFLOW_OIDC_ISSUER, FILUFLOW_OIDC_CLIENT_ID, FILUFLOW_OIDC_CLIENT_SECRET   OIDC sign-in
   FILUFLOW_OIDC_LABEL, FILUFLOW_OIDC_SCOPES, FILUFLOW_OIDC_AUTO_CREATE=true, FILUFLOW_OIDC_ADMIN_GROUP,
-  FILUFLOW_OIDC_GROUPS_CLAIM, FILUFLOW_OIDC_ALLOWED_DOMAINS (kommagetrennt)
-  Passwort für "user add/set-password": FILUFLOW_NEW_PASSWORD oder Eingabe
+  FILUFLOW_OIDC_GROUPS_CLAIM, FILUFLOW_OIDC_ALLOWED_DOMAINS (comma-separated)
+  Password for "user add/set-password": FILUFLOW_NEW_PASSWORD or prompt
 `;
 
 function oidcFromEnv(publicUrl: string): OidcConfig | undefined {
@@ -52,7 +52,7 @@ function oidcFromEnv(publicUrl: string): OidcConfig | undefined {
 async function askPassword(prompt: string): Promise<string> {
   if (process.env.FILUFLOW_NEW_PASSWORD) return process.env.FILUFLOW_NEW_PASSWORD;
   if (!process.stdin.isTTY) {
-    // Aus einer Pipe lesen (erste Zeile)
+    // Read from a pipe (first line)
     const rl = createInterface({ input: process.stdin });
     for await (const line of rl) {
       rl.close();
@@ -92,20 +92,20 @@ async function userCommand(args: string[], dbFile: string): Promise<number> {
   try {
     if (sub === 'list') {
       for (const u of db.listUsers()) {
-        process.stdout.write(`${u.email.padEnd(32)} ${u.role.padEnd(7)} ${u.totp_enabled ? 'TOTP' : '    '} ${u.disabled ? 'gesperrt' : ''}\n`);
+        process.stdout.write(`${u.email.padEnd(32)} ${u.role.padEnd(7)} ${u.totp_enabled ? 'TOTP' : '    '} ${u.disabled ? 'disabled' : ''}\n`);
       }
       return 0;
     }
     if (!values.email) {
-      process.stderr.write(`--email fehlt\n\n${USAGE}`);
+      process.stderr.write(`--email is missing\n\n${USAGE}`);
       return 1;
     }
     if (sub === 'add') {
       if (db.getUserByEmail(values.email)) {
-        process.stderr.write('Benutzer existiert bereits\n');
+        process.stderr.write('User already exists\n');
         return 1;
       }
-      const password = await askPassword('Passwort: ');
+      const password = await askPassword('Password: ');
       const policy = checkPasswordPolicy(password);
       if (policy) {
         process.stderr.write(`${policy}\n`);
@@ -113,16 +113,16 @@ async function userCommand(args: string[], dbFile: string): Promise<number> {
       }
       const user = db.createUser({ email: values.email, name: values.name ?? values.email, passwordHash: await hashPassword(password), role: values.admin ? 'admin' : 'member' });
       db.audit({ userId: null, email: null, action: 'user.created_cli', target: user.id, details: { email: user.email, role: user.role } });
-      process.stdout.write(`Benutzer ${user.email} angelegt (${user.role})\n`);
+      process.stdout.write(`User ${user.email} created (${user.role})\n`);
       return 0;
     }
     const user = db.getUserByEmail(values.email);
     if (!user) {
-      process.stderr.write('Benutzer nicht gefunden\n');
+      process.stderr.write('User not found\n');
       return 1;
     }
     if (sub === 'set-password') {
-      const password = await askPassword('Neues Passwort: ');
+      const password = await askPassword('New password: ');
       const policy = checkPasswordPolicy(password);
       if (policy) {
         process.stderr.write(`${policy}\n`);
@@ -131,16 +131,16 @@ async function userCommand(args: string[], dbFile: string): Promise<number> {
       db.updateUser(user.id, { password_hash: await hashPassword(password), failed_logins: 0, locked_until: null, disabled: 0 });
       db.deleteUserSessions(user.id);
       db.audit({ userId: null, email: null, action: 'user.password_cli', target: user.id });
-      process.stdout.write('Passwort gesetzt, Sitzungen beendet\n');
+      process.stdout.write('Password set, sessions ended\n');
       return 0;
     }
     if (sub === 'reset-totp') {
       db.updateUser(user.id, { totp_enabled: 0, totp_secret: null, totp_last_counter: null });
       db.audit({ userId: null, email: null, action: 'user.totp_reset_cli', target: user.id });
-      process.stdout.write('Zwei-Faktor-Anmeldung zurückgesetzt\n');
+      process.stdout.write('Two-factor authentication reset\n');
       return 0;
     }
-    process.stderr.write(`Unbekannter Unterbefehl "${sub ?? ''}"\n\n${USAGE}`);
+    process.stderr.write(`Unknown subcommand "${sub ?? ''}"\n\n${USAGE}`);
     return 1;
   } finally {
     db.close();
@@ -188,7 +188,7 @@ export async function cmdMaster(args: string[]): Promise<number> {
     process.stderr.write(`filuflow master: ${(error as Error).message}\n`);
     return 1;
   }
-  // Erster Admin aus der Umgebung
+  // First admin from the environment
   if (server.db.countUsers() === 0 && env.FILUFLOW_ADMIN_EMAIL && env.FILUFLOW_ADMIN_PASSWORD) {
     const policy = checkPasswordPolicy(env.FILUFLOW_ADMIN_PASSWORD);
     if (policy) {
@@ -197,12 +197,12 @@ export async function cmdMaster(args: string[]): Promise<number> {
       return 1;
     }
     server.db.createUser({ email: env.FILUFLOW_ADMIN_EMAIL, name: env.FILUFLOW_ADMIN_EMAIL, passwordHash: await hashPassword(env.FILUFLOW_ADMIN_PASSWORD), role: 'admin' });
-    logger.info({ email: env.FILUFLOW_ADMIN_EMAIL }, 'Erster Admin angelegt');
+    logger.info({ email: env.FILUFLOW_ADMIN_EMAIL }, 'First admin created');
   }
   await server.app.listen({ port, host });
-  logger.info({ port, host, publicUrl, oidc: env.FILUFLOW_OIDC_ISSUER ? 'aktiv' : 'aus' }, 'filuflow-Master läuft');
+  logger.info({ port, host, publicUrl, oidc: env.FILUFLOW_OIDC_ISSUER ? 'active' : 'off' }, 'filuflow master running');
   if (server.db.countUsers() === 0 && server.setupToken) {
-    logger.warn({ url: `${publicUrl}/#/setup`, setupToken: server.setupToken }, 'Noch kein Benutzer: ersten Admin mit diesem Einrichtungs-Token anlegen');
+    logger.warn({ url: `${publicUrl}/#/setup`, setupToken: server.setupToken }, 'No user yet: create the first admin with this setup token');
   }
   await new Promise<void>((resolveStop) => {
     process.once('SIGINT', () => resolveStop());

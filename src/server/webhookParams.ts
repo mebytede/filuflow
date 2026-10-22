@@ -1,8 +1,8 @@
-// Expressions in den Parametern des Webhook-Knotens (path, httpMethod, responseMode, responseData, options …).
-// Nachgebaut nach n8n 1.123.0: packages/cli/src/webhooks/webhook.service.ts getNodeWebhooks wertet path und httpMethod
-// mit getSimpleParameterValue(node, …, 'internal', {}) aus, also ohne Items; packages/cli/src/webhooks/webhook-helpers.ts
-// executeWebhook wertet responseMode und responseData ebenso ohne Items aus. Verfügbar sind damit $parameter, $vars,
-// $env, $now, $workflow und Ähnliches, aber kein $json.
+// Expressions in the parameters of the Webhook node (path, httpMethod, responseMode, responseData, options ...).
+// Modeled on n8n 1.123.0: packages/cli/src/webhooks/webhook.service.ts getNodeWebhooks evaluates path and httpMethod
+// with getSimpleParameterValue(node, ..., 'internal', {}), i.e. without items; packages/cli/src/webhooks/webhook-helpers.ts
+// executeWebhook likewise evaluates responseMode and responseData without items. So $parameter, $vars,
+// $env, $now, $workflow and similar are available, but not $json.
 import type { Workflow, WorkflowNode } from '../types.js';
 import { WorkflowGraph } from '../engine/graph.js';
 import { DEFAULT_TIMEZONE } from '../engine/executor.js';
@@ -10,8 +10,8 @@ import { allowedEnv, createDataProxy } from '../expressions/proxy.js';
 import { containsExpression, resolveParameterValue } from '../expressions/resolve.js';
 
 /**
- * Kopie des Knotens mit ausgewerteten Parametern. Ohne Expressions kommt der Knoten selbst zurück. Fehler in einer
- * Expression werden weitergereicht (bei der Aktivierung als Aktivierungsfehler, beim Aufruf als Antwort 500).
+ * Copy of the node with evaluated parameters. Without expressions the node itself is returned. Errors in an
+ * expression are passed on (on activation as an activation error, on a call as a 500 response).
  */
 export function resolveWebhookNode(workflow: Workflow, node: WorkflowNode, vars: Record<string, unknown> = {}): WorkflowNode {
   if (!containsExpression(node.parameters)) return node;

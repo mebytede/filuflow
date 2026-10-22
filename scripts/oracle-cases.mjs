@@ -1,4 +1,4 @@
-// Erzeugt Testfälle für Orakel-Tabellen (Filter-Operatoren), die mit echtem n8n ausgewertet werden.
+// Generates test cases for oracle tables (filter operators) that are evaluated with real n8n.
 export function filterCases() {
   const values = [
     null, undefined, '', ' ', '0', '1', '5', '5.5', 'abc', 'ABC', 'true', 'false', 'TRUE',
@@ -47,7 +47,7 @@ export function filterCases() {
   return cases;
 }
 
-/** Daten für $json in Expression-Fällen */
+/** Data for $json in expression cases */
 export const EXPRESSION_DATA = {
   s: 'hello world. this is n8n! ok?',
   t: '  Mixed Case  Text ',
@@ -109,8 +109,8 @@ export function extensionCases() {
       add(`{{ ${d}.${fn} }}`);
     }
   }
-  // Generische und Sonderfälle
-  // Allgemeine Expression-Semantik
+  // Generic and special cases
+  // General expression semantics
   add('a {{ $json.obj }}', '{{ $json.obj }}', '{{ DateTime.fromISO("2024-01-01T00:00:00.000Z") }} x', '{{ [1, [2, 3]] }}x', '{{ $json.gibts.tief }}', 'x{{ $json.gibts.tief }}y', '{{ 1 + }}', '{{ $json["s"] }}', '{{ $json.constructor }}', '{{ (() => 5)() }}', '{{ (function () { return 1 })() }}', '{{ typeof $json }}', '{{ $json.s.replace(/o/g, "0") }}', '{{ JSON.stringify($json.obj) }}', '{{ new Date(0).toISOString() }}', '{{ $json.arr.map(x => x * 2).join("-") }}', '{{ Object.entries($json.obj).length }}', '{{ $json.empty || "fallback" }}', '{{ `template ${$json.int}` }}', '{{ $json.num.toFixed(2) }}', '{{ $json.objs.find(o => o.id === 2).name }}', '{{ $json.objs.filter(o => o.id === 1).length }}', '{{ $json.int ?? 5 }}', '{{ { a: 1 } }}', '{{ [] }}', '{{ "" }}', 'nur text', '{{ $json.s.split(" ") }}', '{{ $input.item.json.int }}', '{{ $itemIndex }}', '{{ $runIndex }}', '{{ $workflow.name }}', '{{ $execution.mode }}', '{{ $json.int > 3 && $json.bool }}', '{{ null }}{{ undefined }}{{ false }}{{ 0 }}', '{{ $json.arr.length > 2 ? "viel" : "wenig" }}', '{{ String($json.int).padStart(3, "0") }}', '{{ parseInt("08", 10) + parseFloat("1.5") }}', '{{ Math.round($json.num * 100) / 100 }}', '{{ encodeURIComponent($json.url) }}', '{{ $json.sarr.sort() }}', '{{ $json.s.match(/\\w+/g).length }}', '{{ new Set($json.arr).size }}', '{{ Array.from({ length: 3 }, (_, i) => i) }}', '{{ $json.s.toUpperCase() }}', '{{ $json.s.substring(0, 5) }}', '{{ $json.t.trim().split(/\\s+/) }}', '{{ $json["obj"]["d"]["e"] }}', '{{ $json.obj.d?.f?.g }}', '{{ $json.objs[1]?.name }}', '{{ $jmespath($json.objs, "[?id==`1`].v") }}', '{{ $min(1, 2) }}{{ $max(3, 4) }}', '{{ $ifEmpty($json.emptyArr, "leer") }}', '{{ $if($json.zero, "ja", "nein") }}', '{{ Duration.fromObject({ hours: 2 }).as("minutes") }}', '{{ DateTime.fromISO("2024-02-29").plus({ years: 1 }).toISODate() }}', '{{ $json.missing.name }}', '{{ $json.missing }}', 'Wert: {{ $json.missing }}!');
   add('{{ null.isEmpty() }}', '{{ $json.gibts?.isEmpty() }}', '{{ $json.gibts.isEmpty() }}', '{{ $json.gibts.first() }}', '{{ $json.gibts?.first() }}', '{{ $json.int.toTitleCase() }}', '{{ $json.s.sum() }}', '{{ $json.s.gibtsNicht() }}', '{{ $json.s.toUpperCase().toTitleCase() }}', '{{ $json.objs.pluck("v").sum().round(1) }}', '{{ $if($json.int > 5, "gross", "klein") }}', '{{ $json.s.split(" ").first() }}', '{{ $json.sarr.unique().length }}', '{{ $json.objs[0]?.name?.toTitleCase() }}', '{{ "abc".includes("b") }}', '{{ [1,2,3].includes(2) }}', '{{ $json.obj.keys().length }}', '{{ $json.iso.toDateTime().plus(1, "week").toISO() }}', '{{ $json.iso.toDateTime().minus(1, "hrs").format("HH:mm") }}', '{{ $ifEmpty($json.empty, "leer") }}', '{{ $json.objs.map(o => o.name).compact().unique() }}', '{{ Math.max(...$json.arr) }}', '{{ $json.num.format("de-DE", { maximumFractionDigits: 1 }) }}', '{{ $json.s.length }}');
   return c;

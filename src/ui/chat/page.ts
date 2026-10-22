@@ -1,6 +1,6 @@
-// Gehostete Chat-Seite des Chat Triggers (öffentlich, Modus "Hosted Chat"). Die Einstellungen kommen als JSON aus der
-// Seite (#chat-config). Nachrichten gehen wie beim Chat-Widget von n8n als JSON an die Nachrichten-URL:
-// { action: "sendMessage", sessionId, chatInput }; frühere Nachrichten mit { action: "loadPreviousSession", sessionId }.
+// Hosted chat page of the Chat Trigger (public, "Hosted Chat" mode). The settings come as JSON from the
+// page (#chat-config). Messages go as JSON to the message URL, as with the n8n chat widget:
+// { action: "sendMessage", sessionId, chatInput }; earlier messages with { action: "loadPreviousSession", sessionId }.
 import { ChatView, readChunks, replyText, type ChatMessage, type StreamSink } from './view.js';
 
 interface Config {
@@ -10,9 +10,9 @@ interface Config {
   title?: string;
   subtitle?: string;
   inputPlaceholder?: string;
-  /** responseMode "streaming": Antwort als JSON-Zeilen */
+  /** responseMode "streaming": reply as JSON lines */
   enableStreaming?: boolean;
-  /** responseMode "responseNodes": Antworten kommen über den Chat-Kanal der Ausführung */
+  /** responseMode "responseNodes": replies come through the execution's chat channel */
   responseNodes?: boolean;
 }
 
@@ -34,15 +34,15 @@ function sessionId(): string {
 const session = sessionId();
 
 async function request(body: Record<string, unknown>): Promise<Response> {
-  // Relative Adresse, damit die Seite auch hinter einem Proxy funktioniert
+  // Relative address so the page also works behind a proxy
   const url = new URL(config.webhookUrl);
   return fetch(url.pathname + url.search, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
 }
 
-/** Gestreamte Antwort lesen (n8n @n8n/chat sendMessageStreaming) */
+/** Read a streamed reply (n8n @n8n/chat sendMessageStreaming) */
 async function postStreaming(body: Record<string, unknown>, sink: StreamSink): Promise<null> {
   const res = await request(body);
-  if (!res.ok || !res.body) throw new Error(`Fehler beim Senden der Nachricht: ${await res.text()}`);
+  if (!res.ok || !res.body) throw new Error(`Error sending the message: ${await res.text()}`);
   await readChunks(res.body, sink);
   return null;
 }
@@ -54,7 +54,7 @@ async function post(body: Record<string, unknown>): Promise<unknown> {
   try {
     data = text ? JSON.parse(text) : undefined;
   } catch {
-    // Text bleibt Text
+    // Text stays text
   }
   if (!res.ok) throw new Error(typeof data === 'object' && data && 'message' in data ? String((data as { message: unknown }).message) : `HTTP ${res.status}`);
   return data;
@@ -67,8 +67,8 @@ const initial: ChatMessage[] = (config.initialMessages ?? '')
   .map((text) => ({ from: 'bot' as const, text }));
 
 /**
- * Chat mit Antwortknoten (n8n: WebSocket /chat): Die erste Nachricht startet die Ausführung, danach liefert
- * /chat/<id>/events die Nachrichten der Knoten, Antworten gehen als POST an /chat/<id>.
+ * Chat with response nodes (n8n: WebSocket /chat): the first message starts the execution, after that
+ * /chat/<id>/events delivers the nodes' messages, replies go as POST to /chat/<id>.
  */
 let channel: { executionId: string; source: EventSource; waiting: boolean } | undefined;
 
@@ -89,7 +89,7 @@ function openChannel(executionId: string): void {
     view.add({ from: 'bot', text });
     current.waiting = true;
   });
-  // Keine Eingabe nötig: die Ausführung läuft weiter
+  // No input needed: the execution continues
   source.addEventListener('continue', () => {
     current.waiting = false;
     view.typing(true);
@@ -101,7 +101,7 @@ function openChannel(executionId: string): void {
   source.addEventListener('error', (e) => {
     const data = (e as MessageEvent<string>).data;
     view.typing(false);
-    if (data) view.add({ from: 'bot', text: (JSON.parse(data) as { message?: string }).message ?? 'Fehler', error: true });
+    if (data) view.add({ from: 'bot', text: (JSON.parse(data) as { message?: string }).message ?? 'Error', error: true });
     if (source.readyState === EventSource.CLOSED || data) closeChannel();
   });
 }
@@ -122,7 +122,7 @@ async function sendResponseNodes(chatInput: string): Promise<undefined> {
 const view = new ChatView({
   title: config.title ?? 'Chat',
   subtitle: config.subtitle,
-  placeholder: config.inputPlaceholder ?? 'Nachricht eingeben',
+  placeholder: config.inputPlaceholder ?? 'Type a message',
   initial,
   send: async (chatInput, sink) =>
     config.responseNodes

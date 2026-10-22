@@ -1,14 +1,14 @@
 // Manual Trigger, n8n-nodes-base.manualTrigger
-// n8n reicht außerhalb des manuellen Modus die Startdaten durch (workflow-execute.ts executeTriggerNode);
-// im manuellen Modus liefert der Trigger [{ json: {} }]. filuflow: CLI-Input oder [{ json: {} }].
+// Outside manual mode n8n passes the start data through (workflow-execute.ts executeTriggerNode);
+// in manual mode the trigger returns [{ json: {} }]. filuflow: CLI input or [{ json: {} }].
 import type { NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
 
-// Parameter wie packages/nodes-base/nodes/ManualTrigger/ManualTrigger.node.ts (nur ein Hinweis)
+// Parameters as in packages/nodes-base/nodes/ManualTrigger/ManualTrigger.node.ts (only a notice)
 const parameters: ParamSchema[] = [
   {
     name: 'notice',
-    label: 'Hier startet die Ausführung, wenn Sie den Workflow im Editor von Hand starten. Für Zeitpläne oder Webhooks gibt es eigene Trigger.',
+    label: 'This is where the workflow execution starts when you run it manually in the editor. There are separate triggers for schedules and webhooks.',
     type: 'notice',
     default: '',
   },

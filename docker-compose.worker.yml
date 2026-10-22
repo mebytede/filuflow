@@ -1,5 +1,5 @@
-# filuflow-Worker in der Umgebung eines Mandanten. Der Master verbindet sich mit FILUFLOW_API_KEY hierher.
-#   FILUFLOW_API_KEY=... FILUFLOW_ENCRYPTION_KEY=... FILUFLOW_WEBHOOK_URL=https://flows.kunde.example/ \
+# filuflow worker in a tenant's environment. The master connects here using FILUFLOW_API_KEY.
+#   FILUFLOW_API_KEY=... FILUFLOW_ENCRYPTION_KEY=... FILUFLOW_WEBHOOK_URL=https://flows.customer.example/ \
 #     docker compose -f docker-compose.worker.yml up -d
 services:
   worker:
@@ -9,17 +9,17 @@ services:
     ports:
       - "5678:5678"
     environment:
-      FILUFLOW_API_KEY: ${FILUFLOW_API_KEY:?FILUFLOW_API_KEY setzen (mindestens 16 Zeichen, im Master beim Worker eintragen)}
-      # verschlüsselt die vom Master gesetzten Credentials (credentials.managed.json)
+      FILUFLOW_API_KEY: ${FILUFLOW_API_KEY:?set FILUFLOW_API_KEY (at least 16 characters, enter it for the worker in the master)}
+      # encrypts the credentials set by the master (credentials.managed.json)
       FILUFLOW_ENCRYPTION_KEY: ${FILUFLOW_ENCRYPTION_KEY:-}
       FILUFLOW_WEBHOOK_URL: ${FILUFLOW_WEBHOOK_URL:-http://localhost:5678/}
       FILUFLOW_TIMEZONE: ${FILUFLOW_TIMEZONE:-Europe/Berlin}
       FILUFLOW_MANAGED_CREDENTIALS: /data/state/credentials.managed.json
     volumes:
-      # Workflows schreibt der Master; zusätzlich von Hand abgelegte Dateien bleiben unberührt
+      # the master writes workflows; files added by hand are left untouched
       - filuflow-workflows:/data/workflows
       - filuflow-state:/data/state
-      # optional, von Hand gepflegt (vom Master nicht überschreibbar):
+      # optional, maintained by hand (cannot be overwritten by the master):
       # - ./credentials.json:/data/credentials.json:ro
     command: ["node", "/app/bin/filuflow.js", "worker", "--db", "/data/state/filuflow.db"]
 volumes:

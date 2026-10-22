@@ -1,4 +1,4 @@
-// filuflow nodes [--json]: unterstützte Node-Typen und Versionen
+// filuflow nodes [--json]: supported node types and versions
 import { parseArgs } from 'node:util';
 import { getDefaultRegistry } from '../nodes/index.js';
 

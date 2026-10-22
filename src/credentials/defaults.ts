@@ -1,18 +1,18 @@
-// Defaults eines Credentials beim Laden (M28), wie n8n 1.123.0 CredentialsHelper.applyDefaultsAndOverwrites
-// (packages/cli/src/credentials-helper.ts): NodeHelpers.getNodeParameters ergänzt fehlende Werte sichtbarer Felder
-// (auch geerbter und versteckter) mit ihrem Default, danach werden Ausdrücke mit $self (den Werten des Credentials)
-// ausgewertet. filuflow wertet Ausdrücke nur in versteckten Feldern aus: sie kommen aus der Typbeschreibung oder aus
-// einem n8n-Export, eingegebene Werte (z. B. ein Passwort, das mit "=" beginnt) bleiben unverändert.
+// Defaults of a credential on load (M28), as in n8n 1.123.0 CredentialsHelper.applyDefaultsAndOverwrites
+// (packages/cli/src/credentials-helper.ts): NodeHelpers.getNodeParameters fills missing values of visible fields
+// (including inherited and hidden ones) with their default, then expressions with $self (the values of the credential)
+// are evaluated. filuflow evaluates expressions only in hidden fields: they come from the type description or from
+// an n8n export; entered values (e.g. a password that starts with "=") stay unchanged.
 import vm from 'node:vm';
 import { credentialType, isFieldVisible } from './types.js';
 
 const EXPRESSION_TIMEOUT_MS = 1000;
 
-/** "={{ … }}" bzw. "=Text{{ … }}Text" mit $self auswerten; ein einzelner Ausdruck behält seinen Typ */
+/** Evaluate "={{ ... }}" or "=Text{{ ... }}Text" with $self; a single expression keeps its type */
 export function resolveCredentialExpression(value: unknown, self: Record<string, unknown>): unknown {
   if (typeof value !== 'string' || !value.startsWith('=')) return value;
   const template = value.slice(1);
-  // Typbeschreibungen und Credentials stammen von Betreibern (vertrauenswürdig); vm mit Zeitlimit wie bei Expressions
+  // Type descriptions and credentials come from operators (trusted); vm with a time limit as for expressions
   const context = vm.createContext({ $self: self });
   const evaluate = (code: string): unknown => vm.runInContext(`(${code})`, context, { timeout: EXPRESSION_TIMEOUT_MS });
   const whole = /^\s*\{\{([\s\S]*)\}\}\s*$/.exec(template);
@@ -23,12 +23,12 @@ export function resolveCredentialExpression(value: unknown, self: Record<string,
   });
 }
 
-/** Fehlende Werte mit den Defaults des Typs ergänzen, Ausdrücke versteckter Felder auswerten */
+/** Fill missing values with the defaults of the type, evaluate expressions of hidden fields */
 export function applySchemaDefaults(type: string, data: Record<string, unknown>): Record<string, unknown> {
   const schema = credentialType(type);
   if (!schema) return data;
   const out = { ...data };
-  // Erst die eigenen Werte, dann Defaults in der Reihenfolge der Felder (Sichtbarkeit hängt von früheren Werten ab)
+  // First the own values, then defaults in field order (visibility depends on earlier values)
   for (const field of schema.fields) {
     if (out[field.name] !== undefined || field.default === undefined) continue;
     if (isFieldVisible(schema, field, out)) out[field.name] = field.default;

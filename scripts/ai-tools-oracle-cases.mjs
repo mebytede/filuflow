@@ -1,4 +1,4 @@
-// Eingaben für scripts/record-ai-tools-oracle.sh
+// Inputs for scripts/record-ai-tools-oracle.sh
 export const CALCULATOR = [
   '21*2', '7^2', '2+3*4', '(2+3)*4', '1/3', '2/0', '-5+2', '5!', '10 Mod 3', '10%3', 'sqrt(16)', 'root 16', 'root(16)',
   'sin(90)', 'cos(0)', 'tan(45)', 'log 100', 'ln 1', 'pi', 'pi*2', 'e', '2e3', '1.5*2', '0.1+0.2', '3^-1', '2^3^2',

@@ -1,5 +1,5 @@
-// Erweiterungsfunktionen für Datumswerte (luxon DateTime und JS Date).
-// Verhalten nachgebaut nach n8n 1.123.0 packages/workflow/src/extensions/date-extensions.ts und utils.ts
+// Extension functions for date values (luxon DateTime and JS Date).
+// Behavior rebuilt after n8n 1.123.0 packages/workflow/src/extensions/date-extensions.ts and utils.ts
 import { DateTime, type DateTimeUnit, type DurationLike, type LocaleOptions } from 'luxon';
 import { ExpressionExtensionError } from '../../errors.js';
 import type { ExtensionFunction, ExtensionMap } from './types.js';

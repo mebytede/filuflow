@@ -1,7 +1,7 @@
-// Graph-Hilfen über einem Workflow.
-// Verhalten nachgebaut nach n8n 1.123.0:
+// Graph helpers on top of a workflow.
+// Behavior rebuilt after n8n 1.123.0:
 //   packages/workflow/src/workflow.ts (getNodeConnectionIndexes, getStartNode)
-//   packages/workflow/src/common/get-connected-nodes.ts (Reihenfolge der Eltern)
+//   packages/workflow/src/common/get-connected-nodes.ts (order of parents)
 //   packages/workflow/src/common/map-connections-by-destination.ts
 import type { Connection, Connections, Workflow, WorkflowNode } from '../types.js';
 
@@ -11,7 +11,7 @@ export class WorkflowGraph {
   readonly workflow: Workflow;
   readonly nodes: Record<string, WorkflowNode> = {};
   readonly bySource: Connections;
-  /** byDestination[ziel][typ][eingangsindex] = [{ node: quelle, index: ausgangsindex }] */
+  /** byDestination[target][type][inputIndex] = [{ node: source, index: outputIndex }] */
   readonly byDestination: Connections;
 
   constructor(workflow: Workflow) {
@@ -35,7 +35,7 @@ export class WorkflowGraph {
     return Object.hasOwn(this.nodes, name) ? this.nodes[name] : null;
   }
 
-  /** Anzahl Main-Eingänge laut Verbindungen (n8n: connectionsByDestinationNode[x].main.length) */
+  /** Number of main inputs according to connections (n8n: connectionsByDestinationNode[x].main.length) */
   mainInputCount(name: string): number {
     return this.byDestination[name]?.main?.length ?? 0;
   }
@@ -49,8 +49,8 @@ export class WorkflowGraph {
   }
 
   /**
-   * Über welchen Ausgang ist `parentName` (direkt oder indirekt) mit `nodeName` verbunden.
-   * Breitensuche rückwärts wie n8n getNodeConnectionIndexes.
+   * Via which output `parentName` is connected (directly or indirectly) to `nodeName`.
+   * Backward breadth-first search like n8n getNodeConnectionIndexes.
    */
   getNodeConnectionIndexes(
     nodeName: string,
@@ -80,10 +80,10 @@ export class WorkflowGraph {
     return undefined;
   }
 
-  /** Sub-Nodes, die per ai_*-Verbindung an `name` hängen (Quelle = Sub-Node). */
+  /** Sub-nodes attached to `name` via an ai_* connection (source = sub-node). */
   /**
-   * n8n Workflow.getHighestNode: oberste aktive Vorgänger über main (für ensureInputData). Wie n8n zählt der Knoten
-   * selbst nur mit disabled === false.
+   * n8n Workflow.getHighestNode: topmost active predecessors via main (for ensureInputData). Like n8n, the node itself
+   * only counts with disabled === false.
    */
   getHighestNode(name: string, connectionIndex?: number, checked: string[] = []): string[] {
     const current: string[] = [];

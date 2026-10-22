@@ -1,4 +1,4 @@
-// Alle eingebauten Node-Typen. Ein Node-Typ = eine Datei unter src/nodes/<typname>.ts.
+// All built-in node types. One node type = one file under src/nodes/<typename>.ts.
 import { NodeRegistry } from './registry.js';
 import type { NodeType } from './types.js';
 import { codeNode } from './code.js';

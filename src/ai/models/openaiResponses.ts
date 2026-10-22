@@ -1,9 +1,9 @@
-// OpenAI Responses API wie n8n 1.123.0 (LmChatOpenAi v1.3 mit responsesApiEnabled) und @langchain/openai 1.1.3:
+// OpenAI Responses API as in n8n 1.123.0 (LmChatOpenAi v1.3 with responsesApiEnabled) and @langchain/openai 1.1.3:
 //   dist/chat_models/responses.js (invocationParams, _generate, _reduceChatOpenAITools)
 //   dist/converters/responses.js (convertMessagesToResponsesInput, convertResponsesMessageToAIMessage,
 //   convertResponsesUsageToUsageMetadata)
-// Eigene Umsetzung des beobachtbaren Verhaltens. Eingebaute Tools (Websuche, Dateisuche, Code Interpreter) gibt n8n als
-// Metadaten des Modells weiter; nur der Tools Agent V3 hängt sie an die Tools an (createAgentSequence getAllTools).
+// Own implementation of the observable behavior. n8n passes built-in tools (web search, file search, code interpreter) on as
+// metadata of the model; only Tools Agent V3 appends them to the tools (createAgentSequence getAllTools).
 import type { ExecContext } from '../../nodes/types.js';
 import type { ChatMessage, ContentPart, ToolCall } from '../messages.js';
 import { ChatModel, type ChatResult, type ModelCallOptions } from './base.js';
@@ -15,14 +15,14 @@ export interface OpenAiResponsesOptions {
   temperature?: number;
   topP?: number;
   maxTokens?: number;
-  /** prepareAdditionalResponsesParams (text, reasoning, metadata, prompt, conversation …) */
+  /** prepareAdditionalResponsesParams (text, reasoning, metadata, prompt, conversation, ...) */
   modelKwargs?: Record<string, unknown>;
   headers?: Record<string, string>;
   /** formatBuiltInTools: web_search, code_interpreter, file_search */
   builtInTools?: Array<Record<string, unknown>>;
 }
 
-/** Daten der Responses API an einer AI-Nachricht, um sie im nächsten Aufruf wieder als Eingabe zu senden */
+/** Responses API data on an AI message, to send it again as input in the next call */
 interface ResponsesRaw {
   responses: {
     id?: string;
@@ -39,7 +39,7 @@ function isReasoningModel(model: string): boolean {
   return /^o\d/.test(model) || (model.startsWith('gpt-5') && !model.startsWith('gpt-5-chat'));
 }
 
-/** reasoning-Eintrag: Teile der Zusammenfassung mit gleichem index zusammenfügen (convertReasoningSummaryToResponsesReasoningItem) */
+/** reasoning entry: join summary parts with the same index (convertReasoningSummaryToResponsesReasoningItem) */
 function reasoningItem(reasoning: Record<string, unknown>): Record<string, unknown> {
   const summary = (reasoning.summary as Array<{ text: string; type: string; index?: number }> | undefined) ?? [];
   if (summary.length <= 1) return { ...reasoning, summary: summary.map(({ index: _i, ...rest }) => rest) };
@@ -62,7 +62,7 @@ export class OpenAiResponsesModel extends ChatModel {
     super(ctx, opts.model, { model: opts.model, temperature: opts.temperature, maxTokens: opts.maxTokens, topP: opts.topP });
   }
 
-  /** Eingebaute Tools aus den Modell-Metadaten (n8n model.metadata.tools) */
+  /** Built-in tools from the model metadata (n8n model.metadata.tools) */
   get builtInTools(): Array<Record<string, unknown>> {
     return this.opts.builtInTools ?? [];
   }
@@ -78,7 +78,7 @@ export class OpenAiResponsesModel extends ChatModel {
         const raw = (m.raw as ResponsesRaw | undefined)?.responses;
         const input: unknown[] = [];
         if (raw?.reasoning) input.push(reasoningItem(raw.reasoning));
-        // Inhalt wie die AIMessage: Blöcke aus der Responses API, sonst Text (z. B. aus dem Memory)
+        // Content like the AIMessage: blocks from the Responses API, otherwise text (e.g. from memory)
         const content = m.lc?.content ?? m.content;
         if (typeof content === 'string' ? true : Array.isArray(content) && content.length > 0) {
           input.push({
@@ -109,7 +109,7 @@ export class OpenAiResponsesModel extends ChatModel {
     });
   }
 
-  /** Streaming: Text-Teile an onToken, die vollständige Antwort aus dem Ereignis response.completed */
+  /** Streaming: text chunks to onToken, the complete response from the response.completed event */
   private async stream(url: string, headers: Record<string, string>, body: Record<string, unknown>, signal: AbortSignal | undefined, onToken: (text: string) => void): Promise<Record<string, unknown>> {
     let final: Record<string, unknown> | undefined;
     let failure: { message?: string; code?: string } | undefined;
@@ -125,8 +125,8 @@ export class OpenAiResponsesModel extends ChatModel {
       else if (event.type === 'response.failed') failure = (event.response?.error as typeof failure) ?? { message: 'Response failed' };
       else if (event.type === 'error') failure = { message: event.message, code: event.code };
     });
-    if (failure) throw Object.assign(new Error(failure.message ?? 'OpenAI-Fehler'), { name: failure.code ?? 'Error' });
-    if (!final) throw new Error('Die Antwort der Responses API endete ohne response.completed');
+    if (failure) throw Object.assign(new Error(failure.message ?? 'OpenAI error'), { name: failure.code ?? 'Error' });
+    if (!final) throw new Error('The Responses API response ended without response.completed');
     return final;
   }
 
@@ -134,7 +134,7 @@ export class OpenAiResponsesModel extends ChatModel {
     const o = this.opts;
     const tools: unknown[] = (options.tools ?? []).map((t) => ({ type: 'function', name: t.name, parameters: t.schema, description: t.description, strict: null }));
     if (options.includeBuiltInTools) tools.push(...this.builtInTools);
-    // Reihenfolge wie _generate: input, invocationParams, stream
+    // Order as in _generate: input, invocationParams, stream
     const body: Record<string, unknown> = {
       input: this.toInput(messages),
       model: o.model,
@@ -156,7 +156,7 @@ export class OpenAiResponsesModel extends ChatModel {
   /** convertResponsesMessageToAIMessage */
   private toResult(response: Record<string, unknown>): ChatResult {
     const error = response.error as { message?: string; code?: string } | null | undefined;
-    if (error) throw Object.assign(new Error(error.message ?? 'OpenAI-Fehler'), { name: error.code ?? 'Error' });
+    if (error) throw Object.assign(new Error(error.message ?? 'OpenAI error'), { name: error.code ?? 'Error' });
     let messageId: string | undefined;
     const content: Array<Record<string, unknown>> = [];
     const toolCalls: ToolCall[] = [];
@@ -190,7 +190,7 @@ export class OpenAiResponsesModel extends ChatModel {
     }
     if (Object.keys(functionCallIds).length) additional.__openai_function_call_ids__ = functionCallIds;
     if (toolOutputs.length) additional.tool_outputs = toolOutputs;
-    // output_text der SDK: alle Textteile aneinander
+    // output_text of the SDK: all text parts concatenated
     const text = content
       .filter((b) => b.type === 'text')
       .map((b) => String(b.text ?? ''))
@@ -227,7 +227,7 @@ export class OpenAiResponsesModel extends ChatModel {
       },
     };
     const raw: ResponsesRaw = { responses: { id: messageId, ...(reasoning ? { reasoning } : {}), functionCallIds, toolOutputs } };
-    // Nutzung steht bei der Responses API nur in llmOutput.estimatedTokenUsage; das Tracing von n8n schätzt deshalb
+    // With the Responses API usage is only in llmOutput.estimatedTokenUsage; n8n's tracing therefore estimates
     return {
       message: { role: 'ai', content: text, toolCalls, raw, lc: { content, kwargs: lcKwargs } },
       text,

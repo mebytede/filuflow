@@ -1,4 +1,5 @@
-// Kleine DOM-Helfer (kein Framework). Texte werden immer als Textknoten eingefügt, nie als HTML.
+// Small DOM helpers (no framework). Texts are always inserted as text nodes, never as HTML.
+import { dateLocale, t } from './i18n.js';
 
 type Child = Node | string | number | null | undefined | false | Child[];
 type Attrs = Record<string, unknown> & {
@@ -7,7 +8,7 @@ type Attrs = Record<string, unknown> & {
   dataset?: Record<string, string>;
 };
 
-/** Wie Element.append, aber mit null, false und verschachtelten Listen */
+/** Like Element.append, but with null, false and nested lists */
 export function appendAll(el: Element, ...children: Child[]): void {
   for (const c of children) append(el, c);
 }
@@ -33,7 +34,7 @@ function applyAttrs(el: Element, attrs: Attrs | undefined): void {
   }
 }
 
-/** HTML-Element erzeugen */
+/** Create an HTML element */
 export function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs?: Attrs | null, ...children: Child[]): HTMLElementTagNameMap[K] {
   const el = document.createElement(tag);
   applyAttrs(el, attrs ?? undefined);
@@ -43,7 +44,7 @@ export function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs?: Attrs |
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
-/** SVG-Element erzeugen */
+/** Create an SVG element */
 export function s<K extends keyof SVGElementTagNameMap>(tag: K, attrs?: Record<string, unknown> | null, ...children: Child[]): SVGElementTagNameMap[K] {
   const el = document.createElementNS(SVG_NS, tag);
   if (attrs) {
@@ -62,7 +63,7 @@ export function clear(el: Element): void {
   while (el.firstChild) el.firstChild.remove();
 }
 
-/** Kurze Meldung unten rechts */
+/** Short message at the bottom right */
 export function toast(message: string, kind: 'info' | 'error' | 'success' = 'info'): void {
   let host = document.getElementById('toasts');
   if (!host) {
@@ -75,8 +76,8 @@ export function toast(message: string, kind: 'info' | 'error' | 'success' = 'inf
   setTimeout(() => el.remove(), kind === 'error' ? 6500 : 3500);
 }
 
-/** Modaler Dialog; liefert ein Promise, das mit dem Ergebnis von onConfirm oder null endet */
-/** Dialog; onConfirm darf asynchron sein (Knopf ist dann gesperrt), undefined lässt den Dialog offen */
+/** Modal dialog; returns a promise that resolves with the result of onConfirm or null */
+/** Dialog; onConfirm may be async (the button is disabled meanwhile), undefined keeps the dialog open */
 export function dialog<T>(title: string, body: Node, opts: { confirm?: string; cancel?: string; onConfirm?: () => T | undefined | Promise<T | undefined>; wide?: boolean } = {}): Promise<T | null> {
   return new Promise((resolve) => {
     const close = (value: T | null) => {
@@ -112,7 +113,7 @@ export function dialog<T>(title: string, body: Node, opts: { confirm?: string; c
         h(
           'div',
           { class: 'modal-actions' },
-          opts.cancel !== '' && h('button', { class: 'btn', type: 'button', onclick: () => close(null) }, opts.cancel ?? 'Abbrechen'),
+          opts.cancel !== '' && h('button', { class: 'btn', type: 'button', onclick: () => close(null) }, opts.cancel ?? t('Cancel')),
           opts.confirm !== '' && h('button', { class: 'btn btn-primary', type: 'button', onclick: confirm }, opts.confirm ?? 'OK'),
         ),
       ),
@@ -124,14 +125,14 @@ export function dialog<T>(title: string, body: Node, opts: { confirm?: string; c
   });
 }
 
-export function confirmDialog(title: string, text: string, confirm = 'Löschen'): Promise<boolean> {
+export function confirmDialog(title: string, text: string, confirm = t('Delete')): Promise<boolean> {
   return dialog<boolean>(title, h('p', null, text), { confirm }).then((r) => r === true);
 }
 
 export function formatDate(iso: string | undefined): string {
   if (!iso) return '';
   const d = new Date(iso);
-  return d.toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'medium' });
+  return d.toLocaleString(dateLocale(), { dateStyle: 'short', timeStyle: 'medium' });
 }
 
 export function formatDuration(start?: string, stop?: string): string {

@@ -1,8 +1,8 @@
-// No Operation, n8n-nodes-base.noOp (packages/nodes-base/nodes/NoOp/NoOp.node.ts): reicht Items durch
+// No Operation, n8n-nodes-base.noOp (packages/nodes-base/nodes/NoOp/NoOp.node.ts): passes items through
 import type { NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
 
-// Parameter wie packages/nodes-base/nodes/NoOp/NoOp.node.ts (keine)
+// Parameters as in packages/nodes-base/nodes/NoOp/NoOp.node.ts (none)
 const parameters: ParamSchema[] = [];
 
 export const noOpNode: NodeType = {

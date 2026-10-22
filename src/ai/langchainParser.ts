@@ -1,7 +1,7 @@
-// StructuredOutputParser und OutputFixingParser wie in LangChain (von Information Extractor, Text Classifier
-// und Sentiment Analysis direkt genutzt, ohne die n8n-Hülle "output"):
-//   @langchain/core 1.1 output_parsers/structured.js (parse: Codeblock, Zeilenumbrüche in Strings)
-//   @langchain/classic 1.0 output_parsers/fix.js und prompts.js (NAIVE_FIX_PROMPT, erneuter Modellaufruf)
+// StructuredOutputParser and OutputFixingParser as in LangChain (used directly by Information Extractor, Text Classifier
+// and Sentiment Analysis, without the n8n wrapper "output"):
+//   @langchain/core 1.1 output_parsers/structured.js (parse: code block, line breaks in strings)
+//   @langchain/classic 1.0 output_parsers/fix.js and prompts.js (NAIVE_FIX_PROMPT, repeated model call)
 import { formatInstructionsFor } from './outputParser.js';
 import { zodParse, ZValidationError, type ZType } from './schema.js';
 import { formatTemplate, textOf } from './messages.js';
@@ -56,7 +56,7 @@ export class LangChainStructuredParser {
   }
 }
 
-/** OutputFixingParser.fromLLM: bei Fehler das Modell mit NAIVE_FIX_PROMPT um eine Korrektur bitten */
+/** OutputFixingParser.fromLLM: on error ask the model for a correction with NAIVE_FIX_PROMPT */
 export async function parseWithFixing(parser: LangChainStructuredParser, text: string, model: ChatModel | undefined): Promise<Record<string, unknown>> {
   try {
     return parser.parse(text);

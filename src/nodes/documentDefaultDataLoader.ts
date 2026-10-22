@@ -1,7 +1,7 @@
 // Default Data Loader, @n8n/n8n-nodes-langchain.documentDefaultDataLoader (typeVersion 1, 1.1)
-// Nachgebaut nach n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/document_loaders/DocumentDefaultDataLoader:
-// JSON- oder Binärdaten als Dokumente; v1.1 teilt standardmäßig selbst (RecursiveCharacterTextSplitter 1000/200), mit
-// "Custom" oder in v1 über einen angeschlossenen Text Splitter.
+// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/document_loaders/DocumentDefaultDataLoader:
+// JSON or binary data as documents; v1.1 splits by itself by default (RecursiveCharacterTextSplitter 1000/200), with
+// "Custom" or in v1 via a connected Text Splitter.
 import type { NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
 import type { TextSplitter } from '../ai/documents.js';
@@ -9,94 +9,94 @@ import { RecursiveCharacterTextSplitter } from '../ai/documents.js';
 import { binaryLoader, jsonLoader } from '../ai/loaders.js';
 
 const parameters: ParamSchema[] = [
-  { name: 'notice', label: 'Dieser Node muss mit einem Vector Store verbunden werden.', type: 'notice', default: '' },
+  { name: 'notice', label: 'This node must be connected to a vector store.', type: 'notice', default: '' },
   {
     name: 'dataType',
-    label: 'Art der Daten',
+    label: 'Type of Data',
     type: 'options',
     default: 'json',
     options: [
-      { value: 'json', label: 'JSON', description: 'JSON-Daten aus dem vorigen Knoten' },
-      { value: 'binary', label: 'Binär', description: 'Dateien aus dem vorigen Knoten' },
+      { value: 'json', label: 'JSON', description: 'Process JSON data from previous step' },
+      { value: 'binary', label: 'Binary', description: 'Process binary data from previous step' },
     ],
   },
   {
     name: 'jsonMode',
-    label: 'Modus',
+    label: 'Mode',
     type: 'options',
     default: 'allInputData',
     show: { dataType: ['json'] },
     options: [
-      { value: 'allInputData', label: 'Alle Eingangsdaten laden' },
-      { value: 'expressionData', label: 'Bestimmte Daten laden' },
+      { value: 'allInputData', label: 'Load All Input Data' },
+      { value: 'expressionData', label: 'Load Specific Data' },
     ],
   },
   {
     name: 'binaryMode',
-    label: 'Modus',
+    label: 'Mode',
     type: 'options',
     default: 'allInputData',
     show: { dataType: ['binary'] },
     options: [
-      { value: 'allInputData', label: 'Alle Eingangsdaten laden' },
-      { value: 'specificField', label: 'Bestimmtes Feld laden' },
+      { value: 'allInputData', label: 'Load All Input Data' },
+      { value: 'specificField', label: 'Load Specific Data' },
     ],
   },
   {
     name: 'loader',
-    label: 'Datenformat',
+    label: 'Data Format',
     type: 'options',
     default: 'auto',
     show: { dataType: ['binary'] },
     options: [
-      { value: 'auto', label: 'Nach MIME-Typ erkennen' },
+      { value: 'auto', label: 'Automatically Detect by Mime Type' },
       { value: 'csvLoader', label: 'CSV' },
-      { value: 'docxLoader', label: 'Docx (noch nicht unterstützt)' },
-      { value: 'epubLoader', label: 'EPub (noch nicht unterstützt)' },
+      { value: 'docxLoader', label: 'Docx (not supported yet)' },
+      { value: 'epubLoader', label: 'EPub (not supported yet)' },
       { value: 'jsonLoader', label: 'JSON' },
-      { value: 'pdfLoader', label: 'PDF (noch nicht unterstützt)' },
+      { value: 'pdfLoader', label: 'PDF (not supported yet)' },
       { value: 'textLoader', label: 'Text' },
     ],
   },
-  { name: 'jsonData', label: 'Daten', type: 'string', default: '', required: true, rows: 6, show: { dataType: ['json'], jsonMode: ['expressionData'] } },
-  { name: 'binaryDataKey', label: 'Name des Binärfelds', type: 'string', default: 'data', required: true, show: { dataType: ['binary'], binaryMode: ['specificField'] } },
+  { name: 'jsonData', label: 'Data', type: 'string', default: '', required: true, rows: 6, show: { dataType: ['json'], jsonMode: ['expressionData'] } },
+  { name: 'binaryDataKey', label: 'Input Data Field Name', type: 'string', default: 'data', required: true, show: { dataType: ['binary'], binaryMode: ['specificField'] } },
   {
     name: 'textSplittingMode',
-    label: 'Text aufteilen',
+    label: 'Text Splitting',
     type: 'options',
     default: 'simple',
     show: { '@version': [1.1] },
     options: [
-      { value: 'simple', label: 'Einfach', description: 'Stücke zu 1000 Zeichen mit 200 Zeichen Überlappung' },
-      { value: 'custom', label: 'Eigener Text Splitter', description: 'Über einen angeschlossenen Text-Splitter-Knoten' },
+      { value: 'simple', label: 'Simple', description: 'Splits every 1000 characters with a 200 character overlap' },
+      { value: 'custom', label: 'Custom', description: 'Connect a custom text-splitting sub-node' },
     ],
   },
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     children: [
-      { name: 'pointers', label: 'JSON Pointer', type: 'string', default: '', description: 'Pointer der Werte, die geladen werden (z. B. /text, /meta/title)', show: { '/loader': ['jsonLoader', 'auto'] } },
-      { name: 'separator', label: 'CSV-Trenner', type: 'string', default: ',', show: { '/loader': ['csvLoader', 'auto'] } },
-      { name: 'column', label: 'CSV-Spalte', type: 'string', default: '', description: 'Nur diese Spalte laden', show: { '/loader': ['csvLoader', 'auto'] } },
-      { name: 'splitPages', label: 'PDF nach Seiten teilen', type: 'boolean', default: true, show: { '/loader': ['pdfLoader', 'auto'] } },
+      { name: 'pointers', label: 'JSON Pointer', type: 'string', default: '', description: 'Pointers of the values to load (e.g. /text, /meta/title)', show: { '/loader': ['jsonLoader', 'auto'] } },
+      { name: 'separator', label: 'CSV Separator', type: 'string', default: ',', show: { '/loader': ['csvLoader', 'auto'] } },
+      { name: 'column', label: 'CSV Column', type: 'string', default: '', description: 'Load only this column', show: { '/loader': ['csvLoader', 'auto'] } },
+      { name: 'splitPages', label: 'Split Pages in PDF', type: 'boolean', default: true, show: { '/loader': ['pdfLoader', 'auto'] } },
       {
         name: 'metadata',
-        label: 'Metadaten',
+        label: 'Metadata',
         type: 'fixedCollection',
         default: {},
         multiple: true,
-        description: 'Zusätzliche Metadaten je Dokument, z. B. zum Filtern beim Abruf',
-        addLabel: 'Eigenschaft hinzufügen',
+        description: 'Metadata to add to each document; can be used for filtering during retrieval',
+        addLabel: 'Add Property',
         groups: [
           {
             name: 'metadataValues',
-            label: 'Eigenschaft',
+            label: 'Property',
             children: [
               { name: 'name', label: 'Name', type: 'string', default: '', required: true },
-              { name: 'value', label: 'Wert', type: 'string', default: '' },
+              { name: 'value', label: 'Value', type: 'string', default: '' },
             ],
           },
         ],

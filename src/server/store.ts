@@ -1,9 +1,9 @@
-// Execution-Log in SQLite (SPEC 8): Tabelle `executions` (Metadaten) und
-// `execution_data` (runData als gzip-komprimiertes JSON). Credential-Werte werden vor dem
-// Speichern maskiert (CLAUDE.md: Secrets nie loggen, auch nicht im Execution-Log).
-// Wartende Executions (M13): `execution_resume` hält den Zustand zum Fortsetzen. Er muss unmaskiert sein (die Daten
-// fließen weiter in Expressions), wird mit FILUFLOW_ENCRYPTION_KEY verschlüsselt und nach dem Fortsetzen gelöscht.
-// Außerdem: statische Workflow-Daten (`workflow_static_data`) und kleine Schlüssel-Wert-Daten (`kv`, z. B. OAuth2-Tokens).
+// Execution log in SQLite (SPEC 8): table `executions` (metadata) and
+// `execution_data` (runData as gzip-compressed JSON). Credential values are masked before
+// saving (CLAUDE.md: never log secrets, not even in the execution log).
+// Waiting executions (M13): `execution_resume` holds the state for resuming. It must be unmasked (the data
+// keeps flowing into expressions), is encrypted with FILUFLOW_ENCRYPTION_KEY and deleted after resuming.
+// Also: static workflow data (`workflow_static_data`) and small key-value data (`kv`, e.g. OAuth2 tokens).
 import Database from 'better-sqlite3';
 import { gzipSync, gunzipSync } from 'node:zlib';
 import { mkdirSync } from 'node:fs';
@@ -33,16 +33,16 @@ export interface StoredExecution extends ExecutionSummary {
 
 export interface ListFilter {
   workflow?: string;
-  /** Nur diese Workflow-IDs (Master: Ausführungen eines Projekts) */
+  /** Only these workflow IDs (master: executions of one project) */
   workflowIds?: string[];
   status?: string;
   limit?: number;
-  /** Suche (M23): Ausführungs-ID, Workflow-Name, letzter Knoten oder Fehlermeldung */
+  /** Search (M23): execution ID, workflow name, last node or error message */
   q?: string;
-  /** Beginn ab bzw. vor (ISO-Zeit) */
+  /** Started at or after / before (ISO time) */
   from?: string;
   to?: string;
-  /** Blättern: nur Ausführungen, die vor diesem Zeitpunkt begonnen haben */
+  /** Paging: only executions that started before this time */
   before?: string;
   mode?: string;
 }
@@ -103,14 +103,14 @@ CREATE TABLE IF NOT EXISTS kv (
 );
 `;
 
-/** Zustand zum Fortsetzen: Engine-Zustand plus unmaskierte runData */
+/** State for resuming: engine state plus unmasked runData */
 export interface ResumeRecord {
   state: ExecutorState;
   runData: RunData;
   workflow: Workflow;
 }
 
-/** gzip, mit FILUFLOW_ENCRYPTION_KEY zusätzlich AES-256-GCM */
+/** gzip, with FILUFLOW_ENCRYPTION_KEY additionally AES-256-GCM */
 function sealJson(value: unknown): Buffer {
   const json = JSON.stringify(value);
   const key = process.env.FILUFLOW_ENCRYPTION_KEY;
@@ -122,7 +122,7 @@ function openJson<T>(blob: Buffer): T {
   const parsed = JSON.parse(gunzipSync(blob).toString('utf8')) as unknown;
   if (parsed && typeof parsed === 'object' && typeof (parsed as { encrypted?: unknown }).encrypted === 'string') {
     const key = process.env.FILUFLOW_ENCRYPTION_KEY;
-    if (!key) throw new Error('Gespeicherte Daten sind verschlüsselt, aber FILUFLOW_ENCRYPTION_KEY ist nicht gesetzt');
+    if (!key) throw new Error('Stored data is encrypted, but FILUFLOW_ENCRYPTION_KEY is not set');
     return JSON.parse(decryptValue((parsed as { encrypted: string }).encrypted, key) as string) as T;
   }
   return parsed as T;
@@ -156,13 +156,13 @@ export class ExecutionStore {
     this.db.pragma('journal_mode = WAL');
     this.db.pragma('foreign_keys = ON');
     this.db.exec(SCHEMA);
-    // Spalte wait_till für Datenbanken aus der Zeit vor M13
+    // Column wait_till for databases from before M13
     const columns = (this.db.prepare(`PRAGMA table_info(executions)`).all() as Array<{ name: string }>).map((c) => c.name);
     if (!columns.includes('wait_till')) this.db.exec(`ALTER TABLE executions ADD COLUMN wait_till TEXT`);
     this.db.exec(`CREATE INDEX IF NOT EXISTS idx_executions_wait ON executions (status, wait_till)`);
   }
 
-  /** Verbindung für weitere Tabellen in derselben Datenbank (Aufseher) */
+  /** Connection for further tables in the same database (supervisor) */
   get database(): Database.Database {
     return this.db;
   }
@@ -171,14 +171,14 @@ export class ExecutionStore {
     this.db.close();
   }
 
-  /** Beim Start: Executions, die beim letzten Lauf nicht fertig wurden, als abgestürzt markieren */
+  /** On startup: mark executions that did not finish during the last run as crashed */
   markCrashed(): number {
     return this.db
       .prepare(`UPDATE executions SET status = 'crashed', stopped_at = ? WHERE status IN ('new', 'running')`)
       .run(new Date().toISOString()).changes;
   }
 
-  /** Legt eine Execution an (Status new oder running) */
+  /** Creates an execution (status new or running) */
   begin(meta: { id: string; workflow: Workflow; mode: ExecutionMode; status: ExecutionStatus; parentExecutionId?: string }): void {
     this.db
       .prepare(
@@ -193,7 +193,7 @@ export class ExecutionStore {
     this.db.prepare(`UPDATE executions SET status = ?, stopped_at = COALESCE(?, stopped_at) WHERE id = ?`).run(status, stopped, id);
   }
 
-  /** Speichert das Ergebnis (legt die Zeile an, falls sie fehlt, z. B. bei Unter-Workflows) */
+  /** Saves the result (creates the row if it is missing, e.g. for sub-workflows) */
   finish(execution: Execution, workflow: Workflow, parentExecutionId?: string): void {
     const secrets = this.secrets();
     const masked = maskDeep({ runData: execution.runData, error: execution.error, workflow }, secrets);
@@ -282,8 +282,8 @@ export class ExecutionStore {
   }
 
   /**
-   * Kennzahlen für die Übersicht: Ausführungen und Fehler seit `since`, je Workflow die Zahl der Läufe seit
-   * `since` und die letzte Ausführung. Optional auf Workflow-IDs begrenzt (Master: nur ein Projekt).
+   * Metrics for the overview: executions and errors since `since`, per workflow the number of runs since
+   * `since` and the last execution. Optionally limited to workflow IDs (master: only one project).
    */
   stats(since: string, workflowIds?: string[]): ExecutionStats {
     if (workflowIds && !workflowIds.length) return { total: 0, errors: 0, workflows: {} };
@@ -310,7 +310,7 @@ export class ExecutionStore {
   }
 
   // ---------------------------------------------------------------------------------------------
-  // Wartende Executions
+  // Waiting executions
 
   saveResume(id: string, record: ResumeRecord): void {
     this.db.prepare(`INSERT OR REPLACE INTO execution_resume (execution_id, data) VALUES (?, ?)`).run(id, sealJson(record));
@@ -325,7 +325,7 @@ export class ExecutionStore {
     this.db.prepare(`DELETE FROM execution_resume WHERE execution_id = ?`).run(id);
   }
 
-  /** Wartende Executions, die bis `before` fortgesetzt werden müssen */
+  /** Waiting executions that must be resumed by `before` */
   waitingDue(before: string): Array<{ id: string; waitTill: string }> {
     return (
       this.db.prepare(`SELECT id, wait_till FROM executions WHERE status = 'waiting' AND wait_till IS NOT NULL AND wait_till <= ? ORDER BY wait_till`).all(before) as Array<{
@@ -336,7 +336,7 @@ export class ExecutionStore {
   }
 
   // ---------------------------------------------------------------------------------------------
-  // Statische Workflow-Daten und Schlüssel-Wert-Daten
+  // Static workflow data and key-value data
 
   getStaticData(key: string): Record<string, Record<string, unknown>> | undefined {
     const row = this.db.prepare(`SELECT data FROM workflow_static_data WHERE workflow_key = ?`).get(key) as { data: string } | undefined;
@@ -364,7 +364,7 @@ export class ExecutionStore {
     this.db.prepare(`DELETE FROM kv WHERE key = ?`).run(key);
   }
 
-  /** Löscht abgeschlossene Executions älter als `days` Tage; liefert die Anzahl */
+  /** Deletes finished executions older than `days` days; returns the count */
   prune(days: number): number {
     const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
     return this.db

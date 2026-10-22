@@ -1,203 +1,204 @@
-# Sicherheitsmodell
+# Security model
 
-Workflows, Expressions und Code-Nodes gelten als **vertrauenswürdig**: Sie stammen ausschließlich von internen Autoren.
+Workflows, expressions and code nodes are considered **trusted**: they come exclusively from internal authors.
 
-`node:vm` dient hier dem Komfort (eigener globaler Kontext, Timeout), **nicht** als Sicherheitsgrenze.
-Ein böswilliger Workflow kann aus dem vm-Kontext ausbrechen. Wer fremde Workflows ausführen will, braucht eine echte Isolation (eigener Prozess, Container, gVisor o. ä.).
+`node:vm` serves convenience here (own global context, timeout), **not** as a security boundary.
+A malicious workflow can break out of the vm context. Anyone who wants to run third-party workflows needs real isolation (separate process, container, gVisor or similar).
 
-Trotzdem gilt:
-- Expressions laufen mit Timeout (Default 1000 ms), Code-Nodes mit Timeout (Default 60 s, `FILUFLOW_CODE_TIMEOUT_MS`).
-- Python (Pyodide) läuft als WebAssembly im Serverprozess. Wie in n8n sind das Python-Modul `js` (Zugriff auf JavaScript) und
-  `os.system` gesperrt, zusätzlich `pyodide_js`; das Dateisystem ist ein eigenes im Speicher, nicht das des Servers. Wer es
-  darauf anlegt, kann die Sperren umgehen (z. B. über interne Module von Pyodide); sie verhindern Versehen, keine Angriffe. Das
-  Zeitlimit setzt ein eigener Thread über den Interrupt-Buffer von Pyodide durch, auch bei Endlosschleifen. Läufe sind
-  nacheinander, solange Python rechnet, wartet der Server mit anderen Aufgaben (wie bei JavaScript im Code-Node).
-- Python (Native) startet einen eigenen Prozess mit den Rechten des Servers. Vor dem Start prüft filuflow den Code wie der
-  Task-Runner von n8n: Imports nur aus den Freigabelisten (Default: keine), keine relativen oder dynamischen Imports, keine
-  Attribute wie `__class__` oder `__globals__`; Builtins wie `eval`, `exec`, `open`, `getattr` fehlen. Der Prozess bekommt eine
-  leere Umgebung (keine Schlüssel des Servers), außer `FILUFLOW_PYTHON_ENV_ACCESS=true`. Mit freigegebenen Modulen wie `os`
-  oder `subprocess` hat der Code vollen Zugriff auf das System; das ist eine bewusste Entscheidung des Betreibers.
-- Im Sandbox-Kontext gibt es kein `process` und kein `import()`. `require` lädt wie in n8n nur freigegebene Module
-  (`NODE_FUNCTION_ALLOW_BUILTIN`, `NODE_FUNCTION_ALLOW_EXTERNAL` bzw. `FILUFLOW_FUNCTION_ALLOW_*`, Default: keine); jede
-  andere Anfrage endet mit "Module 'x' is disallowed". Mit freigegebenen Modulen wie `fs` oder `child_process` hat der Code
-  die Rechte des Servers; das ist eine bewusste Entscheidung des Betreibers.
-- Execute Workflow liest mit der Quelle "Lokale Datei" beliebige Dateien des Servers, wie in n8n. Mit
-  `FILUFLOW_RESTRICT_FILE_ACCESS_TO` (Verzeichnisse mit ";" getrennt) lässt sich das begrenzen; Symlinks werden dabei
-  aufgelöst. Die Quelle "URL" lädt über den HTTP-Client des Servers.
-- Merge per SQL (alasql) kann keine Dateien lesen oder schreiben: die Datei-Funktionen und -Quellen von alasql sind gesperrt
-  (wie n8n).
-- `$env` liefert nur freigegebene Umgebungsvariablen (`FILUFLOW_ENV_ALLOW`, Default: Präfix `FL_`).
-- Chat mit Antwortknoten: Kanal (`/chat/<id>/events`) und Antworten (`POST /chat/<id>`) sind wie die Chat-Seite ohne
-  Anmeldung erreichbar, aber nur mit der sessionId, mit der die Ausführung gestartet wurde. Wer Ausführungs-ID und
-  sessionId kennt, kann mitlesen und antworten; die sessionId erzeugt die Chat-Seite zufällig im Browser.
-- Variablen (`$vars`) sind keine Geheimnisse: Die Oberfläche zeigt ihre Werte im Klartext, sie liegen unverschlüsselt in
-  SQLite. Logs nennen nur die Schlüssel. Geheimnisse gehören in Credentials.
-- "Auf Test-Aufruf warten" führt beim nächsten Aufruf der Test-URL einen Stand aus dem Editor aus. Das darf nur, wer den
-  API-Key hat (bzw. im Master Bearbeiten-Rechte im Projekt); die Test-URLs selbst sind wie in n8n ohne Anmeldung erreichbar.
-- Credential-Werte werden nie geloggt und im Execution-Log nicht gespeichert.
-- Die REST-API ist mit `FILUFLOW_API_KEY` geschützt. Ohne gesetzten Schlüssel ist die API gesperrt (außer `/healthz` und Webhooks).
-- Der Vergleich des API-Keys ist zeitkonstant. Webhooks sind ohne API-Key erreichbar; ihre Authentifizierung kommt aus dem Webhook-Node
-  (Basic, Header, Bearer, JWT) mit Credentials aus `credentials.json`.
-- Der Docker-Container läuft als Benutzer `node` (nicht root).
-- Request-Bodys sind auf `FILUFLOW_PAYLOAD_SIZE_MAX` MB begrenzt (Default 16, wie n8n).
-- KI-Agents lassen das Modell Tools aufrufen: Das HTTP Request Tool sendet Requests mit Werten vom Modell (bei
-  Authentifizierung ist ein Platzhalter in der Domain verboten, wie in n8n), das Workflow-Tool startet Unter-Workflows, das
-  Code-Tool führt seinen Code in derselben Sandbox wie der Code-Node aus (gleicher Timeout). Antworten von LLMs sind
-  nicht vertrauenswürdig; Tools sollten nur mit den Rechten angeschlossen werden, die der Agent wirklich braucht.
-- API-Keys der Modelle kommen aus Credentials und werden wie alle geheimen Felder maskiert.
-- Weboberfläche: Die statischen Dateien sind ohne Anmeldung abrufbar und enthalten keine Daten; alle Daten kommen über die REST-API
-  mit `X-API-Key`. Der Schlüssel liegt im localStorage des Browsers (Abmelden löscht ihn). Wer den API-Key hat, kann Workflows
-  anlegen, ändern, löschen und ausführen, also auch Code-Nodes mit beliebigem Code; der Schlüssel ist entsprechend zu schützen.
-  Für Zugriffe aus dem Netz einen Reverse Proxy mit HTTPS davorsetzen. Mit `FILUFLOW_UI=false` ist die Oberfläche abgeschaltet.
-- Credentials in der Oberfläche: Lesen liefert Name, ID, Typ, die öffentlichen Felder (z. B. Header-Name, Client-ID, URL) und die
-  Namen der gesetzten geheimen Felder, nie deren Werte. Geheim sind die Felder mit `typeOptions.password` der n8n-Credential-Typen,
-  das JSON von Custom Auth und bei unbekannten Typen Felder, deren Name nach Passwort, Secret, Token, Key oder Wert aussieht.
-  Beim Bearbeiten nennt die Oberfläche in `keep` die geheimen Felder, die unverändert bleiben sollen; der Server übernimmt sie nur
-  bei gleichem Typ. Gespeichert wird in `credentials.managed.json` (Dateirechte 0600, atomar ersetzt, mit
-  `FILUFLOW_ENCRYPTION_KEY` je Eintrag AES-256-GCM-verschlüsselt). Ohne Schlüssel liegen die Werte im Klartext in der Datei; die
-  Oberfläche weist darauf hin. Einträge aus der von Hand gepflegten `credentials.json` sind über die API nicht änderbar. Das
-  Protokoll nennt Name und Typ geänderter Credentials, nie Werte. Wer den API-Key hat, kann Credentials anlegen und ändern und
-  über Workflows (Code-Node, HTTP Request an eigene Server) auch die Werte bestehender Credentials verwenden; die Trennung
-  schützt vor versehentlicher Anzeige, nicht vor einem Angreifer mit API-Key.
-- OAuth2 "Authorization Code"/"PKCE": Die Autorisierung beginnt nur mit API-Key (bzw. als Admin im Master). Der Callback
-  `/rest/oauth2-credential/callback` ist ohne Anmeldung erreichbar (der Browser kommt vom Anbieter zurück) und nimmt nur
-  einen einmaligen, zufälligen `state` an, der 10 Minuten gilt; bei PKCE bleibt der `code_verifier` auf dem Server. Tokens
-  liegen verschlüsselt in der Datenbank (beim Worker), nicht in der Oberfläche und nicht im Master.
-- OAuth1: gleiches Verfahren mit `/rest/oauth1-credential/callback`; der einmalige `state` steht in der Rückleitungs-URL,
-  die filuflow als `oauth_callback` beim Anbieter hinterlegt. Access-Token und Token-Secret liegen wie OAuth2-Tokens
-  verschlüsselt in der Datenbank des Workers.
-- Import aus n8n: Der n8n-Schlüssel wird nur zum Entschlüsseln genutzt, nie gespeichert oder protokolliert. Die Antwort
-  des Imports nennt nur Namen. Einträge aus `credentials.json` werden nie überschrieben.
-- Freigabe für Projekte (Master): Ein Credential mit Freigabe lässt sich nur in den genannten Projekten verwenden; der
-  Master weist Workflows anderer Projekte beim Anlegen, Speichern und Ausführen ab. Die Freigabe schützt vor
-  versehentlicher Nutzung; wer im Projekt Code-Nodes schreiben darf, erreicht auf dem Worker weiterhin dessen Dateien
-  und Umgebung (siehe unten).
-- Formulare: Die Seiten unter `/form/` und `/form-waiting/` laufen ohne Skript (CSP `script-src 'none'`). Beschreibungen
-  und eigenes HTML werden auf erlaubte Tags reduziert (wie n8n: Text, Listen, Tabellen, Links, Bilder, Videos, iframes in
-  einer Sandbox), Links und Quellen nur per http(s). Wer die Adresse einer Folgeseite kennt, kann sie ausfüllen; für
-  vertrauliche Abläufe Basic Auth am Form Trigger nutzen.
-- Chat Trigger: Ein öffentlicher Chat ist ohne Anmeldung erreichbar, außer der Knoten verlangt Basic Auth. Jede Nachricht
-  startet eine Ausführung; für das Internet gehört eine Begrenzung (Reverse Proxy) davor. Die Chat-Seite lädt nur eigene
-  Skripte (CSP `script-src 'self'`), Einstellungen stehen als JSON-Daten in der Seite; eigenes CSS (`customCss`) ist erlaubt.
-- Ergebnisse von Ausführungen sind wie im Execution-Log maskiert.
-- Wartende Ausführungen: Zum Fortsetzen speichert filuflow den Zustand unmaskiert (die Daten fließen in spätere Knoten), in
-  einer eigenen Tabelle, mit `FILUFLOW_ENCRYPTION_KEY` verschlüsselt, und löscht ihn beim Fortsetzen oder Abbrechen. OAuth2-Tokens
-  liegen ebenso verschlüsselt in der Datenbank. Wer `$execution.resumeUrl` kennt, kann die Ausführung fortsetzen; für Freigaben
-  sollte der Wait-Knoten eine Authentifizierung nutzen (`incomingAuthentication`), die URL enthält nur die Ausführungs-ID.
-- Die Seiten senden eine Content-Security-Policy (`script-src 'self'`, kein `eval`, keine fremden Quellen), `X-Content-Type-Options`
-  und `frame-ancestors 'none'`. Statische Pfade außerhalb von `dist/ui` werden abgewiesen.
+Still:
+- Expressions run with a timeout (default 1000 ms), code nodes with a timeout (default 60 s, `FILUFLOW_CODE_TIMEOUT_MS`).
+- Python (Pyodide) runs as WebAssembly in the server process. As in n8n, the Python module `js` (access to JavaScript) and
+  `os.system` are blocked, additionally `pyodide_js`; the file system is a separate in-memory one, not the server's. Anyone
+  who sets out to do so can bypass the blocks (e.g. via Pyodide's internal modules); they prevent accidents, not attacks. The
+  time limit is enforced by a separate thread via Pyodide's interrupt buffer, even for infinite loops. Runs are sequential;
+  while Python is computing, the server's other tasks wait (as with JavaScript in the Code node).
+- Python (Native) starts a separate process with the server's privileges. Before starting, filuflow checks the code like
+  the n8n task runner: imports only from the allowlists (default: none), no relative or dynamic imports, no attributes such
+  as `__class__` or `__globals__`; builtins such as `eval`, `exec`, `open`, `getattr` are missing. The process gets an empty
+  environment (no server keys), unless `FILUFLOW_PYTHON_ENV_ACCESS=true`. With allowed modules such as `os` or `subprocess`
+  the code has full access to the system; that is a deliberate decision by the operator.
+- In the sandbox context there is no `process` and no `import()`. As in n8n, `require` only loads allowed modules
+  (`NODE_FUNCTION_ALLOW_BUILTIN`, `NODE_FUNCTION_ALLOW_EXTERNAL` or `FILUFLOW_FUNCTION_ALLOW_*`, default: none); any
+  other request ends with "Module 'x' is disallowed". With allowed modules such as `fs` or `child_process` the code has
+  the server's privileges; that is a deliberate decision by the operator.
+- Execute Workflow with the source "Local File" reads arbitrary server files, as in n8n. This can be restricted with
+  `FILUFLOW_RESTRICT_FILE_ACCESS_TO` (directories separated by ";"); symlinks are resolved in the process. The source
+  "URL" loads via the server's HTTP client.
+- Merge via SQL (alasql) cannot read or write files: alasql's file functions and sources are blocked
+  (like n8n).
+- `$env` only returns allowed environment variables (`FILUFLOW_ENV_ALLOW`, default: prefix `FL_`).
+- Chat with response nodes: the channel (`/chat/<id>/events`) and replies (`POST /chat/<id>`) are reachable without
+  login like the chat page, but only with the sessionId the execution was started with. Anyone who knows the execution ID
+  and sessionId can read along and reply; the chat page generates the sessionId randomly in the browser.
+- Variables (`$vars`) are not secrets: the interface shows their values in plain text, they are stored unencrypted in
+  SQLite. Logs only name the keys. Secrets belong in credentials.
+- "Wait for test call" runs a state from the editor on the next call of the test URL. Only someone with the API key may
+  do this (or in the master, someone with edit permission in the project); the test URLs themselves are reachable without
+  login, as in n8n.
+- Credential values are never logged and not stored in the execution log.
+- The REST API is protected with `FILUFLOW_API_KEY`. Without a key set, the API is locked (except `/healthz` and webhooks).
+- The API key comparison is constant-time. Webhooks are reachable without an API key; their authentication comes from the Webhook node
+  (Basic, Header, Bearer, JWT) with credentials from `credentials.json`.
+- The Docker container runs as user `node` (not root).
+- Request bodies are limited to `FILUFLOW_PAYLOAD_SIZE_MAX` MB (default 16, like n8n).
+- AI agents let the model call tools: the HTTP Request Tool sends requests with values from the model (with
+  authentication, a placeholder in the domain is forbidden, as in n8n), the Workflow Tool starts sub-workflows, the
+  Code Tool runs its code in the same sandbox as the Code node (same timeout). LLM responses are not
+  trustworthy; tools should only be connected with the privileges the agent really needs.
+- Model API keys come from credentials and are masked like all secret fields.
+- Web interface: the static files can be fetched without login and contain no data; all data comes via the REST API
+  with `X-API-Key`. The key is stored in the browser's localStorage (logging out deletes it). Anyone with the API key can
+  create, change, delete and run workflows, including code nodes with arbitrary code; the key must be protected accordingly.
+  For access from the network, put a reverse proxy with HTTPS in front. With `FILUFLOW_UI=false` the interface is disabled.
+- Credentials in the interface: reading returns name, ID, type, the public fields (e.g. header name, client ID, URL) and the
+  names of the secret fields that are set, never their values. Secret are the fields with `typeOptions.password` of the n8n
+  credential types, the JSON of Custom Auth and, for unknown types, fields whose name looks like password, secret, token, key
+  or value. When editing, the interface lists in `keep` the secret fields that should remain unchanged; the server only keeps them
+  if the type is the same. Data is stored in `credentials.managed.json` (file mode 0600, replaced atomically, with
+  `FILUFLOW_ENCRYPTION_KEY` AES-256-GCM encrypted per entry). Without a key the values are stored in plain text in the file; the
+  interface points this out. Entries from the hand-maintained `credentials.json` cannot be changed via the API. The
+  log names the name and type of changed credentials, never values. Anyone with the API key can create and change credentials and,
+  via workflows (Code node, HTTP Request to their own servers), also use the values of existing credentials; the separation
+  protects against accidental display, not against an attacker with the API key.
+- OAuth2 "Authorization Code"/"PKCE": authorization only starts with the API key (or as an admin in the master). The callback
+  `/rest/oauth2-credential/callback` is reachable without login (the browser returns from the provider) and only accepts
+  a one-time, random `state` valid for 10 minutes; with PKCE the `code_verifier` stays on the server. Tokens
+  are stored encrypted in the database (on the worker), not in the interface and not in the master.
+- OAuth1: same procedure with `/rest/oauth1-credential/callback`; the one-time `state` is in the redirect URL,
+  which filuflow registers with the provider as `oauth_callback`. Access token and token secret are stored encrypted in the
+  worker's database like OAuth2 tokens.
+- Import from n8n: the n8n key is only used for decryption, never stored or logged. The import response
+  only names names. Entries from `credentials.json` are never overwritten.
+- Sharing with projects (master): a credential with sharing can only be used in the named projects; the
+  master rejects workflows of other projects on create, save and run. Sharing protects against
+  accidental use; anyone allowed to write code nodes in the project can still reach the worker's files
+  and environment (see below).
+- Forms: the pages under `/form/` and `/form-waiting/` run without scripts (CSP `script-src 'none'`). Descriptions
+  and custom HTML are reduced to allowed tags (like n8n: text, lists, tables, links, images, videos, iframes in
+  a sandbox), links and sources only via http(s). Anyone who knows the address of a follow-up page can fill it out; for
+  confidential processes use Basic auth on the Form Trigger.
+- Chat Trigger: a public chat is reachable without login, unless the node requires Basic auth. Every message
+  starts an execution; for the internet, put rate limiting (reverse proxy) in front. The chat page only loads its own
+  scripts (CSP `script-src 'self'`), settings are embedded as JSON data in the page; custom CSS (`customCss`) is allowed.
+- Execution results are masked like in the execution log.
+- Waiting executions: to resume, filuflow stores the state unmasked (the data flows into later nodes), in
+  a separate table, encrypted with `FILUFLOW_ENCRYPTION_KEY`, and deletes it on resume or cancellation. OAuth2 tokens
+  are likewise stored encrypted in the database. Anyone who knows `$execution.resumeUrl` can resume the execution; for approvals
+  the Wait node should use authentication (`incomingAuthentication`), the URL only contains the execution ID.
+- The pages send a Content Security Policy (`script-src 'self'`, no `eval`, no third-party sources), `X-Content-Type-Options`
+  and `frame-ancestors 'none'`. Static paths outside `dist/ui` are rejected.
 
-## Aufseher (M35)
-Der Aufseher schickt Daten an das eingestellte Modell, also an den Anbieter dieses Modells. Was hinausgeht:
-- immer: Aufbau des Workflows (Knoten, Parameter, Verbindungen, Einstellungen), Fehlermeldungen, Status und Laufzeiten
-  der Ausführungen, Texte der Hinweise;
-- nur mit dem Datenumfang "Mit Beispieldaten": gekürzte Daten (höchstens zwei Items, etwa 1500 Zeichen) des Knotens, an dem
-  eine Ausführung scheiterte, und seines Vorgängers sowie gekürzte Testdaten (pinData).
+## Supervisor (M35)
+The Supervisor sends data to the configured model, i.e. to that model's provider. What goes out:
+- always: the workflow structure (nodes, parameters, connections, settings), error messages, status and runtimes
+  of the executions, texts of the findings;
+- only with the data scope "With sample data": truncated data (at most two items, about 1500 characters) of the node at which
+  an execution failed and of its predecessor, as well as truncated test data (pinData).
 
-Was nie hinausgeht: Credential-Werte. Credentials erscheinen nur mit Namen; alle bekannten geheimen Werte werden in jedem
-Text ersetzt (wie im Execution-Log); Parameter, deren Name auf ein Geheimnis deutet (password, token, apiKey,
-authorization, secret …) oder deren Wert wie ein Schlüssel aussieht (sk-…, ghp_…, Bearer …), werden als `***` gesendet.
-Statische Daten des Workflows werden nicht gesendet. Workflows auf der Liste "Ausgenommene Workflows" sieht das Modell nie.
-Wer keine Daten an einen externen Anbieter geben will, nutzt Ollama auf einem eigenen Server oder kein Modell (nur feste
-Regeln).
+What never goes out: credential values. Credentials only appear by name; all known secret values are replaced in every
+text (as in the execution log); parameters whose name suggests a secret (password, token, apiKey,
+authorization, secret …) or whose value looks like a key (sk-…, ghp_…, Bearer …) are sent as `***`.
+Static workflow data is not sent. The model never sees workflows on the "Excluded workflows" list.
+Anyone who does not want to give data to an external provider uses Ollama on their own server or no model (fixed
+rules only).
 
-Der Aufseher ändert nichts selbst. Seine Werkzeuge lesen nur; Änderungen entstehen als Vorschlag, den ein Mensch annimmt
-(M36). Vorschläge können maskierte Werte nicht zurückschreiben, Annehmen ändert die Aktivierung nicht, und ein Probelauf,
-der Knoten wirklich ausführt, startet nur nach einer Rückfrage. Wer die REST-API des Servers nutzen darf, darf auch
-Vorschläge annehmen; im Master regeln das die Rollen (M38): Hinweise und Vorschläge sieht, wer `supervisor.read` für den
-Workflow hat, Analysen, Vorschläge und Gespräche (Kosten, Daten an das Modell) brauchen `supervisor.use`, Annehmen
-zusätzlich `workflow.edit`. Beim Worker selbst lassen sich Vorschläge nicht annehmen. An den Master gehen Hinweise,
-Analysen und Vorschläge, keine Ausführungsdaten; Einstellungen des Aufsehers je Worker ändern nur globale Admins (mit
-Audit-Eintrag).
-Antworten des Modells werden als Text angezeigt, nicht als HTML. Das Tagesbudget begrenzt die Kosten auch dann, wenn ein
-Fehler sehr oft auftritt.
+The Supervisor changes nothing on its own. Its tools only read; changes arise as a proposal that a human accepts
+(M36). Proposals cannot write back masked values, accepting does not change the activation, and a test run
+that actually executes nodes only starts after a confirmation. Anyone allowed to use the server's REST API may also
+accept proposals; in the master this is governed by roles (M38): findings and proposals are visible to anyone with
+`supervisor.read` for the workflow, analyses, proposals and conversations (costs, data sent to the model) need
+`supervisor.use`, accepting additionally `workflow.edit`. Proposals cannot be accepted on the worker itself. Findings,
+analyses and proposals go to the master, no execution data; the Supervisor settings per worker can only be changed by global
+admins (with an audit entry).
+Model responses are displayed as text, not as HTML. The daily budget limits costs even when an
+error occurs very frequently.
 
 ## Simple Vector Store (M27)
-Der Simple Vector Store speichert Dokumente und Embeddings im Speicher des Prozesses, geteilt über alle Workflows dieses
-Prozesses mit demselben Schlüssel (ab v1.2 ohne Workflow-ID, wie n8n). Workflows eines Workers können also die Daten anderer
-Workflows desselben Workers lesen und überschreiben. Vertrauliche Inhalte gehören deshalb in eigene Schlüssel oder auf
-eigene Worker; dauerhaft gespeichert wird nichts.
+The Simple Vector Store keeps documents and embeddings in the process's memory, shared across all workflows of this
+process with the same key (from v1.2 without workflow ID, like n8n). Workflows on a worker can therefore read and overwrite
+the data of other workflows on the same worker. Confidential content therefore belongs in its own keys or on
+separate workers; nothing is stored permanently.
 
 ## Plugins (M24)
-Plugins (eigene Module und Knoten im n8n-Format) laufen ohne Sandbox im Prozess von filuflow, mit allen Rechten des Prozesses
-(Dateien, Netz, Umgebung, Credentials anderer Workflows). Sie gelten wie Workflows als vertrauenswürdig: nur Pakete aus
-bekannter Quelle in die Plugin-Ordner legen und diese Ordner nur für Betreiber beschreibbar halten. Credential-Werte gelangen
-an Plugins nur über `getCredentials` des jeweiligen Knotens; in Logs und Ausführungen werden sie wie sonst maskiert.
+Plugins (own modules and nodes in n8n format) run without a sandbox in the filuflow process, with all privileges of the process
+(files, network, environment, credentials of other workflows). Like workflows, they are considered trusted: only put packages from
+known sources into the plugin folders and keep these folders writable only by operators. Credential values reach
+plugins only via `getCredentials` of the respective node; in logs and executions they are masked as usual.
 
-Community-Pakete aus der Oberfläche (M30) sind dasselbe: Wer installieren darf (im Einzelbetrieb jeder mit dem API-Key, im
-Master nur globale Admins, beim Worker der Master), kann damit beliebigen Code mit den Rechten von filuflow ausführen.
-filuflow installiert ohne npm-Installationsskripte (`--ignore-scripts`), prüft den Paketnamen streng (nur `n8n-nodes-…`,
-keine Sonderzeichen) und ruft npm ohne Shell auf; der Code des Pakets läuft beim Laden trotzdem. Wo das nicht gewollt ist,
-schaltet `FILUFLOW_COMMUNITY_PACKAGES_ENABLED=false` die Installation ab (bereits installierte Pakete werden weiter geladen).
+Community packages from the interface (M30) are the same: anyone allowed to install (on a single server anyone with the API key, in the
+master only global admins, on the worker the master) can use this to run arbitrary code with filuflow's privileges.
+filuflow installs without npm install scripts (`--ignore-scripts`), checks the package name strictly (only `n8n-nodes-…`,
+no special characters) and calls npm without a shell; the package's code still runs when loaded. Where this is not wanted,
+`FILUFLOW_COMMUNITY_PACKAGES_ENABLED=false` disables installation (packages already installed are still loaded).
 
-## Master und Worker (M9)
-Gemeinsame Credentials (M33) liegen im Master verschlüsselt mit `FILUFLOW_ENCRYPTION_KEY` und gehen im Klartext nur über
-die Verbindung zum Worker (TLS empfohlen) an die gewählten Worker; die Oberfläche bekommt nie geheime Werte zurück. Wer
-den Master-Schlüssel und die Datenbank hat, kann sie entschlüsseln; beim Worker gelten die Regeln für dort verwaltete
-Credentials.
+## Master and Worker (M9)
+Shared credentials (M33) are stored in the master encrypted with `FILUFLOW_ENCRYPTION_KEY` and travel in plain text only over
+the connection to the worker (TLS recommended) to the selected workers; the interface never gets secret values back. Anyone who has
+the master key and the database can decrypt them; on the worker the rules for credentials managed there
+apply.
 
-Benutzer des Masters sind das interne Team. Wer in einem Projekt bearbeiten darf, kann Code-Nodes schreiben und damit beliebigen
-Code auf dem Worker des Projekts ausführen, also in der Umgebung des Mandanten. Das Recht "Bearbeiten" ist entsprechend zu vergeben.
-Das gilt auch für Bearbeiten-Rechte an einem einzelnen Workflow (M23): Wer einen Workflow bearbeiten darf, erreicht über seine
-Code-Nodes den ganzen Worker, also auch Credentials und Daten anderer Workflows dort. "Kein Zugriff" für einen Workflow schützt
-vor Einsicht im Master (Workflow, Ausführungen und deren Daten), nicht vor Projektmitgliedern, die auf demselben Worker Code
-ausführen dürfen.
+Users of the master are the internal team. Anyone allowed to edit in a project can write code nodes and thereby run arbitrary
+code on the project's worker, i.e. in the tenant's environment. Grant the "Edit" permission accordingly.
+This also applies to edit permissions on a single workflow (M23): anyone allowed to edit a workflow reaches the whole worker via its
+code nodes, including credentials and data of other workflows there. "No access" for a workflow protects
+against viewing in the master (workflow, executions and their data), not against project members who may run code
+on the same worker.
 
-Rollen je Workflow und Ausführungssuche:
-- Die effektive Rolle für einen Workflow ist bei Projekt-Admins immer admin, sonst die eigene Rolle für den Workflow (falls gesetzt)
-  oder die Projektrolle. Gesperrte Workflows antworten mit 404 (nicht 403), damit ihre Existenz nicht sichtbar wird.
-- Entfernen aus einem Projekt löscht auch die Rollen der Person für dessen Workflows.
-- Die zentrale Suche fragt jeden Worker nur nach den Workflow-IDs, die die Person lesen darf, und verwirft Treffer anderer
-  Workflows im Master noch einmal. Ausführungsdaten lädt erst die Detailansicht, mit derselben Prüfung.
+Roles per workflow and execution search:
+- The effective role for a workflow is always admin for project admins, otherwise the person's own role for the workflow (if set)
+  or the project role. Blocked workflows respond with 404 (not 403) so that their existence is not revealed.
+- Removal from a project also deletes the person's roles for its workflows.
+- The central search asks each worker only for the workflow IDs the person may read, and discards hits for other
+  workflows once more in the master. Execution data is only loaded by the detail view, with the same check.
 
-Anmeldung und Sitzungen:
-- Passwörter mit scrypt (N=32768, r=8, p=1, 16 Byte Salz), mindestens 12 Zeichen. Bei unbekannter E-Mail wird trotzdem ein Hash
-  berechnet (gleiche Antwortzeit, gleiche Meldung).
-- Nach 10 Fehlversuchen ist ein Konto 15 Minuten gesperrt; höchstens 20 Anmeldeversuche je IP und je E-Mail in 15 Minuten,
-  5 TOTP-Versuche je Anmeldung in 5 Minuten. Hinter einem Reverse Proxy `FILUFLOW_TRUST_PROXY=true` setzen, damit die IP aus
-  `X-Forwarded-For` zählt (sonst teilen sich alle die IP des Proxys). Ohne Proxy bleibt es aus, weil sonst jeder seine IP vorgeben
-  könnte.
-- TOTP nach RFC 6238 (SHA-1, 30 s, 6 Stellen, ±1 Zeitschritt), ein Code gilt nur einmal. Der Schlüssel liegt mit
-  `FILUFLOW_ENCRYPTION_KEY` verschlüsselt (AES-256-GCM) in der Datenbank. Admins können TOTP für alle Benutzer mit Passwort
-  vorschreiben; Notfall-Zugang über `filuflow master user reset-totp` auf dem Server.
-- Sitzung als zufälliges Token im Cookie `filuflow_session` (HttpOnly, SameSite=Lax, Secure bei `https://` in
-  `FILUFLOW_PUBLIC_URL`); in der Datenbank steht nur der SHA-256-Hash. Ablauf nach 12 Stunden ohne Aktivität
-  (`FILUFLOW_SESSION_HOURS`), spätestens nach 7 Tagen. Abmelden, Sperren, Passwort- oder Rollenwechsel beenden Sitzungen sofort.
-- CSRF: Jeder ändernde Request mit Sitzung (auch die Anmeldung) braucht den Header `X-Filuflow-Csrf: 1`. Fremde Seiten können
-  ihn ohne CORS-Freigabe nicht setzen; der Master sendet keine CORS-Header.
-- API-Tokens (`ffl_…`, vor der Umbenennung `flt_…`, beide gültig; 32 Byte Zufall) werden nur beim Anlegen angezeigt und gehasht gespeichert, optional mit Ablaufdatum. Sie
-  haben die Rechte ihres Benutzers; neue Tokens nur aus einer angemeldeten Sitzung.
-- Der erste Admin entsteht über ein Einrichtungs-Token, das der Master beim Start ins Log schreibt (nur solange es keine Benutzer
-  gibt), über `FILUFLOW_ADMIN_EMAIL`/`FILUFLOW_ADMIN_PASSWORD` oder `filuflow master user add --admin`.
+Login and sessions:
+- Passwords with scrypt (N=32768, r=8, p=1, 16 byte salt), at least 12 characters. For an unknown email a hash is still
+  computed (same response time, same message).
+- After 10 failed attempts an account is locked for 15 minutes; at most 20 login attempts per IP and per email in 15 minutes,
+  5 TOTP attempts per login in 5 minutes. Behind a reverse proxy set `FILUFLOW_TRUST_PROXY=true` so that the IP from
+  `X-Forwarded-For` counts (otherwise everyone shares the proxy's IP). Without a proxy it stays off, because otherwise anyone could
+  claim any IP.
+- TOTP per RFC 6238 (SHA-1, 30 s, 6 digits, ±1 time step), a code is valid only once. The secret is stored encrypted with
+  `FILUFLOW_ENCRYPTION_KEY` (AES-256-GCM) in the database. Admins can require TOTP for all users with a password;
+  emergency access via `filuflow master user reset-totp` on the server.
+- Session as a random token in the cookie `filuflow_session` (HttpOnly, SameSite=Lax, Secure with `https://` in
+  `FILUFLOW_PUBLIC_URL`); the database only stores the SHA-256 hash. Expiry after 12 hours of inactivity
+  (`FILUFLOW_SESSION_HOURS`), at the latest after 7 days. Logging out, locking, password or role changes end sessions immediately.
+- CSRF: every modifying request with a session (including login) needs the header `X-Filuflow-Csrf: 1`. Third-party pages cannot
+  set it without CORS permission; the master sends no CORS headers.
+- API tokens (`ffl_…`, before the rename `flt_…`, both valid; 32 bytes of randomness) are only shown on creation and stored hashed, optionally with an expiry date. They
+  have the permissions of their user; new tokens only from a logged-in session.
+- The first admin is created via a setup token that the master writes to the log at startup (only as long as there are no users),
+  via `FILUFLOW_ADMIN_EMAIL`/`FILUFLOW_ADMIN_PASSWORD` or `filuflow master user add --admin`.
 
 SSO (OpenID Connect):
-- Authorization Code Flow mit PKCE (S256); `state`, `nonce` und Verifier liegen verschlüsselt in einem Cookie (10 Minuten, nur
-  `/api/auth/oidc`). Das ID-Token wird vollständig geprüft: Signatur über die JWKS des Ausstellers (RS256/384/512, PS256/384/512,
-  ES256/384/512; unbekannte Verfahren und `none` werden abgelehnt), Aussteller, Empfänger (`aud`), Ablauf und Ausstellungszeit
-  (60 s Toleranz), `nonce`. Der Aussteller im Discovery-Dokument muss zur Konfiguration passen.
-- Zuordnung über `iss` + `sub`, beim ersten Mal über die E-Mail. Eine E-Mail gilt als bestätigt, solange der Identity Provider nicht
-  ausdrücklich `email_verified: false` meldet (Entra ID sendet den Claim nicht). Das setzt voraus, dass Benutzer ihre E-Mail beim
-  Identity Provider nicht frei wählen können; sonst `FILUFLOW_OIDC_ALLOWED_DOMAINS` setzen und Benutzer vorab anlegen statt
+- Authorization code flow with PKCE (S256); `state`, `nonce` and verifier are stored encrypted in a cookie (10 minutes, only
+  `/api/auth/oidc`). The ID token is fully verified: signature via the issuer's JWKS (RS256/384/512, PS256/384/512,
+  ES256/384/512; unknown algorithms and `none` are rejected), issuer, audience (`aud`), expiry and issued-at time
+  (60 s tolerance), `nonce`. The issuer in the discovery document must match the configuration.
+- Mapping via `iss` + `sub`, the first time via the email. An email counts as verified as long as the identity provider does not
+  explicitly report `email_verified: false` (Entra ID does not send the claim). This assumes that users cannot freely choose their
+  email at the identity provider; otherwise set `FILUFLOW_OIDC_ALLOWED_DOMAINS` and create users in advance instead of
   `FILUFLOW_OIDC_AUTO_CREATE`.
-- Gesperrte Benutzer können sich auch über SSO nicht anmelden. Fehlgeschlagene SSO-Anmeldungen stehen im Audit-Log.
+- Locked users cannot log in via SSO either. Failed SSO logins are recorded in the audit log.
 
-Rechte:
-- Projekte, in denen jemand kein Mitglied ist, sind für ihn unsichtbar (404 statt 403). Ausführungen und Credential-Namen eines
-  Workers sieht nur, wer im zugehörigen Projekt lesen darf; Ausführungen werden auf die Workflows des Projekts gefiltert.
-- Verwaltung (Benutzer, Mandanten, Worker, Credentials setzen, Audit-Log) nur für globale Admins. Der letzte aktive Admin kann
-  nicht herabgestuft, gesperrt oder gelöscht werden.
-- Audit-Log für Anmeldungen (auch fehlgeschlagene), Benutzer-, Projekt-, Workflow- und Worker-Änderungen, Ausführen über den Master
-  und Credential-Änderungen, ohne Passwörter, Tokens oder Credential-Werte.
+Permissions:
+- Projects in which someone is not a member are invisible to them (404 instead of 403). Executions and credential names of a
+  worker are only visible to those who may read in the associated project; executions are filtered to the project's workflows.
+- Administration (users, tenants, workers, setting credentials, audit log) only for global admins. The last active admin cannot
+  be demoted, locked or deleted.
+- Audit log for logins (including failed ones), user, project, workflow and worker changes, runs via the master
+  and credential changes, without passwords, tokens or credential values.
 
-Verbindung zum Worker:
-- Der Master meldet sich beim Worker mit dessen `FILUFLOW_API_KEY` (Header `X-API-Key`, mindestens 16 Zeichen) an. Die Tokens
-  liegen mit `FILUFLOW_ENCRYPTION_KEY` verschlüsselt in der Datenbank des Masters und werden nie ausgegeben.
-- Für Verbindungen über fremde Netze HTTPS verwenden; das TLS-Zertifikat wird geprüft (abschaltbar nur ausdrücklich je Worker,
-  eigenes CA-Zertifikat möglich). Der Worker braucht keinen Zugang zum Master.
-- Wer den Token eines Workers hat, kann dort Workflows verteilen und damit Code ausführen; er ist wie ein Root-Zugang zu behandeln.
-- Credentials: Der Master überträgt neue Werte einmalig zum Worker, speichert sie nicht und kann geheime Werte nicht zurücklesen
-  (nur öffentliche Felder für das Bearbeiten-Formular). Im Editor eines Projekts können nur globale Admins neue Credentials beim
-  Worker anlegen. Der Worker
-  speichert sie in `credentials.managed.json` (Dateirechte 0600, mit `FILUFLOW_ENCRYPTION_KEY` des Workers verschlüsselt, wenn
-  gesetzt). Einträge aus der von Hand gepflegten Credential-Datei des Workers kann der Master weder überschreiben noch löschen.
-- Ausführungsdaten bleiben beim Worker und werden nur bei Bedarf über den Master angezeigt (maskiert wie im Execution-Log).
+Connection to the worker:
+- The master authenticates to the worker with the worker's `FILUFLOW_API_KEY` (header `X-API-Key`, at least 16 characters). The tokens
+  are stored encrypted with `FILUFLOW_ENCRYPTION_KEY` in the master's database and are never output.
+- For connections over untrusted networks use HTTPS; the TLS certificate is verified (can only be disabled explicitly per worker,
+  own CA certificate possible). The worker needs no access to the master.
+- Anyone with a worker's token can distribute workflows there and thereby run code; treat it like root access.
+- Credentials: the master transfers new values once to the worker, does not store them and cannot read back secret values
+  (only public fields for the edit form). In a project's editor only global admins can create new credentials on the
+  worker. The worker
+  stores them in `credentials.managed.json` (file mode 0600, encrypted with the worker's `FILUFLOW_ENCRYPTION_KEY` if
+  set). The master can neither overwrite nor delete entries from the worker's hand-maintained credential file.
+- Execution data stays on the worker and is only displayed via the master when needed (masked like in the execution log).

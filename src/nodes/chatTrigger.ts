@@ -1,11 +1,11 @@
-// Chat Trigger, @n8n/n8n-nodes-langchain.chatTrigger (typeVersion 1 bis 1.4)
-// Nachgebaut nach n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/trigger/ChatTrigger/ChatTrigger.node.ts:
-//   - Webhooks unter <webhookId>/chat: GET "setup" (gehostete Chat-Seite), POST "default" (Nachrichten)
-//   - nicht öffentlich (public: false): 404; Basic Auth über httpBasicAuth
-//   - action "loadPreviousSession": Nachrichten aus dem angeschlossenen Simple Memory oder eine leere Liste
-//   - sonst: das JSON des Requests ist das Item (multipart: Felder plus Dateien als binary data0, data1 …)
-//   - responseMode aus options: lastNode (Default), responseNode oder streaming (ab v1.2, JSON-Zeilen wie der Webhook)
-// Die gehostete Seite ist eine eigene Umsetzung (n8n bindet @n8n/chat aus einem CDN ein): src/ui/chat/page.ts.
+// Chat Trigger, @n8n/n8n-nodes-langchain.chatTrigger (typeVersion 1 to 1.4)
+// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/trigger/ChatTrigger/ChatTrigger.node.ts:
+//   - webhooks under <webhookId>/chat: GET "setup" (hosted chat page), POST "default" (messages)
+//   - not public (public: false): 404; Basic Auth via httpBasicAuth
+//   - action "loadPreviousSession": messages from the connected Simple Memory or an empty list
+//   - otherwise: the request JSON is the item (multipart: fields plus files as binary data0, data1 …)
+//   - responseMode from options: lastNode (default), responseNode or streaming (from v1.2, JSON lines like the webhook)
+// The hosted page is our own implementation (n8n embeds @n8n/chat from a CDN): src/ui/chat/page.ts.
 import type { NodeIssue, NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
 import type { Item, Workflow, WorkflowNode } from '../types.js';
@@ -31,25 +31,25 @@ export interface ChatOptions {
 }
 
 export interface ChatHandleResult {
-  /** Antwort ohne Ausführung (Seite, 404, Auth, frühere Nachrichten) */
+  /** Response without execution (page, 404, auth, previous messages) */
   directResponse?: { statusCode: number; headers: Record<string, string>; body: string };
-  /** Item für den Trigger */
+  /** Item for the trigger */
   workflowData?: Item[][];
 }
 
-/** Pfad wie n8n getNodeWebhookPath (isFullPath nicht gesetzt): <webhookId>/chat */
+/** Path like n8n getNodeWebhookPath (isFullPath not set): <webhookId>/chat */
 export function chatWebhookPath(node: WorkflowNode): string {
   return `${node.webhookId ?? ''}/${CHAT_PATH}`;
 }
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
 
-/** Gehostete Chat-Seite: Einstellungen als JSON-Daten, Logik in /ui/chat/page.js */
+/** Hosted chat page: settings as JSON data, logic in /ui/chat/page.js */
 export function chatPage(config: Record<string, unknown>, customCss?: string): string {
   const json = JSON.stringify(config).replace(/</g, '\\u003c');
   const title = typeof config.title === 'string' && config.title ? config.title : 'Chat';
   return `<!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -70,7 +70,7 @@ export interface ChatHandleContext {
   node: WorkflowNode;
   request: IncomingWebhookRequest;
   test: boolean;
-  /** Adresse der Nachrichten-URL (produktiv /webhook/…, Test /webhook-test/…) */
+  /** Address of the message URL (production /webhook/…, test /webhook-test/…) */
   webhookUrl: string;
   binary: BinaryStore;
   getCredentials(type: string): Promise<Record<string, unknown> | undefined>;
@@ -89,7 +89,7 @@ export async function handleChatRequest(ctx: ChatHandleContext): Promise<ChatHan
   const options = (p.options ?? {}) as ChatOptions;
   const mode = (p.mode as string | undefined) ?? 'hostedChat';
 
-  // validateAuth (GenericFunctions.ts): nur Basic Auth (n8n User Auth gibt es in filuflow nicht)
+  // validateAuth (GenericFunctions.ts): only Basic Auth (n8n User Auth does not exist in filuflow)
   if (p.authentication === 'basicAuth') {
     const expected = await ctx.getCredentials('httpBasicAuth').catch(() => undefined);
     const unauthorized = (code: number, message: string) => ({ directResponse: { statusCode: code, headers: { 'www-authenticate': 'Basic realm="Webhook"' }, body: message } });
@@ -132,7 +132,7 @@ export async function handleChatRequest(ctx: ChatHandleContext): Promise<ChatHan
 
   const contentType = parseContentType(header(req, 'content-type'))?.type;
   if (contentType === 'multipart/form-data') {
-    // handleFormData: Felder als json, Dateien als data0, data1 … und Liste "files"
+    // handleFormData: fields as json, files as data0, data1 … and list "files"
     const form = await new Request('http://localhost/', { method: 'POST', headers: { 'content-type': header(req, 'content-type') ?? '' }, body: new Uint8Array(req.rawBody) }).formData();
     const json: Record<string, unknown> = {};
     const files: Array<Record<string, unknown>> = [];
@@ -166,7 +166,7 @@ export async function handleChatRequest(ctx: ChatHandleContext): Promise<ChatHan
   return { workflowData: [[{ json: body }]] };
 }
 
-/** Nachrichten der Sitzung aus dem Simple Memory, das am Chat Trigger hängt (memory.chatHistory.getMessages) */
+/** Session messages from the Simple Memory attached to the Chat Trigger (memory.chatHistory.getMessages) */
 function loadSessionMessages(workflow: Workflow, node: WorkflowNode, sessionId: string): unknown[] {
   for (const [source, outputs] of Object.entries(workflow.connections ?? {})) {
     const targets = (outputs as Record<string, Array<Array<{ node: string }> | null>>).ai_memory ?? [];
@@ -174,7 +174,7 @@ function loadSessionMessages(workflow: Workflow, node: WorkflowNode, sessionId: 
     const memoryNode = workflow.nodes.find((n) => n.name === source);
     if (!memoryNode || memoryNode.type !== '@n8n/n8n-nodes-langchain.memoryBufferWindow') continue;
     const params = memoryNode.parameters as Record<string, unknown>;
-    // Sitzungs-ID wie memoryBufferWindow: aus dem Chat (Default) oder fester Schlüssel ohne Expression
+    // Session ID like memoryBufferWindow: from the chat (default) or a fixed key without expression
     const custom = (params.sessionIdType === 'customKey' || memoryNode.typeVersion === 1) && typeof params.sessionKey === 'string' && !params.sessionKey.startsWith('=');
     const key = `${workflow.id ?? workflow.name}__${custom ? (params.sessionKey as string) : sessionId}`;
     return memoryMessages(key);
@@ -182,116 +182,116 @@ function loadSessionMessages(workflow: Workflow, node: WorkflowNode, sessionId: 
   return [];
 }
 
-// Parameter wie n8n ChatTrigger.node.ts (properties, commonOptionsFields). Abweichung: authentication ohne
-// "n8nUserAuth", das es in filuflow nicht gibt. customCss hat einen leeren Default statt der n8n-Vorlage (constants.ts cssVariables), weil die
-// gehostete Seite eine eigene Umsetzung ohne diese CSS-Variablen ist.
+// Parameters like n8n ChatTrigger.node.ts (properties, commonOptionsFields). Deviation: authentication without
+// "n8nUserAuth", which does not exist in filuflow. customCss has an empty default instead of the n8n template (constants.ts cssVariables), because the
+// hosted page is our own implementation without these CSS variables.
 const HOSTED = { '/mode': ['hostedChat'] };
 const allowFileUploadsParam: ParamSchema = {
   name: 'allowFileUploads',
-  label: 'Datei-Uploads erlauben',
+  label: 'Allow File Uploads',
   type: 'boolean',
   default: false,
-  description: 'Ob im Chat Dateien hochgeladen werden dürfen',
+  description: 'Whether to allow file uploads in the chat',
 };
 const allowedFilesMimeTypesParam: ParamSchema = {
   name: 'allowedFilesMimeTypes',
-  label: 'Erlaubte MIME-Typen',
+  label: 'Allowed File Mime Types',
   type: 'string',
   default: '*',
-  placeholder: 'z. B. image/*, text/*, application/pdf',
-  description: 'Erlaubte Dateitypen als MIME-Typen, durch Komma getrennt',
+  placeholder: 'e.g. image/*, text/*, application/pdf',
+  description: 'Allowed file types for upload; comma-separated list of MIME types',
 };
-const lastNodeMode = { value: 'lastNode', label: 'Wenn der letzte Knoten fertig ist', description: 'Antwortet mit Daten des zuletzt ausgeführten Knotens' };
-const responseNodeMode = { value: 'responseNode', label: "Über Knoten 'Respond to Webhook'", description: 'Die Antwort legt jener Knoten fest' };
-const responseNodesMode = { value: 'responseNodes', label: 'Über Antwortknoten', description: "Antworten kommen von Knoten 'Respond to Chat' oder 'Respond to Webhook'" };
-const streamingMode = { value: 'streaming', label: 'Streaming', description: 'Antwort laufend von Knoten mit Streaming (z. B. AI Agent)' };
+const lastNodeMode = { value: 'lastNode', label: 'When Last Node Finishes', description: 'Returns data of the last-executed node' };
+const responseNodeMode = { value: 'responseNode', label: "Using 'Respond to Webhook' Node", description: 'Response defined in that node' };
+const responseNodesMode = { value: 'responseNodes', label: 'Using Response Nodes', description: "Send responses to the chat by using 'Respond to Chat' or 'Respond to Webhook' nodes" };
+const streamingMode = { value: 'streaming', label: 'Streaming', description: 'Streaming response from specified nodes (e.g. AI Agent)' };
 function responseModeParam(options: ParamSchema['options'], show?: ParamSchema['show']): ParamSchema {
-  return { name: 'responseMode', label: 'Antwortmodus', type: 'options', default: 'lastNode', description: 'Wann und wie geantwortet wird', options, ...(show ? { show } : {}) };
+  return { name: 'responseMode', label: 'Response Mode', type: 'options', default: 'lastNode', description: 'When and how to respond to the webhook', options, ...(show ? { show } : {}) };
 }
 const commonOptions: ParamSchema[] = [
   {
     name: 'allowedOrigins',
-    label: 'Erlaubte Origins (CORS)',
+    label: 'Allowed Origins (CORS)',
     type: 'string',
     default: '*',
-    description: 'URLs für Cross-Origin-Anfragen, durch Komma getrennt; * erlaubt alle',
+    description: 'Comma-separated list of URLs allowed for cross-origin non-preflight requests; use * to allow all origins',
     show: { '/mode': ['hostedChat', 'webhook'] },
   },
   { ...allowFileUploadsParam, show: HOSTED },
   { ...allowedFilesMimeTypesParam, show: HOSTED },
   {
     name: 'inputPlaceholder',
-    label: 'Platzhalter der Eingabe',
+    label: 'Input Placeholder',
     type: 'string',
     default: 'Type your question..',
-    placeholder: 'z. B. Nachricht eingeben',
-    description: 'Platzhaltertext im Eingabefeld des Chats',
+    placeholder: 'e.g. Type your message',
+    description: 'Shown as placeholder text in the chat input field',
     show: HOSTED,
   },
   {
     name: 'loadPreviousSession',
-    label: 'Frühere Sitzung laden',
+    label: 'Load Previous Session',
     type: 'options',
     default: 'notSupported',
-    description: 'Ob Nachrichten einer früheren Sitzung geladen werden',
+    description: 'Whether to load messages from a previous chat session',
     options: [
-      { value: 'notSupported', label: 'Aus', description: 'Frühere Nachrichten werden nicht geladen' },
-      { value: 'memory', label: 'Aus dem Memory', description: 'Nachrichten aus dem angeschlossenen Memory' },
-      { value: 'manually', label: 'Manuell', description: 'Der Workflow liefert die Nachrichten selbst' },
+      { value: 'notSupported', label: 'Off', description: 'Loading messages of previous session is turned off' },
+      { value: 'memory', label: 'From Memory', description: 'Load session messages from memory' },
+      { value: 'manually', label: 'Manually', description: 'Manually return messages of session' },
     ],
   },
   {
     name: 'showWelcomeScreen',
-    label: 'Start per Knopf',
+    label: 'Require Button Click to Start Chat',
     type: 'boolean',
     default: false,
-    description: 'Ob zu Beginn ein Begrüßungsbildschirm erscheint',
+    description: 'Whether to show the welcome screen at the start of the chat',
     show: HOSTED,
   },
   {
     name: 'getStarted',
-    label: 'Text des Start-Knopfs',
+    label: 'Start Conversation Button Text',
     type: 'string',
     default: 'New Conversation',
-    placeholder: 'z. B. Neues Gespräch',
-    description: 'Steht im Begrüßungsbildschirm in der Mitte des Chats',
+    placeholder: 'e.g. New Conversation',
+    description: 'Shown as part of the welcome screen, in the middle of the chat window',
     show: { showWelcomeScreen: [true], '/mode': ['hostedChat'] },
   },
   {
     name: 'subtitle',
-    label: 'Untertitel',
+    label: 'Subtitle',
     type: 'string',
     default: "Start a chat. We're here to help you 24/7.",
-    placeholder: 'z. B. Wir sind für Sie da',
-    description: 'Steht oben im Chat unter dem Titel',
+    placeholder: 'e.g. We are here for you',
+    description: 'Shown at the top of the chat, under the title',
     show: HOSTED,
   },
   {
     name: 'title',
-    label: 'Titel',
+    label: 'Title',
     type: 'string',
     default: 'Hi there! 👋',
-    placeholder: 'z. B. Willkommen',
-    description: 'Steht oben im Chat',
+    placeholder: 'e.g. Welcome',
+    description: 'Shown at the top of the chat',
     show: HOSTED,
   },
   {
     name: 'customCss',
-    label: 'Eigenes Chat-Styling',
+    label: 'Custom Chat Styling',
     type: 'code',
     language: 'css',
     rows: 10,
     default: '',
-    description: 'CSS, das die Gestaltung des öffentlichen Chats überschreibt',
+    description: 'Override default styling of the public chat interface with CSS',
     show: HOSTED,
   },
 ];
 const chatOptions = (show: ParamSchema['show'], children: ParamSchema[]): ParamSchema => ({
   name: 'options',
-  label: 'Optionen',
+  label: 'Options',
   type: 'collection',
   default: {},
-  addLabel: 'Feld hinzufügen',
+  addLabel: 'Add Field',
   show,
   children,
 });
@@ -299,75 +299,75 @@ const PUBLIC_MODES = { mode: ['hostedChat', 'webhook'], public: [true] };
 const parameters: ParamSchema[] = [
   {
     name: 'public',
-    label: 'Chat öffentlich machen',
+    label: 'Make Chat Publicly Available',
     type: 'boolean',
     default: false,
-    description: 'Ob der Chat öffentlich erreichbar ist oder nur im Chat-Fenster des Editors',
+    description: 'Whether the chat should be publicly available or only accessible through the editor chat window',
   },
   {
     name: 'mode',
-    label: 'Modus',
+    label: 'Mode',
     type: 'options',
     default: 'hostedChat',
     show: { public: [true] },
     options: [
-      { value: 'hostedChat', label: 'Gehosteter Chat', description: 'Chat auf einer Seite des Servers' },
-      { value: 'webhook', label: 'Eingebetteter Chat', description: 'Widget in einer anderen Seite oder Aufruf des Webhooks' },
+      { value: 'hostedChat', label: 'Hosted Chat', description: 'Chat on a page served by the server' },
+      { value: 'webhook', label: 'Embedded Chat', description: 'Use your own chat interface or embed the widget in another page' },
     ],
   },
   {
     name: 'hostedChatNotice',
-    label: 'Der Chat ist unter der URL oben erreichbar, sobald der Workflow aktiv ist.',
+    label: 'The chat is available at the URL above once the workflow is active.',
     type: 'notice',
     default: '',
     show: { mode: ['hostedChat'], public: [true] },
   },
   {
     name: 'embeddedChatNotice',
-    label: 'Den Chat in eine Webseite einbetten oder die Webhook-URL direkt aufrufen; er ist aktiv, sobald der Workflow aktiv ist.',
+    label: 'Embed the chat in a website or call the webhook URL directly; it is live once the workflow is active.',
     type: 'notice',
     default: '',
     show: { mode: ['webhook'], public: [true] },
   },
   {
     name: 'authentication',
-    label: 'Authentifizierung',
+    label: 'Authentication',
     type: 'options',
     default: 'none',
-    description: 'Art der Anmeldung',
+    description: 'The way to authenticate',
     show: { public: [true] },
     options: [
-      { value: 'basicAuth', label: 'Basic Auth', description: 'Ein Benutzername und Passwort für alle' },
-      { value: 'none', label: 'Keine' },
+      { value: 'basicAuth', label: 'Basic Auth', description: 'Simple username and password (the same one for all users)' },
+      { value: 'none', label: 'None' },
     ],
   },
   {
     name: 'initialMessages',
-    label: 'Begrüßungsnachrichten',
+    label: 'Initial Message(s)',
     type: 'string',
     default: 'Hi there! 👋\nMy name is Nathan. How can I assist you today?',
     rows: 3,
-    description: 'Nachrichten zu Beginn des Chats, eine je Zeile',
+    description: 'Default messages shown at the start of the chat, one per line',
     show: { mode: ['hostedChat'], public: [true] },
   },
   {
     name: 'availableInChat',
-    label: 'In n8n Chat verfügbar machen',
+    label: 'Make Available in n8n Chat',
     type: 'boolean',
     default: false,
     noExpression: true,
-    description: 'Ob der Agent in n8n Chat erscheint; in filuflow ohne Wirkung',
+    description: 'Whether the agent appears in n8n Chat; has no effect in filuflow',
     show: { '@version': [{ _cnd: { gte: 1.4 } }] },
   },
-  { name: 'agentName', label: 'Name des Agenten', type: 'string', default: '', noExpression: true, description: 'Name des Agenten in n8n Chat', show: { availableInChat: [true] } },
+  { name: 'agentName', label: 'Agent Name', type: 'string', default: '', noExpression: true, description: 'Name of the agent in n8n Chat', show: { availableInChat: [true] } },
   {
     name: 'agentDescription',
-    label: 'Beschreibung des Agenten',
+    label: 'Agent Description',
     type: 'string',
     default: '',
     rows: 2,
     noExpression: true,
-    description: 'Beschreibung des Agenten in n8n Chat',
+    description: 'Description of the agent in n8n Chat',
     show: { availableInChat: [true] },
   },
   chatOptions({ public: [false], '@version': [1, 1.1] }, [allowFileUploadsParam, allowedFilesMimeTypesParam]),
@@ -394,13 +394,13 @@ export const chatTriggerNode: NodeType = {
   validate(node) {
     const issues: NodeIssue[] = [];
     if (node.parameters.authentication === 'n8nUserAuth') {
-      issues.push({ code: 'node.unsupportedParameter', message: 'Chat Trigger: "n8n User Auth" gibt es in filuflow nicht; bitte Basic Auth verwenden', path: 'parameters.authentication' });
+      issues.push({ code: 'node.unsupportedParameter', message: 'Chat Trigger: "n8n User Auth" does not exist in filuflow; please use Basic Auth', path: 'parameters.authentication' });
     }
-    if (!node.webhookId) issues.push({ code: 'node.unsupportedParameter', message: 'Chat Trigger braucht eine webhookId', path: 'webhookId' });
+    if (!node.webhookId) issues.push({ code: 'node.unsupportedParameter', message: 'Chat Trigger needs a webhookId', path: 'webhookId' });
     return issues;
   },
   async execute(ctx) {
-    // Daten kommen vom Server (Chat-Nachricht) oder aus dem Testlauf und werden durchgereicht
+    // Data comes from the server (chat message) or from the test run and is passed through
     return [ctx.inputs[0]?.length ? ctx.inputs[0] : [{ json: {} }]];
   },
 };

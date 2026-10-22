@@ -1,6 +1,6 @@
-// OAuth2 mit Authorization Code und PKCE (M14) gegen einen nachgebauten Anbieter: Autorisierungs-URL wie n8n,
-// Rückleitung auf /rest/oauth2-credential/callback, Code-Tausch, Token dauerhaft gespeichert, Refresh nach 401,
-// PKCE (code_challenge S256 und code_verifier), ungültiger state, Trennen.
+// OAuth2 with authorization code and PKCE (M14) against a simulated provider: authorization URL like n8n, redirect to
+// /rest/oauth2-credential/callback, code exchange, token stored permanently, refresh after 401, PKCE (code_challenge
+// S256 and code_verifier), invalid state, disconnect.
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createServer as createHttpServer, type Server } from 'node:http';
 import { createHash } from 'node:crypto';
@@ -13,7 +13,7 @@ import { StaticCredentialProvider } from '../src/credentials/store.js';
 import { LayeredCredentialProvider } from '../src/credentials/managed.js';
 import type { Workflow } from '../src/types.js';
 
-const KEY = 'oauth-schluessel';
+const KEY = 'oauth-key';
 let provider: Server;
 let providerUrl: string;
 const tokenRequests: Array<{ headers: Record<string, string | string[] | undefined>; body: URLSearchParams }> = [];
@@ -45,7 +45,7 @@ beforeAll(async () => {
         res.setHeader('content-type', 'application/json');
         if (req.headers.authorization !== `Bearer ${validToken}`) {
           res.statusCode = 401;
-          res.end(JSON.stringify({ message: 'abgelaufen' }));
+          res.end(JSON.stringify({ message: 'expired' }));
           return;
         }
         res.end(JSON.stringify({ ok: true, token: validToken }));
@@ -97,7 +97,7 @@ async function start(): Promise<FiluflowServer> {
   dir = mkdtempSync(join(tmpdir(), 'filuflow-oauth-'));
   const wfDir = join(dir, 'workflows');
   (await import('node:fs')).mkdirSync(wfDir);
-  writeFileSync(join(wfDir, 'api.json'), JSON.stringify(apiWorkflow('Kalender')));
+  writeFileSync(join(wfDir, 'api.json'), JSON.stringify(apiWorkflow('Calendar')));
   const credentials = await new LayeredCredentialProvider(new StaticCredentialProvider(), join(dir, 'credentials.managed.json')).load();
   server = await createServer({ dir: wfDir, dbFile: join(dir, 'filuflow.db'), apiKey: KEY, webhookBaseUrl: 'http://x/', watch: false, uiDir: false, credentials });
   return server;
@@ -108,82 +108,82 @@ const call = (s: FiluflowServer, method: 'GET' | 'PUT' | 'POST' | 'DELETE', url:
 
 const oauthData = (grantType: string) => ({
   grantType,
-  authUrl: 'https://anbieter.example/authorize',
+  authUrl: 'https://provider.example/authorize',
   accessTokenUrl: `${providerUrl}/token`,
   clientId: 'filuflow-client',
-  clientSecret: 'client-geheim',
-  scope: 'lesen schreiben',
+  clientSecret: 'client-secret',
+  scope: 'read write',
   authQueryParameters: 'access_type=offline&prompt=consent',
   authentication: 'header',
 });
 
 describe('OAuth2 Authorization Code', () => {
-  it('verbindet, speichert das Token, erneuert es nach 401 und trennt', async () => {
+  it('connects, stores the token, renews it after 401 and disconnects', async () => {
     const s = await start();
-    expect((await call(s, 'PUT', '/api/credentials/Kalender', { type: 'oAuth2Api', data: oauthData('authorizationCode'), create: true })).statusCode).toBe(200);
+    expect((await call(s, 'PUT', '/api/credentials/Calendar', { type: 'oAuth2Api', data: oauthData('authorizationCode'), create: true })).statusCode).toBe(200);
     const before = (await call(s, 'GET', '/api/credentials')).json();
     expect(before.oauthCallbackUrl).toBe('http://x/rest/oauth2-credential/callback');
     expect(before.data[0].oauth).toEqual({ version: 2, grantType: 'authorizationCode', connected: false });
     expect((await call(s, 'GET', '/api/credential-types')).json().oauthCallbackUrl).toBe('http://x/rest/oauth2-credential/callback');
 
-    // Nicht verbunden: klarer Fehler
+    // Not connected: clear error
     const notYet = (await call(s, 'POST', '/api/workflows/api/run')).json();
     expect(notYet.runData.API[0].error.message).toBe('OAuth credentials not connected');
 
-    // Autorisierungs-URL wie n8n (CodeFlow.getUri)
-    const { url } = (await call(s, 'POST', '/api/credentials/Kalender/oauth2/auth', {})).json();
+    // Authorization URL like n8n (CodeFlow.getUri)
+    const { url } = (await call(s, 'POST', '/api/credentials/Calendar/oauth2/auth', {})).json();
     const auth = new URL(url);
-    expect(auth.origin + auth.pathname).toBe('https://anbieter.example/authorize');
+    expect(auth.origin + auth.pathname).toBe('https://provider.example/authorize');
     expect(Object.fromEntries(auth.searchParams)).toMatchObject({
       access_type: 'offline',
       prompt: 'consent',
       client_id: 'filuflow-client',
       redirect_uri: 'http://x/rest/oauth2-credential/callback',
       response_type: 'code',
-      scope: 'lesen schreiben',
+      scope: 'read write',
     });
     expect([...auth.searchParams.keys()]).toEqual(['access_type', 'prompt', 'client_id', 'redirect_uri', 'response_type', 'state', 'scope']);
     const state = auth.searchParams.get('state')!;
 
-    // Rückleitung des Anbieters (ohne API-Key)
+    // Redirect of the provider (without API key)
     const cb = await s.app.inject({ method: 'GET', url: `/rest/oauth2-credential/callback?code=code-123&state=${state}` });
     expect(cb.statusCode).toBe(200);
     expect(cb.headers['content-type']).toMatch(/text\/html/);
-    expect(cb.body).toContain('ist verbunden');
-    expect(tokenRequests[0].headers.authorization).toBe(`Basic ${Buffer.from('filuflow-client:client-geheim').toString('base64')}`);
+    expect(cb.body).toContain('is connected');
+    expect(tokenRequests[0].headers.authorization).toBe(`Basic ${Buffer.from('filuflow-client:client-secret').toString('base64')}`);
     expect(Object.fromEntries(tokenRequests[0].body)).toEqual({ code: 'code-123', grant_type: 'authorization_code', redirect_uri: 'http://x/rest/oauth2-credential/callback' });
 
-    // state ist verbraucht
+    // state is used up
     expect((await s.app.inject({ method: 'GET', url: `/rest/oauth2-credential/callback?code=code-123&state=${state}` })).statusCode).toBe(400);
 
     const after = (await call(s, 'GET', '/api/credentials')).json();
     expect(after.data[0].oauth).toEqual({ version: 2, grantType: 'authorizationCode', connected: true });
-    const detail = (await call(s, 'GET', '/api/credentials/Kalender')).json();
-    expect(JSON.stringify(detail)).not.toMatch(/at-1|rt-1|client-geheim/);
+    const detail = (await call(s, 'GET', '/api/credentials/Calendar')).json();
+    expect(JSON.stringify(detail)).not.toMatch(/at-1|rt-1|client-secret/);
 
-    // Token gilt; nach 401 Refresh mit refresh_token, refresh_token bleibt erhalten
+    // Token is valid; after 401 refresh with refresh_token, refresh_token is kept
     const first = (await call(s, 'POST', '/api/workflows/api/run')).json();
     expect(first.runData.API[0].data.main[0][0].json).toEqual({ ok: true, token: 'at-1' });
-    validToken = 'at-2-erwartet';
+    validToken = 'at-2-expected';
     const second = (await call(s, 'POST', '/api/workflows/api/run')).json();
     expect(second.runData.API[0].data.main[0][0].json).toEqual({ ok: true, token: 'at-2' });
     const refresh = tokenRequests.find((r) => r.body.get('grant_type') === 'refresh_token')!;
     expect(refresh.body.get('refresh_token')).toBe('rt-1');
     expect(s.store.getValue<Record<string, unknown>>('oauth2-cred:' + (after.data[0].id as string))).toMatchObject({ access_token: 'at-2', refresh_token: 'rt-1' });
 
-    // Bearbeiten des Credentials lässt die Verbindung bestehen
-    await call(s, 'PUT', '/api/credentials/Kalender', { type: 'oAuth2Api', data: { ...oauthData('authorizationCode'), scope: 'lesen' }, keep: ['clientSecret'] });
+    // Editing the credential keeps the connection
+    await call(s, 'PUT', '/api/credentials/Calendar', { type: 'oAuth2Api', data: { ...oauthData('authorizationCode'), scope: 'read' }, keep: ['clientSecret'] });
     expect((await call(s, 'GET', '/api/credentials')).json().data[0].oauth.connected).toBe(true);
 
-    // Trennen
-    expect((await call(s, 'DELETE', '/api/credentials/Kalender/oauth2')).statusCode).toBe(204);
+    // Disconnect
+    expect((await call(s, 'DELETE', '/api/credentials/Calendar/oauth2')).statusCode).toBe(204);
     expect((await call(s, 'GET', '/api/credentials')).json().data[0].oauth.connected).toBe(false);
   });
 
-  it('PKCE: code_challenge (S256) in der URL, code_verifier beim Tausch', async () => {
+  it('PKCE: code_challenge (S256) in the URL, code_verifier on exchange', async () => {
     const s = await start();
-    await call(s, 'PUT', '/api/credentials/Kalender', { type: 'oAuth2Api', data: oauthData('pkce'), create: true });
-    const { url } = (await call(s, 'POST', '/api/credentials/Kalender/oauth2/auth', {})).json();
+    await call(s, 'PUT', '/api/credentials/Calendar', { type: 'oAuth2Api', data: oauthData('pkce'), create: true });
+    const { url } = (await call(s, 'POST', '/api/credentials/Calendar/oauth2/auth', {})).json();
     const auth = new URL(url);
     expect(auth.searchParams.get('code_challenge_method')).toBe('S256');
     const challenge = auth.searchParams.get('code_challenge')!;
@@ -195,16 +195,16 @@ describe('OAuth2 Authorization Code', () => {
     expect(s.store.getValue<Record<string, unknown>>(`oauth2-cred:${id}`)).toMatchObject({ access_token: 'at-1', callbackQueryString: { extra: '1' } });
   });
 
-  it('Fehler: ungültiger state, Fehler des Anbieters, falscher Grant', async () => {
+  it('errors: invalid state, provider error, wrong grant', async () => {
     const s = await start();
-    expect((await s.app.inject({ method: 'GET', url: '/rest/oauth2-credential/callback?code=x&state=unbekannt' })).body).toContain('The OAuth callback state is invalid!');
-    expect((await s.app.inject({ method: 'GET', url: '/rest/oauth2-credential/callback?error=access_denied&error_description=nein' })).body).toContain('access_denied: nein');
-    await call(s, 'PUT', '/api/credentials/Maschine', { type: 'oAuth2Api', data: { ...oauthData('clientCredentials') }, create: true });
-    expect((await call(s, 'POST', '/api/credentials/Maschine/oauth2/auth', {})).statusCode).toBe(400);
-    // Falscher Code: Fehlermeldung nach RFC 6749
-    await call(s, 'PUT', '/api/credentials/Kalender', { type: 'oAuth2Api', data: oauthData('authorizationCode'), create: true });
-    const { url } = (await call(s, 'POST', '/api/credentials/Kalender/oauth2/auth', {})).json();
-    const bad = await s.app.inject({ method: 'GET', url: `/rest/oauth2-credential/callback?code=falsch&state=${new URL(url).searchParams.get('state')}` });
+    expect((await s.app.inject({ method: 'GET', url: '/rest/oauth2-credential/callback?code=x&state=unknown' })).body).toContain('The OAuth callback state is invalid!');
+    expect((await s.app.inject({ method: 'GET', url: '/rest/oauth2-credential/callback?error=access_denied&error_description=denied' })).body).toContain('access_denied: denied');
+    await call(s, 'PUT', '/api/credentials/Machine', { type: 'oAuth2Api', data: { ...oauthData('clientCredentials') }, create: true });
+    expect((await call(s, 'POST', '/api/credentials/Machine/oauth2/auth', {})).statusCode).toBe(400);
+    // Wrong code: error message according to RFC 6749
+    await call(s, 'PUT', '/api/credentials/Calendar', { type: 'oAuth2Api', data: oauthData('authorizationCode'), create: true });
+    const { url } = (await call(s, 'POST', '/api/credentials/Calendar/oauth2/auth', {})).json();
+    const bad = await s.app.inject({ method: 'GET', url: `/rest/oauth2-credential/callback?code=wrong&state=${new URL(url).searchParams.get('state')}` });
     expect(bad.statusCode).toBe(400);
     expect(bad.body).toContain('The provided authorization grant');
   });

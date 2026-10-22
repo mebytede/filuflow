@@ -1,8 +1,9 @@
-// Formular aus der Parameterbeschreibung eines Knotentyps (M19, Beschreibung in src/nodes/params.ts).
-// Sichtbarkeit wie n8n displayParameter (packages/workflow/src/node-helpers.ts): show verlangt, dass einer der Werte
-// passt, hide blendet aus, sobald einer passt; "@version" prüft die typeVersion, "/name" einen Parameter der obersten
-// Ebene. Nicht gesetzte Parameter zeigen ihren Default; geschrieben wird erst bei einer Änderung.
+// Form built from the parameter description of a node type (M19, description in src/nodes/params.ts).
+// Visibility like n8n displayParameter (packages/workflow/src/node-helpers.ts): show requires one of the values to
+// match, hide hides as soon as one matches; "@version" checks the typeVersion, "/name" a top-level parameter.
+// Unset parameters show their default; a value is only written on a change.
 import { h } from '../dom.js';
+import { t as tr, tl } from '../i18n.js';
 import { icon } from '../icons.js';
 import type { ParamSchema } from '../types.js';
 import { newId } from './model.js';
@@ -13,9 +14,9 @@ export interface SchemaFormContext {
   readonly: boolean;
   nodeType: string;
   version: number;
-  /** Änderung ohne neues Zeichnen (Texteingaben) */
+  /** Change without re-rendering (text input) */
   onChange(key: string): void;
-  /** Änderung, nach der das Formular neu gezeichnet wird (Sichtbarkeit kann sich ändern) */
+  /** Change after which the form is re-rendered (visibility may change) */
   onStructure(key: string): void;
 }
 
@@ -25,7 +26,7 @@ function autoGrow(ta: HTMLTextAreaElement): void {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Einzelne Felder
+// Individual fields
 
 interface FieldIo {
   get(): unknown;
@@ -36,15 +37,15 @@ interface FieldIo {
 function fxButton(on: boolean, ctx: SchemaFormContext, toggle: () => void): HTMLElement {
   return h(
     'button',
-    { type: 'button', class: `fx${on ? ' on' : ''}`, title: on ? 'Expression (Klick: fester Wert)' : 'Fester Wert (Klick: Expression)', disabled: ctx.readonly, onclick: toggle },
+    { type: 'button', class: `fx${on ? ' on' : ''}`, title: on ? tr('Expression (click: fixed value)') : tr('Fixed value (click: expression)'), disabled: ctx.readonly, onclick: toggle },
     'fx',
   );
 }
 
-/** Textfeld für Expressions (bei allen Typen, wenn der Wert mit "=" beginnt) */
+/** Text field for expressions (for all types when the value starts with "=") */
 function expressionInput(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext): HTMLElement {
   const value = String(io.get() ?? '');
-  const ta = h('textarea', { class: 'param-input param-text expr', spellcheck: false, rows: 1, disabled: ctx.readonly, 'aria-label': def.label });
+  const ta = h('textarea', { class: 'param-input param-text expr', spellcheck: false, rows: 1, disabled: ctx.readonly, 'aria-label': tl(def.label) });
   ta.value = value;
   ta.addEventListener('input', () => {
     io.set(ta.value);
@@ -53,7 +54,7 @@ function expressionInput(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext):
   });
   requestAnimationFrame(() => autoGrow(ta));
   const toggle = () => {
-    // Zurück zum festen Wert: Default, wenn der Inhalt ohne "=" nicht passt
+    // Back to a fixed value: default if the content without "=" does not fit
     const raw = ta.value.slice(1);
     let next: unknown = raw;
     if (def.type === 'number') next = raw.trim() !== '' && !Number.isNaN(Number(raw)) ? Number(raw) : (def.default ?? 0);
@@ -73,14 +74,14 @@ function toExpression(io: FieldIo, ctx: SchemaFormContext): void {
 
 function textInput(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext): HTMLElement {
   const value = io.get();
-  // JSON-Felder mit Objektwert (z. B. workflowInputs, n8n resourceMapper): als JSON zeigen und als Objekt speichern
+  // JSON fields with an object value (e.g. workflowInputs, n8n resourceMapper): show as JSON and store as an object
   const objectValue = def.type === 'json' && value !== null && typeof value === 'object';
   const text = value === undefined || value === null ? '' : objectValue ? JSON.stringify(value, null, 2) : String(value);
   const multiline = (def.rows ?? 1) > 1 || def.type === 'json' || def.type === 'code' || text.includes('\n');
   const mono = def.type === 'json' || def.type === 'code';
   const field = multiline
-    ? h('textarea', { class: `param-input param-text${mono ? ' mono' : ''}`, rows: def.rows ?? (def.type === 'code' ? 12 : 4), spellcheck: false, placeholder: def.placeholder ?? '', disabled: ctx.readonly, 'aria-label': def.label })
-    : h('input', { type: def.password ? 'password' : def.type === 'color' ? 'text' : 'text', class: 'param-input', spellcheck: false, placeholder: def.placeholder ?? '', disabled: ctx.readonly, 'aria-label': def.label, autocomplete: 'off' });
+    ? h('textarea', { class: `param-input param-text${mono ? ' mono' : ''}`, rows: def.rows ?? (def.type === 'code' ? 12 : 4), spellcheck: false, placeholder: tl(def.placeholder) ?? '', disabled: ctx.readonly, 'aria-label': tl(def.label) })
+    : h('input', { type: def.password ? 'password' : def.type === 'color' ? 'text' : 'text', class: 'param-input', spellcheck: false, placeholder: tl(def.placeholder) ?? '', disabled: ctx.readonly, 'aria-label': tl(def.label), autocomplete: 'off' });
   field.value = text;
   field.addEventListener('input', () => {
     if (field.value.startsWith('=') && !def.noExpression && def.type !== 'code' && def.type !== 'json') {
@@ -103,7 +104,7 @@ function textInput(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext): HTMLE
   if (field instanceof HTMLTextAreaElement && def.type !== 'code') requestAnimationFrame(() => autoGrow(field));
   const extras: HTMLElement[] = [];
   if (def.type === 'color') {
-    const picker = h('input', { type: 'color', class: 'param-color', value: /^#[0-9a-f]{6}$/i.test(text) ? text : '#000000', disabled: ctx.readonly, 'aria-label': `${def.label} wählen` });
+    const picker = h('input', { type: 'color', class: 'param-color', value: /^#[0-9a-f]{6}$/i.test(text) ? text : '#000000', disabled: ctx.readonly, 'aria-label': tr('Choose {name}', { name: tl(def.label) }) });
     picker.addEventListener('input', () => {
       field.value = picker.value;
       io.set(picker.value);
@@ -124,9 +125,9 @@ function numberInput(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext): HTM
     step: def.precision !== undefined ? String(10 ** -def.precision) : 'any',
     ...(def.min !== undefined ? { min: String(def.min) } : {}),
     ...(def.max !== undefined ? { max: String(def.max) } : {}),
-    placeholder: def.placeholder ?? '',
+    placeholder: tl(def.placeholder) ?? '',
     disabled: ctx.readonly,
-    'aria-label': def.label,
+    'aria-label': tl(def.label),
   });
   input.addEventListener('input', () => {
     if (input.value === '') return;
@@ -144,7 +145,7 @@ function booleanInput(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext): HT
     class: 'param-check',
     checked: io.get() === true,
     disabled: ctx.readonly,
-    'aria-label': def.label,
+    'aria-label': tl(def.label),
     onchange: (e: Event) => {
       io.set((e.target as HTMLInputElement).checked);
       ctx.onStructure(io.key);
@@ -162,22 +163,22 @@ function optionsInput(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext): HT
     {
       class: 'param-input',
       disabled: ctx.readonly,
-      'aria-label': def.label,
+      'aria-label': tl(def.label),
       onchange: () => {
         const chosen = options[Number(sel.value)];
         if (chosen) io.set(chosen.value);
         ctx.onStructure(io.key);
       },
     },
-    !known ? h('option', { value: '', selected: true }, current === undefined ? '(bitte wählen)' : `${String(current)} (unbekannt)`) : null,
-    options.map((o, i) => h('option', { value: String(i), selected: o.value === current, title: o.description ?? '' }, o.label)),
+    !known ? h('option', { value: '', selected: true }, current === undefined ? tr('(please choose)') : tr('{value} (unknown)', { value: String(current) })) : null,
+    options.map((o, i) => h('option', { value: String(i), selected: o.value === current, title: tl(o.description) ?? '' }, tl(o.label))),
   );
   const hint = options.find((o) => o.value === current)?.description;
   return h(
     'div',
     null,
     h('div', { class: 'param-text-row' }, sel, def.noExpression ? null : fxButton(false, ctx, () => toExpression(io, ctx))),
-    hint ? h('div', { class: 'muted small param-hint' }, hint) : null,
+    hint ? h('div', { class: 'muted small param-hint' }, tl(hint)) : null,
   );
 }
 
@@ -198,12 +199,12 @@ function multiOptionsInput(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext
             const on = (e.target as HTMLInputElement).checked;
             const list = Array.isArray(io.get()) ? [...(io.get() as unknown[])] : [];
             const next = on ? [...list.filter((v) => v !== o.value), o.value] : list.filter((v) => v !== o.value);
-            // Reihenfolge wie in der Liste der Optionen
+            // Order as in the list of options
             io.set((def.options ?? []).map((x) => x.value).filter((v) => next.includes(v)));
             ctx.onStructure(io.key);
           },
         }),
-        h('span', null, o.label),
+        h('span', null, tl(o.label)),
       ),
     ),
   );
@@ -218,10 +219,10 @@ function resourceLocatorInput(def: ParamSchema, io: FieldIo, ctx: SchemaFormCont
   const write = (m: string, v: unknown) => io.set({ __rl: true, mode: m, value: v });
   const sel = h(
     'select',
-    { class: 'param-input param-rl-mode', disabled: ctx.readonly, 'aria-label': `${def.label}: Art`, onchange: () => (write(sel.value, value ?? ''), ctx.onStructure(io.key)) },
-    modes.map((m) => h('option', { value: m.name, selected: m.name === mode }, m.name === 'list' ? 'Name' : m.label)),
+    { class: 'param-input param-rl-mode', disabled: ctx.readonly, 'aria-label': tr('{name}: mode', { name: tl(def.label) }), onchange: () => (write(sel.value, value ?? ''), ctx.onStructure(io.key)) },
+    modes.map((m) => h('option', { value: m.name, selected: m.name === mode }, m.name === 'list' ? tr('Name') : tl(m.label))),
   );
-  const input = h('input', { type: 'text', class: `param-input${isExpr(value) ? ' expr' : ''}`, value: value === undefined || value === null ? '' : String(value), placeholder: modes.find((m) => m.name === mode)?.placeholder ?? def.placeholder ?? '', disabled: ctx.readonly, 'aria-label': def.label });
+  const input = h('input', { type: 'text', class: `param-input${isExpr(value) ? ' expr' : ''}`, value: value === undefined || value === null ? '' : String(value), placeholder: tl(modes.find((m) => m.name === mode)?.placeholder) ?? tl(def.placeholder) ?? '', disabled: ctx.readonly, 'aria-label': tl(def.label) });
   input.addEventListener('input', () => {
     input.classList.toggle('expr', input.value.startsWith('='));
     write(mode, input.value);
@@ -231,14 +232,14 @@ function resourceLocatorInput(def: ParamSchema, io: FieldIo, ctx: SchemaFormCont
 }
 
 // ---------------------------------------------------------------------------------------------
-// Zuweisungen (Set ab 3.3, assignmentCollection)
+// Assignments (Set from 3.3, assignmentCollection)
 
 const ASSIGNMENT_TYPES: Array<[string, string]> = [
-  ['string', 'Text'],
-  ['number', 'Zahl'],
-  ['boolean', 'Ja/Nein'],
-  ['array', 'Liste'],
-  ['object', 'Objekt'],
+  ['string', 'String'],
+  ['number', 'Number'],
+  ['boolean', 'Boolean'],
+  ['array', 'Array'],
+  ['object', 'Object'],
 ];
 
 interface Assignment {
@@ -261,17 +262,17 @@ function assignmentsInput(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext)
     else ctx.onChange(key);
   };
   const rows = data.assignments.map((a, i) => {
-    const name = h('input', { type: 'text', class: 'param-input', value: a.name ?? '', placeholder: 'Name', spellcheck: false, disabled: ctx.readonly, 'aria-label': `Feld ${i + 1}: Name` });
+    const name = h('input', { type: 'text', class: 'param-input', value: a.name ?? '', placeholder: tr('Name'), spellcheck: false, disabled: ctx.readonly, 'aria-label': tr('Field {n}: name', { n: i + 1 }) });
     name.addEventListener('input', () => ((a.name = name.value), commit(false, `${io.key}.${a.id}.name`)));
     const type = h(
       'select',
-      { class: 'param-input param-assign-type', disabled: ctx.readonly, 'aria-label': `Feld ${i + 1}: Typ`, onchange: () => ((a.type = type.value), commit(true, `${io.key}.${a.id}.type`)) },
-      ASSIGNMENT_TYPES.map(([v, l]) => h('option', { value: v, selected: v === (a.type ?? 'string') }, l)),
+      { class: 'param-input param-assign-type', disabled: ctx.readonly, 'aria-label': tr('Field {n}: type', { n: i + 1 }), onchange: () => ((a.type = type.value), commit(true, `${io.key}.${a.id}.type`)) },
+      ASSIGNMENT_TYPES.map(([v, l]) => h('option', { value: v, selected: v === (a.type ?? 'string') }, tr(l))),
     );
-    const value = h('textarea', { class: `param-input param-text${isExpr(a.value) ? ' expr' : ''}`, rows: 1, spellcheck: false, placeholder: 'Wert', disabled: ctx.readonly, 'aria-label': `Feld ${i + 1}: Wert` });
+    const value = h('textarea', { class: `param-input param-text${isExpr(a.value) ? ' expr' : ''}`, rows: 1, spellcheck: false, placeholder: tr('Value'), disabled: ctx.readonly, 'aria-label': tr('Field {n}: value', { n: i + 1 }) });
     value.value = a.value === undefined || a.value === null ? '' : typeof a.value === 'object' ? JSON.stringify(a.value) : String(a.value);
     value.addEventListener('input', () => {
-      // Feste Werte speichert n8n je Typ: Zahl, Ja/Nein, sonst Text
+      // n8n stores fixed values per type: number, boolean, otherwise text
       const t = value.value;
       if (!t.startsWith('=') && a.type === 'number' && t.trim() !== '' && !Number.isNaN(Number(t))) a.value = Number(t);
       else if (!t.startsWith('=') && a.type === 'boolean' && (t === 'true' || t === 'false')) a.value = t === 'true';
@@ -284,115 +285,115 @@ function assignmentsInput(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext)
     return h(
       'div',
       { class: 'param-assign' },
-      h('div', { class: 'param-assign-head' }, name, type, ctx.readonly ? null : h('button', { type: 'button', class: 'icon-btn', title: 'Entfernen', 'aria-label': `Feld ${i + 1} entfernen`, onclick: () => (data.assignments.splice(i, 1), commit(true, `${io.key}#remove`)) }, icon('x', 14))),
+      h('div', { class: 'param-assign-head' }, name, type, ctx.readonly ? null : h('button', { type: 'button', class: 'icon-btn', title: tr('Remove'), 'aria-label': tr('Remove field {n}', { n: i + 1 }), onclick: () => (data.assignments.splice(i, 1), commit(true, `${io.key}#remove`)) }, icon('x', 14))),
       value,
     );
   });
   return h(
     'div',
     { class: 'param-assignments' },
-    rows.length ? rows : h('p', { class: 'muted small' }, 'Noch keine Felder.'),
-    ctx.readonly ? null : h('button', { type: 'button', class: 'btn btn-small', onclick: () => (data.assignments.push({ id: newId(), name: '', value: '', type: 'string' }), commit(true, `${io.key}#add`)) }, def.addLabel ?? 'Feld hinzufügen'),
+    rows.length ? rows : h('p', { class: 'muted small' }, tr('No fields yet.')),
+    ctx.readonly ? null : h('button', { type: 'button', class: 'btn btn-small', onclick: () => (data.assignments.push({ id: newId(), name: '', value: '', type: 'string' }), commit(true, `${io.key}#add`)) }, tl(def.addLabel) ?? tr('Add field')),
   );
 }
 
 // ---------------------------------------------------------------------------------------------
-// Bedingungen (If, Filter, Switch: filter)
+// Conditions (If, Filter, Switch: filter)
 
-/** Operatoren wie n8n packages/frontend/editor-ui/src/components/FilterConditions/constants.ts */
+/** Operators like n8n packages/frontend/editor-ui/src/components/FilterConditions/constants.ts */
 const OPERATORS: Array<{ type: string; label: string; ops: Array<[string, string, boolean?]> }> = [
   {
     type: 'string',
-    label: 'Text',
+    label: 'String',
     ops: [
-      ['exists', 'existiert', true],
-      ['notExists', 'existiert nicht', true],
-      ['empty', 'ist leer', true],
-      ['notEmpty', 'ist nicht leer', true],
-      ['equals', 'ist gleich'],
-      ['notEquals', 'ist ungleich'],
-      ['contains', 'enthält'],
-      ['notContains', 'enthält nicht'],
-      ['startsWith', 'beginnt mit'],
-      ['notStartsWith', 'beginnt nicht mit'],
-      ['endsWith', 'endet mit'],
-      ['notEndsWith', 'endet nicht mit'],
-      ['regex', 'passt zu Regex'],
-      ['notRegex', 'passt nicht zu Regex'],
+      ['exists', 'exists', true],
+      ['notExists', 'does not exist', true],
+      ['empty', 'is empty', true],
+      ['notEmpty', 'is not empty', true],
+      ['equals', 'is equal to'],
+      ['notEquals', 'is not equal to'],
+      ['contains', 'contains'],
+      ['notContains', 'does not contain'],
+      ['startsWith', 'starts with'],
+      ['notStartsWith', 'does not start with'],
+      ['endsWith', 'ends with'],
+      ['notEndsWith', 'does not end with'],
+      ['regex', 'matches regex'],
+      ['notRegex', 'does not match regex'],
     ],
   },
   {
     type: 'number',
-    label: 'Zahl',
+    label: 'Number',
     ops: [
-      ['exists', 'existiert', true],
-      ['notExists', 'existiert nicht', true],
-      ['empty', 'ist leer', true],
-      ['notEmpty', 'ist nicht leer', true],
-      ['equals', 'ist gleich'],
-      ['notEquals', 'ist ungleich'],
-      ['gt', 'ist größer als'],
-      ['lt', 'ist kleiner als'],
-      ['gte', 'ist größer oder gleich'],
-      ['lte', 'ist kleiner oder gleich'],
+      ['exists', 'exists', true],
+      ['notExists', 'does not exist', true],
+      ['empty', 'is empty', true],
+      ['notEmpty', 'is not empty', true],
+      ['equals', 'is equal to'],
+      ['notEquals', 'is not equal to'],
+      ['gt', 'is greater than'],
+      ['lt', 'is less than'],
+      ['gte', 'is greater than or equal to'],
+      ['lte', 'is less than or equal to'],
     ],
   },
   {
     type: 'dateTime',
-    label: 'Datum',
+    label: 'Date & Time',
     ops: [
-      ['exists', 'existiert', true],
-      ['notExists', 'existiert nicht', true],
-      ['empty', 'ist leer', true],
-      ['notEmpty', 'ist nicht leer', true],
-      ['equals', 'ist gleich'],
-      ['notEquals', 'ist ungleich'],
-      ['after', 'ist nach'],
-      ['before', 'ist vor'],
-      ['afterOrEquals', 'ist nach oder gleich'],
-      ['beforeOrEquals', 'ist vor oder gleich'],
+      ['exists', 'exists', true],
+      ['notExists', 'does not exist', true],
+      ['empty', 'is empty', true],
+      ['notEmpty', 'is not empty', true],
+      ['equals', 'is equal to'],
+      ['notEquals', 'is not equal to'],
+      ['after', 'is after'],
+      ['before', 'is before'],
+      ['afterOrEquals', 'is after or equal to'],
+      ['beforeOrEquals', 'is before or equal to'],
     ],
   },
   {
     type: 'boolean',
-    label: 'Ja/Nein',
+    label: 'Boolean',
     ops: [
-      ['exists', 'existiert', true],
-      ['notExists', 'existiert nicht', true],
-      ['empty', 'ist leer', true],
-      ['notEmpty', 'ist nicht leer', true],
-      ['true', 'ist wahr', true],
-      ['false', 'ist falsch', true],
-      ['equals', 'ist gleich'],
-      ['notEquals', 'ist ungleich'],
+      ['exists', 'exists', true],
+      ['notExists', 'does not exist', true],
+      ['empty', 'is empty', true],
+      ['notEmpty', 'is not empty', true],
+      ['true', 'is true', true],
+      ['false', 'is false', true],
+      ['equals', 'is equal to'],
+      ['notEquals', 'is not equal to'],
     ],
   },
   {
     type: 'array',
-    label: 'Liste',
+    label: 'Array',
     ops: [
-      ['exists', 'existiert', true],
-      ['notExists', 'existiert nicht', true],
-      ['empty', 'ist leer', true],
-      ['notEmpty', 'ist nicht leer', true],
-      ['contains', 'enthält'],
-      ['notContains', 'enthält nicht'],
-      ['lengthEquals', 'Länge gleich'],
-      ['lengthNotEquals', 'Länge ungleich'],
-      ['lengthGt', 'Länge größer als'],
-      ['lengthLt', 'Länge kleiner als'],
-      ['lengthGte', 'Länge größer oder gleich'],
-      ['lengthLte', 'Länge kleiner oder gleich'],
+      ['exists', 'exists', true],
+      ['notExists', 'does not exist', true],
+      ['empty', 'is empty', true],
+      ['notEmpty', 'is not empty', true],
+      ['contains', 'contains'],
+      ['notContains', 'does not contain'],
+      ['lengthEquals', 'length equal to'],
+      ['lengthNotEquals', 'length not equal to'],
+      ['lengthGt', 'length greater than'],
+      ['lengthLt', 'length less than'],
+      ['lengthGte', 'length greater than or equal to'],
+      ['lengthLte', 'length less than or equal to'],
     ],
   },
   {
     type: 'object',
-    label: 'Objekt',
+    label: 'Object',
     ops: [
-      ['exists', 'existiert', true],
-      ['notExists', 'existiert nicht', true],
-      ['empty', 'ist leer', true],
-      ['notEmpty', 'ist nicht leer', true],
+      ['exists', 'exists', true],
+      ['notExists', 'does not exist', true],
+      ['empty', 'is empty', true],
+      ['notEmpty', 'is not empty', true],
     ],
   },
 ];
@@ -404,7 +405,7 @@ interface Condition {
   operator: { type: string; operation: string; singleValue?: boolean; rightType?: string; name?: string };
 }
 
-/** n8n filter-Optionen je Knoten (IfV2/FilterV2/SwitchV3: typeOptions.filter) */
+/** n8n filter options per node (IfV2/FilterV2/SwitchV3: typeOptions.filter) */
 function filterOptions(root: Values, nodeType: string, version: number): Values {
   const isSwitch = nodeType === 'n8n-nodes-base.switch';
   const looseFrom = isSwitch ? 3.1 : 2.1;
@@ -426,7 +427,7 @@ function filterInput(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext, root
   const opInfo = (c: Condition) => OPERATORS.find((g) => g.type === c.operator?.type)?.ops.find((o) => o[0] === c.operator?.operation);
   const rows = conditions.map((c, i) => {
     const textField = (value: unknown, label: string, onInput: (t: string) => void) => {
-      const f = h('input', { type: 'text', class: `param-input${isExpr(value) ? ' expr' : ''}`, value: value === undefined || value === null ? '' : String(value), placeholder: label, spellcheck: false, disabled: ctx.readonly, 'aria-label': `Bedingung ${i + 1}: ${label}` });
+      const f = h('input', { type: 'text', class: `param-input${isExpr(value) ? ' expr' : ''}`, value: value === undefined || value === null ? '' : String(value), placeholder: label, spellcheck: false, disabled: ctx.readonly, 'aria-label': tr('Condition {n}: {label}', { n: i + 1, label }) });
       f.addEventListener('input', () => {
         f.classList.toggle('expr', f.value.startsWith('='));
         onInput(f.value);
@@ -434,14 +435,14 @@ function filterInput(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext, root
       });
       return f;
     };
-    const left = textField(c.leftValue, 'Wert 1', (t) => (c.leftValue = t));
+    const left = textField(c.leftValue, tr('Value 1'), (t) => (c.leftValue = t));
     const current = `${c.operator?.type ?? 'string'}:${c.operator?.operation ?? 'equals'}`;
     const op = h(
       'select',
       {
         class: 'param-input param-op',
         disabled: ctx.readonly,
-        'aria-label': `Bedingung ${i + 1}: Vergleich`,
+        'aria-label': tr('Condition {n}: comparison', { n: i + 1 }),
         onchange: () => {
           const [type, operation] = op.value.split(':');
           const single = OPERATORS.find((g) => g.type === type)?.ops.find((o) => o[0] === operation)?.[2] === true;
@@ -451,29 +452,29 @@ function filterInput(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext, root
           commit(true, `${io.key}.${c.id}.op`);
         },
       },
-      OPERATORS.map((g) => h('optgroup', { label: g.label }, g.ops.map(([o, l]) => h('option', { value: `${g.type}:${o}`, selected: `${g.type}:${o}` === current }, l)))),
+      OPERATORS.map((g) => h('optgroup', { label: tr(g.label) }, g.ops.map(([o, l]) => h('option', { value: `${g.type}:${o}`, selected: `${g.type}:${o}` === current }, tr(l))))),
     );
     const single = c.operator?.singleValue === true || opInfo(c)?.[2] === true;
-    const right = single ? null : textField(c.rightValue, 'Wert 2', (t) => (c.rightValue = t));
+    const right = single ? null : textField(c.rightValue, tr('Value 2'), (t) => (c.rightValue = t));
     return h(
       'div',
       { class: 'param-cond' },
-      h('div', { class: 'param-cond-head' }, left, ctx.readonly ? null : h('button', { type: 'button', class: 'icon-btn', title: 'Entfernen', 'aria-label': `Bedingung ${i + 1} entfernen`, onclick: () => (conditions.splice(i, 1), commit(true, `${io.key}#remove`)) }, icon('x', 14))),
+      h('div', { class: 'param-cond-head' }, left, ctx.readonly ? null : h('button', { type: 'button', class: 'icon-btn', title: tr('Remove'), 'aria-label': tr('Remove condition {n}', { n: i + 1 }), onclick: () => (conditions.splice(i, 1), commit(true, `${io.key}#remove`)) }, icon('x', 14))),
       op,
       right,
     );
   });
   const combinator = h(
     'select',
-    { class: 'param-input param-combinator', disabled: ctx.readonly, 'aria-label': 'Verknüpfung', onchange: () => ((data.combinator = combinator.value), commit(true, `${io.key}.combinator`)) },
-    h('option', { value: 'and', selected: (data.combinator ?? 'and') === 'and' }, 'Alle Bedingungen (UND)'),
-    h('option', { value: 'or', selected: data.combinator === 'or' }, 'Eine Bedingung (ODER)'),
+    { class: 'param-input param-combinator', disabled: ctx.readonly, 'aria-label': tr('Combinator'), onchange: () => ((data.combinator = combinator.value), commit(true, `${io.key}.combinator`)) },
+    h('option', { value: 'and', selected: (data.combinator ?? 'and') === 'and' }, tr('All conditions (AND)')),
+    h('option', { value: 'or', selected: data.combinator === 'or' }, tr('Any condition (OR)')),
   );
   return h(
     'div',
     { class: 'param-filter' },
     conditions.length > 1 ? combinator : null,
-    rows.length ? rows : h('p', { class: 'muted small' }, 'Noch keine Bedingungen.'),
+    rows.length ? rows : h('p', { class: 'muted small' }, tr('No conditions yet.')),
     ctx.readonly
       ? null
       : h(
@@ -486,13 +487,13 @@ function filterInput(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext, root
               commit(true, `${io.key}#add`);
             },
           },
-          def.addLabel ?? 'Bedingung hinzufügen',
+          tl(def.addLabel) ?? tr('Add condition'),
         ),
   );
 }
 
 // ---------------------------------------------------------------------------------------------
-// Ebenen: Parameterliste, Sammlung (collection) und Gruppen (fixedCollection)
+// Levels: parameter list, collection and groups (fixedCollection)
 
 function fieldFor(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext, root: Level): HTMLElement {
   const value = io.get();
@@ -524,9 +525,9 @@ function fieldFor(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext, root: L
 }
 
 function fieldRow(def: ParamSchema, level: Level, ctx: SchemaFormContext, root: Level, path: string, removable?: () => void): HTMLElement {
-  if (def.type === 'notice') return h('div', { class: 'info-box param-notice' }, def.label);
-  // Startcode (n8n setzt ihn im Editor, der Parameter-Default ist leer): sichtbaren Code auch speichern, sonst liefe
-  // ein leeres Feld
+  if (def.type === 'notice') return h('div', { class: 'info-box param-notice' }, tl(def.label));
+  // Starter code (n8n sets it in the editor, the parameter default is empty): also store the visible code, otherwise
+  // an empty field would run
   if (def.type === 'code' && level.values[def.name] === undefined && typeof def.default === 'string' && def.default && !ctx.readonly) {
     level.values[def.name] = def.default;
   }
@@ -544,12 +545,12 @@ function fieldRow(def: ParamSchema, level: Level, ctx: SchemaFormContext, root: 
     h(
       'div',
       { class: 'sf-label' },
-      h('span', { class: 'sf-name', title: def.name }, def.label),
-      def.required ? h('span', { class: 'muted small' }, ' (Pflicht)') : null,
-      removable && !ctx.readonly ? h('button', { type: 'button', class: 'icon-btn sf-remove', title: 'Entfernen', 'aria-label': `${def.label} entfernen`, onclick: removable }, icon('x', 14)) : null,
+      h('span', { class: 'sf-name', title: def.name }, tl(def.label)),
+      def.required ? h('span', { class: 'muted small' }, ` (${tr('required')})`) : null,
+      removable && !ctx.readonly ? h('button', { type: 'button', class: 'icon-btn sf-remove', title: tr('Remove'), 'aria-label': tr('Remove {name}', { name: tl(def.label) }), onclick: removable }, icon('x', 14)) : null,
     ),
     fieldFor(def, io, ctx, root),
-    def.description && !['options'].includes(def.type) ? h('div', { class: 'muted small param-hint' }, def.description) : null,
+    def.description && !['options'].includes(def.type) ? h('div', { class: 'muted small param-hint' }, tl(def.description)) : null,
   );
 }
 
@@ -576,7 +577,7 @@ function collectionInput(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext, 
     {
       class: 'param-input sf-add',
       disabled: ctx.readonly,
-      'aria-label': def.addLabel ?? `${def.label}: hinzufügen`,
+      'aria-label': tl(def.addLabel) ?? tr('{name}: add', { name: tl(def.label) }),
       onchange: () => {
         const c = addable[Number(add.value)];
         if (!c) return;
@@ -585,10 +586,10 @@ function collectionInput(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext, 
         ctx.onStructure(`${io.key}.${c.name}#add`);
       },
     },
-    h('option', { value: '', selected: true }, def.addLabel ?? 'Option hinzufügen'),
-    addable.map((c, i) => h('option', { value: String(i) }, c.label)),
+    h('option', { value: '', selected: true }, tl(def.addLabel) ?? tr('Add option')),
+    addable.map((c, i) => h('option', { value: String(i) }, tl(c.label))),
   );
-  return h('div', { class: 'sf-collection' }, rows, !ctx.readonly && addable.length ? add : null, !rows.length && (ctx.readonly || !addable.length) ? h('p', { class: 'muted small' }, 'Keine Optionen gesetzt.') : null);
+  return h('div', { class: 'sf-collection' }, rows, !ctx.readonly && addable.length ? add : null, !rows.length && (ctx.readonly || !addable.length) ? h('p', { class: 'muted small' }, tr('No options set.')) : null);
 }
 
 function fixedCollectionInput(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext, root: Level): HTMLElement {
@@ -614,8 +615,8 @@ function fixedCollectionInput(def: ParamSchema, io: FieldIo, ctx: SchemaFormCont
           h(
             'div',
             { class: 'sf-entry-head' },
-            h('span', { class: 'label' }, def.multiple && entries.length > 1 ? `${g.label} ${i + 1}` : g.label),
-            ctx.readonly ? null : h('button', { type: 'button', class: 'icon-btn', title: 'Entfernen', 'aria-label': `${g.label} ${i + 1} entfernen`, onclick: remove }, icon('x', 14)),
+            h('span', { class: 'label' }, def.multiple && entries.length > 1 ? `${tl(g.label)} ${i + 1}` : tl(g.label)),
+            ctx.readonly ? null : h('button', { type: 'button', class: 'icon-btn', title: tr('Remove'), 'aria-label': tr('Remove {name}', { name: `${tl(g.label)} ${i + 1}` }), onclick: remove }, icon('x', 14)),
           ),
           levelForm({ values: entry, defs: g.children }, ctx, root, `${io.key}.${g.name}.${i}`),
         ),
@@ -632,28 +633,28 @@ function fixedCollectionInput(def: ParamSchema, io: FieldIo, ctx: SchemaFormCont
       ctx.onStructure(`${io.key}.${g.name}#add`);
     };
     if (addable.length === 1) {
-      box.append(h('button', { type: 'button', class: 'btn btn-small', onclick: () => addEntry(addable[0]) }, def.addLabel ?? `${addable[0].label} hinzufügen`));
+      box.append(h('button', { type: 'button', class: 'btn btn-small', onclick: () => addEntry(addable[0]) }, tl(def.addLabel) ?? tr('Add {name}', { name: tl(addable[0].label) })));
     } else {
       const sel = h(
         'select',
-        { class: 'param-input sf-add', 'aria-label': def.addLabel ?? `${def.label}: hinzufügen`, onchange: () => addable[Number(sel.value)] && addEntry(addable[Number(sel.value)]) },
-        h('option', { value: '', selected: true }, def.addLabel ?? 'Hinzufügen'),
-        addable.map((g, i) => h('option', { value: String(i) }, g.label)),
+        { class: 'param-input sf-add', 'aria-label': tl(def.addLabel) ?? tr('{name}: add', { name: tl(def.label) }), onchange: () => addable[Number(sel.value)] && addEntry(addable[Number(sel.value)]) },
+        h('option', { value: '', selected: true }, tl(def.addLabel) ?? tr('Add')),
+        addable.map((g, i) => h('option', { value: String(i) }, tl(g.label))),
       );
       box.append(sel);
     }
   }
-  if (!box.childElementCount) box.append(h('p', { class: 'muted small' }, 'Keine Einträge.'));
+  if (!box.childElementCount) box.append(h('p', { class: 'muted small' }, tr('No entries.')));
   return box;
 }
 
-/** Namen von Parametern, die das Formular nicht kennt (nur im Baum oder JSON bearbeitbar) */
+/** Names of parameters the form does not know (editable only in the tree or as JSON) */
 export function unknownParameters(params: Values, schema: ParamSchema[]): string[] {
   const names = new Set(schema.map((d) => d.name));
   return Object.keys(params).filter((k) => !names.has(k));
 }
 
-/** Formular für alle sichtbaren Parameter der obersten Ebene */
+/** Form for all visible top-level parameters */
 export function schemaForm(params: Values, schema: ParamSchema[], ctx: SchemaFormContext): HTMLElement {
   const root: Level = { values: params, defs: schema };
   const rows = levelForm(root, ctx, root, 'parameters');
@@ -661,12 +662,12 @@ export function schemaForm(params: Values, schema: ParamSchema[], ctx: SchemaFor
   return h(
     'div',
     { class: 'schema-form' },
-    rows.length ? rows : h('p', { class: 'muted' }, 'Dieser Knoten hat keine Parameter.'),
-    unknown.length ? h('p', { class: 'muted small' }, `Weitere Parameter ohne Formularfeld: ${unknown.join(', ')}. Bearbeiten Sie sie im Baum oder als JSON.`) : null,
+    rows.length ? rows : h('p', { class: 'muted' }, tr('This node has no parameters.')),
+    unknown.length ? h('p', { class: 'muted small' }, tr('Further parameters without a form field: {names}. Edit them in the tree or as JSON.', { names: unknown.join(', ') })) : null,
   );
 }
 
-/** Filter-Optionen nach Änderungen an ignoreCase oder looseTypeValidation nachziehen (wie der n8n-Editor) */
+/** Update filter options after changes to ignoreCase or looseTypeValidation (like the n8n editor) */
 export function syncFilterOptions(params: Values, schema: ParamSchema[], nodeType: string, version: number): void {
   const options = filterOptions(params, nodeType, version);
   const walk = (values: Values, defs: ParamSchema[]) => {

@@ -1,5 +1,5 @@
 // Crypto, n8n-nodes-base.crypto (typeVersion 1)
-// Nachgebaut nach n8n 1.123.0 packages/nodes-base/nodes/Crypto/Crypto.node.ts
+// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/Crypto/Crypto.node.ts
 import { createHash, createHmac, createSign, getHashes, randomBytes, randomUUID, type BinaryToTextEncoding } from 'node:crypto';
 import lodash from 'lodash';
 import type { NodeType } from './types.js';
@@ -8,8 +8,8 @@ import type { Item } from '../types.js';
 import { NodeOperationError } from '../errors.js';
 import { deepCopy } from './shared/utils.js';
 
-// Parameter wie Crypto.node.ts (properties). Die Algorithmen für "sign" kommen wie in n8n aus getHashes() ohne die dort
-// ausgeschlossenen (unsupportedAlgorithms).
+// Parameters like Crypto.node.ts (properties). The algorithms for "sign" come, as in n8n, from getHashes() without the ones
+// excluded there (unsupportedAlgorithms).
 const unsupportedAlgorithms = ['RSA-MD4', 'RSA-MDC2', 'md4', 'md4WithRSAEncryption', 'mdc2', 'mdc2WithRSA'];
 const supportedAlgorithms = getHashes()
   .filter((a) => !unsupportedAlgorithms.includes(a))
@@ -23,7 +23,7 @@ const hashTypes: ParamSchema['options'] = ['MD5', 'SHA256', 'SHA3-256', 'SHA3-38
 function encoding(action: string): ParamSchema {
   return {
     name: 'encoding',
-    label: 'Kodierung',
+    label: 'Encoding',
     type: 'options',
     default: 'hex',
     required: true,
@@ -38,7 +38,7 @@ function encoding(action: string): ParamSchema {
 function propertyName(action: string, description: string): ParamSchema {
   return {
     name: 'dataPropertyName',
-    label: 'Name der Eigenschaft',
+    label: 'Property Name',
     type: 'string',
     default: 'data',
     required: true,
@@ -50,78 +50,78 @@ function propertyName(action: string, description: string): ParamSchema {
 const parameters: ParamSchema[] = [
   {
     name: 'action',
-    label: 'Aktion',
+    label: 'Action',
     type: 'options',
     default: 'hash',
     options: [
-      { value: 'generate', label: 'Erzeugen', description: 'Zufälligen Text erzeugen' },
-      { value: 'hash', label: 'Hash', description: 'Hash eines Texts oder einer Datei bilden' },
-      { value: 'hmac', label: 'HMAC', description: 'HMAC eines Texts oder einer Datei bilden' },
-      { value: 'sign', label: 'Signieren', description: 'Text mit einem privaten Schlüssel signieren' },
+      { value: 'generate', label: 'Generate', description: 'Generate random string' },
+      { value: 'hash', label: 'Hash', description: 'Hash a text or file in a specified format' },
+      { value: 'hmac', label: 'HMAC', description: 'HMAC a text or file in a specified format' },
+      { value: 'sign', label: 'Sign', description: 'Sign a string using a private key' },
     ],
   },
   {
     name: 'type',
-    label: 'Typ',
+    label: 'Type',
     type: 'options',
     default: 'MD5',
     required: true,
-    description: 'Zu verwendendes Hash-Verfahren',
+    description: 'The hash type to use',
     show: { action: ['hash'] },
     options: hashTypes,
   },
   {
     name: 'binaryData',
-    label: 'Binärdatei',
+    label: 'Binary File',
     type: 'boolean',
     default: false,
     required: true,
-    description: 'Ob die Daten aus einem Binärfeld kommen',
+    description: 'Whether the data to hash should be taken from binary field',
     show: { action: ['hash', 'hmac'] },
   },
   {
     name: 'binaryPropertyName',
-    label: 'Name der Binäreigenschaft',
+    label: 'Binary Property Name',
     type: 'string',
     default: 'data',
     required: true,
-    description: 'Binäreigenschaft mit den Eingabedaten',
+    description: 'Name of the binary property which contains the input data',
     show: { action: ['hash', 'hmac'], binaryData: [true] },
   },
   {
     name: 'value',
-    label: 'Wert',
+    label: 'Value',
     type: 'string',
     default: '',
     required: true,
-    description: 'Der Wert, aus dem der Hash gebildet wird',
+    description: 'The value that should be hashed',
     show: { action: ['hash'], binaryData: [false] },
   },
-  propertyName('hash', 'Eigenschaft, in die der Hash geschrieben wird'),
+  propertyName('hash', 'Name of the property to which to write the hash'),
   encoding('hash'),
   {
     name: 'type',
-    label: 'Typ',
+    label: 'Type',
     type: 'options',
     default: 'MD5',
     required: true,
-    description: 'Zu verwendendes Hash-Verfahren',
+    description: 'The hash type to use',
     show: { action: ['hmac'] },
     options: hashTypes,
   },
   {
     name: 'value',
-    label: 'Wert',
+    label: 'Value',
     type: 'string',
     default: '',
     required: true,
-    description: 'Der Wert, aus dem der HMAC gebildet wird',
+    description: 'The value of which the HMAC should be created',
     show: { action: ['hmac'], binaryData: [false] },
   },
-  propertyName('hmac', 'Eigenschaft, in die der HMAC geschrieben wird'),
+  propertyName('hmac', 'Name of the property to which to write the HMAC'),
   {
     name: 'secret',
-    label: 'Geheimnis',
+    label: 'Secret',
     type: 'string',
     default: '',
     required: true,
@@ -131,42 +131,42 @@ const parameters: ParamSchema[] = [
   encoding('hmac'),
   {
     name: 'value',
-    label: 'Wert',
+    label: 'Value',
     type: 'string',
     default: '',
     required: true,
-    description: 'Der zu signierende Wert',
+    description: 'The value that should be signed',
     show: { action: ['sign'] },
   },
-  propertyName('sign', 'Eigenschaft, in die die Signatur geschrieben wird'),
+  propertyName('sign', 'Name of the property to which to write the signed value'),
   {
     name: 'algorithm',
-    label: 'Algorithmus',
+    label: 'Algorithm Name or ID',
     type: 'options',
     default: '',
     required: true,
-    description: 'Aus der Liste wählen oder per Expression angeben',
+    description: 'Choose from the list, or specify an ID using an expression',
     show: { action: ['sign'] },
     options: supportedAlgorithms,
   },
   encoding('sign'),
   {
     name: 'privateKey',
-    label: 'Privater Schlüssel',
+    label: 'Private Key',
     type: 'string',
     default: '',
     required: true,
-    description: 'Privater Schlüssel zum Signieren',
+    description: 'Private key to use when signing the string',
     show: { action: ['sign'] },
   },
-  propertyName('generate', 'Eigenschaft, in die der zufällige Text geschrieben wird'),
+  propertyName('generate', 'Name of the property to which to write the random string'),
   {
     name: 'encodingType',
-    label: 'Typ',
+    label: 'Type',
     type: 'options',
     default: 'uuid',
     required: true,
-    description: 'Kodierung des erzeugten Texts',
+    description: 'Encoding that will be used to generate string',
     show: { action: ['generate'] },
     options: [
       { value: 'ascii', label: 'ASCII' },
@@ -177,10 +177,10 @@ const parameters: ParamSchema[] = [
   },
   {
     name: 'stringLength',
-    label: 'Länge',
+    label: 'Length',
     type: 'number',
     default: 32,
-    description: 'Länge des erzeugten Texts',
+    description: 'Length of the generated string',
     show: { action: ['generate'], encodingType: ['ascii', 'base64', 'hex'] },
   },
 ];
@@ -239,7 +239,7 @@ export const cryptoNode: NodeType = {
           pairedItem: { item: i },
         };
         if (item.binary !== undefined && !binaryProcessed) newItem.binary = item.binary;
-        // n8n: set(newItem, ['json', dataPropertyName]) behandelt den Namen als einen Schlüssel
+        // n8n: set(newItem, ['json', dataPropertyName]) treats the name as a single key
         lodash.set(newItem, ['json', dataPropertyName], newValue);
         out.push(newItem);
       } catch (error) {

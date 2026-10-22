@@ -1,9 +1,9 @@
-// Call n8n Workflow Tool, @n8n/n8n-nodes-langchain.toolWorkflow (typeVersion 1 bis 1.3, 2 bis 2.2)
-// Nachgebaut nach n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/tools/ToolWorkflow:
-//   v1/ToolWorkflowV1.node.ts (supplyData, Schema aus Beispiel-JSON oder JSON Schema, kein execute)
-//   v2/ToolWorkflowV2.node.ts und v2/utils/WorkflowToolService.ts (Schema aus $fromAI in workflowInputs,
-//   execute für Agent V3, Wiederholungen bei retryOnFail)
-// Unter-Workflows kommen wie beim Execute-Workflow-Node aus dem Workflow-Verzeichnis (ID oder Name) oder aus dem Parameter.
+// Call n8n Workflow Tool, @n8n/n8n-nodes-langchain.toolWorkflow (typeVersion 1 to 1.3, 2 to 2.2)
+// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/tools/ToolWorkflow:
+//   v1/ToolWorkflowV1.node.ts (supplyData, schema from example JSON or JSON Schema, no execute)
+//   v2/ToolWorkflowV2.node.ts and v2/utils/WorkflowToolService.ts (schema from $fromAI in workflowInputs,
+//   execute for Agent V3, retries with retryOnFail)
+// As with the Execute Workflow node, sub-workflows come from the workflow directory (ID or name) or from the parameter.
 import type { ExecContext, ExecuteWorkflowRequest, NodeType } from './types.js';
 import type { Item } from '../types.js';
 import { NodeOperationError } from '../errors.js';
@@ -21,7 +21,7 @@ function isNodeExecutionData(data: unknown): data is Item[] {
   return Array.isArray(data) && data.length > 0 && typeof data[0] === 'object' && data[0] !== null && 'json' in data[0];
 }
 
-/** jsonParse mit fallbackValue */
+/** jsonParse with fallbackValue */
 function parseOr<T>(text: string, fallback: T): unknown {
   try {
     return JSON.parse(text) as unknown;
@@ -30,7 +30,7 @@ function parseOr<T>(text: string, fallback: T): unknown {
   }
 }
 
-/** Workflow-Quelle (getSubWorkflowInfo) */
+/** Workflow source (getSubWorkflowInfo) */
 function workflowInfo(ctx: ExecContext, itemIndex: number): Pick<ExecuteWorkflowRequest, 'workflowId' | 'workflowJson'> {
   const source = ctx.getParam<string>('source', itemIndex, 'database');
   if (source === 'database') {
@@ -46,10 +46,10 @@ function workflowInfo(ctx: ExecContext, itemIndex: number): Pick<ExecuteWorkflow
       throw new NodeOperationError(ctx.node.name, `The provided workflow is not valid JSON: "${(error as Error).message}"`, { itemIndex });
     }
   }
-  throw new NodeOperationError(ctx.node.name, `Call n8n Workflow Tool: source "${source}" wird nicht unterstützt`);
+  throw new NodeOperationError(ctx.node.name, `Call n8n Workflow Tool: source "${source}" is not supported`);
 }
 
-/** rawData für Set v2 (Felder vom Typ objectValue mit Expression) */
+/** rawData for Set v2 (fields of type objectValue with an expression) */
 function rawData(ctx: ExecContext, query: Query, itemIndex: number): Record<string, unknown> {
   const data: Record<string, unknown> = { query };
   const fields = ctx.getParam<Array<{ name: string; type?: string; objectValue?: unknown }>>('fields.values', itemIndex, [], { rawExpressions: true });
@@ -61,7 +61,7 @@ function rawData(ctx: ExecContext, query: Query, itemIndex: number): Record<stri
   return data;
 }
 
-/** getCurrentWorkflowInputData (Eingangsdaten plus aufgelöste workflowInputs, entfernte Felder ohne) */
+/** getCurrentWorkflowInputData (input data plus resolved workflowInputs, without removed fields) */
 function currentWorkflowInputData(ctx: ExecContext): Item[] {
   const input: Item[] = ctx.items.map((item, itemIndex) => ({
     json: { ...item.json, ...ctx.getParam<Record<string, unknown>>('workflowInputs.value', itemIndex, {}) },
@@ -173,7 +173,7 @@ function handleToolResponse(ctx: ExecContext, response: unknown): string {
   return response;
 }
 
-/** Parameter ohne die von displayOptions ausgeblendeten (nur workflowInputs bei source !== database) */
+/** Parameters without those hidden by displayOptions (only workflowInputs when source !== database) */
 function visibleParameters(parameters: Record<string, unknown>): Record<string, unknown> {
   if ((parameters.source ?? 'database') === 'database') return parameters;
   const { workflowInputs: _hidden, ...rest } = parameters;
@@ -183,15 +183,15 @@ function visibleParameters(parameters: Record<string, unknown>): Record<string, 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
- * manualLogging true: Aufruf durch den Agent V2 (Lauf im runData, Text als Ergebnis);
- * false: Ausführung als Node durch die Engine (Agent V3), Ergebnis sind Items.
+ * manualLogging true: called by Agent V2 (run in runData, text as result);
+ * false: executed as a node by the engine (Agent V3), result is items.
  */
 function toolV2(baseCtx: ExecContext, itemIndex: number, manualLogging: boolean): ToolInstance & { invokeItems(args: unknown): Promise<Item[] | string> } {
   const node = baseCtx.node;
   const returnAllItems = node.typeVersion > 2;
   const name = node.typeVersion <= 2.1 ? baseCtx.getParam<string>('name', 0, '') : nodeNameToToolName(node.name);
   const description = baseCtx.getParam<string>('description', 0, '');
-  // workflowInputs ist nur bei source "database" sichtbar; n8n entfernt den Parameter sonst beim Laden (getNodeParameters)
+  // workflowInputs is only visible with source "database"; otherwise n8n removes the parameter on load (getNodeParameters)
   const parameters = visibleParameters(node.parameters);
   const workflowInputs = parameters.workflowInputs as { schema?: unknown[] } | undefined;
   const useSchema = (workflowInputs?.schema ?? []).length > 0;
@@ -210,7 +210,7 @@ function toolV2(baseCtx: ExecContext, itemIndex: number, manualLogging: boolean)
       const localRunIndex = runIndex++;
       let ctx = baseCtx;
       if (manualLogging) {
-        // SupplyDataContext.cloneWith: eigener Lauf mit { query } als Eingang
+        // SupplyDataContext.cloneWith: separate run with { query } as input
         ctx = baseCtx.cloneWith({ runIndex: localRunIndex, items: [{ json: { query } }] }).withFromAI({ query });
         ctx.addInputData('ai_tool', [[{ json: { query } }]], localRunIndex);
       }
@@ -253,61 +253,61 @@ function toolV2(baseCtx: ExecContext, itemIndex: number, manualLogging: boolean)
   };
 }
 
-// Parameter wie v1/versionDescription.ts (typeVersion 1 bis 1.3) und v2/versionDescription.ts (2 bis 2.2), n8n 1.123.0.
-// Felder, die es nur in einer der beiden Fassungen gibt, tragen zusätzlich eine Bedingung auf "@version".
-// Der Hinweis auf eine n8n-Vorlage (noticeTemplateExample) entfällt, weil es die Vorlagen in filuflow nicht gibt.
-// workflowSelector (ab v1.2) speichert einen Resource Locator; resourceMapper (workflowInputs, v2) gibt es im Editor
-// nicht, daher hier JSON.
+// Parameters as in v1/versionDescription.ts (typeVersion 1 to 1.3) and v2/versionDescription.ts (2 to 2.2), n8n 1.123.0.
+// Fields that exist in only one of the two versions additionally carry a condition on "@version".
+// The notice pointing to an n8n template (noticeTemplateExample) is omitted because filuflow has no templates.
+// workflowSelector (from v1.2) stores a resource locator; the editor has no resourceMapper (workflowInputs, v2),
+// so JSON is used here.
 const V1 = { '@version': [{ _cnd: { lt: 2 } }] };
-const DESCRIPTION_PLACEHOLDER = 'Rufe dieses Tool auf, um eine zufällige Farbe zu erhalten. Die Eingabe ist eine kommagetrennte Liste auszuschließender Farben.';
+const DESCRIPTION_PLACEHOLDER = 'Call this tool to get a random color. The input should be a string with comma separated names of colors to exclude.';
 
 const parameters: ParamSchema[] = [
-  { name: 'notice', label: 'Dieser Node muss mit einem AI Agent verbunden werden.', type: 'notice', default: '' },
+  { name: 'notice', label: 'This node must be connected to an AI agent.', type: 'notice', default: '' },
   { name: 'name', label: 'Name', type: 'string', default: '', placeholder: 'My_Color_Tool', show: { '@version': [1] } },
   {
-    // v1: gte 1.1, v2: lte 2.1 (sonst gleich)
+    // v1: gte 1.1, v2: lte 2.1 (otherwise identical)
     name: 'name',
     label: 'Name',
     type: 'string',
     default: '',
-    placeholder: 'z. B. My_Color_Tool',
-    description: 'Name der aufgerufenen Funktion: nur Buchstaben, Ziffern und Unterstriche',
+    placeholder: 'e.g. My_Color_Tool',
+    description: 'The name of the function to be called, could contain letters, numbers, and underscores only',
     show: { '@version': [1.1, 1.2, 1.3, 2, 2.1] },
   },
   {
-    // Nicht in n8n: in v2.2 blendet n8n "name" aus, exportierte Workflows enthalten ihn aber oft noch.
-    // Nur sichtbar, wenn gesetzt (ohne Default, damit die Regel auf den eigenen Wert greift).
+    // Not in n8n: in v2.2 n8n hides "name", but exported workflows often still contain it.
+    // Only visible when set (without a default, so the rule applies to the field's own value).
     name: 'name',
-    label: 'Name (nicht verwendet)',
+    label: 'Name (not used)',
     type: 'string',
-    description: 'Ab Version 2.2 ist der Node-Name der Tool-Name; dieser Wert wird ignoriert.',
+    description: 'From version 2.2 the node name is the tool name; this value is ignored.',
     show: { '@version': [2.2], name: [{ _cnd: { exists: true } }] },
   },
-  { name: 'description', label: 'Beschreibung', type: 'string', default: '', rows: 3, placeholder: DESCRIPTION_PLACEHOLDER },
+  { name: 'description', label: 'Description', type: 'string', default: '', rows: 3, placeholder: DESCRIPTION_PLACEHOLDER },
   {
     name: 'executeNotice',
-    label: 'Das Tool ruft den unten angegebenen Workflow auf und nimmt die Antwort aus dessen letztem Node. Der Workflow muss mit einem Execute Workflow Trigger beginnen.',
+    label: 'This tool will call the workflow you define below, and look in the last node for the response. The workflow needs to start with an Execute Workflow trigger.',
     type: 'notice',
     default: '',
   },
   {
     name: 'source',
-    label: 'Quelle',
+    label: 'Source',
     type: 'options',
     default: 'database',
-    description: 'Woher der auszuführende Workflow kommt',
+    description: 'Where to get the workflow to execute from',
     options: [
-      { value: 'database', label: 'Datenbank', description: 'Workflow per ID laden' },
-      { value: 'parameter', label: 'Unten festlegen', description: 'JSON-Code eines Workflows angeben' },
+      { value: 'database', label: 'Database', description: 'Load the workflow by ID' },
+      { value: 'parameter', label: 'Define Below', description: 'Pass the JSON code of a workflow' },
     ],
   },
   {
     name: 'workflowId',
-    label: 'Workflow-ID',
+    label: 'Workflow ID',
     type: 'string',
     default: '',
     required: true,
-    description: 'Auszuführender Workflow (ID oder Name im Workflow-Verzeichnis)',
+    description: 'The workflow to execute (ID or name in the workflow directory)',
     show: { source: ['database'], '@version': [{ _cnd: { lte: 1.1 } }] },
   },
   {
@@ -317,155 +317,155 @@ const parameters: ParamSchema[] = [
     default: '',
     required: true,
     modes: [
-      { name: 'list', label: 'Aus Liste', placeholder: 'Workflow-ID oder Name' },
-      { name: 'id', label: 'ID', placeholder: 'Workflow-ID' },
+      { name: 'list', label: 'From List', placeholder: 'Workflow ID or name' },
+      { name: 'id', label: 'ID', placeholder: 'Workflow ID' },
     ],
     show: { source: ['database'], '@version': [{ _cnd: { gte: 1.2 } }] },
   },
   {
-    // Nicht in n8n: bei Quelle "parameter" blendet n8n workflowInputs aus, exportierte Workflows enthalten den Wert
-    // aber oft noch. Nur sichtbar, wenn gesetzt; steht vor der eigentlichen Definition und hat keinen Default, damit
-    // die Regel auf den eigenen Wert greift.
+    // Not in n8n: with source "parameter" n8n hides workflowInputs, but exported workflows often still contain the value.
+    // Only visible when set; placed before the actual definition and without a default, so the rule applies to the
+    // field's own value.
     name: 'workflowInputs',
-    label: 'Workflow-Eingaben (nicht verwendet)',
+    label: 'Workflow Inputs (not used)',
     type: 'json',
     noExpression: true,
-    description: 'Wird nur bei der Quelle Datenbank verwendet.',
+    description: 'Only used with the Database source.',
     show: { '@version': [{ _cnd: { gte: 2 } }], source: ['parameter'], workflowInputs: [{ _cnd: { exists: true } }] },
   },
   {
     name: 'workflowInputs',
-    label: 'Workflow-Eingaben',
+    label: 'Workflow Inputs',
     type: 'json',
     default: { mappingMode: 'defineBelow', value: null },
     required: true,
     noExpression: true,
-    description: 'Objekt mit mappingMode, value (Werte, auch mit $fromAI) und schema wie in n8n.',
+    description: 'Object with mappingMode, value (values, $fromAI allowed) and schema as in n8n.',
     show: { source: ['database'], '@version': [{ _cnd: { gte: 2 } }] },
     hide: { workflowId: [''] },
   },
   {
     name: 'workflowJson',
-    label: 'Workflow-JSON',
+    label: 'Workflow JSON',
     type: 'json',
     default: '\n\n\n\n\n\n\n\n\n',
     rows: 10,
     required: true,
-    description: 'JSON-Code des auszuführenden Workflows',
+    description: 'The workflow JSON code to execute',
     show: { source: ['parameter'] },
   },
   {
     name: 'responsePropertyName',
-    label: 'Feld mit der Antwort',
+    label: 'Response Property Name',
     type: 'string',
     default: 'response',
     required: true,
-    description: 'Feld im Ergebnis des zuletzt ausgeführten Nodes, dessen Wert das Tool zurückgibt',
+    description: 'The name of the property of the last node that will be returned',
     show: { '@version': [{ _cnd: { lt: 1.3 } }] },
   },
   {
     name: 'fields',
-    label: 'Zusätzliche Workflow-Eingaben',
+    label: 'Extra Workflow Inputs',
     type: 'fixedCollection',
     multiple: true,
     default: {},
-    placeholder: 'Wert hinzufügen',
-    addLabel: 'Wert hinzufügen',
-    description: 'Werte, die der Execute Workflow Trigger des aufgerufenen Workflows ausgibt',
+    placeholder: 'Add Value',
+    addLabel: 'Add Value',
+    description: 'These will be output by the Execute Workflow trigger of the called workflow',
     show: V1,
     groups: [
       {
         name: 'values',
-        label: 'Werte',
+        label: 'Values',
         children: [
           {
             name: 'name',
             label: 'Name',
             type: 'string',
             default: '',
-            placeholder: 'z. B. fieldName',
-            description: 'Name des Felds, Punkt-Notation möglich (z. B. data.person[0].name)',
+            placeholder: 'e.g. fieldName',
+            description: 'Name of the field to set the value of. Supports dot-notation. Example: data.person[0].name.',
           },
           {
             name: 'type',
-            label: 'Typ',
+            label: 'Type',
             type: 'options',
             default: 'stringValue',
-            description: 'Typ des Werts',
+            description: 'The field value type',
             options: [
               { value: 'stringValue', label: 'Text' },
-              { value: 'numberValue', label: 'Zahl' },
+              { value: 'numberValue', label: 'Number' },
               { value: 'booleanValue', label: 'Boolean' },
               { value: 'arrayValue', label: 'Array' },
-              { value: 'objectValue', label: 'Objekt' },
+              { value: 'objectValue', label: 'Object' },
             ],
           },
-          { name: 'stringValue', label: 'Wert', type: 'string', default: '', show: { type: ['stringValue'] } },
-          { name: 'numberValue', label: 'Wert', type: 'string', default: '', show: { type: ['numberValue'] } },
+          { name: 'stringValue', label: 'Value', type: 'string', default: '', show: { type: ['stringValue'] } },
+          { name: 'numberValue', label: 'Value', type: 'string', default: '', show: { type: ['numberValue'] } },
           {
             name: 'booleanValue',
-            label: 'Wert',
+            label: 'Value',
             type: 'options',
             default: 'true',
             options: [
-              { value: 'true', label: 'Wahr' },
-              { value: 'false', label: 'Falsch' },
+              { value: 'true', label: 'True' },
+              { value: 'false', label: 'False' },
             ],
             show: { type: ['booleanValue'] },
           },
           {
             name: 'arrayValue',
-            label: 'Wert',
+            label: 'Value',
             type: 'string',
             default: '',
-            placeholder: 'z. B. [ arrayItem1, arrayItem2, arrayItem3 ]',
+            placeholder: 'e.g. [ arrayItem1, arrayItem2, arrayItem3 ]',
             show: { type: ['arrayValue'] },
           },
-          { name: 'objectValue', label: 'Wert', type: 'json', default: '={}', rows: 2, show: { type: ['objectValue'] } },
+          { name: 'objectValue', label: 'Value', type: 'json', default: '={}', rows: 2, show: { type: ['objectValue'] } },
         ],
       },
     ],
   },
   {
     name: 'specifyInputSchema',
-    label: 'Eingabeschema festlegen',
+    label: 'Specify Input Schema',
     type: 'boolean',
     default: false,
     noExpression: true,
-    description: 'Ob das LLM die Eingabe in einem Schema liefern muss, gegen das geprüft wird',
+    description: 'Whether to specify the schema for the function. This would require the LLM to provide the input in the correct format and would validate it against the schema.',
     show: V1,
   },
   {
     name: 'schemaType',
-    label: 'Schema-Typ',
+    label: 'Schema Type',
     type: 'options',
     default: 'fromJson',
     noExpression: true,
-    description: 'Wie das Schema der Funktion angegeben wird',
+    description: 'How to specify the schema for the function',
     options: [
-      { value: 'fromJson', label: 'Aus JSON-Beispiel erzeugen', description: 'Schema aus einem JSON-Beispiel ableiten' },
-      { value: 'manual', label: 'Mit JSON Schema festlegen', description: 'JSON Schema von Hand angeben' },
+      { value: 'fromJson', label: 'Generate From JSON Example', description: 'Generate a schema from an example JSON object' },
+      { value: 'manual', label: 'Define using JSON Schema', description: 'Define the JSON schema manually' },
     ],
     show: { specifyInputSchema: [true], ...V1 },
   },
   {
     name: 'jsonSchemaExample',
-    label: 'JSON-Beispiel',
+    label: 'JSON Example',
     type: 'json',
     default: '{\n\t"some_input": "some_value"\n}',
     noExpression: true,
     rows: 10,
-    description: 'Beispielobjekt, aus dem das Schema erzeugt wird',
+    description: 'Example JSON object to use to generate the schema',
     show: { schemaType: ['fromJson'], ...V1 },
   },
   {
     name: 'inputSchema',
-    label: 'Eingabeschema',
+    label: 'Input Schema',
     type: 'json',
     default:
       '{\n"type": "object",\n"properties": {\n\t"some_input": {\n\t\t"type": "string",\n\t\t"description": "Some input to the function"\n\t\t}\n\t}\n}',
     rows: 10,
-    description: 'JSON Schema der Funktion ($ref wird nicht unterstützt)',
+    description: 'Schema to use for the function ($ref is not supported)',
     show: { schemaType: ['manual'], ...V1 },
   },
 ];
@@ -482,7 +482,7 @@ export const toolWorkflowNode: NodeType = {
   validate(node) {
     const source = (node.parameters.source as string | undefined) ?? 'database';
     if (source !== 'database' && source !== 'parameter') {
-      return [{ code: 'node.unsupportedParameter', message: `Call n8n Workflow Tool: source "${source}" wird nicht unterstützt`, path: 'parameters.source' }];
+      return [{ code: 'node.unsupportedParameter', message: `Call n8n Workflow Tool: source "${source}" is not supported`, path: 'parameters.source' }];
     }
     return [];
   },
@@ -491,8 +491,8 @@ export const toolWorkflowNode: NodeType = {
   },
   async execute(ctx) {
     if (ctx.node.typeVersion < 2) {
-      // v1 hat in n8n kein execute; n8n ergänzt es über RoutingNode, das ohne Routing-Angaben mit "Invalid URL"
-      // scheitert (wie beim HTTP Request Tool, Fixture 21). Agent V3 kann das Tool daher nicht nutzen.
+      // v1 has no execute in n8n; n8n adds one via RoutingNode, which fails with "Invalid URL" without routing
+      // information (as with the HTTP Request Tool, fixture 21). Agent V3 therefore cannot use the tool.
       throw new TypeError('Invalid URL');
     }
     const out: Item[] = [];

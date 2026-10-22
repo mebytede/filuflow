@@ -1,11 +1,11 @@
-// Rekursive Auflösung von Parameterwerten (n8n Expression.getParameterValue).
+// Recursive resolution of parameter values (n8n Expression.getParameterValue).
 import { DateTime } from 'luxon';
 import { ExpressionError } from '../errors.js';
 import { evaluateTemplate } from './evaluator.js';
 import { isExpression } from './split.js';
 
 export interface ResolveContext {
-  /** Liefert das Datenobjekt (Proxy) für die Auswertung; wird erst bei Bedarf erzeugt */
+  /** Returns the data object (proxy) for evaluation; created only when needed */
   getData: () => Record<string, unknown>;
   nodeName?: string;
   itemIndex?: number;
@@ -33,7 +33,7 @@ export function resolveSimpleValue(value: unknown, ctx: ResolveContext, path = '
   }
 }
 
-/** Löst Expressions in beliebig verschachtelten Werten auf */
+/** Resolves expressions in arbitrarily nested values */
 export function resolveParameterValue(value: unknown, ctx: ResolveContext, path = ''): unknown {
   if (value === null || value === undefined) return value;
   if (typeof value !== 'object') return resolveSimpleValue(value, ctx, path);
@@ -45,7 +45,7 @@ export function resolveParameterValue(value: unknown, ctx: ResolveContext, path 
   return out;
 }
 
-/** Enthält der Wert irgendwo eine Expression? */
+/** Does the value contain an expression anywhere? */
 export function containsExpression(value: unknown): boolean {
   if (isExpression(value)) return true;
   if (Array.isArray(value)) return value.some(containsExpression);
@@ -53,7 +53,7 @@ export function containsExpression(value: unknown): boolean {
   return false;
 }
 
-/** n8n cleanupParameterData: verschachtelte luxon-Daten werden zu Strings */
+/** n8n cleanupParameterData: nested luxon dates become strings */
 export function cleanupParameterData(input: unknown): void {
   if (typeof input !== 'object' || input === null) return;
   if (Array.isArray(input)) {
@@ -70,7 +70,7 @@ export function cleanupParameterData(input: unknown): void {
   }
 }
 
-/** lodash.get für Pfade wie "a.b[0].c" */
+/** lodash.get for paths like "a.b[0].c" */
 export function getByPath(obj: unknown, path: string): unknown {
   if (!path) return obj;
   const parts = path.replace(/\[(\w+)\]/g, '.$1').split('.').filter(Boolean);

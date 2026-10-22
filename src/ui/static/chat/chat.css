@@ -1,4 +1,4 @@
-/* Gehostete Chat-Seite und Chat-Fenster im Editor. Farben wie das filuflow-Design, dunkel als Standard. */
+/* Hosted chat page and chat window in the editor. Colors follow the filuflow design, dark by default. */
 :root { --c-bg:#0B1117; --c-surface:#121A22; --c-line:#26323E; --c-text:#E6EDF3; --c-muted:#9FB0C0; --c-accent:#5BE1FF; --c-accent-text:#06202A; --c-error:#FF8A8F; }
 @media (prefers-color-scheme: light) {
   :root { --c-bg:#F5F7F9; --c-surface:#FFFFFF; --c-line:#D5DDE5; --c-text:#0D1620; --c-muted:#4F6070; --c-accent:#006A86; --c-accent-text:#FFFFFF; --c-error:#B3282F; }

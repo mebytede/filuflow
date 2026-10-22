@@ -1,4 +1,4 @@
-// Node-Schnittstelle (SPEC 2.3), erweitert um das, was die Kern-Nodes brauchen.
+// Node interface (SPEC 2.3), extended with what the core nodes need.
 import type { ExecutionMode, Item, NodeOutput, SourceData, WorkflowNode } from '../types.js';
 import type { WorkflowGraph } from '../engine/graph.js';
 import type { Logger } from '../logger.js';
@@ -14,16 +14,16 @@ export interface NodeIssue {
 }
 
 export interface GetParamOptions {
-  /** Expressions nicht auswerten */
+  /** Do not evaluate expressions */
   rawExpressions?: boolean;
-  /** Resource-Locator-Wert ({ __rl, value }) auf den Wert reduzieren */
+  /** Reduce a resource locator value ({ __rl, value }) to the value */
   extractValue?: boolean;
 }
 
 export interface ExecuteWorkflowRequest {
-  /** Workflow-ID oder Name */
+  /** Workflow ID or name */
   workflowId?: string;
-  /** direkt übergebenes Workflow-JSON (source: parameter) */
+  /** directly passed workflow JSON (source: parameter) */
   workflowJson?: unknown;
   items: Item[];
   waitForCompletion: boolean;
@@ -31,7 +31,7 @@ export interface ExecuteWorkflowRequest {
 
 export interface ExecuteWorkflowResult {
   executionId: string;
-  /** Ausgabe des zuletzt ausgeführten Nodes (n8n getDataLastExecutedNodeData) */
+  /** Output of the last executed node (n8n getDataLastExecutedNodeData) */
   data: Item[][];
   runData?: import('../types.js').RunData;
   lastNodeExecuted?: string;
@@ -41,12 +41,12 @@ export interface WebhookResponse {
   statusCode: number;
   headers: Record<string, string>;
   body: unknown;
-  /** Binärantwort */
+  /** Binary response */
   binary?: { data: Buffer; mimeType?: string; fileName?: string };
 }
 
 /**
- * Anfrage eines Nodes an die Engine, andere Nodes auszuführen (Agent V3: Tools).
+ * Request from a node to the engine to execute other nodes (Agent V3: tools).
  * n8n packages/workflow/src/interfaces.ts EngineRequest
  */
 export interface EngineAction {
@@ -63,7 +63,7 @@ export interface EngineRequest<M = unknown> {
   metadata: M;
 }
 
-/** Antwort der Engine nach Ausführung der angefragten Nodes (n8n EngineResponse) */
+/** Engine response after executing the requested nodes (n8n EngineResponse) */
 export interface EngineResponse<M = unknown> {
   actionResponses: Array<{ action: EngineAction; data: import('../types.js').TaskData }>;
   metadata: M;
@@ -76,68 +76,68 @@ export function isEngineRequest(value: unknown): value is EngineRequest {
 export interface ExecContext {
   readonly node: WorkflowNode;
   readonly workflow: WorkflowGraph;
-  /** Alle Main-Eingänge; Eingänge ohne Daten sind leere Arrays */
+  /** All main inputs; inputs without data are empty arrays */
   readonly inputs: Item[][];
-  /** Items des ersten Eingangs mit Daten (n8n: connectionInputData) */
+  /** Items of the first input with data (n8n: connectionInputData) */
   readonly items: Item[];
   readonly runIndex: number;
   readonly mode: ExecutionMode;
   readonly executionId: string;
   readonly timezone: string;
-  /** Quelle je Eingang */
+  /** Source per input */
   readonly source: Array<SourceData | null> | null;
 
-  /** Parameter nach Pfad lesen und Expressions für `itemIndex` auswerten */
+  /** Read a parameter by path and evaluate expressions for `itemIndex` */
   getParam<T = unknown>(path: string, itemIndex: number, fallback?: T, options?: GetParamOptions): T;
-  /** Expression (ohne führendes `=`) für ein Item auswerten */
+  /** Evaluate an expression (without leading `=`) for an item */
   evaluateExpression(expression: string, itemIndex: number): unknown;
-  /** Wert wie einen Parameter auswerten (Expressions in Strings, Objekte rekursiv), mit zusätzlichen Variablen wie $response */
+  /** Evaluate a value like a parameter (expressions in strings, objects recursively), with extra variables such as $response */
   resolveValue(value: unknown, itemIndex: number, extraKeys?: Record<string, unknown>): unknown;
-  /** Datenobjekt mit allen Expression-Variablen ($json, $input, $() …) für ein Item */
+  /** Data object with all expression variables ($json, $input, $() …) for an item */
   getDataProxy(itemIndex: number, options?: { cloneInput?: boolean }): Record<string, unknown>;
   getCredentials(type: string, itemIndex?: number): Promise<Record<string, unknown>>;
-  /** Zustand des Nodes über mehrere Runs (n8n: getContext('node')) */
+  /** Node state across multiple runs (n8n: getContext('node')) */
   getNodeContext(): Record<string, unknown>;
-  /** Statische Daten des Workflows (n8n: getWorkflowStaticData) */
+  /** Static data of the workflow (n8n: getWorkflowStaticData) */
   getStaticData(type: 'global' | 'node'): Record<string, unknown>;
   continueOnFail(): boolean;
   executeWorkflow(request: ExecuteWorkflowRequest): Promise<ExecuteWorkflowResult>;
-  /** Antwort für responseMode=responseNode */
+  /** Response for responseMode=responseNode */
   sendWebhookResponse(response: WebhookResponse): void;
-  /** Wird die Antwort gestreamt (Webhook/Chat Trigger mit responseMode "streaming")? */
+  /** Is the response streamed (Webhook/Chat Trigger with responseMode "streaming")? */
   isStreaming(): boolean;
-  /** Teil einer gestreamten Antwort senden (n8n sendChunk); ohne Streaming ohne Wirkung */
+  /** Send part of a streamed response (n8n sendChunk); no effect without streaming */
   sendChunk(type: 'begin' | 'item' | 'end' | 'error', itemIndex: number, content?: unknown): void;
-  /** Trigger-Daten (Webhook-Request, Schedule-Zeit, CLI-Input) */
+  /** Trigger data (webhook request, schedule time, CLI input) */
   readonly triggerData?: Item[];
-  /** Ausgabe von Sub-Nodes (KI) */
+  /** Output of sub-nodes (AI) */
   getSubNodes(type: string): WorkflowNode[];
-  /** Sub-Node instanziieren (KI, n8n getInputConnectionData) */
+  /** Instantiate a sub-node (AI, n8n getInputConnectionData) */
   getSubNodeInstance<T = unknown>(type: string, index?: number, itemIndex?: number): Promise<T | undefined>;
-  /** Alle angeschlossenen Sub-Nodes eines Typs (z. B. Tools) */
+  /** All connected sub-nodes of a type (e.g. tools) */
   getSubNodeInstances<T = unknown>(type: string, itemIndex?: number): Promise<T[]>;
-  /** Sub-Node: Lauf im runData beginnen (n8n addInputData), liefert den Run-Index */
+  /** Sub-node: start a run in runData (n8n addInputData), returns the run index */
   addInputData(connectionType: string, data: Item[][] | Error, sourceRunIndex?: number): { index: number };
-  /** Sub-Node: Lauf abschließen (n8n addOutputData) */
+  /** Sub-node: finish a run (n8n addOutputData) */
   addOutputData(connectionType: string, index: number, data: Item[][] | Error, sourceRunIndex?: number): void;
-  /** Nächster Run-Index dieses Nodes */
+  /** Next run index of this node */
   getNextRunIndex(): number;
-  /** Ergebnisse der angefragten Nodes, wenn der Node nach einer EngineRequest fortgesetzt wird */
+  /** Results of the requested nodes when the node resumes after an EngineRequest */
   readonly engineResponse?: EngineResponse;
-  /** Eltern-Node bei Sub-Nodes */
+  /** Parent node for sub-nodes */
   readonly parent?: { node: WorkflowNode; runIndex: number };
-  /** Kopie mit anderem Run-Index und eigenen Eingangsdaten (n8n SupplyDataContext.cloneWith) */
+  /** Copy with a different run index and its own input data (n8n SupplyDataContext.cloneWith) */
   cloneWith(replacements: { runIndex: number; items: Item[] }): ExecContext;
-  /** Kopie, deren Expressions $fromAI aus diesen Tool-Argumenten lesen */
+  /** Copy whose expressions read $fromAI from these tool arguments */
   withFromAI(data: Record<string, unknown>): ExecContext;
   /**
-   * Execution anhalten (n8n putExecutionToWait): Nach diesem Node endet der Lauf mit Status "waiting" und wird später
-   * fortgesetzt (Zeitpunkt, Webhook). Nur wenn `canWait`; sonst wirft die Methode.
+   * Pause the execution (n8n putExecutionToWait): after this node the run ends with status "waiting" and is resumed
+   * later (point in time, webhook). Only if `canWait`; otherwise the method throws.
    */
   putExecutionToWait(waitTill: Date): void;
-  /** Kann diese Execution dauerhaft warten (Server mit Datenbank, kein Unter-Workflow, nicht die CLI)? */
+  /** Can this execution wait persistently (server with database, not a sub-workflow, not the CLI)? */
   readonly canWait: boolean;
-  /** Code-Node: console.log ins Execution-Log */
+  /** Code node: console.log into the execution log */
   logOutput(level: 'log' | 'info' | 'warn' | 'error' | 'debug', args: unknown[]): void;
 
   readonly helpers: {
@@ -155,19 +155,19 @@ export interface AiInput {
 }
 
 /**
- * Aktivierung eines Auslösers, den kein eingebauter Dienst (Webhooks, Zeitpläne) bedient (M31): Poll- und Trigger-Knoten
- * aus n8n-Paketen. Der Server ruft activate beim Aktivieren des Workflows auf und close beim Deaktivieren.
+ * Activation of a trigger not served by any built-in service (webhooks, schedules) (M31): poll and trigger nodes
+ * from n8n packages. The server calls activate when the workflow is activated and close when it is deactivated.
  */
 export interface Activation {
-  /** Kontext des Knotens ohne laufende Ausführung (Parameter, Credentials, statische Daten), Modus "trigger" */
+  /** Context of the node without a running execution (parameters, credentials, static data), mode "trigger" */
   ctx: ExecContext;
-  /** Ausführung mit diesen Daten je Ausgang des Knotens starten (n8n __emit / emit) */
+  /** Start an execution with this data per output of the node (n8n __emit / emit) */
   emit(outputs: Item[][]): void;
-  /** Fehler melden (n8n __emitError / emitError); fatal: Auslöser neu starten wie n8n bei Trigger-Knoten */
+  /** Report an error (n8n __emitError / emitError); fatal: restart the trigger as n8n does for trigger nodes */
   emitError(error: Error, options?: { fatal?: boolean }): void;
-  /** Wiederkehrend ausführen (Cron mit Sekunden, Zeitzone des Workflows); endet mit close */
+  /** Run repeatedly (cron with seconds, workflow time zone); ends with close */
   schedule(cronExpression: string, run: () => void | Promise<void>): void;
-  /** Statische Daten speichern (n8n: vor jedem emit) */
+  /** Save static data (n8n: before every emit) */
   saveStaticData(): void;
 }
 
@@ -175,12 +175,12 @@ export interface ActivationHandle {
   close?(): Promise<void> | void;
 }
 
-/** Webhook eines Knotens aus einem n8n-Paket (M32), Werte der description.webhooks ausgewertet */
+/** Webhook of a node from an n8n package (M32), values of description.webhooks evaluated */
 export interface PackageWebhook {
   name: string;
-  /** HTTP-Methode (bei mehreren je ein Eintrag) */
+  /** HTTP method (one entry each if there are several) */
   method: string;
-  /** Pfad aus der Beschreibung ohne führende und abschließende Schrägstriche */
+  /** Path from the description without leading and trailing slashes */
   path: string;
   isFullPath: boolean;
   responseMode: string;
@@ -188,18 +188,18 @@ export interface PackageWebhook {
   responseData?: string;
 }
 
-/** Antwortobjekt im Stil von Express (getResponseObject), sammelt Status, Header und Body */
+/** Express-style response object (getResponseObject), collects status, headers and body */
 export interface WebhookResponseCollector {
   statusCode: number;
   headersSent: boolean;
-  /** true, sobald die Antwort vollständig ist (end, send, json) */
+  /** true as soon as the response is complete (end, send, json) */
   readonly finished: boolean;
   readonly headers: Record<string, string>;
   readonly body: Buffer;
 }
 
 export interface PackageWebhookCall {
-  /** Kontext des Knotens (Modus "webhook" oder im Test "manual") */
+  /** Context of the node (mode "webhook", or "manual" when testing) */
   ctx: ExecContext;
   webhookName: string;
   request: {
@@ -214,7 +214,7 @@ export interface PackageWebhookCall {
     url: string;
   };
   response: WebhookResponseCollector & Record<string, unknown>;
-  /** URL eines Webhooks dieses Knotens (Test- oder Produktiv-URL) */
+  /** URL of a webhook of this node (test or production URL) */
   webhookUrl(name: string): string | undefined;
 }
 
@@ -225,64 +225,64 @@ export interface PackageWebhookResult {
 }
 
 export interface NodeType {
-  /** z. B. "n8n-nodes-base.set" */
+  /** e.g. "n8n-nodes-base.set" */
   type: string;
   displayName: string;
-  /** unterstützte typeVersions */
+  /** supported typeVersions */
   versions: number[];
   isTrigger?: boolean;
-  /** Nie ausführen, nicht Teil des Graphen (Sticky Note) */
+  /** Never execute, not part of the graph (sticky note) */
   ignored?: boolean;
-  /** Sub-Node, wird nur vom Eltern-Node angefordert (KI) */
+  /** Sub-node, only requested by the parent node (AI) */
   isSubNode?: boolean;
-  /** Sub-Node: Verbindungstyp seines Ausgangs (z. B. ai_languageModel), für Editor und Validierung */
+  /** Sub-node: connection type of its output (e.g. ai_languageModel), for editor and validation */
   aiOutput?: string;
-  /** Je nach Parametern Sub-Node (z. B. Vector Store im Modus "retrieve"): Verbindungstyp des Ausgangs, sonst undefined */
+  /** Sub-node depending on parameters (e.g. Vector Store in mode "retrieve"): connection type of the output, otherwise undefined */
   subNodeOutput?(node: WorkflowNode): string | undefined;
-  /** Eltern-Node: Eingänge für Sub-Nodes (Typ, Index, Beschriftung), für den Editor */
+  /** Parent node: inputs for sub-nodes (type, index, label), for the editor */
   aiInputs?(node: WorkflowNode): AiInput[];
-  /** Namen der Main-Ausgänge (z. B. IF: true, false), für den Editor */
+  /** Names of the main outputs (e.g. IF: true, false), for the editor */
   outputNames?(node: WorkflowNode): string[];
-  /** Anzahl Main-Ausgänge; kann von Parametern abhängen. Fehlerausgang wird von der Engine ergänzt. */
+  /** Number of main outputs; may depend on parameters. The error output is added by the engine. */
   outputs(node: WorkflowNode): number;
-  /** Anzahl Main-Eingänge (Default: 1, Trigger 0) */
+  /** Number of main inputs (default: 1, trigger 0) */
   inputs?(node: WorkflowNode): number;
   /**
-   * Eingänge, die Daten brauchen, damit der Node nach Ende des Stacks noch ausgeführt wird
-   * (n8n: description.requiredInputs). Anzahl oder Liste von Eingangsindizes.
+   * Inputs that need data for the node to still be executed after the stack has ended
+   * (n8n: description.requiredInputs). Number or list of input indexes.
    */
   requiredInputs?(node: WorkflowNode): number | number[] | undefined;
-  /** Credential-Typen, die der Node mit den aktuellen Parametern braucht */
+  /** Credential types the node needs with the current parameters */
   credentialTypes?(node: WorkflowNode): string[];
-  /** Nicht unterstützte Parameterwerte melden */
+  /** Report unsupported parameter values */
   validate?(node: WorkflowNode): NodeIssue[];
-  /** Gruppe in der Palette des Editors (Plugins: "Erweiterungen"); ohne Angabe nach Typ bestimmt */
+  /** Group in the editor palette (plugins: "Extensions"); determined by type if not set */
   group?: string;
-  /** Herkunft bei Knoten aus Plugins (Datei oder Paket), für `filuflow nodes` */
+  /** Origin of nodes from plugins (file or package), for `filuflow nodes` */
   source?: string;
-  /** Beschreibung der Parameter für das Formular im Editor (M19), über alle unterstützten Versionen */
+  /** Description of the parameters for the form in the editor (M19), across all supported versions */
   parameters?: ParamSchema[];
   /**
-   * Antwort aus dem Chat für einen wartenden Node (n8n INodeType.onMessage): liefert seine Ausgabe beim Fortsetzen,
-   * undefined gibt die Eingangsdaten weiter
+   * Chat reply for a waiting node (n8n INodeType.onMessage): returns its output on resume,
+   * undefined passes the input data through
    */
   onMessage?(ctx: ExecContext, data: Item): Promise<Item[][] | undefined>;
   /**
-   * Ausführen. `null` bedeutet: Node lief erfolgreich, aber der Zweig endet
-   * (n8n-Semantik: nodeSuccessData === null).
+   * Execute. `null` means: the node ran successfully, but the branch ends
+   * (n8n semantics: nodeSuccessData === null).
    */
   execute(ctx: ExecContext): Promise<NodeOutput | null | EngineRequest>;
-  /** Webhooks eines Knotens aus einem n8n-Paket (M32): Beschreibung, Aufruf und Registrierung beim Dienst */
+  /** Webhooks of a node from an n8n package (M32): description, call and registration with the service */
   packageWebhooks?: {
     describe(ctx: ExecContext): PackageWebhook[];
     handle(call: PackageWebhookCall): Promise<PackageWebhookResult>;
-    /** webhookMethods: checkExists, create, delete (Registrierung beim Dienst, z. B. per API) */
+    /** webhookMethods: checkExists, create, delete (registration with the service, e.g. via API) */
     lifecycle?(ctx: ExecContext, webhookName: string, method: 'checkExists' | 'create' | 'delete', o: { isTest: boolean; webhookUrl(name: string): string | undefined }): Promise<boolean | undefined>;
-    /** Hat der Webhook Methoden zur Registrierung? */
+    /** Does the webhook have registration methods? */
     hasLifecycle(webhookName: string): boolean;
   };
-  /** Auslöser im aktiven Workflow starten (M31, Poll- und Trigger-Knoten aus n8n-Paketen) */
+  /** Start the trigger in the active workflow (M31, poll and trigger nodes from n8n packages) */
   activate?(activation: Activation): Promise<ActivationHandle>;
-  /** Instanz für Sub-Nodes (KI): wird vom Eltern-Node über getSubNodeInstance geholt */
+  /** Instance for sub-nodes (AI): fetched by the parent node via getSubNodeInstance */
   supplyData?(ctx: ExecContext, itemIndex: number): Promise<unknown>;
 }

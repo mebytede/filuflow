@@ -1,4 +1,4 @@
-// filuflow validate <wf.json> [--json] [--credentials <pfad>]
+// filuflow validate <wf.json> [--json] [--credentials <path>]
 import { parseArgs } from 'node:util';
 import { readFile } from 'node:fs/promises';
 import { validateWorkflow, formatIssues } from '../validator.js';
@@ -18,7 +18,7 @@ export async function cmdValidate(args: string[]): Promise<number> {
   });
   const file = positionals[0];
   if (!file) {
-    process.stderr.write('Aufruf: filuflow validate <wf.json> [--json]\n');
+    process.stderr.write('Usage: filuflow validate <wf.json> [--json]\n');
     return 1;
   }
   let issues: ValidationIssue[];
@@ -45,7 +45,7 @@ function report(issues: ValidationIssue[], json: boolean | undefined): number {
     process.stdout.write(`${JSON.stringify({ valid, issues }, null, 2)}\n`);
   } else {
     process.stdout.write(`${formatIssues(issues)}\n`);
-    process.stdout.write(valid ? 'Workflow ist gültig.\n' : 'Workflow ist ungültig.\n');
+    process.stdout.write(valid ? 'Workflow is valid.\n' : 'Workflow is invalid.\n');
   }
   return valid ? 0 : 1;
 }

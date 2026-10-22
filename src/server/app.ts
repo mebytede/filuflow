@@ -1,4 +1,4 @@
-// HTTP-Server (SPEC 8): Webhooks, REST-API, Healthcheck.
+// HTTP server (SPEC 8): webhooks, REST API, health check.
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import qs from 'qs';
 import { gunzipSync, inflateSync } from 'node:zlib';
@@ -40,11 +40,11 @@ import { validateWorkflow } from '../validator.js';
 export interface ServerOptions {
   dir: string;
   dbFile: string;
-  /** FILUFLOW_API_KEY; ohne Schlüssel ist die REST-API gesperrt */
+  /** FILUFLOW_API_KEY; without a key the REST API is locked */
   apiKey?: string;
   concurrency?: number;
   pruneDays?: number;
-  /** Basis-URL für webhookUrl, z. B. http://localhost:5678/ */
+  /** Base URL for webhookUrl, e.g. http://localhost:5678/ */
   webhookBaseUrl: string;
   credentials?: CredentialProvider;
   vars?: Record<string, unknown>;
@@ -52,16 +52,16 @@ export interface ServerOptions {
   binary?: BinaryStore;
   http?: HttpClient;
   logger?: Logger;
-  /** Maximale Request-Größe in MB (n8n N8N_PAYLOAD_SIZE_MAX, Default 16) */
+  /** Maximum request size in MB (n8n N8N_PAYLOAD_SIZE_MAX, default 16) */
   payloadSizeMaxMb?: number;
   watch?: boolean;
-  /** Verzeichnis der gebauten Weboberfläche; false schaltet sie ab (Default: dist/ui) */
+  /** Directory of the built web interface; false disables it (default: dist/ui) */
   uiDir?: string | false;
-  /** Community-Pakete (M30): Ordner der installierten Pakete und npm-Registry; ohne Angabe keine Installation */
+  /** Community packages (M30): folder of installed packages and npm registry; if omitted, no installation */
   communityPackages?: { dir: string; npmRegistry?: string; enabled?: boolean; env?: NodeJS.ProcessEnv } | CommunityPackages;
-  /** Worker-Modus (M9): API für den Master; Credentials optional vom Master beschreibbar */
+  /** Worker mode (M9): API for the master; credentials optionally writable by the master */
   worker?: { version: string; credentials?: LayeredCredentialProvider };
-  /** Aufseher (M35): Default an, abschaltbar mit false oder FILUFLOW_SUPERVISOR=false */
+  /** Supervisor (M35): on by default, can be disabled with false or FILUFLOW_SUPERVISOR=false */
   supervisor?: boolean;
 }
 
@@ -78,7 +78,7 @@ export interface FiluflowServer {
 
 const WEBHOOK_METHODS = ['DELETE', 'GET', 'HEAD', 'PATCH', 'POST', 'PUT'];
 
-/** Code-Node oder Code Tool mit Python über Pyodide */
+/** Code node or Code Tool with Python via Pyodide */
 function usesPyodide(workflow: { nodes?: Array<{ type: string; parameters?: Record<string, unknown> }> }): boolean {
   return (workflow.nodes ?? []).some(
     (n) => (n.type === 'n8n-nodes-base.code' || n.type === '@n8n/n8n-nodes-langchain.toolCode') && n.parameters?.language === 'python',
@@ -119,7 +119,7 @@ function sendHttp(reply: FastifyReply, response: HttpResponse): FastifyReply {
   return reply.send(response.body ?? '');
 }
 
-/** Für die API: Execution ohne große Daten */
+/** For the API: execution without large data */
 function executionView(e: Execution | (Partial<Execution> & { id: string }), withData: boolean): Record<string, unknown> {
   const { runData, ...meta } = e as Execution;
   return withData ? { ...meta, runData } : meta;
@@ -133,9 +133,9 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
   const secrets = () => credentials.secretValues?.() ?? [];
   const store = new ExecutionStore(options.dbFile, secrets);
   const crashed = store.markCrashed();
-  if (crashed) logger.warn({ count: crashed }, 'Unvollständige Executions als abgestürzt markiert');
+  if (crashed) logger.warn({ count: crashed }, 'Incomplete executions marked as crashed');
 
-  // Statische Workflow-Daten ($getWorkflowStaticData): im Speicher, nach jeder Execution in SQLite (M13)
+  // Static workflow data ($getWorkflowStaticData): in memory, saved to SQLite after each execution (M13)
   const staticData = new Map<string, Record<string, Record<string, unknown>>>();
   const staticSaved = new Map<string, string>();
   const staticFor = (wf: { id?: string; name: string }) => {
@@ -148,7 +148,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
     }
     return data;
   };
-  // n8n speichert statische Daten nach Ausführungen außerhalb des manuellen Modus (saveStaticData)
+  // n8n saves static data after executions outside manual mode (saveStaticData)
   const saveStaticData = (wf: { id?: string; name: string }, mode: string) => {
     if (mode === 'manual') return;
     const key = wf.id ?? wf.name;
@@ -160,13 +160,13 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
       store.setStaticData(key, data);
       staticSaved.set(key, json);
     } catch (error) {
-      logger.error({ err: (error as Error).message, workflow: wf.name }, 'Statische Daten konnten nicht gespeichert werden');
+      logger.error({ err: (error as Error).message, workflow: wf.name }, 'Static data could not be saved');
     }
   };
   const kvStore = { get: <T>(key: string) => store.getValue<T>(key), set: (key: string, value: unknown) => store.setValue(key, value), delete: (key: string) => store.deleteValue(key) };
   setOAuth2TokenStore(kvStore);
   const variables = new VariableStore(kvStore, options.vars);
-  // OAuth2 mit Authorization Code und OAuth1: Rückleitung wie n8n unter der öffentlichen Basis-URL
+  // OAuth2 with Authorization Code and OAuth1: callback as in n8n under the public base URL
   const oauth: OAuthSupport = {
     store: kvStore,
     http: options.http ?? new UndiciHttpClient(),
@@ -174,7 +174,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
     oauth1CallbackUrl: `${options.webhookBaseUrl}${OAUTH1_CALLBACK_PATH}`,
   };
 
-  // Zirkuläre Abhängigkeiten (Runner <-> Manager <-> Workflows): erst deklarieren, dann zuweisen
+  // Circular dependencies (Runner <-> Manager <-> Workflows): declare first, assign later
   // eslint-disable-next-line prefer-const
   let manager: ExecutionManager;
   // eslint-disable-next-line prefer-const
@@ -204,7 +204,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
   });
   const webhooks = new WebhookService({ manager, credentials, binary, logger, webhookBaseUrl: options.webhookBaseUrl, store, vars: variables.vars, registry, saveStaticData });
   const scheduler = new Scheduler(manager, logger, staticFor);
-  // Installierte Community-Pakete vor den Workflows laden; Änderungen prüfen die Workflows neu
+  // Load installed community packages before the workflows; changes re-check the workflows
   const cp = options.communityPackages;
   const packages =
     cp instanceof CommunityPackages
@@ -214,18 +214,18 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
         : undefined;
   const packagesEnabled = cp && !(cp instanceof CommunityPackages) && cp.enabled !== undefined ? cp.enabled : communityPackagesEnabled();
   if (packages && !(cp instanceof CommunityPackages)) {
-    for (const r of await packages.loadInstalled()) for (const e of r.errors) logger.warn({ source: r.source, error: e }, 'Community-Paket mit Problemen');
+    for (const r of await packages.loadInstalled()) for (const e of r.errors) logger.warn({ source: r.source, error: e }, 'Community package with problems');
   }
   const triggers = new TriggerActivations({ registry, manager, logger, saveStaticData });
   workflows = new WorkflowManager({ dir: options.dir, registry, credentials, webhooks, scheduler, triggers, logger });
   await workflows.reload();
-  // Pyodide braucht beim ersten Lauf etwa zwei Sekunden: vorladen, wenn ein Workflow Python nutzt
+  // Pyodide needs about two seconds on the first run: preload it if a workflow uses Python
   if (process.env.FILUFLOW_PYTHON_PRELOAD !== 'false' && workflows.list().some((m) => usesPyodide(m.workflow))) {
-    warmUpPython().catch((error: unknown) => logger.warn({ err: (error as Error).message }, 'Python (Pyodide) konnte nicht vorgeladen werden'));
+    warmUpPython().catch((error: unknown) => logger.warn({ err: (error as Error).message }, 'Python (Pyodide) could not be preloaded'));
   }
   if (options.watch !== false) workflows.watch();
 
-  // Aufseher: beobachtet Workflows und Ausführungen, schlägt nur vor
+  // Supervisor: watches workflows and executions, only makes suggestions
   if (options.supervisor ?? process.env.FILUFLOW_SUPERVISOR !== 'false') {
     supervisor = new Supervisor({
       db: store.database,
@@ -266,9 +266,9 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
   const prune = () => {
     try {
       const n = store.prune(pruneDays);
-      if (n) logger.info({ count: n, days: pruneDays }, 'Alte Executions gelöscht');
+      if (n) logger.info({ count: n, days: pruneDays }, 'Old executions deleted');
     } catch (error) {
-      logger.error({ err: (error as Error).message }, 'Aufräumen fehlgeschlagen');
+      logger.error({ err: (error as Error).message }, 'Cleanup failed');
     }
   };
   prune();
@@ -280,12 +280,12 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
     logger: false,
     bodyLimit,
     exposeHeadRoutes: false,
-    // Express "extended" Query-Parser wie n8n (abstract-server.ts: app.set('query parser', 'extended'))
+    // Express "extended" query parser as in n8n (abstract-server.ts: app.set('query parser', 'extended'))
     routerOptions: { querystringParser: (str: string) => qs.parse(str, { allowPrototypes: true }) as Record<string, unknown> },
   });
 
   app.get('/healthz', async () => ({ status: 'ok' }));
-  // Rückleitung des OAuth2- bzw. OAuth1-Anbieters (ohne API-Key; abgesichert über den einmaligen state)
+  // Callback from the OAuth2 or OAuth1 provider (without API key; secured by the one-time state)
   for (const [path, complete, label] of [
     [OAUTH2_CALLBACK_PATH, completeOAuth, 'OAuth2'],
     [OAUTH1_CALLBACK_PATH, completeOAuth1, 'OAuth1'],
@@ -294,15 +294,15 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
       reply.header('content-type', 'text/html; charset=utf-8').header('content-security-policy', "default-src 'none'; style-src 'unsafe-inline'");
       try {
         const result = await complete(oauth, credentials, (request.query ?? {}) as Record<string, unknown>);
-        logger.info({ credential: result.credential }, `${label}-Credential verbunden`);
-        return reply.send(oauthCallbackPage(true, `Das Credential "${result.credential}" ist verbunden. Sie können dieses Fenster schließen.`));
+        logger.info({ credential: result.credential }, `${label} credential connected`);
+        return reply.send(oauthCallbackPage(true, `The credential "${result.credential}" is connected. You can close this window.`));
       } catch (error) {
-        logger.warn({ err: (error as Error).message }, `${label}-Callback fehlgeschlagen`);
+        logger.warn({ err: (error as Error).message }, `${label} callback failed`);
         return reply.code(400).send(oauthCallbackPage(false, (error as Error).message));
       }
     });
   }
-  // Chat mit Antwortknoten (Human in the Loop): Kanal zur Chat-Seite und Antworten, abgesichert über die sessionId
+  // Chat with response nodes (human in the loop): channel to the chat page and replies, secured by the sessionId
   const chatSessions = new ChatSessions({ manager, store, logger });
   const chatError = (reply: FastifyReply, error: unknown) =>
     error instanceof ChatSessionError ? reply.code(error.statusCode).send({ message: error.message }) : reply.code(500).send({ message: (error as Error).message });
@@ -330,7 +330,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
   if (options.uiDir !== false) registerUi(app, options.uiDir);
   else registerChatAssets(app);
 
-  // Webhooks: Body roh lesen (gzip/deflate wie n8n rawBodyReader), Auswertung im Webhook-Node
+  // Webhooks: read the body raw (gzip/deflate as in n8n rawBodyReader), parsing happens in the Webhook node
   await app.register(async (scope) => {
     scope.removeAllContentTypeParsers();
     scope.addContentTypeParser('*', { parseAs: 'buffer', bodyLimit }, (request, body, done) => {
@@ -363,7 +363,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
     };
     scope.all('/webhook/*', handler(false));
     scope.all('/webhook-test/*', handler(true));
-    // Formulare (M17): /form/<Pfad>, /form-test/<Pfad>, Folgeseiten /form-waiting/<executionId>
+    // Forms (M17): /form/<path>, /form-test/<path>, follow-up pages /form-waiting/<executionId>
     const formRequest = (request: FastifyRequest) => ({
       method: request.method.toUpperCase(),
       headers: request.headers,
@@ -384,7 +384,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
         return sendHttp(reply, await webhooks.handleWaitingForm(executionId ?? '', rest.join('/').replace(/\/+$/, ''), formRequest(request)));
       },
     });
-    // Fortsetzen wartender Executions: /webhook-waiting/<executionId>[/<webhookSuffix>]
+    // Resuming waiting executions: /webhook-waiting/<executionId>[/<webhookSuffix>]
     scope.all('/webhook-waiting/*', async (request: FastifyRequest, reply: FastifyReply) => {
       const [executionId, ...rest] = ((request.params as { '*': string })['*'] ?? '').split('/');
       const response = await webhooks.handleWaiting(executionId ?? '', rest.join('/').replace(/\/+$/, ''), {
@@ -399,13 +399,13 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
     });
   });
 
-  // REST-API mit X-API-Key
+  // REST API with X-API-Key
   await app.register(async (api) => {
     api.addHook('onRequest', async (request, reply) => {
       if (!options.apiKey) {
-        return reply.code(401).send({ message: 'REST-API ist deaktiviert: FILUFLOW_API_KEY ist nicht gesetzt' });
+        return reply.code(401).send({ message: 'REST API is disabled: FILUFLOW_API_KEY is not set' });
       }
-      if (!checkApiKey(options.apiKey, request)) return reply.code(401).send({ message: 'Ungültiger oder fehlender X-API-Key' });
+      if (!checkApiKey(options.apiKey, request)) return reply.code(401).send({ message: 'Invalid or missing X-API-Key' });
     });
 
     api.get('/api/workflows', async () => ({
@@ -428,7 +428,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
 
     api.get('/api/workflows/:id', async (request, reply) => {
       const m = workflows!.get((request.params as { id: string }).id);
-      if (!m) return reply.code(404).send({ message: 'Workflow nicht gefunden' });
+      if (!m) return reply.code(404).send({ message: 'Workflow not found' });
       return {
         ...m.workflow,
         active: m.active,
@@ -442,9 +442,9 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
 
     api.post('/api/workflows/:id/run', async (request, reply) => {
       const m = workflows!.get((request.params as { id: string }).id);
-      if (!m) return reply.code(404).send({ message: 'Workflow nicht gefunden' });
+      if (!m) return reply.code(404).send({ message: 'Workflow not found' });
       if (m.issues.some((i) => i.severity === 'error')) {
-        return reply.code(400).send({ message: 'Workflow ist ungültig', issues: m.issues });
+        return reply.code(400).send({ message: 'Workflow is invalid', issues: m.issues });
       }
       const query = request.query as { wait?: string; trigger?: string };
       let triggerItems: Item[] | undefined;
@@ -492,7 +492,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
       };
     });
 
-    // Suche mit Filtern im Body (Master: viele Workflow-IDs, zentrale Ausführungssuche M23)
+    // Search with filters in the body (master: many workflow IDs, central execution search M23)
     api.post('/api/executions/search', async (request) => {
       const b = (request.body ?? {}) as Record<string, unknown>;
       const text = (k: string) => (typeof b[k] === 'string' && b[k] ? (b[k] as string).slice(0, 200) : undefined);
@@ -514,7 +514,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
     api.get('/api/executions/:id', async (request, reply) => {
       const withData = (request.query as { data?: string }).data !== 'false';
       const e = store.get((request.params as { id: string }).id, withData);
-      if (!e) return reply.code(404).send({ message: 'Execution nicht gefunden' });
+      if (!e) return reply.code(404).send({ message: 'Execution not found' });
       return e;
     });
 
@@ -522,8 +522,8 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
       const id = (request.params as { id: string }).id;
       if (!manager.cancel(id)) {
         const e = store.get(id, false);
-        if (!e) return reply.code(404).send({ message: 'Execution nicht gefunden' });
-        return reply.code(409).send({ message: `Execution läuft nicht (Status ${e.status})` });
+        if (!e) return reply.code(404).send({ message: 'Execution not found' });
+        return reply.code(409).send({ message: `Execution is not running (status ${e.status})` });
       }
       const active = manager.get(id);
       if (active) await active.promise;

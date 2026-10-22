@@ -31,7 +31,7 @@ export const fakePass: NodeType = {
   },
 };
 
-/** Setzt Feld `field` auf den (ausgewerteten) Parameter `value`, pro Item */
+/** Sets field `field` to the (evaluated) parameter `value`, per item */
 export const fakeSet: NodeType = {
   type: 'test.set',
   displayName: 'Set',
@@ -47,7 +47,7 @@ export const fakeSet: NodeType = {
   },
 };
 
-/** Erzeugt `count` Items ohne pairedItem */
+/** Creates `count` items without pairedItem */
 export const fakeCreate: NodeType = {
   type: 'test.create',
   displayName: 'Create',
@@ -65,7 +65,7 @@ export const fakeCreate: NodeType = {
   },
 };
 
-/** Zwei Ausgänge: field === true → 0, sonst 1 */
+/** Two outputs: field === true -> 0, otherwise 1 */
 export const fakeIf: NodeType = {
   type: 'test.if',
   displayName: 'If',
@@ -79,7 +79,7 @@ export const fakeIf: NodeType = {
   },
 };
 
-/** Zwei Eingänge, hängt an */
+/** Two inputs, appends */
 export const fakeMerge: NodeType = {
   type: 'test.merge',
   displayName: 'Merge',
@@ -92,7 +92,7 @@ export const fakeMerge: NodeType = {
   },
 };
 
-/** Wirft für Items mit json.fail, mit continueOnFail werden Fehler-Items erzeugt */
+/** Throws for items with json.fail; with continueOnFail error items are created */
 export const fakeFail: NodeType = {
   type: 'test.fail',
   displayName: 'Fail',
@@ -107,7 +107,7 @@ export const fakeFail: NodeType = {
       const item = ctx.items[i];
       try {
         if (item.json.fail || (failUntil && (counter.calls as number) <= failUntil)) {
-          throw new NodeOperationError(ctx.node.name, `kaputt ${i}`, { itemIndex: i });
+          throw new NodeOperationError(ctx.node.name, `broken ${i}`, { itemIndex: i });
         }
         out.push({ json: { ...item.json, ok: true }, pairedItem: { item: i } });
       } catch (error) {
@@ -138,7 +138,7 @@ export function fakeRegistry(...extra: NodeType[]): NodeRegistry {
   return r;
 }
 
-/** Workflow-Baukasten für Tests */
+/** Workflow builder for tests */
 export function wf(
   nodes: Array<Partial<WorkflowNode> & { name: string; type: string }>,
   links: Array<[string, string, number?, number?]>,

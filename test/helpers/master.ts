@@ -1,9 +1,9 @@
-// Hilfen für Master-Tests: Server im Speicher, Client mit Cookie-Speicher und CSRF-Header.
+// Helpers for master tests: in-memory server, client with cookie jar and CSRF header.
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 import { createMasterServer, type MasterOptions, type MasterServer } from '../../src/master/app.js';
 
-export const ENCRYPTION_KEY = 'master-test-schluessel-123';
-export const ADMIN = { email: 'admin@example.org', name: 'Ada Admin', password: 'sehr-geheimes-passwort' };
+export const ENCRYPTION_KEY = 'master-test-key-123';
+export const ADMIN = { email: 'admin@example.org', name: 'Ada Admin', password: 'very-secret-password' };
 
 export async function startMaster(extra: Partial<MasterOptions> = {}): Promise<MasterServer> {
   return createMasterServer({
@@ -58,21 +58,21 @@ export class Client {
   }
 }
 
-/** Ersten Admin über das Einrichtungs-Token anlegen; liefert den angemeldeten Client */
+/** Creates the first admin via the setup token; returns the logged-in client */
 export async function setupAdmin(master: MasterServer): Promise<Client> {
   const client = new Client(master.app);
   const res = await client.post('/api/auth/setup', { setupToken: master.setupToken, ...ADMIN });
-  if (res.statusCode !== 200) throw new Error(`Einrichtung fehlgeschlagen: ${res.body}`);
+  if (res.statusCode !== 200) throw new Error(`Setup failed: ${res.body}`);
   return client;
 }
 
-/** Benutzer anlegen (als Admin) und angemeldeten Client liefern */
+/** Creates a user (as admin) and returns a logged-in client */
 export async function addUser(master: MasterServer, admin: Client, email: string, role: 'admin' | 'member' = 'member'): Promise<{ client: Client; id: string }> {
-  const password = `passwort-fuer-${email}`;
+  const password = `password-for-${email}`;
   const res = await admin.post('/api/admin/users', { email, name: email.split('@')[0], password, role });
-  if (res.statusCode !== 201) throw new Error(`Benutzer anlegen fehlgeschlagen: ${res.body}`);
+  if (res.statusCode !== 201) throw new Error(`Creating user failed: ${res.body}`);
   const client = new Client(master.app);
   const login = await client.login(email, password);
-  if (login.statusCode !== 200) throw new Error(`Anmeldung fehlgeschlagen: ${login.body}`);
+  if (login.statusCode !== 200) throw new Error(`Login failed: ${login.body}`);
   return { client, id: (res.json() as { user: { id: string } }).user.id };
 }

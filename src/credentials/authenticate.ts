@@ -1,8 +1,8 @@
-// Authentifizierung eines Requests mit einem Credential (M25): für den HTTP Request mit "Vordefinierter Credential-Typ",
-// helpers.httpRequestWithAuthentication im Code-Knoten und Knoten aus Plugins. n8n beschreibt das je Credential-Typ in
-// ICredentialType.authenticate, generisch ({ headers, qs, body, auth } mit Expressions über $credentials) oder als Funktion
-// (packages/core/src/execution-engine/node-execution-context/utils/request-helper-functions.ts). Die eingebauten Typen
-// unten sind nach den Credential-Dateien aus n8n 1.123.0 nachgebaut (Fundstelle je Eintrag); Plugins ergänzen eigene.
+// Authentication of a request with a credential (M25): for HTTP Request with "Predefined Credential Type",
+// helpers.httpRequestWithAuthentication in the Code node and nodes from plugins. n8n describes this per credential type in
+// ICredentialType.authenticate, either generic ({ headers, qs, body, auth } with expressions over $credentials) or as a function
+// (packages/core/src/execution-engine/node-execution-context/utils/request-helper-functions.ts). The built-in types
+// below are rebuilt from the credential files of n8n 1.123.0 (source location per entry); plugins add their own.
 
 import { CREDENTIAL_REF, credentialRefOf } from './store.js';
 import { applySchemaDefaults } from './defaults.js';
@@ -25,17 +25,17 @@ export interface GenericAuth {
 }
 
 export interface AuthDefinition {
-  /** Generische Beschreibung oder Funktion (credentials, requestOptions) => requestOptions */
+  /** Generic description or function (credentials, requestOptions) => requestOptions */
   authenticate: { type: 'generic'; properties: GenericAuth } | ((credentials: Record<string, unknown>, options: HttpOptions) => HttpOptions | Promise<HttpOptions>);
-  /** Defaults der Felder, auch versteckter (z. B. feste URLs) */
+  /** Field defaults, including hidden ones (e.g. fixed URLs) */
   defaults?: Record<string, unknown>;
-  /** Nur Defaults, keine eigene Authentifizierung (Credential-Typen aus Plugins ohne authenticate) */
+  /** Defaults only, no own authentication (credential types from plugins without authenticate) */
   passive?: boolean;
 }
 
 const generic = (properties: GenericAuth): AuthDefinition['authenticate'] => ({ type: 'generic', properties });
 
-/** OpenAiApi/AnthropicApi: eigener Header, wenn "Eigenen Header senden" an ist */
+/** OpenAiApi/AnthropicApi: custom header when "Add Custom Header" is on */
 function customHeader(c: Record<string, unknown>, headers: Record<string, unknown>): void {
   if (c.header && typeof c.headerName === 'string' && c.headerName && typeof c.headerValue === 'string') headers[c.headerName] = c.headerValue;
 }
@@ -49,7 +49,7 @@ const BUILTIN: Record<string, AuthDefinition> = {
   httpBasicAuth: { authenticate: generic({ auth: { username: '={{$credentials.user}}', password: '={{$credentials.password}}' } }) },
   // nodes-base/credentials/HttpQueryAuth.credentials.ts
   httpQueryAuth: { authenticate: generic({ qs: { '={{$credentials.name}}': '={{$credentials.value}}' } }) },
-  // nodes-base/credentials/OpenAiApi.credentials.ts (Funktion: Bearer, OpenAI-Organization, eigener Header)
+  // nodes-base/credentials/OpenAiApi.credentials.ts (function: Bearer, OpenAI-Organization, custom header)
   openAiApi: {
     defaults: { url: 'https://api.openai.com/v1' },
     authenticate: (c, o) => {
@@ -69,7 +69,7 @@ const BUILTIN: Record<string, AuthDefinition> = {
   },
   // @n8n/nodes-langchain/credentials/GooglePalmApi.credentials.ts
   googlePalmApi: { defaults: { host: 'https://generativelanguage.googleapis.com' }, authenticate: generic({ qs: { key: '={{$credentials.apiKey}}' } }) },
-  // @n8n/nodes-langchain/credentials/GroqApi, MistralCloudApi, DeepSeekApi, OpenRouterApi, OllamaApi: Bearer mit apiKey
+  // @n8n/nodes-langchain/credentials/GroqApi, MistralCloudApi, DeepSeekApi, OpenRouterApi, OllamaApi: Bearer with apiKey
   groqApi: { authenticate: generic({ headers: { Authorization: '=Bearer {{$credentials.apiKey}}' } }) },
   mistralCloudApi: { authenticate: generic({ headers: { Authorization: '=Bearer {{$credentials.apiKey}}' } }) },
   deepSeekApi: { defaults: { url: 'https://api.deepseek.com' }, authenticate: generic({ headers: { Authorization: '=Bearer {{$credentials.apiKey}}' } }) },
@@ -77,11 +77,11 @@ const BUILTIN: Record<string, AuthDefinition> = {
   ollamaApi: { defaults: { baseUrl: 'http://localhost:11434' }, authenticate: generic({ headers: { Authorization: '=Bearer {{$credentials.apiKey}}' } }) },
   // nodes-base/credentials/GithubApi.credentials.ts
   githubApi: { defaults: { server: 'https://api.github.com' }, authenticate: generic({ headers: { Authorization: '=token {{$credentials?.accessToken}}' } }) },
-  // nodes-base/credentials/NotionApi.credentials.ts (Funktion: Bearer mit Leerzeichen am Ende, Notion-Version falls fehlt)
+  // nodes-base/credentials/NotionApi.credentials.ts (function: Bearer with trailing space, Notion-Version if missing)
   notionApi: {
     authenticate: (c, o) => {
       const headers: Record<string, unknown> = { ...(o.headers ?? {}), Authorization: `Bearer ${String(c.apiKey)} ` };
-      // n8n prüft 'Notion-Version'; der HTTP Request von filuflow kann Header-Namen klein schreiben, daher ohne Groß/klein
+      // n8n checks 'Notion-Version'; filuflow's HTTP Request may lowercase header names, hence case-insensitive
       if (!Object.keys(headers).some((k) => k.toLowerCase() === 'notion-version')) headers['Notion-Version'] = '2022-02-22';
       return { ...o, headers };
     },
@@ -98,12 +98,12 @@ const BUILTIN: Record<string, AuthDefinition> = {
 
 const registered = new Map<string, AuthDefinition>();
 
-/** Authentifizierung eines Credential-Typs aus einem Plugin ergänzen (eingebaute bleiben) */
+/** Add the authentication of a credential type from a plugin (built-in ones stay) */
 export function registerCredentialAuth(name: string, def: AuthDefinition): void {
   if (!BUILTIN[name]) registered.set(name, def);
 }
 
-/** Authentifizierung eines Plugin-Typs entfernen */
+/** Remove the authentication of a plugin type */
 export function unregisterCredentialAuth(name: string): void {
   registered.delete(name);
 }
@@ -112,55 +112,55 @@ function definition(type: string): AuthDefinition | undefined {
   return BUILTIN[type] ?? registered.get(type);
 }
 
-/** Kennt filuflow die Authentifizierung dieses Typs? */
+/** Does filuflow know the authentication of this type? */
 export function hasAuthentication(type: string): boolean {
   const def = definition(type);
   return !!def && !def.passive;
 }
 
-/** Typ aus einem Plugin ohne authenticate: n8n (credentialsHelper.authenticate) lässt den Request dann unverändert */
+/** Type from a plugin without authenticate: n8n (credentialsHelper.authenticate) then leaves the request unchanged */
 export function hasPassiveAuthentication(type: string): boolean {
   return !!definition(type)?.passive;
 }
 
-/** Typen mit Authentifizierung (Auswahl im Editor) */
+/** Types with authentication (selection in the editor) */
 export function authenticatedTypes(): string[] {
   return [...Object.keys(BUILTIN), ...[...registered].filter(([, d]) => !d.passive).map(([k]) => k)].sort();
 }
 
 /**
- * Defaults der Felder ergänzen, wie n8n beim Laden eines Credentials: Felder der Typbeschreibung samt geerbten und
- * versteckten (M28, src/credentials/defaults.ts), dazu die Defaults der Authentifizierung (leere Werte zählen als fehlend)
+ * Fill in field defaults, as n8n does when loading a credential: fields of the type description including inherited and
+ * hidden ones (M28, src/credentials/defaults.ts), plus the defaults of the authentication (empty values count as missing)
  */
 export function withCredentialDefaults(type: string, data: Record<string, unknown>): Record<string, unknown> {
   const defaults = definition(type)?.defaults;
   const out = applySchemaDefaults(type, data);
   for (const [k, v] of Object.entries(defaults ?? {})) if (out[k] === undefined || out[k] === '') out[k] = v;
-  // Verweis auf das gespeicherte Credential (nicht aufzählbar) mitnehmen, z. B. für OAuth-Tokens
+  // Carry the reference to the stored credential along (non-enumerable), e.g. for OAuth tokens
   const ref = credentialRefOf(data);
   if (ref) Object.defineProperty(out, CREDENTIAL_REF, { value: ref, enumerable: false });
   return out;
 }
 
-/** "=Bearer {{$credentials.token}}" mit $credentials auswerten (ohne "=": unverändert) */
+/** Evaluate "=Bearer {{$credentials.token}}" with $credentials (without "=": unchanged) */
 function resolve(value: unknown, credentials: Record<string, unknown>): unknown {
   if (typeof value !== 'string' || !value.startsWith('=')) return value;
   const text = value.slice(1);
-  // Credential-Typen sind Code der Betreiber (eingebaut oder Plugin) und gelten als vertrauenswürdig
+  // Credential types are operator code (built-in or plugin) and are considered trusted
   const evaluate = (expr: string): unknown => new Function('$credentials', `return (${expr});`)(credentials) as unknown;
   const whole = /^\{\{([\s\S]*)\}\}$/.exec(text.trim());
   if (whole && !whole[1].includes('}}')) return evaluate(whole[1]);
   return text.replace(/\{\{([\s\S]*?)\}\}/g, (_m, expr: string) => String(evaluate(expr) ?? ''));
 }
 
-/** Schlüssel und Werte auswerten (Header-Namen können selbst Expressions sein, z. B. httpHeaderAuth) */
+/** Evaluate keys and values (header names can be expressions themselves, e.g. httpHeaderAuth) */
 const resolveAll = (obj: Record<string, unknown> | undefined, credentials: Record<string, unknown>) =>
   Object.fromEntries(Object.entries(obj ?? {}).map(([k, v]) => [String(resolve(k, credentials)), resolve(v, credentials)]));
 
-/** Request mit den Werten eines Credentials authentifizieren */
+/** Authenticate a request with the values of a credential */
 export async function authenticateRequest(type: string, credentials: Record<string, unknown>, options: HttpOptions): Promise<HttpOptions> {
   const def = definition(type);
-  if (!def || def.passive) throw new Error(`Credential-Typ "${type}" hat keine Authentifizierung, die filuflow anwenden kann`);
+  if (!def || def.passive) throw new Error(`Credential type "${type}" has no authentication that filuflow can apply`);
   const c = withCredentialDefaults(type, credentials);
   const auth = def.authenticate;
   if (typeof auth === 'function') return auth(c, { ...options, headers: { ...(options.headers ?? {}) } });

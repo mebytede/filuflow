@@ -1,4 +1,4 @@
-// Registry der unterstützten Node-Typen.
+// Registry of the supported node types.
 import type { NodeType } from './types.js';
 
 export class NodeRegistry {
@@ -12,14 +12,14 @@ export class NodeRegistry {
     return this.types.get(type);
   }
 
-  /** Liefert den Typ nur, wenn die Version unterstützt wird */
+  /** Returns the type only if the version is supported */
   getVersioned(type: string, version: number): NodeType | undefined {
     const t = this.types.get(type);
     if (!t) return undefined;
     return t.versions.includes(version) ? t : undefined;
   }
 
-  /** Typ entfernen (Community-Paket deinstalliert) */
+  /** Remove a type (community package uninstalled) */
   unregister(type: string): boolean {
     return this.types.delete(type);
   }

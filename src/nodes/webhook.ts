@@ -1,12 +1,12 @@
 // Webhook, n8n-nodes-base.webhook (typeVersion 1, 1.1, 2, 2.1)
-// Nachgebaut nach n8n 1.123.0:
+// Rebuilt after n8n 1.123.0:
 //   packages/nodes-base/nodes/Webhook/Webhook.node.ts, utils.ts, description.ts, error.ts
 //   packages/cli/src/webhooks/webhook-helpers.ts (parseRequestBody), middlewares/body-parser.ts
-//   packages/cli/src/webhooks/webhook.service.ts (getNodeWebhooks: Pfad, Methoden)
+//   packages/cli/src/webhooks/webhook.service.ts (getNodeWebhooks: path, methods)
 //   packages/core/.../utils/parse-incoming-message.ts (Content-Type, Content-Disposition)
-// In der Execution reicht der Node die vom Server erzeugten Daten durch (workflow-execute.ts runNode:
-// "for webhook nodes always simply pass the data through"). Die Request-Verarbeitung steckt in
-// handleWebhookRequest und wird vom Server aufgerufen.
+// During the execution the node passes through the data created by the server (workflow-execute.ts runNode:
+// "for webhook nodes always simply pass the data through"). Request handling lives in
+// handleWebhookRequest and is called by the server.
 import { randomUUID, createHmac, createPublicKey, verify as cryptoVerify, timingSafeEqual } from 'node:crypto';
 import { parse as parseQueryString } from 'node:querystring';
 import xml2js from 'xml2js';
@@ -24,7 +24,7 @@ export type ResponseMode = 'onReceived' | 'lastNode' | 'responseNode' | 'streami
 export interface WebhookDescription {
   node: string;
   method: string;
-  /** Pfad ohne /webhook/-Präfix, z. B. "kunden" oder "<webhookId>/user/:id" */
+  /** Path without the /webhook/ prefix, e.g. "customers" or "<webhookId>/user/:id" */
   path: string;
   isDynamic: boolean;
   webhookId?: string;
@@ -33,7 +33,7 @@ export interface WebhookDescription {
 export interface WebhookResponseOptions {
   responseMode: ResponseMode;
   responseCode: number;
-  /** onReceived: frei wählbarer Text oder "noData"; sonst firstEntryJson/allEntries/firstEntryBinary/noData */
+  /** onReceived: any text or "noData"; otherwise firstEntryJson/allEntries/firstEntryBinary/noData */
   responseData?: string;
   responseBinaryPropertyName: string;
   responseContentType?: string;
@@ -41,7 +41,7 @@ export interface WebhookResponseOptions {
   responseHeaders: Map<string, string>;
 }
 
-/** Framework-unabhängige Sicht auf einen eingehenden Request */
+/** Framework-independent view of an incoming request */
 export interface IncomingWebhookRequest {
   method: string;
   headers: Record<string, string | string[] | undefined>;
@@ -55,23 +55,23 @@ export interface IncomingWebhookRequest {
 export interface WebhookHandleContext {
   node: WorkflowNode;
   request: IncomingWebhookRequest;
-  /** "test" für /webhook-test/, sonst "production" */
+  /** "test" for /webhook-test/, otherwise "production" */
   executionMode: 'test' | 'production';
   webhookUrl: string;
   binary: BinaryStore;
   getCredentials(type: string): Promise<Record<string, unknown> | undefined>;
-  /** Kinder des Webhook-Nodes (für checkResponseModeConfiguration) */
+  /** Children of the webhook node (for checkResponseModeConfiguration) */
   childNodeTypes: string[];
-  /** Parameter der Authentifizierung (Webhook: authentication, Wait: incomingAuthentication) */
+  /** Authentication parameter (Webhook: authentication, Wait: incomingAuthentication) */
   authProperty?: string;
 }
 
 export interface WebhookHandleResult {
-  /** Antwort wurde vom Node festgelegt (Auth-/IP-Fehler), keine Ausführung */
+  /** Response was set by the node (auth/IP error), no execution */
   directResponse?: { statusCode: number; headers: Record<string, string>; body: string };
-  /** Daten je Ausgang für den Start-Node */
+  /** Data per output for the start node */
   workflowData?: Item[][];
-  /** options.responseData (nur onReceived) */
+  /** options.responseData (onReceived only) */
   webhookResponse?: string;
 }
 
@@ -89,7 +89,7 @@ export class WebhookAuthorizationError extends Error {
   }
 }
 
-/** n8n WorkflowConfigurationError: Meldung wird an den Aufrufer durchgereicht */
+/** n8n WorkflowConfigurationError: the message is passed through to the caller */
 export class WebhookConfigurationError extends NodeOperationError {}
 
 type Params = Record<string, unknown>;
@@ -109,7 +109,7 @@ function httpMethods(node: WorkflowNode): string[] {
   return String(m || 'GET').split(',').map((s) => s.trim()).filter(Boolean);
 }
 
-/** Pfad wie n8n getNodeWebhooks/getNodeWebhookPath (isFullPath = true) */
+/** Path like n8n getNodeWebhooks/getNodeWebhookPath (isFullPath = true) */
 export function webhookPath(node: WorkflowNode): { path: string; isDynamic: boolean } {
   let path = String((node.parameters as Params).path ?? '');
   if (path.startsWith('/')) path = path.slice(1);
@@ -141,19 +141,19 @@ function getResponseCode(p: Params): number {
   return 200;
 }
 
-/** Antwort-Optionen (defaultWebhookDescription + Parameter-Defaults der angezeigten Felder) */
+/** Response options (defaultWebhookDescription + parameter defaults of the displayed fields) */
 export function responseOptions(node: WorkflowNode): WebhookResponseOptions {
   const p = node.parameters as Params;
   const options = (p.options ?? {}) as Params;
   const responseMode = (p.responseMode ?? 'onReceived') as ResponseMode;
-  // responseData ist nur bei lastNode sichtbar (Default firstEntryJson); sonst options.responseData
+  // responseData is only visible with lastNode (default firstEntryJson); otherwise options.responseData
   let responseData: string | undefined;
   if (responseMode === 'lastNode') responseData = (p.responseData as string | undefined) ?? 'firstEntryJson';
   else if (p.responseData) responseData = p.responseData as string;
   if (!responseData && responseMode === 'onReceived' && options.responseData) responseData = options.responseData as string;
-  // noResponseBody ist nur bei onReceived sichtbar (sonst von n8n verworfen)
+  // noResponseBody is only visible with onReceived (otherwise discarded by n8n)
   if (!responseData && options.noResponseBody && responseMode === 'onReceived') responseData = 'noData';
-  // v1/1.1: responseCode ist ein eigener Parameter (Default 200, ausgeblendet bei responseNode)
+  // v1/1.1: responseCode is a separate parameter (default 200, hidden with responseNode)
   const codeParams = { ...p };
   if (node.typeVersion < 2 && responseMode !== 'responseNode') codeParams.responseCode ??= 200;
   const headers = new Map<string, string>();
@@ -165,7 +165,7 @@ export function responseOptions(node: WorkflowNode): WebhookResponseOptions {
     responseData,
     responseBinaryPropertyName: (p.responseBinaryPropertyName as string | undefined) ?? 'data',
     responseContentType: (options.responseContentType as string | undefined) || undefined,
-    // Unterfelder der options-Collection haben keine Defaults (nur gesetzte Werte)
+    // Subfields of the options collection have no defaults (only set values)
     responsePropertyName: responseMode === 'lastNode' ? (options.responsePropertyName as string | undefined) : undefined,
     responseHeaders: headers,
   };
@@ -221,7 +221,7 @@ export class UnprocessableRequestError extends Error {
   }
 }
 
-/** body-parser.ts parseBody (ohne multipart) */
+/** body-parser.ts parseBody (without multipart) */
 async function parseBody(raw: Buffer, contentType: string | undefined, charset: string): Promise<unknown> {
   if (!raw.length) return undefined;
   const text = () => raw.toString(toEncoding(charset));
@@ -236,7 +236,7 @@ async function parseBody(raw: Buffer, contentType: string | undefined, charset: 
   return undefined;
 }
 
-/** multipart/form-data über die Fetch-API von Node (undici), Felder wie formidable + normalizeFormData */
+/** multipart/form-data via the Node fetch API (undici), fields like formidable + normalizeFormData */
 async function parseMultipart(req: IncomingWebhookRequest): Promise<{ data: Record<string, unknown>; files: Record<string, File | File[]> }> {
   const request = new Request('http://localhost/', {
     method: 'POST',
@@ -255,8 +255,8 @@ async function parseMultipart(req: IncomingWebhookRequest): Promise<{ data: Reco
 }
 
 /**
- * webhook-helpers.ts parseRequestBody für Knoten aus n8n-Paketen (M32): multipart als { data, files }, sonst nach
- * Content-Type; ab Knotenversion 2 nur JSON, Text, Formular und XML. Ohne lesbaren Body undefined.
+ * webhook-helpers.ts parseRequestBody for nodes from n8n packages (M32): multipart as { data, files }, otherwise by
+ * content type; from node version 2 only JSON, text, form and XML. undefined without a readable body.
  */
 export async function parseRequestBodyForNode(req: IncomingWebhookRequest, version: number, binaryData = false): Promise<unknown> {
   if (binaryData) return undefined;
@@ -289,14 +289,14 @@ export function isIpWhitelisted(whitelist: string | string[] | undefined, ips: s
   return false;
 }
 
-// Näherung an das npm-Paket isbot (dort eine lange Musterliste)
+// Approximation of the npm package isbot (which uses a long pattern list)
 const BOT_PATTERN = /bot|crawl|spider|slurp|scrape|facebookexternalhit|embedly|preview|curl\/|wget|python-requests|httpclient|headless|lighthouse|monitor/i;
 
 function base64UrlDecode(s: string): Buffer {
   return Buffer.from(s.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
 }
 
-/** formatPrivateKey(publicKey, true) aus nodes-base utils/utilities.ts, vereinfacht: PEM-Zeilen wiederherstellen */
+/** formatPrivateKey(publicKey, true) from nodes-base utils/utilities.ts, simplified: restore PEM line breaks */
 function formatKey(key: string): string {
   if (!key || /\n/.test(key)) return key;
   const m = /^(-----BEGIN [A-Z ]+-----)(.*)(-----END [A-Z ]+-----)$/.exec(key.trim());
@@ -305,7 +305,7 @@ function formatKey(key: string): string {
   return `${m[1]}\n${body}\n${m[3]}`;
 }
 
-/** Prüft ein JWT wie jsonwebtoken.verify (Signatur, exp, nbf); liefert den Payload */
+/** Verifies a JWT like jsonwebtoken.verify (signature, exp, nbf); returns the payload */
 export function verifyJwt(token: string, secretOrPublicKey: string, algorithm: string): Record<string, unknown> {
   const parts = token.split('.');
   if (parts.length !== 3) throw new Error('jwt malformed');
@@ -389,7 +389,7 @@ async function validateAuth(ctx: WebhookHandleContext): Promise<Record<string, u
   return undefined;
 }
 
-/** checkResponseModeConfiguration (utils.ts), nur ab v2 */
+/** checkResponseModeConfiguration (utils.ts), only from v2 */
 function checkResponseModeConfiguration(ctx: WebhookHandleContext): void {
   const responseMode = ((ctx.node.parameters as Params).responseMode ?? 'onReceived') as string;
   const connected = ctx.childNodeTypes.includes(RESPOND_TO_WEBHOOK_TYPE);
@@ -405,7 +405,7 @@ function checkResponseModeConfiguration(ctx: WebhookHandleContext): void {
   }
 }
 
-/** Webhook.node.ts webhook() inklusive parseRequestBody aus webhook-helpers.ts */
+/** Webhook.node.ts webhook() including parseRequestBody from webhook-helpers.ts */
 export async function handleWebhookRequest(ctx: WebhookHandleContext): Promise<WebhookHandleResult> {
   const { node, request: req } = ctx;
   const version = node.typeVersion;
@@ -421,8 +421,8 @@ export async function handleWebhookRequest(ctx: WebhookHandleContext): Promise<W
     ipWhitelist?: string;
   };
 
-  // displayOptions der options-Collection (n8n getNodeParameters, Optionen nach Anzeigename sortiert):
-  // "No Response Body" nur bei onReceived; "Raw Body" ausgeblendet bei noResponseBody (v1 auch bei binaryData)
+  // displayOptions of the options collection (n8n getNodeParameters, options sorted by display name):
+  // "No Response Body" only with onReceived; "Raw Body" hidden with noResponseBody (v1 also with binaryData)
   const noResponseBody = options.noResponseBody === true && (p.responseMode ?? 'onReceived') === 'onReceived';
   if (options.rawBody && (noResponseBody || (version === 1 && options.binaryData === true))) options.rawBody = false;
 
@@ -430,7 +430,7 @@ export async function handleWebhookRequest(ctx: WebhookHandleContext): Promise<W
   const contentType = contentTypeInfo?.type;
   const charset = contentTypeInfo?.charset ?? 'utf-8';
 
-  // parseRequestBody: v1 mit binaryData liest den Body nicht vor
+  // parseRequestBody: v1 with binaryData does not read the body in advance
   let body: unknown;
   let multipart: Awaited<ReturnType<typeof parseMultipart>> | undefined;
   const binaryDataV1 = version === 1 && options.binaryData === true;
@@ -524,284 +524,284 @@ export async function handleWebhookRequest(ctx: WebhookHandleContext): Promise<W
   return { webhookResponse: options.responseData, workflowData: prepareOutput(item) };
 }
 
-// Parameter wie n8n Webhook.node.ts (properties) mit description.ts (httpMethodsProperty, authenticationProperty,
+// Parameters as in n8n Webhook.node.ts (properties) with description.ts (httpMethodsProperty, authenticationProperty,
 // responseModeProperty, responseCodeProperty, responseDataProperty, responseBinaryPropertyNameProperty,
-// optionsProperty, responseCodeOption). responseMode gibt es zweimal: bis v2 ohne, ab v2.1 mit "streaming"
-// (responseModePropertyStreaming). Optionen in der n8n-Reihenfolge.
+// optionsProperty, responseCodeOption). responseMode exists twice: up to v2 without, from v2.1 with "streaming"
+// (responseModePropertyStreaming). Options in n8n order.
 const HTTP_METHODS = ['DELETE', 'GET', 'HEAD', 'PATCH', 'POST', 'PUT'].map((m) => ({ value: m, label: m }));
 const webhookParameters: ParamSchema[] = [
   {
     name: 'multipleMethods',
-    label: 'Mehrere HTTP-Methoden erlauben',
+    label: 'Allow Multiple HTTP Methods',
     type: 'boolean',
     default: false,
-    description: 'Ob der Webhook auf mehrere HTTP-Methoden hört',
+    description: 'Whether to allow the webhook to listen for multiple HTTP methods',
   },
-  { name: 'httpMethod', label: 'HTTP-Methode', type: 'options', default: 'GET', options: HTTP_METHODS, description: 'HTTP-Methode, auf die der Webhook hört', show: { multipleMethods: [false] } },
+  { name: 'httpMethod', label: 'HTTP Method', type: 'options', default: 'GET', options: HTTP_METHODS, description: 'The HTTP method to listen to', show: { multipleMethods: [false] } },
   {
     name: 'httpMethod',
-    label: 'HTTP-Methoden',
+    label: 'HTTP Methods',
     type: 'multiOptions',
     default: ['GET', 'POST'],
     options: HTTP_METHODS,
-    description: 'HTTP-Methoden, auf die der Webhook hört; je Methode ein Ausgang',
+    description: 'The HTTP methods to listen to; one output per method',
     show: { multipleMethods: [true] },
   },
   {
     name: 'path',
-    label: 'Pfad',
+    label: 'Path',
     type: 'string',
     default: '',
     placeholder: 'webhook',
-    description: "Pfad des Webhooks; dynamische Teile mit ':' wie in 'kunden/:id'",
+    description: "The path of the webhook; use ':' for dynamic parts, as in 'customers/:id'",
   },
   {
     name: 'authentication',
-    label: 'Authentifizierung',
+    label: 'Authentication',
     type: 'options',
     default: 'none',
-    description: 'Art der Anmeldung',
+    description: 'The way to authenticate',
     options: [
       { value: 'basicAuth', label: 'Basic Auth' },
       { value: 'headerAuth', label: 'Header Auth' },
       { value: 'jwtAuth', label: 'JWT Auth' },
-      { value: 'none', label: 'Keine' },
+      { value: 'none', label: 'None' },
     ],
   },
   {
     name: 'responseMode',
-    label: 'Antworten',
+    label: 'Respond',
     type: 'options',
     default: 'onReceived',
-    description: 'Wann und wie der Webhook antwortet',
+    description: 'When and how to respond to the webhook',
     options: [
-      { value: 'onReceived', label: 'Sofort', description: 'Sobald dieser Knoten ausgeführt wird' },
-      { value: 'lastNode', label: 'Wenn der letzte Knoten fertig ist', description: 'Antwortet mit Daten des zuletzt ausgeführten Knotens' },
-      { value: 'responseNode', label: "Über Knoten 'Respond to Webhook'", description: 'Die Antwort legt jener Knoten fest' },
+      { value: 'onReceived', label: 'Immediately', description: 'As soon as this node executes' },
+      { value: 'lastNode', label: 'When Last Node Finishes', description: 'Returns data of the last-executed node' },
+      { value: 'responseNode', label: "Using 'Respond to Webhook' Node", description: 'Response defined in that node' },
     ],
     show: { '@version': [1, 1.1, 2] },
   },
   {
     name: 'responseMode',
-    label: 'Antworten',
+    label: 'Respond',
     type: 'options',
     default: 'onReceived',
-    description: 'Wann und wie der Webhook antwortet',
+    description: 'When and how to respond to the webhook',
     options: [
-      { value: 'onReceived', label: 'Sofort', description: 'Sobald dieser Knoten ausgeführt wird' },
-      { value: 'lastNode', label: 'Wenn der letzte Knoten fertig ist', description: 'Antwortet mit Daten des zuletzt ausgeführten Knotens' },
-      { value: 'responseNode', label: "Über Knoten 'Respond to Webhook'", description: 'Die Antwort legt jener Knoten fest' },
-      { value: 'streaming', label: 'Streaming', description: 'Daten von Knoten mit Streaming (z. B. AI Agent) laufend senden' },
+      { value: 'onReceived', label: 'Immediately', description: 'As soon as this node executes' },
+      { value: 'lastNode', label: 'When Last Node Finishes', description: 'Returns data of the last-executed node' },
+      { value: 'responseNode', label: "Using 'Respond to Webhook' Node", description: 'Response defined in that node' },
+      { value: 'streaming', label: 'Streaming', description: 'Returns data in real time from streaming enabled nodes (e.g. AI Agent)' },
     ],
     hide: { '@version': [1, 1.1, 2] },
   },
   {
     name: 'streamingNotice',
-    label: "Einen Knoten mit Streaming einfügen (z. B. 'AI Agent') und dort Streaming einschalten; er schreibt dann direkt in die Antwort.",
+    label: "Insert a node that supports streaming (e.g. 'AI Agent') and enable streaming there; it then writes directly into the response.",
     type: 'notice',
     default: '',
     show: { responseMode: ['streaming'] },
   },
   {
     name: 'webhookNotice',
-    label: "Einen Knoten 'Respond to Webhook' einfügen; er bestimmt, wann und wie geantwortet wird.",
+    label: "Insert a 'Respond to Webhook' node to control when and how you respond.",
     type: 'notice',
     default: '',
     show: { responseMode: ['responseNode'] },
   },
   {
     name: 'responseCode',
-    label: 'Antwortcode',
+    label: 'Response Code',
     type: 'number',
     default: 200,
     min: 100,
     max: 599,
-    description: 'HTTP-Statuscode der Antwort',
+    description: 'The HTTP response code to return',
     show: { '@version': [1, 1.1] },
     hide: { responseMode: ['responseNode'] },
   },
   {
     name: 'responseData',
-    label: 'Antwortdaten',
+    label: 'Response Data',
     type: 'options',
     default: 'firstEntryJson',
-    description: 'Welche Daten zurückgegeben werden',
+    description: 'What data should be returned',
     show: { responseMode: ['lastNode'] },
     options: [
-      { value: 'allEntries', label: 'Alle Einträge', description: 'Alle Items des letzten Knotens, immer als Array' },
-      { value: 'firstEntryJson', label: 'JSON des ersten Eintrags', description: 'JSON des ersten Items, immer als Objekt' },
-      { value: 'firstEntryBinary', label: 'Binärdaten des ersten Eintrags', description: 'Binärdaten des ersten Items als Datei' },
-      { value: 'noData', label: 'Kein Antwortinhalt', description: 'Antwort ohne Body' },
+      { value: 'allEntries', label: 'All Entries', description: 'Returns all the entries of the last node. Always returns an array.' },
+      { value: 'firstEntryJson', label: 'First Entry JSON', description: 'Returns the JSON data of the first entry of the last node. Always returns a JSON object.' },
+      { value: 'firstEntryBinary', label: 'First Entry Binary', description: 'Returns the binary data of the first entry of the last node. Always returns a binary file.' },
+      { value: 'noData', label: 'No Response Body', description: 'Returns without a body' },
     ],
   },
   {
     name: 'responseBinaryPropertyName',
-    label: 'Feldname',
+    label: 'Field Name',
     type: 'string',
     default: 'data',
     required: true,
-    description: 'Name des Binärfelds, das zurückgegeben wird',
+    description: 'The name of the node input field with the binary data',
     show: { responseData: ['firstEntryBinary'] },
   },
   {
     name: 'contentTypeNotice',
-    label: 'Wer eine Antwort zurückgibt, sollte einen passenden Header "Content-Type" setzen.',
+    label: 'If you are sending back a response, add a "Content-Type" response header with the appropriate value to avoid unexpected behavior.',
     type: 'notice',
     default: '',
     show: { responseMode: ['onReceived'] },
   },
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     children: [
       {
         name: 'binaryData',
-        label: 'Binärdatei',
+        label: 'Binary File',
         type: 'boolean',
         default: false,
-        description: 'Ob der Webhook Binärdaten empfängt',
+        description: 'Whether the webhook will receive binary data',
         show: { '/httpMethod': ['PATCH', 'PUT', 'POST'], '@version': [1] },
       },
       {
         name: 'binaryPropertyName',
-        label: 'Feld für Binärdaten',
+        label: 'Field Name for Binary Data',
         type: 'string',
         default: 'data',
-        description: 'Name des Ausgabefelds für empfangene Dateien',
+        description: 'The name of the output field to put any binary file data in',
         hide: { '@version': [1] },
       },
       {
         name: 'ignoreBots',
-        label: 'Bots ignorieren',
+        label: 'Ignore Bots',
         type: 'boolean',
         default: false,
-        description: 'Ob Anfragen von Bots wie Link-Vorschauen und Crawlern ignoriert werden',
+        description: 'Whether to ignore requests from bots like link previewers and web crawlers',
       },
       {
         name: 'ipWhitelist',
-        label: 'Erlaubte IP-Adressen',
+        label: 'IP(s) Whitelist',
         type: 'string',
         default: '',
-        placeholder: 'z. B. 127.0.0.1',
-        description: 'Durch Komma getrennt; leer erlaubt alle',
+        placeholder: 'e.g. 127.0.0.1',
+        description: 'Comma-separated list of allowed IP addresses. Leave empty to allow all IPs.',
       },
       {
         name: 'noResponseBody',
-        label: 'Kein Antwortinhalt',
+        label: 'No Response Body',
         type: 'boolean',
         default: false,
-        description: 'Ob die Antwort ohne Body gesendet wird',
+        description: 'Whether to send any body in the response',
         show: { '/responseMode': ['onReceived'] },
         hide: { rawBody: [true] },
       },
       {
         name: 'responsePropertyName',
-        label: 'Feldname',
+        label: 'Field Name',
         type: 'string',
         default: 'data',
-        description: 'Feld, dessen Daten statt des ganzen JSON zurückgegeben werden',
+        description: 'Name of the property to return the data of instead of the whole JSON',
         show: { '/responseData': ['firstEntryJson'], '/responseMode': ['lastNode'] },
       },
       {
         name: 'binaryPropertyName',
-        label: 'Datei in Feld ablegen',
+        label: 'Put Output File in Field',
         type: 'string',
         default: 'data',
-        description: 'Name des Binärfelds; bei Multipart ein Präfix mit angehängter Nummer ab 0',
+        description: 'If the data gets received via "Form-Data Multipart" it will be the prefix and a number starting with 0 will be attached to it',
         show: { binaryData: [true], '@version': [1] },
       },
       {
         name: 'rawBody',
-        label: 'Roher Body',
+        label: 'Raw Body',
         type: 'boolean',
         default: false,
-        description: 'Body unverändert als Binärdaten',
+        description: 'Raw body (binary)',
         show: { '@version': [1] },
         hide: { binaryData: [true], noResponseBody: [true] },
       },
       {
         name: 'rawBody',
-        label: 'Roher Body',
+        label: 'Raw Body',
         type: 'boolean',
         default: false,
-        description: 'Ob der Body unverändert ausgegeben wird',
+        description: 'Whether to return the raw body',
         hide: { noResponseBody: [true], '@version': [1] },
       },
       {
         name: 'responseCode',
-        label: 'Antwortcode',
+        label: 'Response Code',
         type: 'fixedCollection',
         default: { values: { responseCode: 200 } },
-        addLabel: 'Antwortcode hinzufügen',
+        addLabel: 'Add Response Code',
         show: { '@version': [{ _cnd: { gte: 2 } }] },
         hide: { '/responseMode': ['responseNode'] },
         groups: [
           {
             name: 'values',
-            label: 'Werte',
+            label: 'Values',
             children: [
               {
                 name: 'responseCode',
-                label: 'Antwortcode',
+                label: 'Response Code',
                 type: 'options',
                 default: 200,
-                description: 'HTTP-Statuscode der Antwort',
+                description: 'The HTTP response code to return',
                 options: [
-                  { value: 200, label: '200', description: 'OK: Anfrage erfolgreich' },
-                  { value: 201, label: '201', description: 'Created: Ressource angelegt' },
-                  { value: 204, label: '204', description: 'No Content: verarbeitet, ohne Inhalt' },
-                  { value: 301, label: '301', description: 'Moved Permanently: dauerhaft verschoben' },
-                  { value: 302, label: '302', description: 'Found: vorübergehend verschoben' },
-                  { value: 304, label: '304', description: 'Not Modified: unverändert' },
-                  { value: 400, label: '400', description: 'Bad Request: Anfrage ungültig' },
-                  { value: 401, label: '401', description: 'Unauthorized: Anmeldung nötig' },
-                  { value: 403, label: '403', description: 'Forbidden: Zugriff verweigert' },
-                  { value: 404, label: '404', description: 'Not Found: nicht gefunden' },
-                  { value: 'customCode', label: 'Eigener Code', description: 'Beliebiger HTTP-Code' },
+                  { value: 200, label: '200', description: 'OK: request successful' },
+                  { value: 201, label: '201', description: 'Created: resource created' },
+                  { value: 204, label: '204', description: 'No Content: processed, no content returned' },
+                  { value: 301, label: '301', description: 'Moved Permanently: resource moved permanently' },
+                  { value: 302, label: '302', description: 'Found: resource moved temporarily' },
+                  { value: 304, label: '304', description: 'Not Modified: resource unchanged' },
+                  { value: 400, label: '400', description: 'Bad Request: invalid request' },
+                  { value: 401, label: '401', description: 'Unauthorized: authentication required' },
+                  { value: 403, label: '403', description: 'Forbidden: access denied' },
+                  { value: 404, label: '404', description: 'Not Found: resource not found' },
+                  { value: 'customCode', label: 'Custom Code', description: 'Any HTTP code' },
                 ],
               },
-              { name: 'customCode', label: 'Code', type: 'number', default: 200, placeholder: 'z. B. 400', min: 100, show: { responseCode: ['customCode'] } },
+              { name: 'customCode', label: 'Code', type: 'number', default: 200, placeholder: 'e.g. 400', min: 100, show: { responseCode: ['customCode'] } },
             ],
           },
         ],
       },
       {
         name: 'responseContentType',
-        label: 'Content-Type der Antwort',
+        label: 'Response Content-Type',
         type: 'string',
         default: '',
         placeholder: 'application/xml',
-        description: 'Eigener Content-Type statt "application/json"',
+        description: 'Set a custom content-type to return if another one as the "application/json" should be returned',
         show: { '/responseData': ['firstEntryJson'], '/responseMode': ['lastNode'] },
       },
       {
         name: 'responseData',
-        label: 'Antwortdaten',
+        label: 'Response Data',
         type: 'string',
         default: '',
         placeholder: 'success',
-        description: 'Eigener Antwortinhalt',
+        description: 'Custom response data to send',
         show: { '/responseMode': ['onReceived'] },
         hide: { noResponseBody: [true] },
       },
       {
         name: 'responseHeaders',
-        label: 'Antwort-Header',
+        label: 'Response Headers',
         type: 'fixedCollection',
         default: {},
         multiple: true,
-        addLabel: 'Header hinzufügen',
-        description: 'Zusätzliche Header in der Antwort',
+        addLabel: 'Add Response Header',
+        description: 'Add headers to the webhook response',
         groups: [
           {
             name: 'entries',
-            label: 'Einträge',
+            label: 'Entries',
             children: [
-              { name: 'name', label: 'Name', type: 'string', default: '', description: 'Name des Headers' },
-              { name: 'value', label: 'Wert', type: 'string', default: '', description: 'Wert des Headers' },
+              { name: 'name', label: 'Name', type: 'string', default: '', description: 'Name of the header' },
+              { name: 'value', label: 'Value', type: 'string', default: '', description: 'Value of the header' },
             ],
           },
         ],
@@ -825,15 +825,15 @@ export const webhookNode: NodeType = {
   },
   validate(node) {
     const issues: NodeIssue[] = [];
-    // Expressions in path, httpMethod, responseMode und responseData wertet der Server aus (src/server/webhookParams.ts);
-    // die Zahl der Ausgänge muss aber ohne Auswertung feststehen
+    // The server evaluates expressions in path, httpMethod, responseMode and responseData (src/server/webhookParams.ts);
+    // the number of outputs, however, must be known without evaluation
     if (isExpr(node.parameters.multipleMethods)) {
-      issues.push({ code: 'webhook.expression', message: 'Expressions im Parameter "multipleMethods" werden nicht unterstützt', path: 'parameters.multipleMethods' });
+      issues.push({ code: 'webhook.expression', message: 'Expressions in the "multipleMethods" parameter are not supported', path: 'parameters.multipleMethods' });
     }
     return issues;
   },
   async execute(ctx) {
-    // Daten kommen vom Server (oder CLI-Input) und werden durchgereicht
+    // Data comes from the server (or CLI input) and is passed through
     const outputs = Array.isArray(ctx.node.parameters.httpMethod) ? ctx.node.parameters.httpMethod.length : 1;
     const data = ctx.inputs.length ? ctx.inputs : [[{ json: {} }]];
     return Array.from({ length: outputs }, (_v, i) => data[i] ?? []);

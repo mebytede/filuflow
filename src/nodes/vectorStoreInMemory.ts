@@ -1,8 +1,8 @@
-// Simple Vector Store, @n8n/n8n-nodes-langchain.vectorStoreInMemory (typeVersion 1 bis 1.3)
-// Nachgebaut nach n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/vector_store/VectorStoreInMemory/VectorStoreInMemory.node.ts
-// mit shared/createVectorStoreNode (Modi load, insert, retrieve, retrieve-as-tool; operations/*.ts) und
-// MemoryManager/MemoryVectorStoreManager.ts. Bis v1.1 ist der Schlüssel "<Workflow-ID>__<memoryKey>", ab v1.2 der Wert des
-// Resource Locators (über Workflows geteilt); ab v1.3 heißt das Tool wie der Knoten. Rerankers werden noch nicht unterstützt.
+// Simple Vector Store, @n8n/n8n-nodes-langchain.vectorStoreInMemory (typeVersion 1 to 1.3)
+// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/vector_store/VectorStoreInMemory/VectorStoreInMemory.node.ts
+// with shared/createVectorStoreNode (modes load, insert, retrieve, retrieve-as-tool; operations/*.ts) and
+// MemoryManager/MemoryVectorStoreManager.ts. Up to v1.1 the key is "<workflow ID>__<memoryKey>", from v1.2 the value of the
+// resource locator (shared across workflows); from v1.3 the tool is named after the node. Rerankers are not supported yet.
 import type { ExecContext, NodeIssue, NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
 import type { Item, WorkflowNode } from '../types.js';
@@ -15,47 +15,47 @@ import { createTool, nodeNameToToolName, type ToolInstance } from '../ai/tools.j
 import { extractFromAIParameters, schemaFromArguments } from '../ai/fromAI.js';
 
 const DEFAULT_MEMORY_KEY = 'vector_store_key';
-const WARNING = 'Nur zum Ausprobieren: Die Daten liegen im Arbeitsspeicher, sind nach einem Neustart weg und für alle Workflows dieser Instanz sichtbar.';
+const WARNING = 'For experimentation only: the data is kept in memory, lost on restart and visible to all workflows of this instance.';
 const mode = (...modes: string[]) => ({ mode: modes });
 
 const parameters: ParamSchema[] = [
   {
     name: 'mode',
-    label: 'Modus',
+    label: 'Mode',
     type: 'options',
     default: 'retrieve',
     noExpression: true,
     options: [
-      { value: 'load', label: 'Viele abrufen', description: 'Nach Ähnlichkeit sortierte Dokumente zu einer Anfrage' },
-      { value: 'insert', label: 'Dokumente einfügen' },
-      { value: 'retrieve', label: 'Abrufen (als Vector Store für Chain/Tool)' },
-      { value: 'retrieve-as-tool', label: 'Abrufen (als Tool für den AI Agent)' },
+      { value: 'load', label: 'Get Many', description: 'Get many ranked documents from vector store for query' },
+      { value: 'insert', label: 'Insert Documents' },
+      { value: 'retrieve', label: 'Retrieve Documents (As Vector Store for Chain/Tool)' },
+      { value: 'retrieve-as-tool', label: 'Retrieve Documents (As Tool for AI Agent)' },
     ],
   },
-  { name: 'retrieveNotice', label: 'Dieser Node muss mit einem Retriever verbunden werden.', type: 'notice', default: '', show: mode('retrieve') },
-  { name: 'toolName', label: 'Name', type: 'string', default: '', required: true, placeholder: 'z. B. firmenwissen', show: { '@version': [{ _cnd: { lte: 1.2 } }], ...mode('retrieve-as-tool') } },
-  { name: 'toolDescription', label: 'Beschreibung', type: 'string', default: '', required: true, rows: 2, description: 'Erklärt dem Modell, was das Tool liefert', show: mode('retrieve-as-tool') },
-  { name: 'memoryKey', label: 'Memory Key', type: 'string', default: DEFAULT_MEMORY_KEY, description: 'Schlüssel des Speichers (mit der Workflow-ID davor)', show: { '@version': [{ _cnd: { lte: 1.1 } }] } },
+  { name: 'retrieveNotice', label: 'This node must be connected to a retriever.', type: 'notice', default: '', show: mode('retrieve') },
+  { name: 'toolName', label: 'Name', type: 'string', default: '', required: true, placeholder: 'e.g. company_knowledge_base', show: { '@version': [{ _cnd: { lte: 1.2 } }], ...mode('retrieve-as-tool') } },
+  { name: 'toolDescription', label: 'Description', type: 'string', default: '', required: true, rows: 2, description: 'Explain to the LLM what this tool does', show: mode('retrieve-as-tool') },
+  { name: 'memoryKey', label: 'Memory Key', type: 'string', default: DEFAULT_MEMORY_KEY, description: 'The key to use to store the vector memory in the workflow data (prefixed with the workflow ID)', show: { '@version': [{ _cnd: { lte: 1.1 } }] } },
   {
     name: 'memoryKey',
     label: 'Memory Key',
     type: 'resourceLocator',
     default: { mode: 'list', value: DEFAULT_MEMORY_KEY },
     required: true,
-    description: 'Schlüssel des Speichers; über Workflows hinweg geteilt',
+    description: 'The key to use to store the vector memory; shared across workflows',
     show: { '@version': [{ _cnd: { gte: 1.2 } }] },
     modes: [
-      { name: 'list', label: 'Aus Liste', placeholder: DEFAULT_MEMORY_KEY },
-      { name: 'id', label: 'Manuell', placeholder: DEFAULT_MEMORY_KEY },
+      { name: 'list', label: 'From List', placeholder: DEFAULT_MEMORY_KEY },
+      { name: 'id', label: 'Manual', placeholder: DEFAULT_MEMORY_KEY },
     ],
   },
-  { name: 'embeddingBatchSize', label: 'Stapelgröße für Embeddings', type: 'number', default: 200, show: { ...mode('insert'), '@version': [{ _cnd: { gte: 1.1 } }] } },
-  { name: 'clearStore', label: 'Speicher leeren', type: 'boolean', default: false, description: 'Vor dem Einfügen alle Dokumente entfernen', show: mode('insert') },
+  { name: 'embeddingBatchSize', label: 'Embedding Batch Size', type: 'number', default: 200, show: { ...mode('insert'), '@version': [{ _cnd: { gte: 1.1 } }] } },
+  { name: 'clearStore', label: 'Clear Store', type: 'boolean', default: false, description: 'Whether to clear the store before inserting new data', show: mode('insert') },
   { name: 'notice', label: WARNING, type: 'notice', default: '', show: mode('insert', 'load', 'retrieve-as-tool', 'retrieve') },
-  { name: 'prompt', label: 'Anfrage', type: 'string', default: '', required: true, description: 'Suchtext für die ähnlichsten Dokumente', show: mode('load') },
-  { name: 'topK', label: 'Anzahl', type: 'number', default: 4, description: 'Höchstzahl Treffer', show: mode('load', 'retrieve-as-tool') },
-  { name: 'includeDocumentMetadata', label: 'Metadaten ausgeben', type: 'boolean', default: true, show: mode('load', 'retrieve-as-tool') },
-  { name: 'useReranker', label: 'Ergebnisse neu sortieren (Reranker)', type: 'boolean', default: false, show: mode('load', 'retrieve', 'retrieve-as-tool') },
+  { name: 'prompt', label: 'Prompt', type: 'string', default: '', required: true, description: 'Search prompt to retrieve matching documents from the vector store using similarity-based ranking', show: mode('load') },
+  { name: 'topK', label: 'Limit', type: 'number', default: 4, description: 'The maximum number of results to return', show: mode('load', 'retrieve-as-tool') },
+  { name: 'includeDocumentMetadata', label: 'Include Metadata', type: 'boolean', default: true, show: mode('load', 'retrieve-as-tool') },
+  { name: 'useReranker', label: 'Rerank Results', type: 'boolean', default: false, show: mode('load', 'retrieve', 'retrieve-as-tool') },
 ];
 
 function memoryKey(ctx: ExecContext, itemIndex: number): string {
@@ -70,13 +70,13 @@ async function embeddingsOf(ctx: ExecContext): Promise<Embeddings> {
 }
 
 function rerankerCheck(ctx: ExecContext, itemIndex: number): void {
-  if (ctx.getParam<boolean>('useReranker', itemIndex, false)) throw new NodeOperationError(ctx.node.name, 'Reranker werden in filuflow noch nicht unterstützt');
+  if (ctx.getParam<boolean>('useReranker', itemIndex, false)) throw new NodeOperationError(ctx.node.name, 'Rerankers are not supported in filuflow yet');
 }
 
-/** Dokument wie JSON.stringify(Document): pageContent, metadata, id */
+/** Document as JSON.stringify(Document): pageContent, metadata, id */
 const docJson = (doc: Document) => JSON.stringify(doc);
 
-/** handleRetrieveAsToolOperation: Tool mit Schema { input } und $fromAI-Argumenten, Ergebnis als Textblöcke */
+/** handleRetrieveAsToolOperation: tool with schema { input } and $fromAI arguments, result as text blocks */
 function asTool(ctx: ExecContext, embeddings: Embeddings, itemIndex: number): ToolInstance {
   const name = ctx.node.typeVersion < 1.3 ? ctx.getParam<string>('toolName', itemIndex, '') : nodeNameToToolName(ctx.node.name);
   const args = [...extractFromAIParameters(ctx.node.parameters), { key: 'input', description: 'Query to search for. Required' }];
@@ -91,7 +91,7 @@ function asTool(ctx: ExecContext, embeddings: Embeddings, itemIndex: number): To
     return docs.map(([doc]) => ({ type: 'text', text: includeMeta ? docJson(doc) : JSON.stringify({ pageContent: doc.pageContent }) }));
   };
   const tool = createTool(ctx, { name, description: ctx.getParam<string>('toolDescription', itemIndex, ''), schema: schemaFromArguments(args), func: async (q) => JSON.stringify(await search(q)) });
-  // logWrapper: Eingang { query }, Ausgang die Textblöcke, an das Modell als JSON
+  // logWrapper: input { query }, output the text blocks, sent to the model as JSON
   return {
     ...tool,
     async invoke(input: unknown): Promise<string> {
@@ -124,7 +124,7 @@ export const vectorStoreInMemoryNode: NodeType = {
     ...(node.parameters.useReranker === true && currentMode(node) !== 'insert' ? [{ type: 'ai_reranker', index: 0, label: 'Reranker' }] : []),
   ],
   validate(node): NodeIssue[] {
-    return node.parameters.useReranker === true ? [{ code: 'node.unsupportedParameter', message: 'Simple Vector Store: Reranker werden noch nicht unterstützt', path: 'parameters.useReranker' }] : [];
+    return node.parameters.useReranker === true ? [{ code: 'node.unsupportedParameter', message: 'Simple Vector Store: rerankers are not supported yet', path: 'parameters.useReranker' }] : [];
   },
   async execute(ctx) {
     const m = ctx.getParam<string>('mode', 0, 'retrieve');
@@ -164,7 +164,7 @@ export const vectorStoreInMemoryNode: NodeType = {
       return [out];
     }
     if (m === 'retrieve-as-tool') {
-      // handleRetrieveAsToolExecuteOperation (Agent V3); ohne Metadaten heißt das Feld wie bei n8n pageContent
+      // handleRetrieveAsToolExecuteOperation (Agent V3); without metadata the field is called pageContent, as in n8n
       const out: Item[] = [];
       for (let i = 0; i < items.length; i++) {
         const query = typeof items[i].json.input === 'string' ? (items[i].json.input as string) : undefined;

@@ -1,65 +1,65 @@
-// Simple Memory, @n8n/n8n-nodes-langchain.memoryBufferWindow (typeVersion 1 bis 1.3)
-// Nachgebaut nach n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/memory/MemoryBufferWindow/MemoryBufferWindow.node.ts
-// und utils/helpers.ts getSessionId. Speicher siehe src/ai/memory.ts.
+// Simple Memory, @n8n/n8n-nodes-langchain.memoryBufferWindow (typeVersion 1 to 1.3)
+// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/memory/MemoryBufferWindow/MemoryBufferWindow.node.ts
+// and utils/helpers.ts getSessionId. Storage: see src/ai/memory.ts.
 import type { NodeType } from './types.js';
 import { NodeOperationError } from '../errors.js';
 import { BufferWindowMemory } from '../ai/memory.js';
 import type { ParamSchema } from './params.js';
 
-// Parameter wie MemoryBufferWindow.node.ts (properties) und memory/descriptions.ts (sessionIdOption,
+// Parameters as in MemoryBufferWindow.node.ts (properties) and memory/descriptions.ts (sessionIdOption,
 // expressionSessionKeyProperty(1.3), sessionKeyProperty, contextWindowLengthProperty), n8n 1.123.0.
-// In n8n ist "Session Key From Previous Node" gesperrt (disabledOptions); hier ein normales Textfeld.
+// In n8n "Session Key From Previous Node" is locked (disabledOptions); here it is a normal text field.
 const parameters: ParamSchema[] = [
-  { name: 'notice', label: 'Dieser Node muss mit einem AI Agent verbunden werden.', type: 'notice', default: '' },
+  { name: 'notice', label: 'This node must be connected to an AI agent.', type: 'notice', default: '' },
   {
     name: 'sessionKey',
     label: 'Session Key',
     type: 'string',
     default: 'chat_history',
-    description: 'Schlüssel, unter dem die Memory in den Workflow-Daten liegt',
+    description: 'The key to use to store the memory in the workflow data',
     show: { '@version': [1] },
   },
   {
     name: 'sessionKey',
-    label: 'Session-ID',
+    label: 'Session ID',
     type: 'string',
     default: '={{ $json.sessionId }}',
-    description: 'Schlüssel, unter dem die Memory gespeichert wird',
+    description: 'The key to use to store the memory',
     show: { '@version': [1.1] },
   },
   {
     name: 'sessionIdType',
-    label: 'Session-ID',
+    label: 'Session ID',
     type: 'options',
     default: 'fromInput',
     options: [
-      { value: 'fromInput', label: 'Verbundener Chat Trigger', description: "Nimmt das Feld 'sessionId' vom direkt verbundenen Chat Trigger" },
-      { value: 'customKey', label: 'Unten festlegen', description: 'Expression auf Daten vorheriger Nodes oder fester Text' },
+      { value: 'fromInput', label: 'Connected Chat Trigger Node', description: "Looks for an input field called 'sessionId' that is coming from a directly connected Chat Trigger" },
+      { value: 'customKey', label: 'Define below', description: 'Use an expression to reference data in previous nodes or enter static text' },
     ],
     show: { '@version': [{ _cnd: { gte: 1.2 } }] },
   },
   {
     name: 'sessionKey',
-    label: 'Session Key vom vorherigen Node',
+    label: 'Session Key From Previous Node',
     type: 'string',
     default: '={{ $json.sessionId }}',
-    description: 'Wird bei dieser Auswahl immer aus $json.sessionId gelesen.',
+    description: 'With this option the key is always read from $json.sessionId.',
     show: { sessionIdType: ['fromInput'], '@version': [{ _cnd: { gte: 1.3 } }] },
   },
   {
     name: 'sessionKey',
-    label: 'Schlüssel',
+    label: 'Key',
     type: 'string',
     default: '',
-    description: 'Schlüssel, unter dem die Session in der Memory liegt',
+    description: 'The key to use to store session ID in the memory',
     show: { sessionIdType: ['customKey'] },
   },
   {
     name: 'contextWindowLength',
-    label: 'Länge des Kontextfensters',
+    label: 'Context Window Length',
     type: 'number',
     default: 5,
-    description: 'Wie viele vergangene Interaktionen das Modell als Kontext erhält',
+    description: 'How many past interactions the model receives as context',
   },
 ];
 

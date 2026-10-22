@@ -1,5 +1,5 @@
-// Datenmodell nach docs/SPEC.md Abschnitt 1.
-// Die Strukturen entsprechen den n8n-Exporten bzw. n8n `runData`
+// Data model according to docs/SPEC.md section 1.
+// The structures match n8n exports and n8n `runData`
 // (packages/workflow/src/interfaces.ts, n8n 1.123.0).
 
 export type ConnectionType =
@@ -16,7 +16,7 @@ export interface Connection {
   index: number;
 }
 
-/** connections[Quell-Node-Name][Verbindungstyp][Ausgangsindex] = Ziele */
+/** connections[sourceNodeName][connectionType][outputIndex] = targets */
 export type Connections = Record<string, Record<string, Array<Connection[] | null>>>;
 
 export type OnError = 'stopWorkflow' | 'continueRegularOutput' | 'continueErrorOutput';
@@ -36,7 +36,7 @@ export interface WorkflowNode {
   maxTries?: number;
   waitBetweenTries?: number;
   onError?: OnError;
-  /** Altform von onError */
+  /** Legacy form of onError */
   continueOnFail?: boolean;
   notes?: string;
   webhookId?: string;
@@ -66,9 +66,9 @@ export interface BinaryRef {
   fileExtension?: string;
   fileSize?: string;
   directory?: string;
-  /** Base64-Inhalt (klein) */
+  /** Base64 content (small) */
   data?: string;
-  /** Referenz in den Dateispeicher (groß) */
+  /** Reference into the file store (large) */
   id?: string;
   [key: string]: unknown;
 }
@@ -84,11 +84,11 @@ export interface Item {
   binary?: Record<string, BinaryRef>;
   pairedItem?: PairedItem | PairedItem[] | number;
   error?: SerializedError | { message: string; [k: string]: unknown };
-  /** interne Markierung, wird nicht serialisiert */
+  /** internal marker, not serialized */
   [key: string]: unknown;
 }
 
-/** Index = Ausgang (IF: 0 = true, 1 = false) */
+/** Index = output (IF: 0 = true, 1 = false) */
 export type NodeOutput = Item[][];
 
 export interface SourceData {
@@ -112,7 +112,7 @@ export interface TaskData {
   executionIndex: number;
   executionTime: number;
   executionStatus: 'success' | 'error' | 'canceled' | 'running' | 'waiting';
-  /** main für normale Nodes; ai_* (z. B. ai_languageModel) für Läufe von Sub-Nodes */
+  /** main for regular nodes; ai_* (e.g. ai_languageModel) for runs of sub-nodes */
   data: { main?: Array<Item[] | null>; [connectionType: string]: Array<Item[] | null> | undefined };
   source: Array<SourceData | null>;
   error?: SerializedError;
@@ -136,6 +136,6 @@ export interface Execution {
   runData: RunData;
   lastNodeExecuted?: string;
   error?: SerializedError;
-  /** Status "waiting": Fortsetzen spätestens zu diesem Zeitpunkt (ISO); 3000-01-01 = unbegrenzt (n8n WAIT_INDEFINITELY) */
+  /** Status "waiting": resume at this point in time at the latest (ISO); 3000-01-01 = indefinitely (n8n WAIT_INDEFINITELY) */
   waitTill?: string;
 }

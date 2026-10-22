@@ -1,21 +1,21 @@
-// Python im Code-Node mit einem lokalen Python-Interpreter (language "pythonNative").
-// In n8n 1.123.0 läuft das im Python-Task-Runner (packages/@n8n/task-runner-python: task_executor.py,
-// task_analyzer.py, import_validation.py, constants.py, config/task_runner_config.py) und braucht
-// N8N_RUNNERS_ENABLED. filuflow startet stattdessen je Ausführung einen Python-Prozess mit einem eigenen,
-// kleinen Runner (unten) und bildet das Verhalten nach:
-//   - Code in einer Funktion, Rückgabewert ist das Ergebnis; nur `_items` (alle Items) bzw. `_item` (je Item)
-//   - je Item: None überspringt das Item, sonst json (bzw. das dict ohne "binary") plus pairedItem
-//   - Imports nur aus Allowlists (Standardbibliothek, externe Pakete; Default: keine), relative Imports und
-//     gefährliche Namen und Attribute werden vor dem Start abgelehnt, Builtins wie eval, open, getattr gesperrt
-//   - Umgebung geleert (N8N_BLOCK_RUNNER_ENV_ACCESS, Default an), Timeout (Default 60 s)
-//   - print() landet in der Ausgabe des Nodes, Ergebnis als JSON mit str() für unbekannte Typen
-// Einstellungen: FILUFLOW_PYTHON (Interpreter, Default python3), FILUFLOW_PYTHON_STDLIB_ALLOW,
+// Python in the Code node with a local Python interpreter (language "pythonNative").
+// In n8n 1.123.0 this runs in the Python task runner (packages/@n8n/task-runner-python: task_executor.py,
+// task_analyzer.py, import_validation.py, constants.py, config/task_runner_config.py) and requires
+// N8N_RUNNERS_ENABLED. filuflow instead starts one Python process per execution with its own
+// small runner (below) and rebuilds the behavior:
+//   - code in a function, the return value is the result; only `_items` (all items) or `_item` (per item)
+//   - per item: None skips the item, otherwise json (or the dict without "binary") plus pairedItem
+//   - imports only from allowlists (standard library, external packages; default: none), relative imports and
+//     dangerous names and attributes are rejected before the start, builtins like eval, open, getattr are blocked
+//   - environment cleared (N8N_BLOCK_RUNNER_ENV_ACCESS, default on), timeout (default 60 s)
+//   - print() goes into the node's output, result as JSON with str() for unknown types
+// Settings: FILUFLOW_PYTHON (interpreter, default python3), FILUFLOW_PYTHON_STDLIB_ALLOW,
 // FILUFLOW_PYTHON_EXTERNAL_ALLOW, FILUFLOW_PYTHON_BUILTINS_DENY, FILUFLOW_PYTHON_ENV_ACCESS=true;
-// die n8n-Namen (N8N_RUNNERS_STDLIB_ALLOW usw.) gelten ebenfalls.
-// Der Prozess hat die Rechte des Servers. Die Sperren verhindern Versehen, sie sind keine Sicherheitsgrenze.
+// the n8n names (N8N_RUNNERS_STDLIB_ALLOW etc.) apply as well.
+// The process has the server's permissions. The blocks prevent accidents, they are not a security boundary.
 import { spawn } from 'node:child_process';
 
-/** Default wie n8n constants.py BUILTINS_DENY_DEFAULT */
+/** Default like n8n constants.py BUILTINS_DENY_DEFAULT */
 const BUILTINS_DENY_DEFAULT =
   'eval,exec,compile,open,input,breakpoint,getattr,object,type,vars,setattr,delattr,hasattr,dir,memoryview,__build_class__,globals,locals,license,help,credits,copyright';
 
@@ -42,7 +42,7 @@ export function nativeSecurityFromEnv(env: NodeJS.ProcessEnv = process.env): Nat
   };
 }
 
-// Eigener Runner: liest die Aufgabe als JSON von stdin, schreibt eine Zeile JSON auf stdout.
+// Own runner: reads the task as JSON from stdin, writes one line of JSON to stdout.
 const RUNNER = String.raw`
 import ast, builtins, io, json, os, sys, textwrap, traceback
 
@@ -218,17 +218,17 @@ export interface NativeRunOptions {
   python?: string;
 }
 
-/** Führt den Code in einem eigenen Python-Prozess aus; liefert das Ergebnis (all: Rückgabewert, je Item: Liste) */
+/** Executes the code in a separate Python process; returns the result (all: return value, per item: list) */
 export function runNativePython(o: NativeRunOptions): Promise<unknown> {
   const security = o.security ?? nativeSecurityFromEnv();
   const python = o.python ?? process.env.FILUFLOW_PYTHON ?? 'python3';
   const seconds = Math.round(o.timeoutMs / 1000);
-  // Ohne Freigabe nur das Nötigste aus der Umgebung (keine Schlüssel des Servers im Python-Prozess)
+  // Without permission, only the bare minimum from the environment (no server secrets in the Python process)
   const env: NodeJS.ProcessEnv = security.envAccess
     ? { ...process.env, PYTHONIOENCODING: 'utf-8' }
     : { PATH: process.env.PATH ?? '/usr/bin:/bin', PYTHONIOENCODING: 'utf-8', LANG: 'C.UTF-8', ...(process.env.HOME ? { HOME: process.env.HOME } : {}) };
   return new Promise((resolve, reject) => {
-    // -I: keine PYTHON*-Variablen, kein Benutzer-site; installierte Pakete bleiben verfügbar
+    // -I: no PYTHON* variables, no user site; installed packages remain available
     const child = spawn(python, ['-I', '-c', RUNNER], { env, stdio: ['pipe', 'pipe', 'pipe'] });
     const out: Buffer[] = [];
     const err: Buffer[] = [];
@@ -254,7 +254,7 @@ export function runNativePython(o: NativeRunOptions): Promise<unknown> {
       done(() =>
         reject(
           error.code === 'ENOENT'
-            ? new NativePythonError(`Python (Native) braucht einen Python-Interpreter: "${python}" wurde nicht gefunden (FILUFLOW_PYTHON)`, '', 'ConfigurationError')
+            ? new NativePythonError(`Python (Native) requires a Python interpreter: "${python}" was not found (FILUFLOW_PYTHON)`, '', 'ConfigurationError')
             : error,
         ),
       ),
@@ -269,7 +269,7 @@ export function runNativePython(o: NativeRunOptions): Promise<unknown> {
           message = JSON.parse(text) as typeof message;
         } catch {
           const stderr = Buffer.concat(err).toString('utf8').trim();
-          reject(new NativePythonError(`Python-Prozess endete mit Code ${exitCode}`, stderr.slice(-2000), 'TaskSubprocessFailedError'));
+          reject(new NativePythonError(`Python process exited with code ${exitCode}`, stderr.slice(-2000), 'TaskSubprocessFailedError'));
           return;
         }
         for (const line of message.prints ?? []) o.onOutput?.(line);

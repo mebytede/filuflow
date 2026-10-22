@@ -1,6 +1,6 @@
-// Datenbank des Masters (SQLite): Benutzer, Sitzungen, API-Tokens, OIDC-Identitäten, Mandanten, Worker,
-// Projekte mit Mitgliedern, Workflows mit Versionen und Audit-Log.
-// Credentials und Ausführungsdaten der Mandanten liegen nicht hier, sondern beim jeweiligen Worker.
+// Master database (SQLite): users, sessions, API tokens, OIDC identities, tenants, workers,
+// projects with members, workflows with versions and audit log.
+// Tenants' credentials and execution data are not stored here but on the respective worker.
 import Database from 'better-sqlite3';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -9,10 +9,10 @@ import type { Workflow } from '../types.js';
 import { setCustomRoles } from './permissions.js';
 
 export type GlobalRole = 'admin' | 'member';
-/** Eingebaute Projektrollen; eigene Rollen (M34) heißen "custom:<id>" */
+/** Built-in project roles; custom roles (M34) are named "custom:<id>" */
 export type BuiltinProjectRole = 'admin' | 'editor' | 'viewer';
 export type ProjectRole = BuiltinProjectRole | `custom:${string}`;
-/** Rolle für einen einzelnen Workflow; 'none' sperrt den Workflow für ein Projektmitglied */
+/** Role for a single workflow; 'none' locks the workflow for a project member */
 export type WorkflowRole = ProjectRole | 'none';
 
 export interface UserRow {
@@ -233,7 +233,7 @@ CREATE TABLE IF NOT EXISTS credential_access (
   project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   PRIMARY KEY (worker_id, credential, project_id)
 );
--- Eigene Rollen (M34): Name und Liste der erlaubten Aktionen
+-- Custom roles (M34): name and list of allowed actions
 CREATE TABLE IF NOT EXISTS custom_roles (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,
@@ -242,7 +242,7 @@ CREATE TABLE IF NOT EXISTS custom_roles (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
--- Gemeinsame Credentials (M33): im Master verschlüsselt, an mehrere Worker verteilt
+-- Shared credentials (M33): encrypted in the master, distributed to several workers
 CREATE TABLE IF NOT EXISTS shared_credentials (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,
@@ -255,13 +255,13 @@ CREATE TABLE IF NOT EXISTS shared_credentials (
 CREATE TABLE IF NOT EXISTS shared_credential_workers (
   credential_id TEXT NOT NULL REFERENCES shared_credentials(id) ON DELETE CASCADE,
   worker_id TEXT NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
-  -- Name beim Worker, unter dem zuletzt verteilt wurde (für Umbenennen und Entfernen)
+  -- Name on the worker under which it was last distributed (for renaming and removal)
   deployed_name TEXT,
   deployed_version INTEGER,
   deploy_error TEXT,
   PRIMARY KEY (credential_id, worker_id)
 );
--- Vom Worker zu entfernen (Zuordnung aufgehoben oder Credential gelöscht), bis es geklappt hat
+-- To be removed from the worker (assignment revoked or credential deleted), until it succeeded
 CREATE TABLE IF NOT EXISTS shared_credential_removals (
   worker_id TEXT NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
@@ -317,7 +317,7 @@ export class MasterDb {
     setCustomRoles(this.listCustomRoles());
   }
 
-  /** Ältere Datenbanken: CHECK der Rollen ohne eigene Rollen (M34) durch die neue Fassung ersetzen */
+  /** Older databases: replace the role CHECK without custom roles (M34) with the new version */
   private migrateRoleChecks(): void {
     const tables: Array<[string, string, string]> = [
       ['project_members', "CHECK (role IN ('admin', 'editor', 'viewer'))", "CHECK (role IN ('admin', 'editor', 'viewer') OR role LIKE 'custom:%')"],
@@ -342,7 +342,7 @@ export class MasterDb {
   }
 
   // ---------------------------------------------------------------------------------------------
-  // Eigene Rollen (M34)
+  // Custom roles (M34)
 
   listCustomRoles(): CustomRoleRow[] {
     return (this.db.prepare('SELECT * FROM custom_roles ORDER BY name').all() as Array<Omit<CustomRoleRow, 'permissions'> & { permissions: string }>).map((r) => ({
@@ -367,7 +367,7 @@ export class MasterDb {
     return this.getCustomRole(r.id!)!;
   }
 
-  /** Wie oft die Rolle vergeben ist (Projektmitglieder und Rollen je Workflow) */
+  /** How often the role is assigned (project members and per-workflow roles) */
   customRoleUsage(id: string): number {
     const key = `custom:${id}`;
     const a = (this.db.prepare('SELECT COUNT(*) AS n FROM project_members WHERE role = ?').get(key) as { n: number }).n;
@@ -389,7 +389,7 @@ export class MasterDb {
   }
 
   // ---------------------------------------------------------------------------------------------
-  // Benutzer
+  // Users
 
   countUsers(): number {
     return (this.db.prepare('SELECT COUNT(*) AS n FROM users').get() as { n: number }).n;
@@ -430,7 +430,7 @@ export class MasterDb {
   }
 
   // ---------------------------------------------------------------------------------------------
-  // Identitäten (OIDC)
+  // Identities (OIDC)
 
   findIdentity(provider: string, subject: string): string | undefined {
     return (this.db.prepare('SELECT user_id FROM identities WHERE provider = ? AND subject = ?').get(provider, subject) as { user_id: string } | undefined)?.user_id;
@@ -441,7 +441,7 @@ export class MasterDb {
   }
 
   // ---------------------------------------------------------------------------------------------
-  // Sitzungen
+  // Sessions
 
   createSession(s: Omit<SessionRow, 'created_at' | 'last_seen_at'>): void {
     const t = now();
@@ -475,7 +475,7 @@ export class MasterDb {
   }
 
   // ---------------------------------------------------------------------------------------------
-  // API-Tokens
+  // API tokens
 
   createApiToken(t: { userId: string; name: string; tokenHash: string; expiresAt: string | null }): ApiTokenRow {
     const id = newId();
@@ -502,7 +502,7 @@ export class MasterDb {
   }
 
   // ---------------------------------------------------------------------------------------------
-  // Mandanten und Worker
+  // Tenants and workers
 
   listTenants(): TenantRow[] {
     return this.db.prepare('SELECT * FROM tenants ORDER BY name').all() as TenantRow[];
@@ -557,8 +557,8 @@ export class MasterDb {
   }
 
   // ---------------------------------------------------------------------------------------------
-  // Freigabe von Credentials beim Worker für Projekte. Ohne Einträge darf jedes Projekt des Workers ein Credential
-  // nutzen; mit Einträgen nur die genannten Projekte.
+  // Sharing of credentials on the worker with projects. Without entries every project of the worker may use a
+  // credential; with entries only the listed projects.
 
   credentialAccess(workerId: string): Map<string, string[]> {
     const rows = this.db.prepare('SELECT credential, project_id FROM credential_access WHERE worker_id = ? ORDER BY credential, project_id').all(workerId) as Array<{ credential: string; project_id: string }>;
@@ -567,7 +567,7 @@ export class MasterDb {
     return out;
   }
 
-  /** projects null: für alle Projekte des Workers freigeben */
+  /** projects null: share with all projects of the worker */
   setCredentialAccess(workerId: string, credential: string, projects: string[] | null): void {
     const tx = this.db.transaction(() => {
       this.db.prepare('DELETE FROM credential_access WHERE worker_id = ? AND credential = ?').run(workerId, credential);
@@ -578,7 +578,7 @@ export class MasterDb {
   }
 
   // ---------------------------------------------------------------------------------------------
-  // Gemeinsame Credentials (M33)
+  // Shared credentials (M33)
 
   listSharedCredentials(): SharedCredentialRow[] {
     return this.db.prepare('SELECT * FROM shared_credentials ORDER BY name').all() as SharedCredentialRow[];
@@ -614,7 +614,7 @@ export class MasterDb {
       .all(workerId) as Array<SharedCredentialRow & SharedCredentialWorkerRow>;
   }
 
-  /** Zuordnung zu Workern setzen; entfernte Worker merken sich den verteilten Namen zum Löschen */
+  /** Set the worker assignment; removed workers remember the distributed name for deletion */
   setSharedCredentialWorkers(credentialId: string, workerIds: string[]): void {
     const tx = this.db.transaction(() => {
       const current = this.sharedCredentialWorkers(credentialId);
@@ -638,7 +638,7 @@ export class MasterDb {
     }
   }
 
-  /** Alle verteilten Namen eines Credentials zum Entfernen vormerken (Löschen im Master) */
+  /** Mark all distributed names of a credential for removal (deletion in the master) */
   queueSharedCredentialRemoval(credentialId: string): void {
     for (const row of this.sharedCredentialWorkers(credentialId)) {
       if (row.deployed_name) this.db.prepare('INSERT OR IGNORE INTO shared_credential_removals (worker_id, name) VALUES (?, ?)').run(row.worker_id, row.deployed_name);
@@ -667,7 +667,7 @@ export class MasterDb {
   }
 
   // ---------------------------------------------------------------------------------------------
-  // Projekte
+  // Projects
 
   listProjects(): ProjectRow[] {
     return this.db.prepare('SELECT * FROM projects ORDER BY name').all() as ProjectRow[];
@@ -713,7 +713,7 @@ export class MasterDb {
     this.db.prepare('INSERT OR REPLACE INTO project_members (project_id, user_id, role) VALUES (?, ?, ?)').run(projectId, userId, role);
   }
 
-  /** Entfernt auch die Rollen je Workflow im Projekt, damit kein Zugriff über einzelne Workflows bleibt */
+  /** Also removes the per-workflow roles in the project, so no access remains through single workflows */
   removeMember(projectId: string, userId: string): void {
     this.transaction(() => {
       this.db.prepare('DELETE FROM project_members WHERE project_id = ? AND user_id = ?').run(projectId, userId);
@@ -722,13 +722,13 @@ export class MasterDb {
   }
 
   // ---------------------------------------------------------------------------------------------
-  // Rollen je Workflow (M23)
+  // Per-workflow roles (M23)
 
   getWorkflowRole(workflowId: string, userId: string): WorkflowRole | undefined {
     return (this.db.prepare('SELECT role FROM workflow_members WHERE workflow_id = ? AND user_id = ?').get(workflowId, userId) as { role: WorkflowRole } | undefined)?.role;
   }
 
-  /** Rollen eines Benutzers für die Workflows eines Projekts (oder aller Projekte) */
+  /** A user's roles for the workflows of a project (or of all projects) */
   workflowRolesForUser(userId: string, projectId?: string): Map<string, WorkflowRole> {
     const rows = (
       projectId
@@ -738,7 +738,7 @@ export class MasterDb {
     return new Map(rows.map((r) => [r.workflow_id, r.role]));
   }
 
-  /** Projekte, in denen der Benutzer nur über einzelne Workflows Zugriff hat */
+  /** Projects in which the user only has access through single workflows */
   projectsSharedWithUser(userId: string): ProjectRow[] {
     return this.db
       .prepare(
@@ -753,7 +753,7 @@ export class MasterDb {
       .all(workflowId) as Array<{ user_id: string; email: string; name: string; role: WorkflowRole }>;
   }
 
-  /** Workflows mit eigenen Rollen (für die Kennzeichnung in Listen) */
+  /** Workflows with their own roles (for marking in lists) */
   workflowsWithMembers(projectId: string): Set<string> {
     const rows = this.db.prepare('SELECT DISTINCT m.workflow_id FROM workflow_members m JOIN workflows w ON w.id = m.workflow_id WHERE w.project_id = ?').all(projectId) as Array<{ workflow_id: string }>;
     return new Set(rows.map((r) => r.workflow_id));
@@ -788,23 +788,23 @@ export class MasterDb {
     return this.db.prepare('SELECT * FROM workflows WHERE id = ?').get(id) as WorkflowRow | undefined;
   }
 
-  /** Neue Version speichern (Workflow-JSON mit id = Workflow-ID, active wie gespeichert) */
+  /** Save a new version (workflow JSON with id = workflow ID, active as saved) */
   saveWorkflow(projectId: string, workflow: Workflow, userId: string | null): WorkflowRow {
     return this.transaction(() => {
       const id = workflow.id && /^[A-Za-z0-9_-]{1,64}$/.test(workflow.id) ? workflow.id : newId();
       const existing = this.getWorkflow(id);
-      if (existing && existing.project_id !== projectId) throw new Error(`Workflow-ID "${id}" gehört zu einem anderen Projekt`);
+      if (existing && existing.project_id !== projectId) throw new Error(`Workflow ID "${id}" belongs to another project`);
       const version = (existing?.version ?? 0) + 1;
       const data = JSON.stringify({ ...workflow, id });
       const t = now();
       if (existing) {
         this.db
           .prepare('UPDATE workflows SET name = ?, data = ?, version = ?, active = ?, updated_at = ?, updated_by = ? WHERE id = ?')
-          .run(workflow.name ?? 'Ohne Namen', data, version, workflow.active === true ? 1 : 0, t, userId, id);
+          .run(workflow.name ?? 'Unnamed', data, version, workflow.active === true ? 1 : 0, t, userId, id);
       } else {
         this.db
           .prepare('INSERT INTO workflows (id, project_id, name, data, version, active, updated_at, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-          .run(id, projectId, workflow.name ?? 'Ohne Namen', data, version, workflow.active === true ? 1 : 0, t, userId);
+          .run(id, projectId, workflow.name ?? 'Unnamed', data, version, workflow.active === true ? 1 : 0, t, userId);
       }
       this.db.prepare('INSERT INTO workflow_versions (workflow_id, version, data, created_at, created_by) VALUES (?, ?, ?, ?, ?)').run(id, version, data, t, userId);
       return this.getWorkflow(id)!;
@@ -839,7 +839,7 @@ export class MasterDb {
   }
 
   // ---------------------------------------------------------------------------------------------
-  // Audit-Log und Einstellungen
+  // Audit log and settings
 
   audit(entry: { userId: string | null; email: string | null; action: string; target?: string | null; details?: unknown }): void {
     this.db

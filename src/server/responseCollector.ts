@@ -1,5 +1,5 @@
-// Antwortobjekt im Stil von Express für Webhook-Knoten aus n8n-Paketen (M32, getResponseObject): Knoten mit
-// noWebhookResponse schreiben die Antwort selbst (status, setHeader, json, send, end, writeHead, write).
+// Express-style response object for webhook nodes from n8n packages (M32, getResponseObject): nodes with
+// noWebhookResponse write the response themselves (status, setHeader, json, send, end, writeHead, write).
 import type { WebhookResponseCollector } from '../nodes/types.js';
 import type { HttpResponse } from './webhooks.js';
 
@@ -23,7 +23,7 @@ export class ResponseCollector implements WebhookResponseCollector {
     return Buffer.concat(this.chunks);
   }
 
-  /** Wartet, bis der Knoten die Antwort beendet hat */
+  /** Waits until the node has finished the response */
   whenFinished(): Promise<void> {
     if (this.done) return Promise.resolve();
     return new Promise((resolve) => (this.onFinish = resolve));

@@ -1,6 +1,6 @@
-// Nachrichten und Prompt-Vorlagen für die KI-Nodes (statt @langchain/core/messages und prompts).
-// Verhalten nach @langchain/core 1.1: PromptTemplate im f-string-Format ({var}, {{ und }} als Klammern),
-// getBufferString (Rollenpräfixe "System:", "Human:", "AI:", "Tool:").
+// Messages and prompt templates for the AI nodes (instead of @langchain/core/messages and prompts).
+// Behavior after @langchain/core 1.1: PromptTemplate in f-string format ({var}, {{ and }} as braces),
+// getBufferString (role prefixes "System:", "Human:", "AI:", "Tool:").
 
 export type MessageRole = 'system' | 'human' | 'ai' | 'tool';
 
@@ -17,17 +17,17 @@ export interface ToolCall {
 export interface ChatMessage {
   role: MessageRole;
   content: string | ContentPart[];
-  /** ai: angeforderte Tool-Aufrufe */
+  /** ai: requested tool calls */
   toolCalls?: ToolCall[];
-  /** tool: Antwort auf diesen Aufruf */
+  /** tool: response to this call */
   toolCallId?: string;
-  /** tool: Name des Tools */
+  /** tool: name of the tool */
   name?: string;
-  /** ai: Rohdaten des Anbieters (z. B. Content-Blöcke von Anthropic) */
+  /** ai: raw data of the provider (e.g. content blocks from Anthropic) */
   raw?: unknown;
   /**
-   * ai: Darstellung als LangChain-AIMessage (content und kwargs der Serialisierung), wie n8n sie in
-   * intermediateSteps ausgibt und für das Log des Agents nutzt
+   * ai: representation as LangChain AIMessage (content and kwargs of the serialization), as n8n outputs it in
+   * intermediateSteps and uses it for the agent's log
    */
   lc?: { content: unknown; kwargs: Record<string, unknown> };
 }
@@ -40,7 +40,7 @@ export function textOf(content: ChatMessage['content']): string {
     .join('');
 }
 
-/** f-string-Vorlage: {name} ersetzen, {{ und }} werden zu einfachen Klammern */
+/** f-string template: replace {name}, {{ and }} become single braces */
 export function formatTemplate(template: string, values: Record<string, unknown>): string {
   let out = '';
   for (let i = 0; i < template.length; i++) {
@@ -70,14 +70,14 @@ export function formatTemplate(template: string, values: Record<string, unknown>
   return out;
 }
 
-/** Klammern verdoppeln, damit ein Text als Vorlage unverändert bleibt */
+/** Double braces so that a text stays unchanged as a template */
 export function escapeTemplate(text: string): string {
   return text.replace(/[{}]/g, (m) => m + m);
 }
 
 const ROLE_PREFIX: Record<MessageRole, string> = { system: 'System', human: 'Human', ai: 'AI', tool: 'Tool' };
 
-/** @langchain/core getBufferString (für Tracing und Memory) */
+/** @langchain/core getBufferString (for tracing and memory) */
 export function getBufferString(messages: ChatMessage[]): string {
   return messages.map((m) => `${ROLE_PREFIX[m.role]}: ${textOf(m.content)}`).join('\n');
 }

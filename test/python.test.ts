@@ -1,7 +1,7 @@
-// Python im Code-Node (M12): "python" mit Pyodide wie n8n (Kontext mit "_", JS-Objekte als dicts, print, Fehler ab
-// dem Fehlertyp, Validierung mit "dictionary"), Timeout auch bei Endlosschleifen, gesperrte Module; "pythonNative"
-// mit lokalem python3 (nur _items/_item, Import-Allowlists, gesperrte Builtins, leere Umgebung, Timeout).
-// Code Tool mit Python.
+// Python in the Code node (M12): "python" with Pyodide like n8n (context with "_", JS objects as dicts, print, errors from
+// the error type on, validation with "dictionary"), timeout also for endless loops, blocked modules; "pythonNative"
+// with a local python3 (only _items/_item, import allow lists, blocked builtins, empty environment, timeout).
+// Code Tool with Python.
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import { Runner } from '../src/runner.js';
@@ -47,52 +47,52 @@ async function run(wf: Workflow, triggerItems: Item[] = input): Promise<{ exec: 
 }
 
 describe('Python (Pyodide)', () => {
-  it('alle Items: _input, Zugriff per Attribut und Schlüssel, Rückgabe als Liste von dicts', async () => {
+  it('all items: _input, access by attribute and key, return as a list of dicts', async () => {
     const { exec, out } = await run(
       workflow({
         mode: 'runOnceForAllItems',
-        pythonCode: "out = []\nfor item in _input.all():\n  out.append({'json': {'name': item.json.name.upper(), 'doppelt': item.json['n'] * 2}})\nout.append({'json': {'anzahl': len(items), 'erster': _input.first().json.name}})\nreturn out",
+        pythonCode: "out = []\nfor item in _input.all():\n  out.append({'json': {'name': item.json.name.upper(), 'double': item.json['n'] * 2}})\nout.append({'json': {'count': len(items), 'first': _input.first().json.name}})\nreturn out",
       }),
     );
     expect(exec.status).toBe('success');
-    expect(out.map((i) => i.json)).toEqual([{ name: 'ANNA', doppelt: 2 }, { name: 'BERT', doppelt: 4 }, { anzahl: 2, erster: 'Anna' }]);
+    expect(out.map((i) => i.json)).toEqual([{ name: 'ANNA', double: 2 }, { name: 'BERT', double: 4 }, { count: 2, first: 'Anna' }]);
   });
 
-  it('Items direkt verändern und zurückgeben (wie in n8n)', async () => {
-    const { out } = await run(workflow({ pythonCode: 'for item in _input.all():\n  item.json.neu = True\nreturn _input.all()' }));
-    expect(out.map((i) => i.json)).toEqual([{ name: 'Anna', n: 1, neu: true }, { name: 'Bert', n: 2, neu: true }]);
+  it('modify items directly and return them (like in n8n)', async () => {
+    const { out } = await run(workflow({ pythonCode: 'for item in _input.all():\n  item.json.new = True\nreturn _input.all()' }));
+    expect(out.map((i) => i.json)).toEqual([{ name: 'Anna', n: 1, new: true }, { name: 'Bert', n: 2, new: true }]);
   });
 
-  it('je Item: _json, _input.item, Rückgabe dict ohne "json" wird verpackt', async () => {
-    const { out } = await run(workflow({ mode: 'runOnceForEachItem', pythonCode: "return {'gruss': 'Hallo ' + _json['name'], 'index': _input.item.json.n}" }));
+  it('per item: _json, _input.item, a returned dict without "json" is wrapped', async () => {
+    const { out } = await run(workflow({ mode: 'runOnceForEachItem', pythonCode: "return {'greeting': 'Hello ' + _json['name'], 'index': _input.item.json.n}" }));
     expect(out).toEqual([
-      { json: { gruss: 'Hallo Anna', index: 1 }, pairedItem: { item: 0 } },
-      { json: { gruss: 'Hallo Bert', index: 2 }, pairedItem: { item: 1 } },
+      { json: { greeting: 'Hello Anna', index: 1 }, pairedItem: { item: 0 } },
+      { json: { greeting: 'Hello Bert', index: 2 }, pairedItem: { item: 1 } },
     ]);
   });
 
-  it('Standardbibliothek, _now als luxon DateTime, _jmespath', async () => {
+  it('standard library, _now as luxon DateTime, _jmespath', async () => {
     const { exec, out } = await run(
-      workflow({ pythonCode: "import json, re, datetime\nreturn [{'json': {'j': json.dumps({'a': 1}), 'jahr': _now.year > 2000, 'jp': _jmespath(_input.first().json, 'name'), 'r': re.sub('a', 'b', 'abc')}}]" }),
+      workflow({ pythonCode: "import json, re, datetime\nreturn [{'json': {'j': json.dumps({'a': 1}), 'year': _now.year > 2000, 'jp': _jmespath(_input.first().json, 'name'), 'r': re.sub('a', 'b', 'abc')}}]" }),
     );
     expect(exec.status).toBe('success');
-    expect(out[0].json).toEqual({ j: '{"a": 1}', jahr: true, jp: 'Anna', r: 'bbc' });
+    expect(out[0].json).toEqual({ j: '{"a": 1}', year: true, jp: 'Anna', r: 'bbc' });
   });
 
-  it('print landet in der Ausgabe des Nodes', async () => {
-    const { logs } = await run(workflow({ pythonCode: "print('Hallo', 42)\nreturn _input.all()" }));
-    expect(logs).toContain('Hallo 42');
+  it('print ends up in the output of the node', async () => {
+    const { logs } = await run(workflow({ pythonCode: "print('Hello', 42)\nreturn _input.all()" }));
+    expect(logs).toContain('Hello 42');
   });
 
-  it('Fehler: Meldung ab dem Fehlertyp, continueOnFail', async () => {
-    const { exec } = await run(workflow({ pythonCode: 'return unbekannt' }));
+  it('errors: message from the error type on, continueOnFail', async () => {
+    const { exec } = await run(workflow({ pythonCode: 'return unknown' }));
     expect(exec.status).toBe('error');
-    expect(exec.runData.Code[0].error?.message).toMatch(/^NameError: name 'unbekannt' is not defined/);
-    const cont = await run(workflow({ pythonCode: "raise ValueError('kaputt')" }, { onError: 'continueRegularOutput' }));
-    expect(cont.out[0].json.error).toMatch(/^ValueError: kaputt/);
+    expect(exec.runData.Code[0].error?.message).toMatch(/^NameError: name 'unknown' is not defined/);
+    const cont = await run(workflow({ pythonCode: "raise ValueError('broken')" }, { onError: 'continueRegularOutput' }));
+    expect(cont.out[0].json.error).toMatch(/^ValueError: broken/);
   });
 
-  it('Validierung spricht von dictionaries', async () => {
+  it('validation talks about dictionaries', async () => {
     const all = await run(workflow({ pythonCode: 'return 5' }));
     expect(all.exec.runData.Code[0].error?.message).toBe("Code doesn't return items properly");
     expect(all.exec.runData.Code[0].error?.description).toBe('Please return an array of dictionaries, one for each item you would like to output.');
@@ -102,7 +102,7 @@ describe('Python (Pyodide)', () => {
     expect(none.exec.runData.Code[0].error?.message).toMatch(/^Code doesn't return a dictionary/);
   });
 
-  it('Timeout bricht Endlosschleifen ab, danach läuft Python weiter', async () => {
+  it('timeout aborts endless loops, Python keeps working afterwards', async () => {
     const started = Date.now();
     await expect(runPython('while True:\n  pass', { context: {}, timeoutMs: 400 })).rejects.toThrow('Code execution timed out after 0.4 seconds');
     expect(Date.now() - started).toBeLessThan(5000);
@@ -110,20 +110,20 @@ describe('Python (Pyodide)', () => {
     expect(await runPython('return 1 + 1', { context: {}, timeoutMs: 1000 })).toBe(2);
   });
 
-  it('kein Zugriff auf Node.js: js, pyodide_js und os.system gesperrt', async () => {
+  it('no access to Node.js: js, pyodide_js and os.system blocked', async () => {
     await expect(runPython('import js\nreturn js.process', { context: {}, timeoutMs: 1000 })).rejects.toThrow(/Blocked for security reasons/);
     await expect(runPython('import pyodide_js\nreturn pyodide_js.version', { context: {}, timeoutMs: 1000 })).rejects.toThrow(/Blocked for security reasons/);
     await expect(runPython("import os\nos.system('ls')", { context: {}, timeoutMs: 1000 })).rejects.toThrow(/Blocked for security reasons/);
     expect(await runPython("import os\nreturn 'FILUFLOW_API_KEY' in os.environ", { context: {}, timeoutMs: 1000 })).toBe(false);
   });
 
-  it('lässt sich abschalten (N8N_PYTHON_ENABLED / FILUFLOW_PYTHON_ENABLED)', async () => {
+  it('can be turned off (N8N_PYTHON_ENABLED / FILUFLOW_PYTHON_ENABLED)', async () => {
     process.env.FILUFLOW_PYTHON_ENABLED = 'false';
     const { exec } = await run(workflow({ pythonCode: 'return _input.all()' }));
     expect(exec.runData.Code[0].error?.message).toMatch(/disallows Python execution/);
   });
 
-  it('Validator akzeptiert python und pythonNative, lehnt andere Sprachen ab', () => {
+  it('validator accepts python and pythonNative, rejects other languages', () => {
     const registry = getDefaultRegistry();
     expect(validateWorkflow(workflow({ pythonCode: '' }), { registry }).issues.filter((i) => i.severity === 'error')).toEqual([]);
     expect(validateWorkflow(workflow({ language: 'pythonNative', pythonCode: '' }), { registry }).issues.filter((i) => i.severity === 'error')).toEqual([]);
@@ -135,19 +135,19 @@ describe.skipIf(!hasPython)('Python (Native)', () => {
   const native = (code: string, mode: 'runOnceForAllItems' | 'runOnceForEachItem' = 'runOnceForAllItems', extra: Partial<WorkflowNode> = {}) =>
     workflow({ language: 'pythonNative', mode, pythonCode: code }, extra);
 
-  it('alle Items: _items als Liste von dicts', async () => {
-    const { exec, out, logs } = await run(native("print('Anzahl', len(_items))\nreturn [{'json': {'name': i['json']['name'].lower()}} for i in _items]"));
+  it('all items: _items as a list of dicts', async () => {
+    const { exec, out, logs } = await run(native("print('Count', len(_items))\nreturn [{'json': {'name': i['json']['name'].lower()}} for i in _items]"));
     expect(exec.status).toBe('success');
     expect(out.map((i) => i.json)).toEqual([{ name: 'anna' }, { name: 'bert' }]);
-    expect(logs).toContain("'Anzahl' 2");
+    expect(logs).toContain("'Count' 2");
   });
 
-  it('je Item: _item, None überspringt, pairedItem', async () => {
+  it('per item: _item, None skips, pairedItem', async () => {
     const { out } = await run(native("if _item['json']['n'] == 1:\n    return None\nreturn {'n': _item['json']['n'] * 10}", 'runOnceForEachItem'));
     expect(out).toEqual([{ json: { n: 20 }, pairedItem: { item: 1 } }]);
   });
 
-  it('Imports nur mit Freigabe, gefährliche Attribute und Builtins gesperrt', async () => {
+  it('imports only when allowed, dangerous attributes and builtins blocked', async () => {
     const blocked = await run(native('import json\nreturn []'));
     expect(blocked.exec.runData.Code[0].error?.message).toBe('Security violations detected');
     expect(blocked.exec.runData.Code[0].error?.description).toBe("Line 1: Import of standard library module 'json' is disallowed. Allowed stdlib modules: none");
@@ -160,34 +160,34 @@ describe.skipIf(!hasPython)('Python (Native)', () => {
     expect(builtin.exec.runData.Code[0].error?.message).toBe("name 'open' is not defined");
   });
 
-  it('Umgebung leer, außer ausdrücklich freigegeben', async () => {
+  it('environment empty unless explicitly allowed', async () => {
     process.env.FILUFLOW_PYTHON_STDLIB_ALLOW = 'os';
-    process.env.FILUFLOW_TEST_GEHEIM = 'nicht-sichtbar';
-    const hidden = await run(native("import os\nreturn [{'json': {'v': os.environ.get('FILUFLOW_TEST_GEHEIM')}}]"));
+    process.env.FILUFLOW_TEST_SECRET = 'not-visible';
+    const hidden = await run(native("import os\nreturn [{'json': {'v': os.environ.get('FILUFLOW_TEST_SECRET')}}]"));
     expect(hidden.out[0].json).toEqual({ v: null });
     process.env.FILUFLOW_PYTHON_ENV_ACCESS = 'true';
-    const shown = await run(native("import os\nreturn [{'json': {'v': os.environ.get('FILUFLOW_TEST_GEHEIM')}}]"));
-    expect(shown.out[0].json).toEqual({ v: 'nicht-sichtbar' });
-    delete process.env.FILUFLOW_TEST_GEHEIM;
+    const shown = await run(native("import os\nreturn [{'json': {'v': os.environ.get('FILUFLOW_TEST_SECRET')}}]"));
+    expect(shown.out[0].json).toEqual({ v: 'not-visible' });
+    delete process.env.FILUFLOW_TEST_SECRET;
   });
 
-  it('Timeout beendet den Prozess', async () => {
+  it('timeout ends the process', async () => {
     await expect(runNativePython({ code: 'while True:\n    pass', mode: 'runOnceForAllItems', items: [], timeoutMs: 1000, security: nativeSecurityFromEnv() })).rejects.toThrow(
       'Task execution timed out after 1 second',
     );
   });
 
-  it('Fehler mit continueOnFail und fehlender Interpreter', async () => {
-    const cont = await run(native("raise ValueError('kaputt')", 'runOnceForAllItems', { onError: 'continueRegularOutput' }));
-    expect(cont.out).toEqual([{ json: { error: 'kaputt' } }]);
-    process.env.FILUFLOW_PYTHON = 'gibt-es-nicht-python';
+  it('error with continueOnFail and a missing interpreter', async () => {
+    const cont = await run(native("raise ValueError('broken')", 'runOnceForAllItems', { onError: 'continueRegularOutput' }));
+    expect(cont.out).toEqual([{ json: { error: 'broken' } }]);
+    process.env.FILUFLOW_PYTHON = 'does-not-exist-python';
     const missing = await run(native('return []'));
-    expect(missing.exec.runData.Code[0].error?.message).toMatch(/Python-Interpreter/);
+    expect(missing.exec.runData.Code[0].error?.message).toMatch(/requires a Python interpreter/);
   });
 });
 
-describe('Code Tool mit Python', () => {
-  it('führt Python mit query aus', async () => {
+describe('Code Tool with Python', () => {
+  it('runs Python with query', async () => {
     const wf: Workflow = {
       name: 'Tool',
       settings: { executionOrder: 'v1' },
@@ -199,13 +199,13 @@ describe('Code Tool mit Python', () => {
           type: '@n8n/n8n-nodes-langchain.toolCode',
           typeVersion: 1.3,
           position: [200, 0],
-          parameters: { name: 'gross', description: 'macht gross', language: 'python', pythonCode: 'return query.upper()' },
+          parameters: { name: 'upper', description: 'makes upper case', language: 'python', pythonCode: 'return query.upper()' },
         },
       ],
       connections: { Start: { main: [[{ node: 'Code', type: 'main', index: 0 }]] } },
     };
-    const { exec, out } = await run(wf, [{ json: { input: 'hallo' } }]);
+    const { exec, out } = await run(wf, [{ json: { input: 'hello' } }]);
     expect(exec.status).toBe('success');
-    expect(out[0].json).toEqual({ response: 'HALLO' });
+    expect(out[0].json).toEqual({ response: 'HELLO' });
   });
 });

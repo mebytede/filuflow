@@ -1,28 +1,28 @@
-// Parameter des HTTP Request (n8n-nodes-base.httpRequest, typeVersion 3, 4, 4.1, 4.2, 4.3) für das Formular im Editor.
-// Nachgebaut nach n8n 1.123.0:
-//   packages/nodes-base/nodes/HttpRequest/V3/Description.ts (mainProperties, für alle Versionen 3 bis 4.3 gleich,
-//   Unterschied nur bei options.redirect: followRedirects Default false bis v3, true ab v4)
+// Parameters of the HTTP Request (n8n-nodes-base.httpRequest, typeVersion 3, 4, 4.1, 4.2, 4.3) for the editor form.
+// Rebuilt after n8n 1.123.0:
+//   packages/nodes-base/nodes/HttpRequest/V3/Description.ts (mainProperties, the same for all versions 3 to 4.3,
+//   only difference in options.redirect: followRedirects default false up to v3, true from v4)
 //   packages/nodes-base/nodes/HttpRequest/V3/HttpRequestV3.node.ts (version [3, 4, 4.1, 4.2, 4.3])
 //   packages/nodes-base/credentials/Http*Auth.credentials.ts, OAuth1Api/OAuth2Api (genericAuth: true)
-// Nicht übernommen: reine Oberflächenelemente (preBuiltAgentsCallout, curlImport, infoMessage zur Browser-Konsole), das
-// Credential-Feld sslCertificate und die optimizeResponse-Parameter, die n8n nur beim Einsatz als Tool ('@tool') zeigt.
+// Not included: pure UI elements (preBuiltAgentsCallout, curlImport, infoMessage about the browser console), the
+// credential field sslCertificate and the optimizeResponse parameters, which n8n only shows when used as a tool ('@tool').
 import type { ParamSchema } from '../params.js';
 
-/** Auswahl "Using Fields Below / Using JSON" (specifyQuery, specifyHeaders, specifyBody bei JSON) */
+/** Choice "Using Fields Below / Using JSON" (specifyQuery, specifyHeaders, specifyBody for JSON) */
 const KEYPAIR_OR_JSON = [
-  { value: 'keypair', label: 'Über Felder' },
-  { value: 'json', label: 'Über JSON' },
+  { value: 'keypair', label: 'Using Fields Below' },
+  { value: 'json', label: 'Using JSON' },
 ];
 
-/** fixedCollection mit Name/Wert-Paaren (queryParameters, headerParameters, bodyParameters) */
+/** fixedCollection with name/value pairs (queryParameters, headerParameters, bodyParameters) */
 function nameValueCollection(name: string, label: string, show: ParamSchema['show'], withDescriptions = false): ParamSchema {
   return {
     name,
     label,
     type: 'fixedCollection',
     multiple: true,
-    placeholder: 'Parameter hinzufügen',
-    addLabel: 'Parameter hinzufügen',
+    placeholder: 'Add Parameter',
+    addLabel: 'Add Parameter',
     default: { parameters: [{ name: '', value: '' }] },
     show,
     groups: [
@@ -30,44 +30,44 @@ function nameValueCollection(name: string, label: string, show: ParamSchema['sho
         name: 'parameters',
         label: 'Parameter',
         children: [
-          { name: 'name', label: 'Name', type: 'string', default: '', ...(withDescriptions ? { description: 'Name des Felds' } : {}) },
-          { name: 'value', label: 'Wert', type: 'string', default: '', ...(withDescriptions ? { description: 'Wert des Felds' } : {}) },
+          { name: 'name', label: 'Name', type: 'string', default: '', ...(withDescriptions ? { description: 'ID of the field to set' } : {}) },
+          { name: 'value', label: 'Value', type: 'string', default: '', ...(withDescriptions ? { description: 'Value of the field to set' } : {}) },
         ],
       },
     ],
   };
 }
 
-/** options.redirect, je Version mit anderem Default für followRedirects */
+/** options.redirect, with a different followRedirects default per version */
 function redirectOption(followDefault: boolean, display: Pick<ParamSchema, 'show' | 'hide'>): ParamSchema {
   return {
     name: 'redirect',
-    label: 'Weiterleitungen',
+    label: 'Redirects',
     type: 'fixedCollection',
-    placeholder: 'Weiterleitung hinzufügen',
-    addLabel: 'Weiterleitung hinzufügen',
+    placeholder: 'Add Redirect',
+    addLabel: 'Add Redirect',
     default: { redirect: {} },
     ...display,
     groups: [
       {
         name: 'redirect',
-        label: 'Weiterleitung',
+        label: 'Redirect',
         children: [
           {
             name: 'followRedirects',
-            label: 'Weiterleitungen folgen',
+            label: 'Follow Redirects',
             type: 'boolean',
             default: followDefault,
             noExpression: true,
-            description: 'Ob allen Weiterleitungen gefolgt wird',
+            description: 'Whether to follow all redirects',
           },
           {
             name: 'maxRedirects',
-            label: 'Höchstens Weiterleitungen',
+            label: 'Max Redirects',
             type: 'number',
             default: 21,
             show: { followRedirects: [true] },
-            description: 'Höchstzahl der Weiterleitungen, denen gefolgt wird',
+            description: 'Max number of redirects to follow',
           },
         ],
       },
@@ -78,11 +78,11 @@ function redirectOption(followDefault: boolean, display: Pick<ParamSchema, 'show
 export const httpRequestParameters: ParamSchema[] = [
   {
     name: 'method',
-    label: 'Methode',
+    label: 'Method',
     type: 'options',
     default: 'GET',
     options: ['DELETE', 'GET', 'HEAD', 'OPTIONS', 'PATCH', 'POST', 'PUT'].map((m) => ({ value: m, label: m })),
-    description: 'HTTP-Methode des Requests',
+    description: 'The request method to use',
   },
   {
     name: 'url',
@@ -91,43 +91,43 @@ export const httpRequestParameters: ParamSchema[] = [
     default: '',
     required: true,
     placeholder: 'http://example.com/index.html',
-    description: 'URL, an die der Request geht',
+    description: 'The URL to make the request to',
   },
   {
     name: 'authentication',
-    label: 'Authentifizierung',
+    label: 'Authentication',
     type: 'options',
     default: 'none',
     noExpression: true,
     options: [
-      { value: 'none', label: 'Keine' },
-      { value: 'predefinedCredentialType', label: 'Vordefinierter Credential-Typ', description: 'Fertige Anmeldung für einen Dienst' },
-      { value: 'genericCredentialType', label: 'Generischer Credential-Typ', description: 'Frei konfigurierbar, z. B. Basic, Header oder OAuth2' },
+      { value: 'none', label: 'None' },
+      { value: 'predefinedCredentialType', label: 'Predefined Credential Type', description: 'Ready-made credentials for a service' },
+      { value: 'genericCredentialType', label: 'Generic Credential Type', description: 'Fully customizable, e.g. Basic, Header or OAuth2' },
     ],
   },
   {
-    // n8n: type credentialsSelect (extends:oAuth2Api, extends:oAuth1Api, has:authenticate); filuflow kennt die
-    // Authentifizierung der Typen in src/credentials/authenticate.ts und aus Plugins, validate meldet andere
+    // n8n: type credentialsSelect (extends:oAuth2Api, extends:oAuth1Api, has:authenticate); filuflow knows the
+    // authentication of the types in src/credentials/authenticate.ts and from plugins, validate reports others
     name: 'nodeCredentialType',
-    label: 'Credential-Typ',
+    label: 'Credential Type',
     type: 'string',
     default: '',
     required: true,
     noExpression: true,
     show: { authentication: ['predefinedCredentialType'] },
-    description: 'Name des Credential-Typs, z. B. githubApi, notionApi, slackApi, stripeApi, airtableTokenApi, hubspotAppToken, openAiApi, anthropicApi oder ein Typ aus einem Plugin; OAuth2-Typen (z. B. googleSheetsOAuth2Api, slackOAuth2Api) nutzen das verbundene Token',
+    description: 'Name of the credential type, e.g. githubApi, notionApi, slackApi, stripeApi, airtableTokenApi, hubspotAppToken, openAiApi, anthropicApi or a type from a plugin; OAuth2 types (e.g. googleSheetsOAuth2Api, slackOAuth2Api) use the connected token',
   },
   {
     name: 'googleApiWarning',
-    label: 'Im Credential müssen die Scopes für den Service Account angegeben sein',
+    label: 'Scopes for the service account must be specified in the credential',
     type: 'notice',
     default: '',
     show: { nodeCredentialType: ['googleApi'] },
   },
   {
-    // n8n: type credentialsSelect (has:genericAuth); validate meldet Typen, die filuflow nicht unterstützt
+    // n8n: type credentialsSelect (has:genericAuth); validate reports types filuflow does not support
     name: 'genericAuthType',
-    label: 'Generischer Auth-Typ',
+    label: 'Generic Auth Type',
     type: 'options',
     default: '',
     required: true,
@@ -145,14 +145,14 @@ export const httpRequestParameters: ParamSchema[] = [
   },
   {
     name: 'provideSslCertificates',
-    label: 'SSL-Zertifikate',
+    label: 'SSL Certificates',
     type: 'boolean',
     default: false,
-    description: 'Ob eigene Zertifikate aus dem Credential httpSslAuth verwendet werden',
+    description: 'Whether to use custom certificates from the httpSslAuth credential',
   },
   {
     name: 'provideSslCertificatesNotice',
-    label: 'Zertifikate im Credential für SSL-Zertifikate (httpSslAuth) hinterlegen',
+    label: 'Provide certificates in the SSL Certificates credential (httpSslAuth)',
     type: 'notice',
     default: '',
     show: { provideSslCertificates: [true] },
@@ -160,53 +160,53 @@ export const httpRequestParameters: ParamSchema[] = [
   // Query
   {
     name: 'sendQuery',
-    label: 'Query-Parameter senden',
+    label: 'Send Query Parameters',
     type: 'boolean',
     default: false,
     noExpression: true,
-    description: 'Ob der Request Query-Parameter hat',
+    description: 'Whether the request has query params or not',
   },
   {
     name: 'specifyQuery',
-    label: 'Query-Parameter angeben',
+    label: 'Specify Query Parameters',
     type: 'options',
     default: 'keypair',
     show: { sendQuery: [true] },
     options: KEYPAIR_OR_JSON,
   },
-  nameValueCollection('queryParameters', 'Query-Parameter', { sendQuery: [true], specifyQuery: ['keypair'] }),
+  nameValueCollection('queryParameters', 'Query Parameters', { sendQuery: [true], specifyQuery: ['keypair'] }),
   { name: 'jsonQuery', label: 'JSON', type: 'json', default: '', show: { sendQuery: [true], specifyQuery: ['json'] } },
   // Header
   {
     name: 'sendHeaders',
-    label: 'Header senden',
+    label: 'Send Headers',
     type: 'boolean',
     default: false,
     noExpression: true,
-    description: 'Ob der Request Header hat',
+    description: 'Whether the request has headers or not',
   },
   {
     name: 'specifyHeaders',
-    label: 'Header angeben',
+    label: 'Specify Headers',
     type: 'options',
     default: 'keypair',
     show: { sendHeaders: [true] },
     options: KEYPAIR_OR_JSON,
   },
-  nameValueCollection('headerParameters', 'Header-Parameter', { sendHeaders: [true], specifyHeaders: ['keypair'] }),
+  nameValueCollection('headerParameters', 'Header Parameters', { sendHeaders: [true], specifyHeaders: ['keypair'] }),
   { name: 'jsonHeaders', label: 'JSON', type: 'json', default: '', show: { sendHeaders: [true], specifyHeaders: ['json'] } },
   // Body
   {
     name: 'sendBody',
-    label: 'Body senden',
+    label: 'Send Body',
     type: 'boolean',
     default: false,
     noExpression: true,
-    description: 'Ob der Request einen Body hat',
+    description: 'Whether the request has a body or not',
   },
   {
     name: 'contentType',
-    label: 'Body-Content-Type',
+    label: 'Body Content Type',
     type: 'options',
     default: 'json',
     show: { sendBody: [true] },
@@ -214,29 +214,29 @@ export const httpRequestParameters: ParamSchema[] = [
       { value: 'form-urlencoded', label: 'Form Urlencoded' },
       { value: 'multipart-form-data', label: 'Form-Data' },
       { value: 'json', label: 'JSON' },
-      { value: 'binaryData', label: 'Binärdatei' },
+      { value: 'binaryData', label: 'n8n Binary File' },
       { value: 'raw', label: 'Raw' },
     ],
-    description: 'Content-Type, mit dem der Body gesendet wird',
+    description: 'Content type used to send the body',
   },
   {
     name: 'specifyBody',
-    label: 'Body angeben',
+    label: 'Specify Body',
     type: 'options',
     default: 'keypair',
     show: { sendBody: [true], contentType: ['json'] },
     options: KEYPAIR_OR_JSON,
-    description: 'Body über einzelne Felder (keypair) oder als JSON-Objekt (json)',
+    description: 'Body as individual fields (keypair) or as a JSON object (json)',
   },
-  nameValueCollection('bodyParameters', 'Body-Parameter', { sendBody: [true], contentType: ['json'], specifyBody: ['keypair'] }, true),
+  nameValueCollection('bodyParameters', 'Body Parameters', { sendBody: [true], contentType: ['json'], specifyBody: ['keypair'] }, true),
   { name: 'jsonBody', label: 'JSON', type: 'json', default: '', show: { sendBody: [true], contentType: ['json'], specifyBody: ['json'] } },
   {
     name: 'bodyParameters',
-    label: 'Body-Parameter',
+    label: 'Body Parameters',
     type: 'fixedCollection',
     multiple: true,
-    placeholder: 'Parameter hinzufügen',
-    addLabel: 'Parameter hinzufügen',
+    placeholder: 'Add Parameter',
+    addLabel: 'Add Parameter',
     default: { parameters: [{ name: '', value: '' }] },
     show: { sendBody: [true], contentType: ['multipart-form-data'] },
     groups: [
@@ -246,23 +246,23 @@ export const httpRequestParameters: ParamSchema[] = [
         children: [
           {
             name: 'parameterType',
-            label: 'Parametertyp',
+            label: 'Parameter Type',
             type: 'options',
             default: 'formData',
             options: [
-              { value: 'formBinaryData', label: 'Binärdatei' },
-              { value: 'formData', label: 'Formulardaten' },
+              { value: 'formBinaryData', label: 'n8n Binary File' },
+              { value: 'formData', label: 'Form Data' },
             ],
           },
-          { name: 'name', label: 'Name', type: 'string', default: '', description: 'Name des Felds' },
-          { name: 'value', label: 'Wert', type: 'string', default: '', show: { parameterType: ['formData'] }, description: 'Wert des Felds' },
+          { name: 'name', label: 'Name', type: 'string', default: '', description: 'ID of the field to set' },
+          { name: 'value', label: 'Value', type: 'string', default: '', show: { parameterType: ['formData'] }, description: 'Value of the field to set' },
           {
             name: 'inputDataFieldName',
-            label: 'Binärfeld der Eingabe',
+            label: 'Input Data Field Name',
             type: 'string',
             default: '',
             show: { parameterType: ['formBinaryData'] },
-            description: 'Name des Eingabefelds mit der Binärdatei',
+            description: 'The name of the incoming field containing the binary file data to be processed',
           },
         ],
       },
@@ -270,18 +270,18 @@ export const httpRequestParameters: ParamSchema[] = [
   },
   {
     name: 'specifyBody',
-    label: 'Body angeben',
+    label: 'Specify Body',
     type: 'options',
     default: 'keypair',
     show: { sendBody: [true], contentType: ['form-urlencoded'] },
     options: [
-      { value: 'keypair', label: 'Über Felder' },
-      { value: 'string', label: 'Über ein einzelnes Feld' },
+      { value: 'keypair', label: 'Using Fields Below' },
+      { value: 'string', label: 'Using Single Field' },
     ],
   },
-  nameValueCollection('bodyParameters', 'Body-Parameter', { sendBody: [true], contentType: ['form-urlencoded'], specifyBody: ['keypair'] }, true),
+  nameValueCollection('bodyParameters', 'Body Parameters', { sendBody: [true], contentType: ['form-urlencoded'], specifyBody: ['keypair'] }, true),
   {
-    // n8n zeigt dieses Feld ohne Bedingung auf contentType
+    // n8n shows this field without a condition on contentType
     name: 'body',
     label: 'Body',
     type: 'string',
@@ -291,11 +291,11 @@ export const httpRequestParameters: ParamSchema[] = [
   },
   {
     name: 'inputDataFieldName',
-    label: 'Binärfeld der Eingabe',
+    label: 'Input Data Field Name',
     type: 'string',
     default: '',
     show: { sendBody: [true], contentType: ['binaryData'] },
-    description: 'Name des Eingabefelds mit der Binärdatei',
+    description: 'The name of the incoming field containing the binary file data to be processed',
   },
   {
     name: 'rawContentType',
@@ -306,21 +306,21 @@ export const httpRequestParameters: ParamSchema[] = [
     show: { sendBody: [true], contentType: ['raw'] },
   },
   { name: 'body', label: 'Body', type: 'string', default: '', placeholder: '', show: { sendBody: [true], contentType: ['raw'] } },
-  // Optionen
+  // Options
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    placeholder: 'Option hinzufügen',
-    addLabel: 'Option hinzufügen',
+    placeholder: 'Add Option',
+    addLabel: 'Add Option',
     children: [
       {
         name: 'batching',
         label: 'Batching',
         type: 'fixedCollection',
-        placeholder: 'Batching hinzufügen',
-        addLabel: 'Batching hinzufügen',
+        placeholder: 'Add Batching',
+        addLabel: 'Add Batching',
         default: { batch: {} },
         groups: [
           {
@@ -329,19 +329,19 @@ export const httpRequestParameters: ParamSchema[] = [
             children: [
               {
                 name: 'batchSize',
-                label: 'Items pro Batch',
+                label: 'Items per Batch',
                 type: 'number',
                 default: 50,
                 min: -1,
-                description: 'Teilt die Eingabe zum Drosseln in Batches, -1 schaltet ab, 0 zählt als 1',
+                description: 'Input will be split in batches to throttle requests; -1 to disable, 0 is treated as 1',
               },
               {
                 name: 'batchInterval',
-                label: 'Batch-Intervall (ms)',
+                label: 'Batch Interval (ms)',
                 type: 'number',
                 default: 1000,
                 min: 0,
-                description: 'Pause in Millisekunden zwischen den Batches, 0 schaltet ab',
+                description: 'Time (in milliseconds) between each batch of requests; 0 to disable',
               },
             ],
           },
@@ -349,81 +349,81 @@ export const httpRequestParameters: ParamSchema[] = [
       },
       {
         name: 'allowUnauthorizedCerts',
-        label: 'SSL-Fehler ignorieren (unsicher)',
+        label: 'Ignore SSL Issues (Insecure)',
         type: 'boolean',
         default: false,
         noExpression: true,
-        description: 'Ob die Antwort auch ohne gültiges SSL-Zertifikat geladen wird',
+        description: 'Whether to download the response even if SSL certificate validation is not possible',
       },
       {
         name: 'queryParameterArrays',
-        label: 'Array-Format in Query-Parametern',
+        label: 'Array Format in Query Parameters',
         type: 'options',
         default: 'brackets',
         show: { '/sendQuery': [true] },
         options: [
-          { value: 'repeat', label: 'Ohne Klammern', description: 'z. B. foo=bar&foo=qux' },
-          { value: 'brackets', label: 'Nur Klammern', description: 'z. B. foo[]=bar&foo[]=qux' },
-          { value: 'indices', label: 'Klammern mit Indizes', description: 'z. B. foo[0]=bar&foo[1]=qux' },
+          { value: 'repeat', label: 'No Brackets', description: 'e.g. foo=bar&foo=qux' },
+          { value: 'brackets', label: 'Brackets Only', description: 'e.g. foo[]=bar&foo[]=qux' },
+          { value: 'indices', label: 'Brackets with Indices', description: 'e.g. foo[0]=bar&foo[1]=qux' },
         ],
       },
       {
         name: 'lowercaseHeaders',
-        label: 'Header kleinschreiben',
+        label: 'Lowercase Headers',
         type: 'boolean',
         default: true,
-        description: 'Ob Header-Namen kleingeschrieben werden',
+        description: 'Whether to lowercase header names',
       },
       redirectOption(false, { show: { '@version': [1, 2, 3] } }),
       redirectOption(true, { hide: { '@version': [1, 2, 3] } }),
       {
         name: 'response',
-        label: 'Antwort',
+        label: 'Response',
         type: 'fixedCollection',
-        placeholder: 'Antwort hinzufügen',
-        addLabel: 'Antwort hinzufügen',
+        placeholder: 'Add Response',
+        addLabel: 'Add Response',
         default: { response: {} },
         groups: [
           {
             name: 'response',
-            label: 'Antwort',
+            label: 'Response',
             children: [
               {
                 name: 'fullResponse',
-                label: 'Header und Status mitliefern',
+                label: 'Include Response Headers and Status',
                 type: 'boolean',
                 default: false,
-                description: 'Ob die ganze Antwort mit Headern und Statuscode statt nur des Bodys zurückkommt',
+                description: 'Whether to return the full response (headers and response status code) data instead of only the body',
               },
               {
                 name: 'neverError',
-                label: 'Nie Fehler',
+                label: 'Never Error',
                 type: 'boolean',
                 default: false,
-                description: 'Ob der Request auch bei Statuscodes außerhalb von 2xx gelingt',
+                description: 'Whether to succeed even when the response status code is not 2xx',
               },
               {
                 name: 'responseFormat',
-                label: 'Antwortformat',
+                label: 'Response Format',
                 type: 'options',
                 default: 'autodetect',
                 noExpression: true,
                 options: [
-                  { value: 'autodetect', label: 'Automatisch' },
-                  { value: 'file', label: 'Datei' },
+                  { value: 'autodetect', label: 'Autodetect' },
+                  { value: 'file', label: 'File' },
                   { value: 'json', label: 'JSON' },
                   { value: 'text', label: 'Text' },
                 ],
-                description: 'Format, in dem die Daten der URL zurückkommen',
+                description: 'The format in which the data gets returned from the URL',
               },
               {
                 name: 'outputPropertyName',
-                label: 'Ausgabe in Feld',
+                label: 'Put Output in Field',
                 type: 'string',
                 default: 'data',
                 required: true,
                 show: { responseFormat: ['file', 'text'] },
-                description: 'Name des Felds, in das die Antwort geschrieben wird',
+                description: 'Name of the field to put the response output in',
               },
             ],
           },
@@ -433,8 +433,8 @@ export const httpRequestParameters: ParamSchema[] = [
         name: 'pagination',
         label: 'Pagination',
         type: 'fixedCollection',
-        placeholder: 'Pagination hinzufügen',
-        addLabel: 'Pagination hinzufügen',
+        placeholder: 'Add Pagination',
+        addLabel: 'Add Pagination',
         default: { pagination: {} },
         groups: [
           {
@@ -443,31 +443,31 @@ export const httpRequestParameters: ParamSchema[] = [
             children: [
               {
                 name: 'paginationMode',
-                label: 'Pagination-Modus',
+                label: 'Pagination Mode',
                 type: 'options',
                 default: 'updateAParameterInEachRequest',
                 noExpression: true,
                 options: [
-                  { value: 'off', label: 'Aus' },
-                  { value: 'updateAParameterInEachRequest', label: 'Parameter in jedem Request ändern' },
-                  { value: 'responseContainsNextURL', label: 'Antwort enthält nächste URL' },
+                  { value: 'off', label: 'Off' },
+                  { value: 'updateAParameterInEachRequest', label: 'Update a Parameter in Each Request' },
+                  { value: 'responseContainsNextURL', label: 'Response Contains Next URL' },
                 ],
-                description: 'Ob und wie Pagination verwendet wird',
+                description: 'If pagination should be used',
               },
               {
                 name: 'webhookNotice',
-                label: 'Mit den $response-Variablen auf die Daten der vorigen Antwort zugreifen',
+                label: 'Use the $response variables to access the data of the previous response',
                 type: 'notice',
                 default: '',
                 hide: { paginationMode: ['off'] },
               },
               {
                 name: 'nextURL',
-                label: 'Nächste URL',
+                label: 'Next URL',
                 type: 'string',
                 default: '',
                 show: { paginationMode: ['responseContainsNextURL'] },
-                description: 'Muss die URL der nächsten Seite ergeben',
+                description: 'Should evaluate to the URL of the next page',
               },
               {
                 name: 'parameters',
@@ -475,8 +475,8 @@ export const httpRequestParameters: ParamSchema[] = [
                 type: 'fixedCollection',
                 multiple: true,
                 noExpression: true,
-                placeholder: 'Parameter hinzufügen',
-                addLabel: 'Parameter hinzufügen',
+                placeholder: 'Add Parameter',
+                addLabel: 'Add Parameter',
                 default: { parameters: [{ type: 'qs', name: '', value: '' }] },
                 show: { paginationMode: ['updateAParameterInEachRequest'] },
                 groups: [
@@ -486,7 +486,7 @@ export const httpRequestParameters: ParamSchema[] = [
                     children: [
                       {
                         name: 'type',
-                        label: 'Typ',
+                        label: 'Type',
                         type: 'options',
                         default: 'qs',
                         options: [
@@ -494,15 +494,15 @@ export const httpRequestParameters: ParamSchema[] = [
                           { value: 'headers', label: 'Header' },
                           { value: 'qs', label: 'Query' },
                         ],
-                        description: 'Wo der Parameter gesetzt wird',
+                        description: 'Where the parameter should be set',
                       },
-                      { name: 'name', label: 'Name', type: 'string', default: '', placeholder: 'z. B. page' },
+                      { name: 'name', label: 'Name', type: 'string', default: '', placeholder: 'e.g. page' },
                       {
                         name: 'value',
-                        label: 'Wert',
+                        label: 'Value',
                         type: 'string',
                         default: '',
-                        description: 'Im Expression-Modus mit $response auf die Antwort zugreifen',
+                        description: 'In expression mode, use $response to access the response',
                       },
                     ],
                   },
@@ -510,61 +510,61 @@ export const httpRequestParameters: ParamSchema[] = [
               },
               {
                 name: 'paginationCompleteWhen',
-                label: 'Pagination fertig, wenn',
+                label: 'Pagination Complete When',
                 type: 'options',
                 default: 'responseIsEmpty',
                 noExpression: true,
                 hide: { paginationMode: ['off'] },
                 options: [
-                  { value: 'responseIsEmpty', label: 'Antwort ist leer' },
-                  { value: 'receiveSpecificStatusCodes', label: 'Bestimmte Statuscodes kommen' },
-                  { value: 'other', label: 'Andere Bedingung' },
+                  { value: 'responseIsEmpty', label: 'Response Is Empty' },
+                  { value: 'receiveSpecificStatusCodes', label: 'Receive Specific Status Codes' },
+                  { value: 'other', label: 'Other' },
                 ],
-                description: 'Wann keine weiteren Requests folgen',
+                description: 'When no more requests should be made',
               },
               {
                 name: 'statusCodesWhenComplete',
-                label: 'Statuscodes für Ende',
+                label: 'Status Code(s) when Complete',
                 type: 'string',
                 default: '',
                 noExpression: true,
                 show: { paginationCompleteWhen: ['receiveSpecificStatusCodes'] },
-                description: 'Mehrere Werte durch Kommas trennen',
+                description: 'Accepts comma-separated values',
               },
               {
                 name: 'completeExpression',
-                label: 'Expression für Ende',
+                label: 'Complete Expression',
                 type: 'string',
                 default: '',
                 show: { paginationCompleteWhen: ['other'] },
-                description: 'Muss true ergeben, wenn die Pagination fertig ist',
+                description: 'Should evaluate to true when pagination is complete',
               },
               {
                 name: 'limitPagesFetched',
-                label: 'Seitenzahl begrenzen',
+                label: 'Limit Pages Fetched',
                 type: 'boolean',
                 default: false,
                 noExpression: true,
                 hide: { paginationMode: ['off'] },
-                description: 'Ob die Zahl der Requests begrenzt wird',
+                description: 'Whether the number of requests should be limited',
               },
               {
                 name: 'maxRequests',
-                label: 'Höchstens Seiten',
+                label: 'Max Pages',
                 type: 'number',
                 default: 100,
                 noExpression: true,
                 show: { limitPagesFetched: [true] },
-                description: 'Höchstzahl der Requests',
+                description: 'Maximum amount of requests to make',
               },
               {
                 name: 'requestInterval',
-                label: 'Pause zwischen Requests (ms)',
+                label: 'Interval Between Requests (ms)',
                 type: 'number',
                 default: 0,
                 min: 0,
                 hide: { paginationMode: ['off'] },
-                description: 'Wartezeit in Millisekunden zwischen den Requests, 0 ohne Pause',
+                description: 'Time in milliseconds to wait between requests; 0 for no wait',
               },
             ],
           },
@@ -575,8 +575,8 @@ export const httpRequestParameters: ParamSchema[] = [
         label: 'Proxy',
         type: 'string',
         default: '',
-        placeholder: 'z. B. http://myproxy:3128',
-        description: 'Zu verwendender HTTP-Proxy',
+        placeholder: 'e.g. http://myproxy:3128',
+        description: 'HTTP proxy to use',
       },
       {
         name: 'timeout',
@@ -584,7 +584,7 @@ export const httpRequestParameters: ParamSchema[] = [
         type: 'number',
         default: 10000,
         min: 1,
-        description: 'Wartezeit in ms auf die Antwort-Header, danach Abbruch',
+        description: 'Time in ms to wait for the server to send response headers before aborting the request',
       },
     ],
   },

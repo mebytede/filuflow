@@ -1,11 +1,11 @@
 // HTTP Request, n8n-nodes-base.httpRequest (typeVersion 3, 4, 4.1, 4.2, 4.3)
-// Nachgebaut nach n8n 1.123.0:
+// Rebuilt after n8n 1.123.0:
 //   packages/nodes-base/nodes/HttpRequest/V3/HttpRequestV3.node.ts, GenericFunctions.ts, V3/utils/*
 //   packages/core/.../utils/request-helper-functions.ts (parseRequestObject, proxyRequestToAxios)
-//   packages/workflow/src/errors/node-api.error.ts (Fehlermeldungen je Statuscode)
+//   packages/workflow/src/errors/node-api.error.ts (error messages per status code)
 //   packages/core/.../utils/request-helper-functions.ts requestWithAuthenticationPaginated, applyPaginationRequestData
-//   (Pagination mit $response, $request, $pageCount; Abbruch nach 5x gleicher Antwort)
-//   packages/nodes-base/nodes/HttpRequest/GenericFunctions.ts setAgentOptions (SSL-Zertifikate, httpSslAuth)
+//   (pagination with $response, $request, $pageCount; stop after 5x the same response)
+//   packages/nodes-base/nodes/HttpRequest/GenericFunctions.ts setAgentOptions (SSL certificates, httpSslAuth)
 // Digest-Auth: src/credentials/digest.ts.
 import lodash from 'lodash';
 import qs from 'qs';
@@ -57,7 +57,7 @@ const COMMON_ERRORS: Record<string, string> = {
   EAI_AGAIN: 'The DNS server returned an error, perhaps the server is offline',
 };
 
-/** Fehler wie proxyRequestToAxios ihn wirft (statusCode, error = Antworttext) */
+/** Error as thrown by proxyRequestToAxios (statusCode, error = response text) */
 class HttpStatusError extends Error {
   statusCode: number;
   error: unknown;
@@ -71,7 +71,7 @@ class HttpStatusError extends Error {
     this.code = statusCode >= 500 ? 'ERR_BAD_RESPONSE' : 'ERR_BAD_REQUEST';
     this.headers = headers;
   }
-  /** So landet der Fehler bei continueOnFail im Item (AxiosError.toJSON ohne Stack) */
+  /** How the error ends up in the item with continueOnFail (AxiosError.toJSON without stack) */
   toItemJson(): Record<string, unknown> {
     return { message: this.message, name: 'AxiosError', code: this.code, status: this.statusCode };
   }
@@ -112,9 +112,9 @@ function toNodeApiError(node: WorkflowNode, error: unknown, itemIndex: number): 
 }
 
 /**
- * Query-Serialisierung: n8n setzt axios.defaults.paramsSerializer auf
+ * Query serialization: n8n sets axios.defaults.paramsSerializer to
  * qs.stringify(params, { arrayFormat: 'indices' }) (request-helper-functions.ts);
- * die Option queryParameterArrays wählt "repeat" bzw. "brackets".
+ * the option queryParameterArrays selects "repeat" or "brackets".
  */
 function serializeParams(params: Record<string, unknown>, arrayFormat?: string): string {
   if (arrayFormat === 'repeat') return qs.stringify(params, { arrayFormat: 'repeat' });
@@ -183,14 +183,14 @@ function mimeTypeFromResponse(contentType: string | undefined): string | undefin
 
 interface RequestSpec {
   request: HttpRequest;
-  /** oAuth2Api: Credential für Signatur und erneuten Versuch nach 401 */
+  /** oAuth2Api: credential for signing and retrying after 401 */
   oauth2?: Record<string, unknown>;
-  /** Optionen von requestOAuth2 (Token-Typ, Dienst-Eigenheiten) und das zuletzt genutzte Token */
+  /** Options of requestOAuth2 (token type, service quirks) and the most recently used token */
   oauth2Options?: OAuth2RequestOptions;
   oauth2Token?: OAuth2Token;
-  /** httpDigestAuth: Anmeldung erst nach der Challenge (sendImmediately: false) */
+  /** httpDigestAuth: authenticate only after the challenge (sendImmediately: false) */
   digest?: { user: string; password: string };
-  /** Request für $request in Pagination-Expressions (n8n requestOptions) */
+  /** Request for $request in pagination expressions (n8n requestOptions) */
   info: Record<string, unknown>;
   /** n8n `simple: false` */
   neverError: boolean;
@@ -215,7 +215,7 @@ function credentialTypesFor(node: WorkflowNode): string[] {
 
 const SUPPORTED_GENERIC = new Set(['httpBasicAuth', 'httpBearerAuth', 'httpHeaderAuth', 'httpQueryAuth', 'httpCustomAuth', 'httpDigestAuth', 'oAuth2Api', 'oAuth1Api']);
 
-/** Teile eines Requests, die die Pagination je Seite überschreibt (n8n PaginationOptions.request) */
+/** Parts of a request that pagination overrides per page (n8n PaginationOptions.request) */
 interface PaginationRequest {
   url?: string;
   qs?: Record<string, unknown>;
@@ -223,7 +223,7 @@ interface PaginationRequest {
   body?: Record<string, unknown>;
 }
 
-/** formatPrivateKey (nodes-base utils/utilities.ts), vereinfacht: PEM-Zeilenumbrüche wiederherstellen */
+/** formatPrivateKey (nodes-base utils/utilities.ts), simplified: restore PEM line breaks */
 function formatPem(key: string): string {
   if (!key || /\n/.test(key)) return key;
   const m = /^(-----BEGIN [A-Z ]+-----)(.*)(-----END [A-Z ]+-----)$/.exec(key.trim());
@@ -367,7 +367,7 @@ async function buildRequest(ctx: ExecContext, itemIndex: number, items: Item[], 
   const json = !(autodetect || responseFormat === 'file') && contentType !== 'raw';
   if (contentType === 'raw') headers['content-type'] = ctx.getParam<string>('rawContentType', itemIndex, '');
 
-  // Pagination: Werte der Seite tief zusammenführen (applyPaginationRequestData, lodash merge)
+  // Pagination: deep merge the page values (applyPaginationRequestData, lodash merge)
   const requestInfo = { uri: url, url, method, qs: { ...(qsParams ?? {}) }, headers: { ...headers }, body: form ?? bodyObject };
   if (page) {
     if (page.qs) qsParams = lodash.merge({}, qsParams ?? {}, page.qs);
@@ -379,7 +379,7 @@ async function buildRequest(ctx: ExecContext, itemIndex: number, items: Item[], 
     }
   }
 
-  // Authentifizierung
+  // Authentication
   let oauth2: Record<string, unknown> | undefined;
   let oauth2Options: OAuth2RequestOptions | undefined;
   let oauth1: Record<string, unknown> | undefined;
@@ -405,20 +405,20 @@ async function buildRequest(ctx: ExecContext, itemIndex: number, items: Item[], 
       if (custom.body) bodyObject = { ...((bodyObject as object) ?? {}), ...custom.body };
       if (custom.qs) qsParams = { ...(qsParams ?? {}), ...custom.qs };
     } else if (type === 'oAuth2Api') {
-      // Signatur nach dem Aufbau des Requests, siehe unten; HttpRequestV3 ruft requestOAuth2 mit tokenType "Bearer"
+      // Signing after the request is built, see below; HttpRequestV3 calls requestOAuth2 with tokenType "Bearer"
       oauth2 = cred;
       oauth2Options = { tokenType: 'Bearer' };
     } else if (type === 'oAuth1Api') {
-      // Signatur über URL, Query und Formular, siehe unten (requestOAuth1)
+      // Signing over URL, query and form, see below (requestOAuth1)
       oauth1 = cred;
     } else if (type === 'httpDigestAuth') {
       digest = { user: String(cred.user ?? ''), password: String(cred.password ?? '') };
     } else {
-      throw new NodeOperationError(node.name, `Credential-Typ "${type}" wird nicht unterstützt`, { itemIndex });
+      throw new NodeOperationError(node.name, `Credential type "${type}" is not supported`, { itemIndex });
     }
   } else if (authentication === 'predefinedCredentialType') {
-    // n8n HttpRequestV3: requestWithAuthentication mit ICredentialType.authenticate des Typs, bei OAuth2-Typen
-    // requestOAuth2 (Token, erneuter Versuch nach 401), bei OAuth1 requestOAuth1 (M25)
+    // n8n HttpRequestV3: requestWithAuthentication with the type's ICredentialType.authenticate, for OAuth2 types
+    // requestOAuth2 (token, retry after 401), for OAuth1 requestOAuth1 (M25)
     const type = ctx.getParam<string>('nodeCredentialType', 0, '');
     const cred = withCredentialDefaults(type, await ctx.getCredentials(type, itemIndex));
     if (hasAuthentication(type)) {
@@ -430,13 +430,13 @@ async function buildRequest(ctx: ExecContext, itemIndex: number, items: Item[], 
     } else if (isOAuth1Type(type) || cred.consumerKey !== undefined) {
       oauth1 = cred;
     } else if (isOAuth2Type(type) || cred.oauthTokenData || cred.grantType || cred.accessTokenUrl) {
-      // Dienst-Eigenheiten wie getOAuth2AdditionalParameters (z. B. Slack mit dem Benutzer-Token)
+      // Service quirks like getOAuth2AdditionalParameters (e.g. Slack with the user token)
       oauth2 = cred;
       oauth2Options = oauth2ServiceOptions(type);
     } else {
-      throw new NodeOperationError(node.name, `Credential-Typ "${type}": filuflow kennt keine Authentifizierung dafür`, {
+      throw new NodeOperationError(node.name, `Credential type "${type}": filuflow knows no authentication for it`, {
         itemIndex,
-        description: 'Eingebaute Typen sind z. B. githubApi, notionApi, slackApi, stripeApi, airtableTokenApi; weitere bringen Plugins mit.',
+        description: 'Built-in types are e.g. githubApi, notionApi, slackApi, stripeApi, airtableTokenApi; plugins provide more.',
       });
     }
   }
@@ -447,7 +447,7 @@ async function buildRequest(ctx: ExecContext, itemIndex: number, items: Item[], 
     else headers.accept = 'application/json,text/html,application/xhtml+xml,application/xml,text/*;q=0.9, image/*;q=0.8, */*;q=0.7';
   }
 
-  // Body serialisieren wie parseRequestObject
+  // Serialize the body like parseRequestObject
   const ctHeader = hasHeader(headers, 'content-type');
   const ct = ctHeader ? headers[ctHeader] : undefined;
   if (ct === 'application/x-www-form-urlencoded' && !formData) {
@@ -465,7 +465,7 @@ async function buildRequest(ctx: ExecContext, itemIndex: number, items: Item[], 
     else if (!hasHeader(headers, 'content-type') && typeof bodyObject !== 'string') headers['content-type'] = 'application/json';
   }
 
-  // Weiterleitungen (n8n: v4+ folgt standardmäßig)
+  // Redirects (n8n: v4+ follows by default)
   const redirect = options.redirect;
   const defaultRedirect = version >= 4 && redirect === undefined;
   let follow = false;
@@ -474,7 +474,7 @@ async function buildRequest(ctx: ExecContext, itemIndex: number, items: Item[], 
   if (redirect?.redirect?.maxRedirects || defaultRedirect) maxRedirects = redirect?.redirect?.maxRedirects;
 
   const finalUrl = buildUrl(url, qsParams, sendQuery ? options.queryParameterArrays : undefined);
-  // SSL-Zertifikate (setAgentOptions)
+  // SSL certificates (setAgentOptions)
   let tls: HttpRequest['tls'];
   if (ctx.getParam<boolean>('provideSslCertificates', itemIndex, false) === true) {
     const ssl = await ctx.getCredentials('httpSslAuth', itemIndex);
@@ -515,15 +515,15 @@ async function buildRequest(ctx: ExecContext, itemIndex: number, items: Item[], 
 }
 
 /**
- * n8n 1.123.0 request-helper-functions.ts requestOAuth1: signiert mit oauth_token und oauth_token_secret aus den
- * Token-Daten, Signatur über Query (in finalUrl enthalten) und Formularfelder. n8n ersetzt dabei alle Header durch den
- * Authorization-Header; den Content-Type des Bodys setzt danach die HTTP-Bibliothek, hier wird er beibehalten.
+ * n8n 1.123.0 request-helper-functions.ts requestOAuth1: signs with oauth_token and oauth_token_secret from the
+ * token data, signature over the query (contained in finalUrl) and form fields. n8n replaces all headers with the
+ * Authorization header; the HTTP library then sets the body's content type, here it is kept.
  */
 function signOAuth1Request(request: HttpRequest, cred: Record<string, unknown>, form: Record<string, unknown> | undefined, nodeName: string): HttpRequest {
   const tokenData = connectedOAuth1TokenData(cred, credentialRefOf(cred));
   if (!tokenData) {
     throw new NodeOperationError(nodeName, 'OAuth credentials not connected', {
-      description: 'Das Credential ist noch nicht verbunden: in der Oberfläche unter Credentials auf "Verbinden" klicken.',
+      description: 'The credential is not connected yet: click "Connect" under Credentials in the interface.',
     });
   }
   const oauth = authorizeOAuth1(
@@ -542,8 +542,8 @@ function signOAuth1Request(request: HttpRequest, cred: Record<string, unknown>, 
 }
 
 /**
- * Request senden; nach 401 (OAuth2: tokenExpiredStatusCode) das Token erneuern bzw. auf die Digest-Challenge antworten
- * und einmal wiederholen
+ * Send the request; after 401 (OAuth2: tokenExpiredStatusCode) refresh the token or answer the digest challenge
+ * and retry once
  */
 async function sendRequest(ctx: ExecContext, spec: RequestSpec): Promise<HttpResponse> {
   const response = await ctx.helpers.http.request(spec.request);
@@ -577,9 +577,9 @@ interface PaginationParameters {
 }
 
 /**
- * Pagination wie HttpRequestV3 (Optionen zusammenstellen) und requestWithAuthenticationPaginated (Schleife):
- * je Seite die Request-Werte mit $response, $request und $pageCount auswerten, Abbruch über "continue",
- * maxRequests, 5x gleiche Länge und 3x gleicher Hash, Fehler bei Statuscodes außerhalb 2xx nur beim Weitermachen.
+ * Pagination like HttpRequestV3 (assembling options) and requestWithAuthenticationPaginated (loop):
+ * per page evaluate the request values with $response, $request and $pageCount, stop via "continue",
+ * maxRequests, 5x the same length and 3x the same hash, errors for status codes outside 2xx only when continuing.
  */
 async function paginate(ctx: ExecContext, itemIndex: number, items: Item[], p: PaginationParameters, binaryResult: boolean): Promise<{ responses: HttpResponse[]; spec: RequestSpec }> {
   const node = ctx.node;
@@ -594,7 +594,7 @@ async function paginate(ctx: ExecContext, itemIndex: number, items: Item[], p: P
     if (!complete.length || complete[0] !== '=') throw new NodeOperationError(node.name, 'Invalid or empty Complete Expression');
     continueExpression = `={{ !(${complete.trim().slice(3, -2)}) }}`;
   } else {
-    // responseIsEmpty (Default)
+    // responseIsEmpty (default)
     continueExpression = '={{ Array.isArray($response.body) ? $response.body.length : !!$response.body }}';
   }
   const request: Record<string, Record<string, unknown> | string> = {};
@@ -693,7 +693,7 @@ async function paginate(ctx: ExecContext, itemIndex: number, items: Item[], p: P
 }
 
 function parseJsonLoose(text: string): unknown {
-  // axios transformResponse (silentJSONParsing): bei Fehler bleibt der Text
+  // axios transformResponse (silentJSONParsing): on error the text remains
   try {
     return text === '' ? undefined : JSON.parse(text);
   } catch {
@@ -705,7 +705,7 @@ export const httpRequestNode: NodeType = {
   type: 'n8n-nodes-base.httpRequest',
   displayName: 'HTTP Request',
   versions: [3, 4, 4.1, 4.2, 4.3],
-  // Parameter wie n8n V3/Description.ts (mainProperties), siehe shared/httpRequestParams.ts
+  // Parameters like n8n V3/Description.ts (mainProperties), see shared/httpRequestParams.ts
   parameters: httpRequestParameters,
   outputs: () => 1,
   credentialTypes: credentialTypesFor,
@@ -714,13 +714,13 @@ export const httpRequestNode: NodeType = {
     const auth = node.parameters.authentication as string | undefined;
     if (auth === 'predefinedCredentialType') {
       const type = String(node.parameters.nodeCredentialType ?? '');
-      // OAuth2-Typen (oAuth2Api und abgeleitete wie googleOAuth2Api) laufen über das gespeicherte Token, alle anderen brauchen eine bekannte Authentifizierung
+      // OAuth2 types (oAuth2Api and derived ones like googleOAuth2Api) use the stored token, all others need a known authentication
       if (!hasAuthentication(type) && !isOAuth2Type(type) && !isOAuth1Type(type)) {
-        issues.push({ code: 'node.unsupportedParameter', message: `HTTP Request: für den Credential-Typ "${type}" kennt filuflow keine Authentifizierung`, path: 'parameters.nodeCredentialType' });
+        issues.push({ code: 'node.unsupportedParameter', message: `HTTP Request: filuflow knows no authentication for the credential type "${type}"`, path: 'parameters.nodeCredentialType' });
       }
     }
     if (auth === 'genericCredentialType' && !SUPPORTED_GENERIC.has(String(node.parameters.genericAuthType))) {
-      issues.push({ code: 'node.unsupportedParameter', message: `HTTP Request: Credential-Typ "${String(node.parameters.genericAuthType)}" wird nicht unterstützt`, path: 'parameters.genericAuthType' });
+      issues.push({ code: 'node.unsupportedParameter', message: `HTTP Request: credential type "${String(node.parameters.genericAuthType)}" is not supported`, path: 'parameters.genericAuthType' });
     }
     return issues;
   },
@@ -729,7 +729,7 @@ export const httpRequestNode: NodeType = {
     const items = ctx.items;
     const errorItems: Record<number, string> = {};
     const promises: Array<Promise<{ responses: HttpResponse[]; spec: RequestSpec }>> = [];
-    // Pagination gilt für alle Items (n8n liest sie mit Index 0 und rohen Expressions)
+    // Pagination applies to all items (n8n reads it with index 0 and raw expressions)
     const pagination = ctx.getParam<PaginationParameters | null>('options.pagination.pagination', 0, null, { rawExpressions: true });
     const paginated = !!pagination && !!pagination.paginationMode && pagination.paginationMode !== 'off';
     const fileResult = ctx.getParam<string>('options.response.response.responseFormat', 0, 'autodetect') === 'file';
@@ -749,7 +749,7 @@ export const httpRequestNode: NodeType = {
           continue;
         }
         const spec = await buildRequest(ctx, itemIndex, items);
-        // oAuth2Api: bei 401 neues Token holen und einmal wiederholen (n8n requestOAuth2); Digest nach der Challenge
+        // oAuth2Api: on 401 fetch a new token and retry once (n8n requestOAuth2); digest after the challenge
         const p = sendRequest(ctx, spec).then((response) => {
           if (response.statusCode >= 400 && !spec.neverError) {
             let errBody: unknown = response.body.toString('utf8');
@@ -831,8 +831,8 @@ export const httpRequestNode: NodeType = {
             newItem.json = fullResponse
               ? { headers: full.headers, statusCode: full.statusCode, statusMessage: full.statusMessage }
               : items[itemIndex].json;
-            // n8n prepareBinaryData mit IncomingMessage: Dateiname aus Content-Disposition oder URL-Pfad,
-            // directory = vollständige Antwort-URL
+            // n8n prepareBinaryData with IncomingMessage: file name from Content-Disposition or URL path,
+            // directory = full response URL
             let filePath = contentDispositionFilename(response.headers['content-disposition']);
             if (!filePath) {
               try {

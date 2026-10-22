@@ -1,7 +1,7 @@
-// Variablen für $vars: Einträge aus vars.json (FILUFLOW_VARS, von Hand gepflegt, nur lesbar) und in der Oberfläche
-// gepflegte Einträge in der SQLite-Tabelle kv. Regeln für Schlüssel und Werte wie n8n 1.123.0
-// packages/@n8n/api-types/src/dto/variables/base.dto.ts: Schlüssel [A-Za-z0-9_], höchstens 50 Zeichen, Werte sind
-// Zeichenketten mit höchstens 1000 Zeichen.
+// Variables for $vars: entries from vars.json (FILUFLOW_VARS, maintained by hand, read-only) and entries
+// maintained in the interface in the SQLite table kv. Rules for keys and values as in n8n 1.123.0
+// packages/@n8n/api-types/src/dto/variables/base.dto.ts: keys [A-Za-z0-9_], at most 50 characters, values are
+// strings with at most 1000 characters.
 import type { FastifyInstance } from 'fastify';
 import type { Logger } from '../logger.js';
 
@@ -18,7 +18,7 @@ export interface VariableKv {
 export interface VariableEntry {
   key: string;
   value: string;
-  /** file: aus vars.json (nur lesbar), managed: in der Oberfläche gepflegt */
+  /** file: from vars.json (read-only), managed: maintained in the interface */
   source: 'file' | 'managed';
 }
 
@@ -32,11 +32,11 @@ export class VariableError extends Error {
 }
 
 /**
- * Hält das Objekt aktuell, das der Runner als $vars weitergibt (wird an Ort und Stelle geändert, damit laufende und
- * neue Ausführungen ohne Neustart die neuen Werte sehen). Einträge aus der Datei haben Vorrang.
+ * Keeps the object current that the runner passes on as $vars (modified in place so that running and
+ * new executions see the new values without a restart). Entries from the file take precedence.
  */
 export class VariableStore {
-  /** Das Objekt für $vars */
+  /** The object for $vars */
   readonly vars: Record<string, unknown> = {};
 
   constructor(
@@ -66,18 +66,18 @@ export class VariableStore {
     return entries.sort((a, b) => a.key.localeCompare(b.key));
   }
 
-  /** Anlegen oder ändern; mit rename wird der Schlüssel umbenannt */
+  /** Create or change; with rename the key is renamed */
   set(key: string, value: unknown, o: { rename?: string; create?: boolean } = {}): VariableEntry {
     const target = o.rename ?? key;
-    if (typeof target !== 'string' || !target) throw new VariableError('Der Schlüssel darf nicht leer sein', 400);
-    if (target.length > VARIABLE_KEY_MAX_LENGTH) throw new VariableError(`Der Schlüssel darf höchstens ${VARIABLE_KEY_MAX_LENGTH} Zeichen haben`, 400);
-    if (!VARIABLE_KEY_REGEX.test(target)) throw new VariableError('Der Schlüssel darf nur A-Z, a-z, 0-9 und _ enthalten', 400);
-    if (typeof value !== 'string') throw new VariableError('Der Wert muss eine Zeichenkette sein', 400);
-    if (value.length > VARIABLE_VALUE_MAX_LENGTH) throw new VariableError(`Der Wert darf höchstens ${VARIABLE_VALUE_MAX_LENGTH} Zeichen haben`, 400);
-    if (key in this.file || target in this.file) throw new VariableError(`"${key in this.file ? key : target}" stammt aus vars.json und ist hier nur lesbar`, 409);
+    if (typeof target !== 'string' || !target) throw new VariableError('The key must not be empty', 400);
+    if (target.length > VARIABLE_KEY_MAX_LENGTH) throw new VariableError(`The key may have at most ${VARIABLE_KEY_MAX_LENGTH} characters`, 400);
+    if (!VARIABLE_KEY_REGEX.test(target)) throw new VariableError('The key may only contain A-Z, a-z, 0-9 and _', 400);
+    if (typeof value !== 'string') throw new VariableError('The value must be a string', 400);
+    if (value.length > VARIABLE_VALUE_MAX_LENGTH) throw new VariableError(`The value may have at most ${VARIABLE_VALUE_MAX_LENGTH} characters`, 400);
+    if (key in this.file || target in this.file) throw new VariableError(`"${key in this.file ? key : target}" comes from vars.json and is read-only here`, 409);
     const managed = this.managed();
-    if (o.create && key in managed) throw new VariableError(`Variable "${key}" gibt es schon`, 409);
-    if (target !== key && target in managed) throw new VariableError(`Variable "${target}" gibt es schon`, 409);
+    if (o.create && key in managed) throw new VariableError(`Variable "${key}" already exists`, 409);
+    if (target !== key && target in managed) throw new VariableError(`Variable "${target}" already exists`, 409);
     if (target !== key) delete managed[key];
     managed[target] = value;
     this.kv.set(KV_KEY, managed);
@@ -86,16 +86,16 @@ export class VariableStore {
   }
 
   delete(key: string): void {
-    if (key in this.file) throw new VariableError(`"${key}" stammt aus vars.json und ist hier nur lesbar`, 409);
+    if (key in this.file) throw new VariableError(`"${key}" comes from vars.json and is read-only here`, 409);
     const managed = this.managed();
-    if (!(key in managed)) throw new VariableError(`Variable "${key}" nicht gefunden`, 404);
+    if (!(key in managed)) throw new VariableError(`Variable "${key}" not found`, 404);
     delete managed[key];
     this.kv.set(KV_KEY, managed);
     this.apply();
   }
 }
 
-/** Routen unter prefix (Einzelbetrieb /api/variables, Worker /api/worker/variables) */
+/** Routes under prefix (standalone /api/variables, worker /api/worker/variables) */
 export async function registerVariablesApi(api: FastifyInstance, o: { prefix: string; variables: VariableStore; logger: Logger }): Promise<void> {
   const fail = (reply: { code(n: number): { send(b: unknown): unknown } }, error: unknown) => {
     if (error instanceof VariableError) return reply.code(error.statusCode).send({ message: error.message });
@@ -107,8 +107,8 @@ export async function registerVariablesApi(api: FastifyInstance, o: { prefix: st
     const body = (request.body ?? {}) as { value?: unknown; rename?: unknown; create?: unknown };
     try {
       const entry = o.variables.set(key, body.value, { ...(typeof body.rename === 'string' ? { rename: body.rename } : {}), create: body.create === true });
-      // Werte nicht loggen: Variablen können interne Adressen oder Kennungen enthalten
-      o.logger.info({ variable: entry.key }, 'Variable gespeichert');
+      // Do not log values: variables may contain internal addresses or identifiers
+      o.logger.info({ variable: entry.key }, 'Variable saved');
       return entry;
     } catch (error) {
       return fail(reply, error);
@@ -118,7 +118,7 @@ export async function registerVariablesApi(api: FastifyInstance, o: { prefix: st
     const key = (request.params as { key: string }).key;
     try {
       o.variables.delete(key);
-      o.logger.info({ variable: key }, 'Variable gelöscht');
+      o.logger.info({ variable: key }, 'Variable deleted');
       return reply.code(204).send();
     } catch (error) {
       return fail(reply, error);

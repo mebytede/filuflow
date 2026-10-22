@@ -1,5 +1,5 @@
-// Master (M9a): Einrichtung, Anmeldung mit Passwort und TOTP, Sperren, CSRF, API-Tokens, Rechte in Projekten,
-// versionierte Workflows mit Konfliktprüfung, Audit-Log.
+// Master (M9a): setup, login with password and TOTP, locking, CSRF, API tokens, permissions in projects,
+// versioned workflows with conflict check, audit log.
 import { afterEach, describe, expect, it } from 'vitest';
 import type { MasterServer } from '../src/master/app.js';
 import { base32Encode, checkPasswordPolicy, hashPassword, SecretBox, totpCode, totpCounter, verifyPassword, verifyTotp } from '../src/master/auth.js';
@@ -19,24 +19,24 @@ async function start(): Promise<MasterServer> {
   return master;
 }
 
-describe('Bausteine', () => {
-  it('Passwort-Hash (scrypt) und Richtlinie', async () => {
-    expect(checkPasswordPolicy('kurz')).toMatch(/12/);
-    expect(checkPasswordPolicy('lang-genug-passwort')).toBeUndefined();
-    const hash = await hashPassword('lang-genug-passwort');
+describe('Building blocks', () => {
+  it('password hash (scrypt) and policy', async () => {
+    expect(checkPasswordPolicy('short')).toMatch(/12/);
+    expect(checkPasswordPolicy('long-enough-password')).toBeUndefined();
+    const hash = await hashPassword('long-enough-password');
     expect(hash).toMatch(/^scrypt\$/);
-    expect(await verifyPassword('lang-genug-passwort', hash)).toBe(true);
-    expect(await verifyPassword('falsches-passwort!', hash)).toBe(false);
+    expect(await verifyPassword('long-enough-password', hash)).toBe(true);
+    expect(await verifyPassword('wrong-password!!', hash)).toBe(false);
     expect(await verifyPassword('x', null)).toBe(false);
   });
 
-  it('TOTP nach RFC 6238 (Testvektor SHA1, 6 Stellen)', () => {
-    // RFC 6238 Anhang B: Schlüssel "12345678901234567890", T=59 -> 94287082, T=1111111109 -> 07081804
+  it('TOTP per RFC 6238 (test vector SHA1, 6 digits)', () => {
+    // RFC 6238 appendix B: key "12345678901234567890", T=59 -> 94287082, T=1111111109 -> 07081804
     const secret = base32Encode(Buffer.from('12345678901234567890'));
     expect(totpCode(secret, totpCounter(59_000))).toBe('287082');
     expect(totpCode(secret, totpCounter(1111111109_000))).toBe('081804');
     expect(totpCode(secret, totpCounter(2000000000_000))).toBe('279037');
-    // Zeitfenster ±1, Wiederverwendung desselben Zählers nicht erlaubt
+    // Time window +-1, reusing the same counter is not allowed
     const t = 1111111109_000;
     const c = totpCounter(t);
     expect(verifyTotp(secret, '081804', null, t)).toBe(c);
@@ -46,15 +46,15 @@ describe('Bausteine', () => {
     expect(verifyTotp(secret, 'abc', null, t)).toBeUndefined();
   });
 
-  it('SecretBox verlangt einen Schlüssel und verschlüsselt umkehrbar', () => {
-    expect(() => new SecretBox('kurz')).toThrow(/16 Zeichen/);
-    const box = new SecretBox('ein-langer-schluessel');
-    const sealed = box.seal('geheim');
-    expect(sealed).not.toContain('geheim');
-    expect(box.open(sealed)).toBe('geheim');
+  it('SecretBox requires a key and encrypts reversibly', () => {
+    expect(() => new SecretBox('short')).toThrow(/16 characters/);
+    const box = new SecretBox('a-long-secret-key');
+    const sealed = box.seal('secret');
+    expect(sealed).not.toContain('secret');
+    expect(box.open(sealed)).toBe('secret');
   });
 
-  it('Projektrollen', () => {
+  it('project roles', () => {
     expect(allows('viewer', 'workflow.read')).toBe(true);
     expect(allows('viewer', 'workflow.edit')).toBe(false);
     expect(allows('editor', 'workflow.run')).toBe(true);
@@ -66,29 +66,29 @@ describe('Bausteine', () => {
   });
 });
 
-describe('Einrichtung und Anmeldung', () => {
-  it('erster Admin nur mit Einrichtungs-Token, danach gesperrt', async () => {
+describe('Setup and login', () => {
+  it('first admin only with the setup token, blocked afterwards', async () => {
     const m = await start();
     const c = new Client(m.app);
     const status = (await c.get('/api/auth/status')).json();
     expect(status).toMatchObject({ mode: 'master', authenticated: false, setupRequired: true, oidc: { enabled: false } });
     expect(m.setupToken).toBeTruthy();
 
-    expect((await c.post('/api/auth/setup', { setupToken: 'falsch', ...ADMIN })).statusCode).toBe(403);
-    expect((await c.post('/api/auth/setup', { setupToken: m.setupToken, ...ADMIN, password: 'kurz' })).statusCode).toBe(400);
+    expect((await c.post('/api/auth/setup', { setupToken: 'wrong', ...ADMIN })).statusCode).toBe(403);
+    expect((await c.post('/api/auth/setup', { setupToken: m.setupToken, ...ADMIN, password: 'short' })).statusCode).toBe(400);
     const token = m.setupToken;
     const ok = await c.post('/api/auth/setup', { setupToken: token, ...ADMIN });
     expect(ok.statusCode).toBe(200);
     expect(ok.json().user).toMatchObject({ email: ADMIN.email, role: 'admin' });
     expect(m.setupToken).toBeUndefined();
-    // Sitzung ist direkt aktiv
+    // Session is active right away
     expect((await c.get('/api/me')).json().user.email).toBe(ADMIN.email);
     expect((await c.get('/api/auth/status')).json()).toMatchObject({ authenticated: true, setupRequired: false });
-    // Zweite Einrichtung nicht möglich
+    // A second setup is not possible
     expect((await new Client(m.app).post('/api/auth/setup', { setupToken: token, ...ADMIN, email: 'x@y.z' })).statusCode).toBe(409);
   });
 
-  it('ohne Anmeldung keine API, Cookie mit HttpOnly und SameSite', async () => {
+  it('no API without login, cookie with HttpOnly and SameSite', async () => {
     const m = await start();
     const anon = new Client(m.app);
     expect((await anon.get('/api/projects')).statusCode).toBe(401);
@@ -104,7 +104,7 @@ describe('Einrichtung und Anmeldung', () => {
     expect(cookie).toMatch(/SameSite=Lax/);
     expect(cookie).not.toMatch(/Secure/);
     expect((await c.get('/api/projects')).statusCode).toBe(200);
-    // Abmelden beendet die Sitzung auch serverseitig
+    // Logging out also ends the session on the server
     const raw = c.cookies.get('filuflow_session')!;
     await c.post('/api/auth/logout');
     expect((await c.get('/api/projects')).statusCode).toBe(401);
@@ -112,53 +112,53 @@ describe('Einrichtung und Anmeldung', () => {
     expect((await c.get('/api/projects')).statusCode).toBe(401);
   });
 
-  it('Secure-Cookie bei https', async () => {
+  it('secure cookie with https', async () => {
     master = await startMaster({ publicUrl: 'https://filuflow.example' });
     const c = new Client(master.app);
     const res = await c.post('/api/auth/setup', { setupToken: master.setupToken, ...ADMIN });
     expect(String(res.headers['set-cookie'])).toMatch(/Secure/);
   });
 
-  it('falsches Passwort, gleiche Antwort für unbekannte Benutzer, Sperre nach 10 Fehlversuchen', async () => {
+  it('wrong password, same answer for unknown users, lock after 10 failed attempts', async () => {
     const m = await start();
     await setupAdmin(m);
     const c = new Client(m.app);
-    const unknown = await c.login('niemand@example.org', 'irgendein-passwort');
-    const wrong = await c.login(ADMIN.email, 'falsches-passwort!!');
+    const unknown = await c.login('nobody@example.org', 'some-password-123');
+    const wrong = await c.login(ADMIN.email, 'wrong-password!!');
     expect(unknown.statusCode).toBe(401);
     expect(wrong.statusCode).toBe(401);
     expect(unknown.json().message).toBe(wrong.json().message);
-    for (let i = 0; i < 9; i++) await c.login(ADMIN.email, 'falsches-passwort!!');
-    // Jetzt gesperrt, auch mit richtigem Passwort
+    for (let i = 0; i < 9; i++) await c.login(ADMIN.email, 'wrong-password!!');
+    // Now locked, even with the right password
     const locked = await c.login(ADMIN.email, ADMIN.password);
     expect(locked.statusCode).toBe(429);
     expect(m.db.getUserByEmail(ADMIN.email)!.locked_until).toBeTruthy();
-    // Admin entsperrt (direkt in der Datenbank, der einzige Admin ist gesperrt)
+    // Unlock the admin (directly in the database, the only admin is locked)
     m.db.updateUser(m.db.getUserByEmail(ADMIN.email)!.id, { locked_until: null });
     expect((await c.login(ADMIN.email, ADMIN.password)).statusCode).toBe(200);
   });
 
-  it('Begrenzung der Anmeldeversuche je IP', async () => {
+  it('rate limit of login attempts per IP', async () => {
     const m = await start();
     const c = new Client(m.app);
     let last = 0;
-    for (let i = 0; i < 21; i++) last = (await c.login(`u${i}@example.org`, 'irgendein-passwort')).statusCode;
+    for (let i = 0; i < 21; i++) last = (await c.login(`u${i}@example.org`, 'some-password-123')).statusCode;
     expect(last).toBe(429);
   });
 
-  it('gesperrte Benutzer können sich nicht anmelden, Sitzungen enden', async () => {
+  it('disabled users cannot log in, sessions end', async () => {
     const m = await start();
     const admin = await setupAdmin(m);
     const { client, id } = await addUser(m, admin, 'bob@example.org');
     expect((await client.get('/api/me')).statusCode).toBe(200);
     expect((await admin.put(`/api/admin/users/${id}`, { disabled: true })).statusCode).toBe(200);
     expect((await client.get('/api/me')).statusCode).toBe(401);
-    expect((await new Client(m.app).login('bob@example.org', 'passwort-fuer-bob@example.org')).statusCode).toBe(401);
+    expect((await new Client(m.app).login('bob@example.org', 'password-for-bob@example.org')).statusCode).toBe(401);
   });
 });
 
 describe('CSRF', () => {
-  it('ändernde Requests ohne Header werden abgelehnt (auch die Anmeldung)', async () => {
+  it('mutating requests without the header are rejected (including the login)', async () => {
     const m = await start();
     const admin = await setupAdmin(m);
     admin.csrf = false;
@@ -176,17 +176,17 @@ describe('TOTP', () => {
     expect(setup.statusCode).toBe(200);
     const { secret, uri } = setup.json() as { secret: string; uri: string };
     expect(uri).toMatch(/^otpauth:\/\/totp\/filuflow:/);
-    // Schlüssel liegt verschlüsselt in der Datenbank
+    // The key is stored encrypted in the database
     expect(m.db.getUserByEmail(ADMIN.email)!.totp_secret).not.toContain(secret);
     expect((await c.post('/api/me/totp/enable', { code: '000000' === totpCode(secret, totpCounter()) ? '111111' : '000000' })).statusCode).toBe(400);
-    // Vorheriger Zeitschritt, damit der Code bei der Anmeldung (aktueller Schritt) noch frei ist
+    // Previous time step, so that the code for the login (current step) is still unused
     const enable = await c.post('/api/me/totp/enable', { code: totpCode(secret, totpCounter() - 1) });
     expect(enable.statusCode).toBe(200);
     expect(enable.json().user.totpEnabled).toBe(true);
     return secret;
   }
 
-  it('Anmeldung in zwei Schritten, Code nur einmal gültig', async () => {
+  it('login in two steps, code valid only once', async () => {
     const m = await start();
     const admin = await setupAdmin(m);
     const secret = await enableTotp(m, admin);
@@ -194,23 +194,23 @@ describe('TOTP', () => {
     const c = new Client(m.app);
     const login = await c.login(ADMIN.email, ADMIN.password);
     expect(login.json()).toEqual({ mfaRequired: true });
-    // Halbe Anmeldung reicht nicht für die API
+    // A half login is not enough for the API
     expect((await c.get('/api/me')).statusCode).toBe(401);
     expect((await c.get('/api/auth/status')).json()).toMatchObject({ authenticated: false, mfaPending: true });
-    expect((await c.post('/api/auth/totp', { code: 'falsch' })).statusCode).toBe(401);
+    expect((await c.post('/api/auth/totp', { code: 'wrong' })).statusCode).toBe(401);
     const code = totpCode(secret, totpCounter());
     expect((await c.post('/api/auth/totp', { code })).statusCode).toBe(200);
     expect((await c.get('/api/me')).statusCode).toBe(200);
 
-    // Derselbe Code ein zweites Mal: abgelehnt
+    // The same code a second time: rejected
     const c2 = new Client(m.app);
     await c2.login(ADMIN.email, ADMIN.password);
     expect((await c2.post('/api/auth/totp', { code })).statusCode).toBe(401);
-    // Ohne halbe Anmeldung keine TOTP-Prüfung
+    // No TOTP check without a half login
     expect((await new Client(m.app).post('/api/auth/totp', { code })).statusCode).toBe(401);
   });
 
-  it('Pflicht-TOTP: ohne eingerichtetes TOTP nur Profil und Einrichtung', async () => {
+  it('required TOTP: without TOTP set up only profile and setup', async () => {
     const m = await start();
     const admin = await setupAdmin(m);
     expect((await admin.put('/api/admin/settings', { requireTotp: true })).json()).toEqual({ requireTotp: true });
@@ -221,11 +221,11 @@ describe('TOTP', () => {
     expect((await admin.get('/api/auth/status')).json().requireTotp).toBe(true);
     await enableTotp(m, admin);
     expect((await admin.get('/api/projects')).statusCode).toBe(200);
-    // Abschalten ist bei Pflicht nicht erlaubt
+    // Disabling is not allowed when required
     expect((await admin.post('/api/me/totp/disable', { password: ADMIN.password })).statusCode).toBe(409);
   });
 
-  it('Admin setzt TOTP eines Benutzers zurück', async () => {
+  it('admin resets the TOTP of a user', async () => {
     const m = await start();
     const admin = await setupAdmin(m);
     const { client, id } = await addUser(m, admin, 'eve@example.org');
@@ -234,24 +234,24 @@ describe('TOTP', () => {
     expect(m.db.getUser(id)!.totp_enabled).toBe(1);
     await admin.put(`/api/admin/users/${id}`, { resetTotp: true });
     expect(m.db.getUser(id)!.totp_enabled).toBe(0);
-    expect((await new Client(m.app).login('eve@example.org', 'passwort-fuer-eve@example.org')).json()).toEqual({ mfaRequired: false });
+    expect((await new Client(m.app).login('eve@example.org', 'password-for-eve@example.org')).json()).toEqual({ mfaRequired: false });
   });
 });
 
-describe('Profil und API-Tokens', () => {
-  it('Passwort ändern beendet andere Sitzungen', async () => {
+describe('Profile and API tokens', () => {
+  it('changing the password ends other sessions', async () => {
     const m = await start();
     const admin = await setupAdmin(m);
     const other = new Client(m.app);
     await other.login(ADMIN.email, ADMIN.password);
-    expect((await admin.post('/api/me/password', { current: 'falsch', password: 'neues-langes-passwort' })).statusCode).toBe(403);
-    expect((await admin.post('/api/me/password', { current: ADMIN.password, password: 'neues-langes-passwort' })).statusCode).toBe(200);
+    expect((await admin.post('/api/me/password', { current: 'wrong', password: 'new-long-password' })).statusCode).toBe(403);
+    expect((await admin.post('/api/me/password', { current: ADMIN.password, password: 'new-long-password' })).statusCode).toBe(200);
     expect((await admin.get('/api/me')).statusCode).toBe(200);
     expect((await other.get('/api/me')).statusCode).toBe(401);
-    expect((await new Client(m.app).login(ADMIN.email, 'neues-langes-passwort')).statusCode).toBe(200);
+    expect((await new Client(m.app).login(ADMIN.email, 'new-long-password')).statusCode).toBe(200);
   });
 
-  it('API-Token: einmal angezeigt, gehasht gespeichert, ohne CSRF nutzbar, widerrufbar', async () => {
+  it('API token: shown once, stored hashed, usable without CSRF, revocable', async () => {
     const m = await start();
     const admin = await setupAdmin(m);
     const created = await admin.post('/api/me/tokens', { name: 'CI' });
@@ -264,18 +264,18 @@ describe('Profil und API-Tokens', () => {
     bot.csrf = false;
     bot.bearer = token;
     expect((await bot.get('/api/me')).json().user.email).toBe(ADMIN.email);
-    expect((await bot.post('/api/projects', { name: 'Per Token' })).statusCode).toBe(201);
-    // Neue Tokens nur aus einer Sitzung
-    expect((await bot.post('/api/me/tokens', { name: 'weiter' })).statusCode).toBe(403);
+    expect((await bot.post('/api/projects', { name: 'Via token' })).statusCode).toBe(201);
+    // New tokens only from a session
+    expect((await bot.post('/api/me/tokens', { name: 'another' })).statusCode).toBe(403);
     expect((await admin.del(`/api/me/tokens/${id}`)).statusCode).toBe(204);
     expect((await bot.get('/api/me')).statusCode).toBe(401);
-    bot.bearer = 'ffl_erfunden';
+    bot.bearer = 'ffl_madeup';
     expect((await bot.get('/api/me')).statusCode).toBe(401);
   });
 });
 
-describe('Benutzerverwaltung', () => {
-  it('nur Admins, letzter Admin geschützt', async () => {
+describe('User management', () => {
+  it('admins only, last admin protected', async () => {
     const m = await start();
     const admin = await setupAdmin(m);
     const { client: bob } = await addUser(m, admin, 'bob@example.org');
@@ -283,8 +283,8 @@ describe('Benutzerverwaltung', () => {
     expect((await bob.post('/api/admin/users', { email: 'x@example.org' })).statusCode).toBe(403);
     expect((await bob.get('/api/users')).json().data).toHaveLength(2);
     expect((await admin.post('/api/admin/users', { email: 'bob@example.org' })).statusCode).toBe(409);
-    expect((await admin.post('/api/admin/users', { email: 'kein-mail' })).statusCode).toBe(400);
-    // Ohne Passwort angelegt: Anmeldung nur über OIDC
+    expect((await admin.post('/api/admin/users', { email: 'not-an-email' })).statusCode).toBe(400);
+    // Created without a password: login only via OIDC
     const sso = await admin.post('/api/admin/users', { email: 'sso@example.org' });
     expect(sso.json().user.hasPassword).toBe(false);
     expect((await new Client(m.app).login('sso@example.org', '')).statusCode).toBe(401);
@@ -298,23 +298,23 @@ describe('Benutzerverwaltung', () => {
 });
 
 const sample: Workflow = {
-  name: 'Beispiel',
+  name: 'Example',
   nodes: [
     { id: 'a', name: 'Start', type: 'n8n-nodes-base.manualTrigger', typeVersion: 1, position: [0, 0], parameters: {} },
     {
       id: 'b',
-      name: 'Setzen',
+      name: 'Set',
       type: 'n8n-nodes-base.set',
       typeVersion: 3.4,
       position: [220, 0],
       parameters: { assignments: { assignments: [{ id: 'x', name: 'n', value: 1, type: 'number' }] }, options: {} },
     },
   ],
-  connections: { Start: { main: [[{ node: 'Setzen', type: 'main', index: 0 }]] } },
+  connections: { Start: { main: [[{ node: 'Set', type: 'main', index: 0 }]] } },
   settings: { executionOrder: 'v1' },
 };
 
-describe('Projekte und Rechte', () => {
+describe('Projects and permissions', () => {
   async function scenario() {
     const m = await start();
     const admin = await setupAdmin(m);
@@ -325,25 +325,25 @@ describe('Projekte und Rechte', () => {
     const pb = (await admin.post('/api/projects', { name: 'Beta' })).json() as { id: string };
     await admin.put(`/api/projects/${pa.id}/members/${viewer.id}`, { role: 'viewer' });
     await admin.put(`/api/projects/${pa.id}/members/${editor.id}`, { role: 'editor' });
-    const wf = (await admin.post(`/api/projects/${pa.id}/workflows`, { workflow: { ...sample, id: 'aus-n8n', active: true } })).json() as { id: string; version: number; active: boolean };
+    const wf = (await admin.post(`/api/projects/${pa.id}/workflows`, { workflow: { ...sample, id: 'from-n8n', active: true } })).json() as { id: string; version: number; active: boolean };
     return { m, admin, viewer: viewer.client, editor: editor.client, outsider: outsider.client, editorId: editor.id, pa: pa.id, pb: pb.id, wf };
   }
 
-  it('Projekte anlegen nur für Admins, Namen eindeutig', async () => {
+  it('only admins create projects, names are unique', async () => {
     const { admin, editor } = await scenario();
     expect((await editor.post('/api/projects', { name: 'Gamma' })).statusCode).toBe(403);
     expect((await admin.post('/api/projects', { name: 'alpha' })).statusCode).toBe(409);
     expect((await admin.post('/api/projects', { name: '' })).statusCode).toBe(400);
   });
 
-  it('Import: n8n-ID wird verworfen, Workflow startet inaktiv, Version 1', async () => {
+  it('import: the n8n ID is discarded, the workflow starts inactive, version 1', async () => {
     const { wf } = await scenario();
-    expect(wf.id).not.toBe('aus-n8n');
+    expect(wf.id).not.toBe('from-n8n');
     expect(wf.active).toBe(false);
     expect(wf.version).toBe(1);
   });
 
-  it('Sichtbarkeit: nur eigene Projekte, fremde sind 404', async () => {
+  it('visibility: only own projects, foreign ones are 404', async () => {
     const { admin, viewer, outsider, pa, pb, wf } = await scenario();
     expect(((await admin.get('/api/projects')).json().data as unknown[]).length).toBe(2);
     const mine = (await viewer.get('/api/projects')).json().data as Array<{ id: string; role: string; permissions: string[] }>;
@@ -357,54 +357,54 @@ describe('Projekte und Rechte', () => {
     expect((await outsider.get(`/api/projects/${pa}/workflows`)).statusCode).toBe(404);
   });
 
-  it('Viewer liest, ändert nichts', async () => {
+  it('viewer reads, changes nothing', async () => {
     const { viewer, pa, wf, editorId } = await scenario();
     const got = (await viewer.get(`/api/workflows/${wf.id}`)).json() as { workflow: Workflow; role: string };
     expect(got.role).toBe('viewer');
     expect(got.workflow.nodes).toHaveLength(2);
     expect((await viewer.put(`/api/workflows/${wf.id}`, { workflow: got.workflow, baseVersion: 1 })).statusCode).toBe(403);
-    expect((await viewer.post(`/api/projects/${pa}/workflows`, { name: 'neu' })).statusCode).toBe(403);
+    expect((await viewer.post(`/api/projects/${pa}/workflows`, { name: 'new' })).statusCode).toBe(403);
     expect((await viewer.del(`/api/workflows/${wf.id}`)).statusCode).toBe(403);
     expect((await viewer.post(`/api/workflows/${wf.id}/run`, {})).statusCode).toBe(403);
     expect((await viewer.put(`/api/projects/${pa}/members/${editorId}`, { role: 'admin' })).statusCode).toBe(403);
     expect((await viewer.get(`/api/projects/${pa}/members`)).json().data).toHaveLength(2);
   });
 
-  it('Editor bearbeitet und aktiviert, verwaltet aber keine Mitglieder', async () => {
+  it('editor edits and activates, but does not manage members', async () => {
     const { editor, pa, wf, editorId } = await scenario();
     const got = (await editor.get(`/api/workflows/${wf.id}`)).json() as { workflow: Workflow };
-    const saved = await editor.put(`/api/workflows/${wf.id}`, { workflow: { ...got.workflow, name: 'Umbenannt', active: true }, baseVersion: 1 });
+    const saved = await editor.put(`/api/workflows/${wf.id}`, { workflow: { ...got.workflow, name: 'Renamed', active: true }, baseVersion: 1 });
     expect(saved.statusCode).toBe(200);
-    expect(saved.json()).toMatchObject({ name: 'Umbenannt', version: 2, active: true });
+    expect(saved.json()).toMatchObject({ name: 'Renamed', version: 2, active: true });
     expect(saved.json().updatedBy.email).toBe('emil@example.org');
-    // Ohne Worker: Verteilung nicht möglich, steht am Workflow
-    expect(saved.json().deployment).toMatchObject({ upToDate: false, error: 'Projekt hat keinen Worker' });
+    // Without a worker: deployment is not possible, noted on the workflow
+    expect(saved.json().deployment).toMatchObject({ upToDate: false, error: 'Project has no worker' });
     expect((await editor.post(`/api/workflows/${wf.id}/run`, {})).statusCode).toBe(409);
     expect((await editor.put(`/api/projects/${pa}/members/${editorId}`, { role: 'admin' })).statusCode).toBe(403);
-    expect((await editor.put(`/api/projects/${pa}`, { name: 'Neu' })).statusCode).toBe(403);
-    const created = await editor.post(`/api/projects/${pa}/workflows`, { name: 'Leer' });
+    expect((await editor.put(`/api/projects/${pa}`, { name: 'New' })).statusCode).toBe(403);
+    const created = await editor.post(`/api/projects/${pa}/workflows`, { name: 'Empty' });
     expect(created.statusCode).toBe(201);
     expect(created.json().workflow.nodes[0].type).toBe('n8n-nodes-base.manualTrigger');
     expect((await editor.del(`/api/workflows/${created.json().id}`)).statusCode).toBe(204);
   });
 
-  it('Projekt-Admin verwaltet Mitglieder, ordnet aber keine Worker zu', async () => {
+  it('project admin manages members, but does not assign workers', async () => {
     const { admin, editor, pa, editorId } = await scenario();
     await admin.put(`/api/projects/${pa}/members/${editorId}`, { role: 'admin' });
-    expect((await editor.put(`/api/projects/${pa}`, { description: 'Beschreibung' })).statusCode).toBe(200);
+    expect((await editor.put(`/api/projects/${pa}`, { description: 'Description' })).statusCode).toBe(200);
     expect((await editor.put(`/api/projects/${pa}`, { workerId: null })).statusCode).toBe(403);
-    expect((await editor.put(`/api/projects/${pa}/members/${editorId}`, { role: 'chef' })).statusCode).toBe(400);
+    expect((await editor.put(`/api/projects/${pa}/members/${editorId}`, { role: 'boss' })).statusCode).toBe(400);
     expect((await editor.del(`/api/projects/${pa}`)).statusCode).toBe(403);
   });
 
-  it('Mitglied entfernen nimmt den Zugriff', async () => {
+  it('removing a member revokes access', async () => {
     const { admin, editor, pa, editorId } = await scenario();
     expect((await editor.get(`/api/projects/${pa}`)).statusCode).toBe(200);
     expect((await admin.del(`/api/projects/${pa}/members/${editorId}`)).statusCode).toBe(204);
     expect((await editor.get(`/api/projects/${pa}`)).statusCode).toBe(404);
   });
 
-  it('Verschieben verlangt Rechte in beiden Projekten', async () => {
+  it('moving requires permissions in both projects', async () => {
     const { admin, editor, pa, pb, wf, editorId } = await scenario();
     expect((await editor.post(`/api/workflows/${wf.id}/move`, { projectId: pb })).statusCode).toBe(404);
     await admin.put(`/api/projects/${pb}/members/${editorId}`, { role: 'viewer' });
@@ -413,30 +413,30 @@ describe('Projekte und Rechte', () => {
     expect((await editor.post(`/api/workflows/${wf.id}/move`, { projectId: pb })).statusCode).toBe(200);
     expect((await editor.get(`/api/projects/${pb}/workflows`)).json().data).toHaveLength(1);
     expect((await editor.get(`/api/projects/${pa}/workflows`)).json().data).toHaveLength(0);
-    // Projekt mit Workflows kann nicht gelöscht werden
+    // A project with workflows cannot be deleted
     expect((await admin.del(`/api/projects/${pb}`)).statusCode).toBe(409);
     expect((await admin.del(`/api/projects/${pa}`)).statusCode).toBe(204);
   });
 
-  it('fremde Workflow-ID kann nicht über ein anderes Projekt überschrieben werden', async () => {
+  it('a foreign workflow ID cannot be overwritten via another project', async () => {
     const { m, pb, wf } = await scenario();
     expect(() => m.db.saveWorkflow(pb, { ...sample, id: wf.id }, null)).toThrow();
   });
 });
 
-describe('Eigene Rollen (M34)', () => {
-  it('legt Rollen mit Aktionen an, vergibt sie im Projekt und für einzelne Workflows, schützt vergebene Rollen', async () => {
+describe('Custom roles (M34)', () => {
+  it('creates roles with actions, assigns them in the project and for single workflows, protects assigned roles', async () => {
     const m = await start();
     const admin = await setupAdmin(m);
     const anna = await addUser(m, admin, 'anna@example.org');
     const pa = (await admin.post('/api/projects', { name: 'Alpha' })).json() as { id: string };
     const wf = (await admin.post(`/api/projects/${pa.id}/workflows`, { workflow: { ...sample } })).json() as { id: string; version: number };
 
-    // Nur globale Admins legen Rollen an; die Liste sehen alle
-    expect((await anna.client.post('/api/admin/roles', { name: 'Betrieb', permissions: [] })).statusCode).toBe(403);
-    expect((await admin.post('/api/admin/roles', { name: 'Lesen', permissions: [] })).statusCode).toBe(409);
-    expect((await admin.post('/api/admin/roles', { name: 'X', permissions: ['alles'] })).json().message).toBe('Unbekannte Aktionen: alles');
-    const created = await admin.post('/api/admin/roles', { name: 'Betrieb', description: 'Ausführen ohne Bearbeiten', permissions: ['workflow.read', 'workflow.run', 'workflow.activate', 'execution.read'] });
+    // Only global admins create roles; everyone sees the list
+    expect((await anna.client.post('/api/admin/roles', { name: 'Operations', permissions: [] })).statusCode).toBe(403);
+    expect((await admin.post('/api/admin/roles', { name: 'Read', permissions: [] })).statusCode).toBe(409);
+    expect((await admin.post('/api/admin/roles', { name: 'X', permissions: ['everything'] })).json().message).toBe('Unknown actions: everything');
+    const created = await admin.post('/api/admin/roles', { name: 'Operations', description: 'Run without editing', permissions: ['workflow.read', 'workflow.run', 'workflow.activate', 'execution.read'] });
     expect(created.statusCode).toBe(201);
     const role = created.json() as { id: string; name: string; usage: number };
     expect(role.id).toMatch(/^custom:/);
@@ -444,7 +444,7 @@ describe('Eigene Rollen (M34)', () => {
     expect(list.data.map((r) => r.id)).toEqual(['admin', 'editor', 'viewer', role.id]);
     expect(list.actions).toContain('workflow.share');
 
-    // Im Projekt vergeben: Rechte genau wie gewählt (plus Lesen des Projekts)
+    // Assigned in the project: permissions exactly as chosen (plus reading the project)
     expect((await admin.put(`/api/projects/${pa.id}/members/${anna.id}`, { role: role.id })).statusCode).toBe(200);
     const mine = (await anna.client.get('/api/projects')).json().data as Array<{ role: string; permissions: string[] }>;
     expect(mine[0].role).toBe(role.id);
@@ -453,11 +453,11 @@ describe('Eigene Rollen (M34)', () => {
     expect((await anna.client.put(`/api/workflows/${wf.id}`, { workflow: got.workflow, baseVersion: wf.version })).statusCode).toBe(403);
     expect((await anna.client.del(`/api/workflows/${wf.id}`)).statusCode).toBe(403);
 
-    // Rolle ändern wirkt sofort
-    await admin.put(`/api/admin/roles/${encodeURIComponent(role.id)}`, { name: 'Betrieb', permissions: ['workflow.read', 'workflow.edit'] });
+    // Changing the role takes effect immediately
+    await admin.put(`/api/admin/roles/${encodeURIComponent(role.id)}`, { name: 'Operations', permissions: ['workflow.read', 'workflow.edit'] });
     expect((await anna.client.put(`/api/workflows/${wf.id}`, { workflow: got.workflow, baseVersion: wf.version })).statusCode).toBe(200);
 
-    // Vergebene Rolle lässt sich nicht löschen; auch als Rolle für einen Workflow nutzbar
+    // An assigned role cannot be deleted; also usable as a role for a workflow
     expect((await admin.del(`/api/admin/roles/${encodeURIComponent(role.id)}`)).statusCode).toBe(409);
     await admin.put(`/api/projects/${pa.id}/members/${anna.id}`, { role: 'viewer' });
     expect((await admin.put(`/api/workflows/${wf.id}/members/${anna.id}`, { role: role.id })).statusCode).toBe(200);
@@ -469,8 +469,8 @@ describe('Eigene Rollen (M34)', () => {
   });
 });
 
-describe('Migration der Rollen', () => {
-  it('ersetzt den alten CHECK der Mitgliedertabellen und behält die Einträge', async () => {
+describe('Migration of roles', () => {
+  it('replaces the old CHECK of the member tables and keeps the entries', async () => {
     const { mkdtempSync, rmSync } = await import('node:fs');
     const { join } = await import('node:path');
     const { tmpdir } = await import('node:os');
@@ -500,61 +500,61 @@ describe('Migration der Rollen', () => {
   });
 });
 
-describe('Versionen und gleichzeitige Bearbeitung', () => {
-  it('Konflikt bei veralteter Basisversion, Versionen abrufbar', async () => {
+describe('Versions and concurrent editing', () => {
+  it('conflict with a stale base version, versions retrievable', async () => {
     const m = await start();
     const admin = await setupAdmin(m);
     const p = (await admin.post('/api/projects', { name: 'P' })).json() as { id: string };
     const wf = (await admin.post(`/api/projects/${p.id}/workflows`, { workflow: sample })).json() as { id: string; workflow: Workflow };
 
-    const v2 = await admin.put(`/api/workflows/${wf.id}`, { workflow: { ...wf.workflow, name: 'Zwei' }, baseVersion: 1 });
+    const v2 = await admin.put(`/api/workflows/${wf.id}`, { workflow: { ...wf.workflow, name: 'Two' }, baseVersion: 1 });
     expect(v2.json().version).toBe(2);
-    const conflict = await admin.put(`/api/workflows/${wf.id}`, { workflow: { ...wf.workflow, name: 'Veraltet' }, baseVersion: 1 });
+    const conflict = await admin.put(`/api/workflows/${wf.id}`, { workflow: { ...wf.workflow, name: 'Stale' }, baseVersion: 1 });
     expect(conflict.statusCode).toBe(409);
     expect(conflict.json()).toMatchObject({ currentVersion: 2 });
     expect(conflict.json().message).toMatch(/Ada Admin/);
-    // Ohne baseVersion: wird gespeichert (z. B. API-Clients)
-    expect((await admin.put(`/api/workflows/${wf.id}`, { workflow: { ...wf.workflow, name: 'Drei' } })).json().version).toBe(3);
-    expect((await admin.put(`/api/workflows/${wf.id}`, { workflow: { nodes: 'kaputt' }, baseVersion: 3 })).statusCode).toBe(400);
+    // Without baseVersion: it is saved (e.g. API clients)
+    expect((await admin.put(`/api/workflows/${wf.id}`, { workflow: { ...wf.workflow, name: 'Three' } })).json().version).toBe(3);
+    expect((await admin.put(`/api/workflows/${wf.id}`, { workflow: { nodes: 'broken' }, baseVersion: 3 })).statusCode).toBe(400);
 
     const versions = (await admin.get(`/api/workflows/${wf.id}/versions`)).json().data as Array<{ version: number; createdBy: string }>;
     expect(versions.map((v) => v.version)).toEqual([3, 2, 1]);
     expect(versions[0].createdBy).toBe(ADMIN.email);
     const old = await admin.get(`/api/workflows/${wf.id}/versions/1`);
-    expect(old.json().workflow.name).toBe('Beispiel');
+    expect(old.json().workflow.name).toBe('Example');
     expect((await admin.get(`/api/workflows/${wf.id}/versions/99`)).statusCode).toBe(404);
   });
 });
 
-describe('Prüfen ohne Worker und Audit-Log', () => {
-  it('Prüfen lokal ohne Credentials, unbekannte Node-Typen werden gemeldet', async () => {
+describe('Inspect without worker and audit log', () => {
+  it('inspects locally without credentials, unknown node types are reported', async () => {
     const m = await start();
     const admin = await setupAdmin(m);
     const p = (await admin.post('/api/projects', { name: 'P' })).json() as { id: string };
     const ok = (await admin.post(`/api/projects/${p.id}/inspect`, sample)).json();
     expect(ok).toMatchObject({ valid: true, worker: 'none' });
-    const bad = (await admin.post(`/api/projects/${p.id}/inspect`, { ...sample, nodes: [...sample.nodes, { id: 'z', name: 'Z', type: 'n8n-nodes-base.gibtsNicht', typeVersion: 1, position: [0, 0], parameters: {} }] })).json();
+    const bad = (await admin.post(`/api/projects/${p.id}/inspect`, { ...sample, nodes: [...sample.nodes, { id: 'z', name: 'Z', type: 'n8n-nodes-base.doesNotExist', typeVersion: 1, position: [0, 0], parameters: {} }] })).json();
     expect(bad.valid).toBe(false);
-    expect(JSON.stringify(bad.issues)).toMatch(/gibtsNicht/);
+    expect(JSON.stringify(bad.issues)).toMatch(/doesNotExist/);
     expect(((await admin.get('/api/editor/node-types')).json().data as unknown[]).length).toBeGreaterThan(10);
     expect((await admin.get(`/api/projects/${p.id}/credentials`)).json()).toEqual({ data: [] });
     expect((await admin.get(`/api/projects/${p.id}/executions`)).json()).toEqual({ data: [] });
   });
 
-  it('protokolliert Anmeldung, Änderungen und Fehlversuche ohne Geheimnisse', async () => {
+  it('logs login, changes and failed attempts without secrets', async () => {
     const m = await start();
     const admin = await setupAdmin(m);
-    await new Client(m.app).login(ADMIN.email, 'falsches-passwort!!');
-    await admin.post('/api/admin/users', { email: 'neu@example.org', password: 'ein-langes-passwort' });
+    await new Client(m.app).login(ADMIN.email, 'wrong-password!!');
+    await admin.post('/api/admin/users', { email: 'new@example.org', password: 'a-long-password' });
     const users = (await admin.get('/api/admin/users')).json().data as Array<{ id: string; email: string }>;
-    await admin.put(`/api/admin/users/${users.find((u) => u.email === 'neu@example.org')!.id}`, { password: 'anderes-langes-passwort' });
+    await admin.put(`/api/admin/users/${users.find((u) => u.email === 'new@example.org')!.id}`, { password: 'another-long-password' });
     await admin.post('/api/projects', { name: 'P' });
     const audit = (await admin.get('/api/admin/audit')).json().data as Array<{ action: string; email: string | null }>;
     const actions = audit.map((a) => a.action);
     expect(actions).toEqual(expect.arrayContaining(['setup.admin', 'login.failed', 'user.created', 'user.updated', 'project.created']));
     const text = JSON.stringify(audit);
-    expect(text).not.toContain('ein-langes-passwort');
-    expect(text).not.toContain('anderes-langes-passwort');
+    expect(text).not.toContain('a-long-password');
+    expect(text).not.toContain('another-long-password');
     expect(text).not.toContain('scrypt');
   });
 });

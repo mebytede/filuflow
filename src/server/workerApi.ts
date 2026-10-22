@@ -1,5 +1,5 @@
-// API für den Master (M9, nur mit `filuflow worker`): Informationen, Workflows verteilen und entfernen,
-// Credentials pflegen (ohne Rücklesen geheimer Werte). Geschützt mit dem API-Key des Workers.
+// API for the master (M9, only with `filuflow worker`): information, distributing and removing workflows,
+// managing credentials (without reading back secret values). Protected by the worker's API key.
 import type { FastifyInstance } from 'fastify';
 import type { Workflow } from '../types.js';
 import type { WorkflowManager } from './workflows.js';
@@ -9,7 +9,7 @@ import { registerCredentialsApi, type OAuthSupport } from './credentialsApi.js';
 import type { Logger } from '../logger.js';
 
 export const MASTER_MARKER = 'filuflowMaster';
-/** Kennzeichnung vor der Umbenennung in filuflow; vom Master verteilte Dateien können sie noch tragen */
+/** Marker from before the rename to filuflow; files distributed by the master may still carry it */
 const LEGACY_MASTER_MARKER = 'flowliteMaster';
 
 export interface WorkerApiOptions {
@@ -52,10 +52,10 @@ export async function registerWorkerApi(api: FastifyInstance, o: WorkerApiOption
       })),
   }));
 
-  // Anlegen oder ersetzen unter der ID des Masters (Datei <id>.json im Workflow-Verzeichnis)
+  // Create or replace under the master's ID (file <id>.json in the workflow directory)
   api.put('/api/worker/workflows/:id', async (request, reply) => {
     const id = (request.params as { id: string }).id;
-    if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) return reply.code(400).send({ message: 'Ungültige Workflow-ID' });
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) return reply.code(400).send({ message: 'Invalid workflow ID' });
     const wf = asWorkflow(request.body);
     if (typeof wf === 'string') return reply.code(400).send({ message: wf });
     wf.id = id;
@@ -72,11 +72,11 @@ export async function registerWorkerApi(api: FastifyInstance, o: WorkerApiOption
   api.delete('/api/worker/workflows/:id', async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const m = o.workflows().get(id);
-    if (!m || m.workflow.id !== id) return reply.code(404).send({ message: 'Workflow nicht gefunden' });
+    if (!m || m.workflow.id !== id) return reply.code(404).send({ message: 'Workflow not found' });
     await o.workflows().remove(id);
     return reply.code(204).send();
   });
 
-  // Credentials: dieselben Routen wie im Einzelbetrieb, Werte nur schreiben
+  // Credentials: the same routes as in standalone mode, values are write-only
   await registerCredentialsApi(api, { prefix: '/api/worker/credentials', credentials: o.credentials, workflows: o.workflows, logger: o.logger, oauth: o.oauth });
 }

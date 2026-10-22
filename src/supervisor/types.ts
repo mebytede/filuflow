@@ -1,14 +1,14 @@
-// Aufseher (M35 bis M38): Typen für Einstellungen, Hinweise, Vorschläge und Berichte.
-// Grundsatz: Der Aufseher beobachtet und schlägt vor. Er ändert, aktiviert oder löscht nie selbst etwas; jede Änderung
-// ist ein Vorschlag, den ein Mensch annimmt oder verwirft.
+// Supervisor (M35 to M38): types for settings, findings, proposals and reports.
+// Principle: the supervisor observes and proposes. It never changes, activates or deletes anything itself; every change
+// is a proposal that a human accepts or rejects.
 
 export type Severity = 'error' | 'warning' | 'info';
 export type FindingStatus = 'open' | 'dismissed' | 'resolved';
 
-/** Ein Hinweis zu einem Workflow, aus einer festen Regel oder aus einer fehlgeschlagenen Ausführung */
+/** A finding about a workflow, from a fixed rule or from a failed execution */
 export interface Finding {
   id: string;
-  /** Gleicher Befund, gleicher Schlüssel (Regel, Workflow, Knoten, Merkmal): zählt hoch statt doppelt anzulegen */
+  /** Same finding, same key (rule, workflow, node, feature): increments instead of creating a duplicate */
   fingerprint: string;
   workflowId: string;
   workflowName: string;
@@ -17,14 +17,14 @@ export interface Finding {
   title: string;
   detail: string;
   nodeName?: string;
-  /** Letzte betroffene Ausführung */
+  /** Last affected execution */
   executionId?: string;
-  /** Wie oft der Befund aufgetreten ist (bei fehlgeschlagenen Ausführungen) */
+  /** How often the finding occurred (for failed executions) */
   count: number;
   status: FindingStatus;
-  /** Erklärung des Modells (Ursache und Lösung) */
+  /** Explanation by the model (cause and solution) */
   analysis?: FindingAnalysis;
-  /** Offener Vorschlag zu diesem Hinweis (M36) */
+  /** Open proposal for this finding (M36) */
   proposalId?: string;
   firstSeen: string;
   lastSeen: string;
@@ -35,11 +35,11 @@ export interface FindingAnalysis {
   text: string;
   model: string;
   at: string;
-  /** Fehlermeldung, wenn die Analyse scheiterte (Budget, Modell nicht erreichbar) */
+  /** Error message if the analysis failed (budget, model unreachable) */
   error?: string;
 }
 
-/** Was eine Regel meldet; Store ergänzt ID, Zeiten und Status */
+/** What a rule reports; the store adds ID, times and status */
 export interface RuleFinding {
   rule: string;
   severity: Severity;
@@ -49,7 +49,7 @@ export interface RuleFinding {
   detail: string;
   nodeName?: string;
   executionId?: string;
-  /** Zusatz zum Schlüssel, z. B. Parameterpfad */
+  /** Addition to the key, e.g. parameter path */
   key?: string;
 }
 
@@ -57,40 +57,44 @@ export type ProviderId = 'anthropic' | 'openAi' | 'googleGemini' | 'ollama' | 'm
 
 export interface SupervisorModelSettings {
   provider: ProviderId;
-  /** Name des Credentials (Typ passend zum Anbieter) */
+  /** Name of the credential (type matching the provider) */
   credential: string;
-  /** Modell-ID, z. B. claude-sonnet-4-5-20250929 oder gpt-4.1-mini */
+  /** Model ID, e.g. claude-sonnet-4-5-20250929 or gpt-4.1-mini */
   model: string;
 }
 
 /**
- * Datenumfang für das Modell:
- * structure: Aufbau des Workflows (Parameter mit maskierten Geheimnissen), Fehlermeldungen, Laufzeiten
- * samples: zusätzlich gekürzte, maskierte Beispieldaten des betroffenen Knotens
+ * Data scope for the model:
+ * structure: structure of the workflow (parameters with masked secrets), error messages, run times
+ * samples: additionally truncated, masked sample data of the affected node
  */
 export type DataScope = 'structure' | 'samples';
 
+/** Language of model texts (analyses, proposals, reports); the editor chat follows the interface language */
+export type SupervisorLanguage = 'en' | 'de';
+
 export interface SupervisorSettings {
-  /** Aufseher an: feste Regeln prüfen regelmäßig, Fehler werden erfasst */
+  /** Supervisor on: fixed rules check regularly, errors are recorded */
   enabled: boolean;
-  /** Modell für Analysen, Vorschläge und Chat; ohne Modell nur feste Regeln */
+  /** Model for analyses, proposals and chat; without a model only fixed rules */
   model?: SupervisorModelSettings;
-  /** Fehlgeschlagene Ausführungen automatisch vom Modell analysieren lassen */
+  /** Have failed executions analyzed automatically by the model */
   analyzeFailures: boolean;
   dataScope: DataScope;
-  /** Token pro Tag für alle Modell-Aufrufe zusammen; 0 schaltet das Modell ab */
+  /** Tokens per day for all model calls combined; 0 disables the model */
   dailyTokenBudget: number;
-  /** Tagesbericht zur vollen Stunde (Ortszeit des Servers) */
+  /** Daily report on the hour (server local time) */
   digest: { enabled: boolean; hour: number };
-  /** Workflow-IDs, die der Aufseher nicht beobachtet und nie an das Modell gibt */
+  /** Workflow IDs the supervisor does not observe and never passes to the model */
   excludedWorkflows: string[];
-  /** Abstand der Regelprüfung in Minuten */
+  /** Interval of the rule check in minutes */
   scanIntervalMinutes: number;
+  language: SupervisorLanguage;
 }
 
 export type ProposalStatus = 'open' | 'accepted' | 'rejected' | 'stale';
 
-/** Änderung als Operation auf einem Workflow (vom Modell erzeugt, vom Aufseher geprüft) */
+/** Change as an operation on a workflow (generated by the model, checked by the supervisor) */
 export type ProposalOperation =
   | { op: 'setParameter'; node: string; path: string; value: unknown }
   | { op: 'removeParameter'; node: string; path: string }
@@ -114,7 +118,7 @@ export interface DiffEntry {
 
 export interface Proposal {
   id: string;
-  /** change: Änderung eines bestehenden Workflows; new: neuer Workflow (inaktiv) */
+  /** change: change of an existing workflow; new: new workflow (inactive) */
   kind: 'change' | 'new';
   workflowId?: string;
   workflowName: string;
@@ -122,28 +126,28 @@ export interface Proposal {
   title: string;
   summary: string;
   operations: ProposalOperation[];
-  /** Vorgeschlagener Stand (vollständig) */
+  /** Proposed version (complete) */
   workflow: unknown;
-  /** Prüfsumme des Stands, auf dem der Vorschlag beruht (Annehmen nur, wenn er sich nicht geändert hat) */
+  /** Checksum of the version the proposal is based on (accept only if it has not changed) */
   baseHash?: string;
-  /** Version im Master, auf der der Vorschlag beruht (Workflows, die der Master verteilt hat) */
+  /** Version in the master the proposal is based on (workflows distributed by the master) */
   baseVersion?: number;
   diff: DiffEntry[];
   validation: { valid: boolean; issues: Array<{ severity: string; message: string; node?: string }> };
   status: ProposalStatus;
-  /** Probelauf auf Wunsch (führt Knoten wirklich aus) */
+  /** Test run on request (really executes nodes) */
   testRun?: { executionId: string; status: string; at: string };
   createdAt: string;
   decidedAt?: string;
   decidedBy?: string;
-  /** Neue Version bzw. neuer Workflow nach dem Annehmen */
+  /** New version or new workflow after accepting */
   result?: { workflowId: string; version?: number };
 }
 
 export interface Report {
   id: string;
   createdAt: string;
-  /** Zeitraum des Berichts */
+  /** Period of the report */
   from: string;
   to: string;
   text: string;

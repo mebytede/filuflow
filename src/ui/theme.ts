@@ -1,4 +1,4 @@
-// Farbschema: dunkel (Standard) oder hell, als data-theme am Wurzelelement. Gilt pro Browser (localStorage).
+// Color scheme: dark (default) or light, as data-theme on the root element. Applies per browser (localStorage).
 export type Theme = 'dark' | 'light';
 
 const KEY = 'filuflow.theme';
@@ -20,7 +20,7 @@ export function setTheme(theme: Theme): void {
   try {
     localStorage.setItem(KEY, theme);
   } catch {
-    // Speicher nicht verfügbar: gilt nur bis zum Neuladen
+    // Storage unavailable: applies only until reload
   }
   applyTheme(theme);
 }

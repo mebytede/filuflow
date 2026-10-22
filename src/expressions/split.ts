@@ -1,6 +1,6 @@
-// Zerlegt eine Expression in Text- und Code-Teile ({{ ... }}).
-// Verhalten wie @n8n/tournament 1.0.6 (ExpressionSplitter): `\{{` ist escaped,
-// in Text-Teilen wird `\\` zu `\`, in Code-Teilen `\}}` zu `}}` (nur erstes Vorkommen).
+// Splits an expression into text and code parts ({{ ... }}).
+// Behavior like @n8n/tournament 1.0.6 (ExpressionSplitter): `\{{` is escaped,
+// in text parts `\\` becomes `\`, in code parts `\}}` becomes `}}` (first occurrence only).
 
 export interface TextChunk {
   type: 'text';
@@ -62,12 +62,12 @@ export function splitExpression(expression: string): Chunk[] {
   return chunks;
 }
 
-/** Ist der Parameterwert eine Expression (String mit führendem `=`)? */
+/** Is the parameter value an expression (string with a leading `=`)? */
 export function isExpression(value: unknown): value is string {
   return typeof value === 'string' && value.charAt(0) === '=';
 }
 
-/** Liefert die Code-Teile aller Expressions in einem (verschachtelten) Parameterwert */
+/** Returns the code parts of all expressions in a (nested) parameter value */
 export function collectExpressions(
   value: unknown,
   path = '',

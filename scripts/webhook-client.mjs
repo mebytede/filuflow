@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// Sendet die Requests aus fixtures/<name>/webhook.json und sammelt die Antworten.
-// Wird von scripts/record-webhook.sh (gegen n8n) und vom Golden-Test (gegen filuflow) benutzt,
-// damit beide Seiten byte-gleiche Requests bekommen (Header-Reihenfolge, Host-Header).
-// Aufruf: node scripts/webhook-client.mjs <webhook.json> <basis-url> > responses.json
+// Sends the requests from fixtures/<name>/webhook.json and collects the responses.
+// Used by scripts/record-webhook.sh (against n8n) and by the golden test (against filuflow),
+// so both sides receive byte-identical requests (header order, Host header).
+// Usage: node scripts/webhook-client.mjs <webhook.json> <base-url> > responses.json
 import http from 'node:http';
 import { readFileSync } from 'node:fs';
 import { setTimeout as sleep } from 'node:timers/promises';

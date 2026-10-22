@@ -1,8 +1,8 @@
-// Formulare (Form Trigger, Form-Knoten, Wait "On Form Submitted").
-// Verhalten nach n8n 1.123.0 packages/nodes-base/nodes/Form/utils/utils.ts (prepareFormData, prepareFormReturnItem,
-// addFormResponseDataToReturnItem, sanitizeHtml, formWebhook), Form/common.descriptions.ts (Feldtypen, Defaults) und
-// utils/formCompletionUtils.ts. Die Seiten sind eine eigene Umsetzung: normale HTML-Formulare (multipart/form-data),
-// ohne Skript; n8n nutzt eine Vorlage mit JavaScript. Die Feldnamen field-0, field-1 … und die Ausgabe sind gleich.
+// Forms (Form Trigger, Form node, Wait "On Form Submitted").
+// Behavior after n8n 1.123.0 packages/nodes-base/nodes/Form/utils/utils.ts (prepareFormData, prepareFormReturnItem,
+// addFormResponseDataToReturnItem, sanitizeHtml, formWebhook), Form/common.descriptions.ts (field types, defaults) and
+// utils/formCompletionUtils.ts. The pages are our own implementation: plain HTML forms (multipart/form-data),
+// without script; n8n uses a template with JavaScript. The field names field-0, field-1 … and the output are the same.
 import { DateTime } from 'luxon';
 import type { Item } from '../../types.js';
 import type { BinaryStore } from '../../binary.js';
@@ -33,7 +33,7 @@ export interface FormField {
 
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
 
-// sanitizeHtml: erlaubte Tags und Attribute wie n8n (sanitize-html), hier als kleiner eigener Filter
+// sanitizeHtml: allowed tags and attributes like n8n (sanitize-html), here as a small filter of our own
 const ALLOWED_TAGS = new Set([
   'b', 'div', 'i', 'iframe', 'img', 'video', 'source', 'em', 'strong', 'a', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'u', 'sub', 'sup',
   'code', 'pre', 'span', 'br', 'ul', 'ol', 'li', 'p', 'table', 'thead', 'tbody', 'tfoot', 'td', 'tr', 'th',
@@ -50,7 +50,7 @@ const ALLOWED_ATTRS: Record<string, string[]> = {
 const URL_ATTRS = new Set(['href', 'src', 'poster']);
 const VOID_TAGS = new Set(['br', 'img', 'source']);
 
-/** HTML auf erlaubte Tags reduzieren; alles andere wird als Text ausgegeben, Skripte und Styles fallen weg */
+/** Reduce HTML to allowed tags; everything else is output as text, scripts and styles are dropped */
 export function sanitizeHtml(html: string): string {
   let out = '';
   const re = /<!--[\s\S]*?-->|<(script|style)\b[\s\S]*?<\/\1\s*>|<(\/?)([a-zA-Z][a-zA-Z0-9]*)\b([^>]*)>/gi;
@@ -74,7 +74,7 @@ export function sanitizeHtml(html: string): string {
       if (URL_ATTRS.has(name) && !/^https?:\/\//i.test(value.trim())) continue;
       attrs.push(`${name}="${esc(value)}"`);
     }
-    // iframes immer in einer Sandbox (n8n transformTags)
+    // iframes always in a sandbox (n8n transformTags)
     if (tag === 'iframe') attrs.push('sandbox=""', 'referrerpolicy="strict-origin-when-cross-origin"');
     out += `<${tag}${attrs.length ? ` ${attrs.join(' ')}` : ''}>`;
   }
@@ -82,7 +82,7 @@ export function sanitizeHtml(html: string): string {
   return out;
 }
 
-/** Eigenes CSS ohne HTML (sanitizeCustomCss) */
+/** Custom CSS without HTML (sanitizeCustomCss) */
 export function sanitizeCss(css: string | undefined): string {
   return (css ?? '').replace(/<[^>]*>?/g, '');
 }
@@ -93,18 +93,18 @@ export interface FormPage {
   fields: FormField[];
   buttonLabel?: string;
   customCss?: string;
-  /** Vorbelegung aus Query-Parametern (Feld-Label) */
+  /** Prefill from query parameters (field label) */
   query?: Record<string, unknown>;
   testRun?: boolean;
 }
 
 function shell(title: string, body: string, customCss?: string): string {
   return `<!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${esc(title || 'Formular')}</title>
+<title>${esc(title || 'Form')}</title>
 <link rel="stylesheet" href="/ui/form/form.css">
 ${customCss ? `<style>${sanitizeCss(customCss)}</style>` : ''}
 </head>
@@ -116,10 +116,10 @@ ${body}
 </html>`;
 }
 
-/** Seiten-Header: kein Skript, eigene Styles plus eingebettetes CSS; Bilder und eingebettete Seiten nur per http(s) */
+/** Page header: no script, own styles plus inline CSS; images and embedded pages only via http(s) */
 export const FORM_CSP = "default-src 'self'; script-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: http: data:; media-src https: http:; frame-src https: http:; form-action 'self'; base-uri 'none'";
 
-/** prepareFormData + Vorlage: Formularseite als HTML */
+/** prepareFormData + template: form page as HTML */
 export function renderFormPage(p: FormPage): string {
   const query = p.query ?? {};
   const fields = p.fields.map((field, index) => {
@@ -143,7 +143,7 @@ export function renderFormPage(p: FormPage): string {
       const items = options
         .map((o, i) => {
           const oid = `option${i}_${id}`;
-          // Pflicht bei Radio-Buttons über den Browser; bei Checkboxen prüft der Server
+          // Required radio buttons are enforced by the browser; for checkboxes the server checks
           return `<label class="form-option" for="${oid}"><input type="${inputType}" id="${oid}" name="${id}" value="${esc(o.option)}"${selected.has(o.option) ? ' checked' : ''}${type === 'radio' && required ? ' required' : ''}> ${esc(o.option)}</label>`;
         })
         .join('');
@@ -163,7 +163,7 @@ export function renderFormPage(p: FormPage): string {
     return `<div class="form-field">${labelHtml}<input type="${inputType}" id="${id}" name="${id}" value="${esc(value)}" placeholder="${esc(field.placeholder ?? '')}"${inputType === 'number' ? ' step="any"' : ''}${req}></div>`;
   });
   const description = (p.description ?? '').replace(/\\n/g, '\n').replace(/<br>/g, '\n');
-  const body = `${p.testRun ? '<p class="form-test">Testmodus: Die Ausführung erscheint im Editor und in der Liste der Ausführungen.</p>' : ''}
+  const body = `${p.testRun ? '<p class="form-test">Test mode: the execution appears in the editor and in the list of executions.</p>' : ''}
 <h1 class="form-title">${esc(p.title)}</h1>
 ${description ? `<div class="form-description">${sanitizeHtml(description).replace(/\n/g, '<br>')}</div>` : ''}
 <form method="POST" enctype="multipart/form-data" class="form-fields">
@@ -173,7 +173,7 @@ ${fields.join('\n')}
   return shell(p.title, body, p.customCss);
 }
 
-/** Abschlussseite (form-trigger-completion) */
+/** Completion page (form-trigger-completion) */
 export function renderCompletionPage(p: { title: string; message?: string; formTitle?: string; customCss?: string; text?: string }): string {
   const body = p.text !== undefined && p.text !== ''
     ? `<div class="form-description">${esc(p.text).replace(/\n/g, '<br>')}</div>`
@@ -181,24 +181,24 @@ export function renderCompletionPage(p: { title: string; message?: string; formT
   return shell(p.formTitle || p.title, body, p.customCss);
 }
 
-/** Pflicht-Checkboxen und Auswahlgrenzen prüfen (n8n prüft im Browser); liefert eine Meldung oder undefined */
+/** Check required checkboxes and selection limits (n8n checks in the browser); returns a message or undefined */
 export function validateSubmission(fields: FormField[], form: FormData): string | undefined {
   for (const [index, field] of fields.entries()) {
     if (field.fieldType !== 'checkbox') continue;
     const count = form.getAll(`field-${index}`).length;
     const label = field.fieldLabel ?? `field-${index}`;
-    if (field.requiredField && count === 0) return `"${label}" ist ein Pflichtfeld`;
-    if (field.limitSelection === 'exact' && count && count !== (field.numberOfSelections ?? 1)) return `Bei "${label}" genau ${field.numberOfSelections ?? 1} auswählen`;
+    if (field.requiredField && count === 0) return `"${label}" is a required field`;
+    if (field.limitSelection === 'exact' && count && count !== (field.numberOfSelections ?? 1)) return `Select exactly ${field.numberOfSelections ?? 1} for "${label}"`;
     if (field.limitSelection === 'range' && count && (count < (field.minSelections ?? 0) || count > (field.maxSelections ?? 1))) {
-      return `Bei "${label}" ${field.minSelections ?? 0} bis ${field.maxSelections ?? 1} auswählen`;
+      return `Select ${field.minSelections ?? 0} to ${field.maxSelections ?? 1} for "${label}"`;
     }
   }
   return undefined;
 }
 
 /**
- * prepareFormReturnItem und addFormResponseDataToReturnItem: Felder field-N nach Label, Zahlen als Zahl, Text getrimmt,
- * Auswahl als Liste (Radio als Wert), Dateien als binary (Label mit _ statt Sonderzeichen), submittedAt, formMode.
+ * prepareFormReturnItem and addFormResponseDataToReturnItem: fields field-N by label, numbers as numbers, text trimmed,
+ * selections as a list (radio as a value), files as binary (label with _ instead of special characters), submittedAt, formMode.
  */
 export async function formReturnItem(o: {
   fields: FormField[];
@@ -257,12 +257,12 @@ export async function formReturnItem(o: {
   return item;
 }
 
-/** Defaults der Parameterbeschreibung (n8n ergänzt sie beim Laden des Workflows): fieldType "text" */
+/** Defaults of the parameter description (n8n adds them when loading the workflow): fieldType "text" */
 function withDefaults(field: FormField): FormField {
   return { ...field, fieldType: field.fieldType ?? 'text' };
 }
 
-/** Felder eines Knotens: formFields.values oder (Form-Knoten) JSON-Definition */
+/** Fields of a node: formFields.values or (Form node) JSON definition */
 export function formFieldsOf(parameters: Record<string, unknown>, resolveJson?: (raw: string) => unknown): FormField[] {
   if (parameters.defineForm === 'json') {
     const raw = parameters.jsonOutput;

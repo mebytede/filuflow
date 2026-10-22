@@ -1,7 +1,7 @@
-// Embeddings für Vektorspeicher (M27). OpenAI wie n8n 1.123.0 EmbeddingsOpenAi mit OpenAIEmbeddings aus
-// @langchain/openai 1.1.3 (dist/embeddings.js: Stapel nach batchSize, Zeilenumbrüche durch Leerzeichen ersetzen,
-// dimensions, encoding_format). Das OpenAI-SDK fordert ohne Angabe base64 an und wandelt die Antwort in Zahlen um.
-// Protokoll am Embeddings-Knoten wie n8n logWrapper: embedDocuments { documents } -> { response }, embedQuery { query }.
+// Embeddings for vector stores (M27). OpenAI as in n8n 1.123.0 EmbeddingsOpenAi with OpenAIEmbeddings from
+// @langchain/openai 1.1.3 (dist/embeddings.js: batches by batchSize, replace line breaks with spaces,
+// dimensions, encoding_format). Without a setting the OpenAI SDK requests base64 and converts the response to numbers.
+// Log on the embeddings node like n8n logWrapper: embedDocuments { documents } -> { response }, embedQuery { query }.
 import type { ExecContext } from '../nodes/types.js';
 import { LlmHttpError } from './models/base.js';
 import { NodeApiError } from '../errors.js';
@@ -11,7 +11,7 @@ export interface Embeddings {
   embedQuery(text: string): Promise<number[]>;
 }
 
-/** Aufrufe im runData des Embeddings-Knotens protokollieren (ai_embedding) */
+/** Log calls in the runData of the embeddings node (ai_embedding) */
 export function loggedEmbeddings(ctx: ExecContext, inner: Embeddings): Embeddings {
   const log = async <T>(input: Record<string, unknown>, run: () => Promise<T>): Promise<T> => {
     const { index } = ctx.addInputData('ai_embedding', [[{ json: input }]]);
@@ -42,7 +42,7 @@ export interface OpenAiEmbeddingsOptions {
   timeout?: number;
 }
 
-/** base64 der OpenAI-API: Float32, Little Endian */
+/** base64 of the OpenAI API: Float32, little endian */
 function decodeBase64Floats(data: string): number[] {
   const buf = Buffer.from(data, 'base64');
   const out: number[] = [];
@@ -59,7 +59,7 @@ export class OpenAiEmbeddings implements Embeddings {
   private async request(input: string | string[]): Promise<number[][]> {
     const body: Record<string, unknown> = { model: this.o.model, input };
     if (this.o.dimensions) body.dimensions = this.o.dimensions;
-    // OpenAI-SDK: encoding_format base64, wenn nichts angegeben ist; die Antwort wird dann dekodiert
+    // OpenAI SDK: encoding_format base64 if nothing is set; the response is then decoded
     body.encoding_format = this.o.encodingFormat ?? 'base64';
     const url = `${(this.o.baseURL || 'https://api.openai.com/v1').replace(/\/+$/, '')}/embeddings`;
     const res = await this.ctx.helpers.http.request({
@@ -76,7 +76,7 @@ export class OpenAiEmbeddings implements Embeddings {
       try {
         detail = (JSON.parse(text) as { error?: { message?: string } }).error?.message ?? text;
       } catch {
-        // Rohtext
+        // raw text
       }
       throw new LlmHttpError(`${res.statusCode} ${res.statusMessage}: ${detail}`, res.statusCode, text);
     }

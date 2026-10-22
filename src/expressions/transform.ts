@@ -1,5 +1,5 @@
-// AST-Umschreibung einer Expression-Code-Stelle.
-// Nachgebaut nach n8n 1.123.0:
+// AST rewriting of an expression code part.
+// Rebuilt after n8n 1.123.0:
 //   packages/workflow/src/extensions/expression-extension.ts (extendTransform, extendSyntax, $if)
 //   packages/workflow/src/expression-sandboxing.ts (PrototypeSanitizer, DollarSignValidator, FunctionThisSanitizer)
 //   @n8n/tournament 1.0.6 ExpressionBuilder (shouldWrapInTry)
@@ -8,8 +8,8 @@ import { generate } from 'astring';
 import { ExpressionError, ExpressionExtensionError } from '../errors.js';
 import { EXTENSION_FUNCTION_NAMES } from './extensions/index.js';
 
-// acorn liefert ESTree-Knoten; für die Umschreibung genügt eine lose Typisierung.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- generischer ESTree-Knoten
+// acorn returns ESTree nodes; loose typing is sufficient for the rewrite.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- generic ESTree node
 type AnyNode = any;
 
 export const INTERNAL = {
@@ -34,7 +34,7 @@ export function hasExpressionExtension(code: string): boolean {
   return EXTENSION_REGEX.test(code);
 }
 
-/** n8n hasNativeMethod: alle Wörter sind Methoden nativer Prototypen */
+/** n8n hasNativeMethod: all words are methods of native prototypes */
 function hasNativeMethod(expression: string): boolean {
   if (hasExpressionExtension(expression)) return false;
   const words = expression
@@ -48,18 +48,18 @@ function hasNativeMethod(expression: string): boolean {
 
 function parse(code: string): AnyNode {
   const opts: acorn.Options = { ecmaVersion: 'latest', sourceType: 'script' };
-  // Wie tournament maybeWrapExpr: führende "{" als Objektliteral lesen, nicht als Block
+  // Like tournament maybeWrapExpr: read a leading "{" as an object literal, not as a block
   if (code.trimStart().startsWith('{')) {
     try {
       return acorn.parse(`(${code})`, opts);
     } catch {
-      // ohne Klammern erneut versuchen, damit der Syntaxfehler zum Originalcode passt
+      // retry without parentheses so that the syntax error matches the original code
     }
   }
   return acorn.parse(code, opts);
 }
 
-/** Kindknoten eines ESTree-Knotens */
+/** Child nodes of an ESTree node */
 function forEachChild(node: AnyNode, fn: (child: AnyNode, key: string, index?: number) => void): void {
   for (const key of Object.keys(node)) {
     if (key === 'type' || key === 'start' || key === 'end' || key === 'loc' || key === 'range') continue;
@@ -74,7 +74,7 @@ function forEachChild(node: AnyNode, fn: (child: AnyNode, key: string, index?: n
   }
 }
 
-/** Ersetzt Knoten bottom-up. `visit` gibt den Ersatz zurück (oder den Knoten selbst). */
+/** Replaces nodes bottom-up. `visit` returns the replacement (or the node itself). */
 function transform(node: AnyNode, visit: (node: AnyNode, parent: AnyNode | null, key: string) => AnyNode, parent: AnyNode | null = null, key = ''): AnyNode {
   forEachChild(node, (child, k, i) => {
     const replaced = transform(child, visit, node, k);
@@ -93,7 +93,7 @@ const member = (object: AnyNode, property: AnyNode, computed = false, optional =
 
 const isExtensionName = (name: string) => extensionNames.has(name) || name === 'isEmpty' || name === 'isNotEmpty';
 
-/** Ist der Knoten ein Aufruf einer Erweiterungsfunktion (x.name(...))? */
+/** Is the node a call of an extension function (x.name(...))? */
 function isExtensionCall(node: AnyNode): boolean {
   return (
     node.type === 'CallExpression' &&
@@ -104,7 +104,7 @@ function isExtensionCall(node: AnyNode): boolean {
   );
 }
 
-/** Glieder einer Kette von der Basis nach außen */
+/** Members of a chain from the base outward */
 function chainSpine(expr: AnyNode): { base: AnyNode; segments: AnyNode[] } {
   const segments: AnyNode[] = [];
   let cur = expr;
@@ -119,9 +119,9 @@ const gen = (node: AnyNode): string => generate(node);
 const genArgs = (args: AnyNode[]): string => generate({ type: 'ArrayExpression', elements: args } as never).slice(1, -1);
 
 /**
- * Optionale Kette mit Erweiterungsaufruf: n8n bricht die ganze Kette ab, sobald ein `?.`
- * auf null/undefined trifft (Polyfill in extendTransform). Nachgebaut als Pfeilfunktion,
- * die die Glieder einzeln auswertet.
+ * Optional chain with an extension call: n8n aborts the whole chain as soon as a `?.`
+ * hits null/undefined (polyfill in extendTransform). Rebuilt as an arrow function
+ * that evaluates the members one by one.
  */
 function rewriteChain(chain: AnyNode): AnyNode {
   const { base, segments } = chainSpine(chain.expression);
@@ -160,14 +160,14 @@ function rewriteChain(chain: AnyNode): AnyNode {
 }
 
 function applyExtensions(ast: AnyNode): void {
-  // 1. Optionale Ketten mit Erweiterungsaufruf als Ganzes umschreiben (vor den Einzelaufrufen)
+  // 1. Rewrite optional chains with an extension call as a whole (before the individual calls)
   transform(ast, (node) => {
     if (node.type === 'ChainExpression' && chainSpine(node.expression).segments.some(isExtensionCall)) {
       return rewriteChain(node);
     }
     return node;
   });
-  // 2. Einzelne Erweiterungsaufrufe und $if
+  // 2. Individual extension calls and $if
   transform(ast, (node) => {
     if (isExtensionCall(node)) {
       return call(id(INTERNAL.extend), [node.callee.object, lit(node.callee.property.name), { type: 'ArrayExpression', elements: node.arguments }]);
@@ -198,8 +198,8 @@ const EMPTY_CONTEXT = (): AnyNode => ({
 });
 
 function sanitize(ast: AnyNode): void {
-  // FunctionThisSanitizer: Funktionen nie an das globale Objekt binden
-  // (bottom-up: Funktionen werden gebunden, ein direkter Aufruf (IIFE) wird zu .call)
+  // FunctionThisSanitizer: never bind functions to the global object
+  // (bottom-up: functions are bound, a direct call (IIFE) becomes .call)
   transform(ast, (node) => {
     if (node.type === 'FunctionExpression') {
       const bound = call(member(node, id('bind')), [EMPTY_CONTEXT()]);
@@ -236,7 +236,7 @@ function sanitize(ast: AnyNode): void {
   });
 }
 
-/** tournament shouldWrapInTry nach der Variablen-Umschreibung: fast alles mit Bezeichnern */
+/** tournament shouldWrapInTry after the variable rewrite: almost everything with identifiers */
 function needsTry(ast: AnyNode): boolean {
   let wrap = false;
   const walk = (node: AnyNode, parent: AnyNode | null, key: string) => {
@@ -266,8 +266,8 @@ export interface TransformedCode {
 }
 
 /**
- * Wandelt eine Code-Stelle in einen auswertbaren JS-Ausdruck um.
- * `useExtensions` entspricht der n8n-Vorprüfung in extendSyntax.
+ * Converts a code part into an evaluable JS expression.
+ * `useExtensions` corresponds to the n8n pre-check in extendSyntax.
  */
 export function transformCode(code: string, useExtensions: boolean): TransformedCode {
   let ast: AnyNode;
@@ -291,7 +291,7 @@ export function transformCode(code: string, useExtensions: boolean): Transformed
   return { code: out, wrapInTry };
 }
 
-/** Entscheidet wie n8n extendSyntax, ob Erweiterungsfunktionen umgeschrieben werden */
+/** Decides like n8n extendSyntax whether extension functions are rewritten */
 export function shouldExtend(bracketedExpression: string, codeChunks: string[]): boolean {
   const cleaned = codeChunks.map((c) => c.replace(/("|').*?("|')/, '').trim());
   return cleaned.some(hasExpressionExtension) && !hasNativeMethod(bracketedExpression);
