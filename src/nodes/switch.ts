@@ -1,5 +1,5 @@
-// Switch, n8n-nodes-base.switch (typeVersion 3 bis 3.4)
-// Nachgebaut nach n8n 1.123.0 packages/nodes-base/nodes/Switch/V3/SwitchV3.node.ts
+// Switch, n8n-nodes-base.switch (typeVersion 3 to 3.4)
+// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/Switch/V3/SwitchV3.node.ts
 import type { NodeType } from './types.js';
 import type { Item, WorkflowNode } from '../types.js';
 import { NodeOperationError } from '../errors.js';
@@ -7,7 +7,7 @@ import { ENABLE_LESS_STRICT_TYPE_VALIDATION, executeFilter, type FilterValue } f
 import { looseTypeValidation, rethrowWithItem } from './shared/conditions.js';
 import type { ParamSchema } from './params.js';
 
-/** Default von rules (eine Regel "string equals") */
+/** Default for rules (one "string equals" rule) */
 const DEFAULT_RULES = {
   values: [
     {
@@ -29,8 +29,8 @@ function configuredOutputs(node: WorkflowNode): number {
 }
 
 /**
- * Namen der Ausgänge für den Editor, wie configuredOutputs in SwitchV3.node.ts (n8n 1.123.0): Regel mit
- * outputKey (Umbenennen) oder Index, Fallback-Ausgang renameFallbackOutput oder "Fallback".
+ * Output names for the editor, like configuredOutputs in SwitchV3.node.ts (n8n 1.123.0): rule with
+ * outputKey (rename) or index, fallback output renameFallbackOutput or "Fallback".
  */
 function outputNames(node: WorkflowNode): string[] {
   const p = node.parameters;
@@ -43,70 +43,70 @@ function outputNames(node: WorkflowNode): string[] {
   return rules;
 }
 
-const LOOSE_TYPE_DESCRIPTION = 'Passt der Typ eines Werts nicht zum Vergleich, wird er umgewandelt (z. B. "false" oder 0 zu false)';
+const LOOSE_TYPE_DESCRIPTION = 'If the type of a value does not match the comparison, it is converted (e.g. "false" or 0 to false)';
 
-// Parameter wie packages/nodes-base/nodes/Switch/V3/SwitchV3.node.ts (looseTypeValidationProperty aus utils/descriptions.ts).
-// fallbackOutput lädt n8n dynamisch (getFallbackOutputOptions: none, extra, dann ein Eintrag je Regel mit dem Index als
-// Wert); hier fest none, extra und die Indizes 0 bis 9.
+// Parameters as in packages/nodes-base/nodes/Switch/V3/SwitchV3.node.ts (looseTypeValidationProperty from utils/descriptions.ts).
+// n8n loads fallbackOutput dynamically (getFallbackOutputOptions: none, extra, then one entry per rule with the index as
+// value); here fixed to none, extra and the indexes 0 to 9.
 const parameters: ParamSchema[] = [
   {
     name: 'mode',
-    label: 'Modus',
+    label: 'Mode',
     type: 'options',
     noExpression: true,
     default: 'rules',
     options: [
-      { value: 'rules', label: 'Regeln', description: 'Für jeden Ausgang eine Regel festlegen' },
-      { value: 'expression', label: 'Expression', description: 'Eine Expression liefert den Index des Ausgangs' },
+      { value: 'rules', label: 'Rules', description: 'Build a matching rule for each output' },
+      { value: 'expression', label: 'Expression', description: 'Write an expression to return the output index' },
     ],
-    description: 'Wie die Items verteilt werden',
+    description: 'How data should be routed',
   },
   {
     name: 'numberOutputs',
-    label: 'Anzahl Ausgänge',
+    label: 'Number of Outputs',
     type: 'number',
     noExpression: true,
     default: 4,
-    description: 'Wie viele Ausgänge angelegt werden',
+    description: 'How many outputs to create',
     show: { mode: ['expression'], '@version': [{ _cnd: { gte: 3.3 } }] },
   },
   {
     name: 'numberOutputs',
-    label: 'Anzahl Ausgänge',
+    label: 'Number of Outputs',
     type: 'number',
     default: 4,
-    description: 'Wie viele Ausgänge angelegt werden',
+    description: 'How many outputs to create',
     show: { mode: ['expression'], '@version': [{ _cnd: { lt: 3.3 } }] },
   },
   {
     name: 'output',
-    label: 'Index des Ausgangs',
+    label: 'Output Index',
     type: 'number',
     default: '={{}}',
-    description: 'Expression, die den Index des Ausgangs für das Item liefert (beginnt bei 0)',
+    description: 'The output index to send the input item to. Use an expression to calculate which input item should be routed to which output. The expression must return a number (starting at 0).',
     show: { mode: ['expression'] },
   },
   {
     name: 'rules',
-    label: 'Regeln',
+    label: 'Rules',
     type: 'fixedCollection',
     multiple: true,
-    addLabel: 'Regel hinzufügen',
+    addLabel: 'Add Routing Rule',
     default: DEFAULT_RULES,
     show: { mode: ['rules'] },
     groups: [
       {
         name: 'values',
-        label: 'Regel',
+        label: 'Routing Rule',
         children: [
-          { name: 'conditions', label: 'Bedingungen', type: 'filter', default: {}, placeholder: 'Bedingung hinzufügen' },
-          { name: 'renameOutput', label: 'Ausgang umbenennen', type: 'boolean', default: false },
+          { name: 'conditions', label: 'Conditions', type: 'filter', default: {}, placeholder: 'Add Condition' },
+          { name: 'renameOutput', label: 'Rename Output', type: 'boolean', default: false },
           {
             name: 'outputKey',
-            label: 'Name des Ausgangs',
+            label: 'Output Name',
             type: 'string',
             default: '',
-            description: 'Name des Ausgangs, an den Items gehen, wenn die Regel zutrifft',
+            description: 'The label of output to which to send data to if rule matches',
             show: { renameOutput: [true] },
           },
         ],
@@ -115,7 +115,7 @@ const parameters: ParamSchema[] = [
   },
   {
     name: 'looseTypeValidation',
-    label: 'Typen bei Bedarf umwandeln',
+    label: 'Convert Types Where Required',
     type: 'boolean',
     default: false,
     description: LOOSE_TYPE_DESCRIPTION,
@@ -123,28 +123,28 @@ const parameters: ParamSchema[] = [
   },
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     show: { mode: ['rules'] },
     children: [
       {
         name: 'fallbackOutput',
-        label: 'Fallback-Ausgang',
+        label: 'Fallback Output',
         type: 'options',
         default: 'none',
         options: [
-          { value: 'none', label: 'Keiner (Standard)', description: 'Items werden verworfen' },
-          { value: 'extra', label: 'Zusätzlicher Ausgang', description: 'Items gehen an einen eigenen, zusätzlichen Ausgang' },
-          ...Array.from({ length: 10 }, (_v, i) => ({ value: i, label: `Ausgang ${i}`, description: `Wie bei Treffer von Regel ${i + 1}` })),
+          { value: 'none', label: 'None (Default)', description: 'Items will be ignored' },
+          { value: 'extra', label: 'Extra Output', description: 'Items will be sent to the extra, separate, output' },
+          ...Array.from({ length: 10 }, (_v, i) => ({ value: i, label: `Output ${i}`, description: `Items will be sent to the same output as when matched rule ${i + 1}` })),
         ],
-        description: 'Wohin Items gehen, auf die keine Regel zutrifft',
+        description: 'If no rule matches the item will be sent to this output, by default they will be ignored',
       },
-      { name: 'ignoreCase', label: 'Groß-/Kleinschreibung ignorieren', type: 'boolean', default: true, description: 'Ob die Groß-/Kleinschreibung beim Vergleich ignoriert wird' },
+      { name: 'ignoreCase', label: 'Ignore Case', type: 'boolean', default: true, description: 'Whether to ignore letter case when evaluating conditions' },
       {
         name: 'looseTypeValidation',
-        label: 'Typen bei Bedarf umwandeln',
+        label: 'Convert Types Where Required',
         type: 'boolean',
         default: true,
         description: LOOSE_TYPE_DESCRIPTION,
@@ -152,18 +152,18 @@ const parameters: ParamSchema[] = [
       },
       {
         name: 'renameFallbackOutput',
-        label: 'Fallback-Ausgang umbenennen',
+        label: 'Rename Fallback Output',
         type: 'string',
         default: '',
-        placeholder: 'z. B. Fallback',
+        placeholder: 'e.g. Fallback',
         show: { fallbackOutput: ['extra'] },
       },
       {
         name: 'allMatchingOutputs',
-        label: 'An alle passenden Ausgänge senden',
+        label: 'Send data to all matching outputs',
         type: 'boolean',
         default: false,
-        description: 'Ob Items an alle zutreffenden Ausgänge gehen statt nur an den ersten',
+        description: 'Whether to send data to all outputs meeting conditions (and not just the first one)',
       },
     ],
   },

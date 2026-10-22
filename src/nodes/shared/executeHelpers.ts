@@ -1,8 +1,8 @@
-// helpers wie in n8n IExecuteFunctions (M25): für den Code-Knoten (n8n getSandboxContext reicht this.helpers durch) und
-// für Knoten aus n8n-Paketen (M24). Nachgebaut nach n8n 1.123.0
+// helpers as in n8n IExecuteFunctions (M25): for the Code node (n8n getSandboxContext passes this.helpers through) and
+// for nodes from n8n packages (M24). Rebuilt after n8n 1.123.0
 // packages/core/src/execution-engine/node-execution-context/utils/request-helper-functions.ts (httpRequest, request,
 // httpRequestWithAuthentication, requestWithAuthentication, requestOAuth2), utils/return-json-array.ts,
-// utils/construct-execution-metadata.ts und utils/binary-helper-functions.ts; eigene Umsetzung.
+// utils/construct-execution-metadata.ts and utils/binary-helper-functions.ts; own implementation.
 import { basename } from 'node:path';
 import qs from 'qs';
 import type { ExecContext } from '../types.js';
@@ -13,7 +13,7 @@ import { authenticateRequest, hasAuthentication, hasPassiveAuthentication, withC
 import { getOAuth2Token, type OAuth2RequestOptions } from '../../credentials/oauth2.js';
 import { isOAuth2Type } from '../../credentials/types.js';
 
-/** HTTP-Fehler wie n8n: Status, Antwort und Meldung am Fehler */
+/** HTTP error like n8n: status, response and message on the error */
 function httpError(node: WorkflowNode, res: HttpResponse, body: unknown): NodeApiError {
   const error = new NodeApiError(node.name, `Request failed with status code ${res.statusCode}`, { httpCode: String(res.statusCode), description: typeof body === 'string' ? body : JSON.stringify(body) });
   Object.assign(error, { response: { status: res.statusCode, statusCode: res.statusCode, headers: res.headers, data: body, body }, statusCode: res.statusCode });
@@ -35,7 +35,7 @@ function parseBody(res: HttpResponse, encoding: unknown, json: boolean): unknown
   return text;
 }
 
-/** n8n-workflow isObjectEmpty: leere Objekte, Listen, Puffer, FormData; Text gilt nie als leer */
+/** n8n-workflow isObjectEmpty: empty objects, arrays, buffers, FormData; text never counts as empty */
 function isEmptyBody(body: unknown): boolean {
   if (typeof body === 'string') return false;
   if (typeof body !== 'object' || body === null) return true;
@@ -45,7 +45,7 @@ function isEmptyBody(body: unknown): boolean {
   return Object.keys(body).length === 0;
 }
 
-/** Proxy als URL (Text oder axios-Objekt { host, port, protocol, auth }) */
+/** Proxy as URL (text or axios object { host, port, protocol, auth }) */
 function proxyUrl(proxy: unknown): string | undefined {
   if (typeof proxy === 'string') return proxy || undefined;
   if (!proxy || typeof proxy !== 'object') return undefined;
@@ -55,7 +55,7 @@ function proxyUrl(proxy: unknown): string | undefined {
   return `${p.protocol ?? 'http'}://${auth}${p.host}${p.port ? `:${p.port}` : ''}`;
 }
 
-/** IHttpRequestOptions (helpers.httpRequest, axios-basiert) ausführen */
+/** Execute IHttpRequestOptions (helpers.httpRequest, axios based) */
 export async function httpRequest(ctx: ExecContext, o: HttpOptions): Promise<unknown> {
   let url = o.baseURL ? `${String(o.baseURL).replace(/\/$/, '')}/${String(o.url).replace(/^\//, '')}` : String(o.url);
   if (o.qs && Object.keys(o.qs).length) url += (url.includes('?') ? '&' : '?') + qs.stringify(o.qs, { arrayFormat: (o.arrayFormat as 'brackets' | 'indices' | 'repeat' | undefined) ?? 'brackets' });
@@ -64,7 +64,7 @@ export async function httpRequest(ctx: ExecContext, o: HttpOptions): Promise<unk
   const has = (name: string) => Object.keys(headers).find((h) => h.toLowerCase() === name);
   let body: HttpRequest['body'];
   const method = String(o.method ?? 'GET').toUpperCase();
-  // convertN8nRequestToAxios: nur Text oder nicht leere Objekte als Body; httpRequest löscht den Body bei GET
+  // convertN8nRequestToAxios: only text or non-empty objects as body; httpRequest drops the body for GET
   if (o.body !== undefined && o.body !== null && method !== 'GET' && !isEmptyBody(o.body)) {
     const ct = has('content-type') ? headers[has('content-type')!] : undefined;
     if (typeof o.body === 'string' || Buffer.isBuffer(o.body) || o.body instanceof FormData || o.body instanceof URLSearchParams) body = o.body as HttpRequest['body'];
@@ -94,7 +94,7 @@ export async function httpRequest(ctx: ExecContext, o: HttpOptions): Promise<unk
   return parsed;
 }
 
-/** Ältere request-Optionen (request-promise: uri, json, form, encoding: null, resolveWithFullResponse, simple) übersetzen */
+/** Translate legacy request options (request-promise: uri, json, form, encoding: null, resolveWithFullResponse, simple) */
 async function legacyRequest(ctx: ExecContext, input: string | Record<string, unknown>, extra: Record<string, unknown> = {}, authenticate?: (o: HttpOptions) => Promise<HttpOptions>): Promise<unknown> {
   const o: Record<string, unknown> = typeof input === 'string' ? { ...extra, uri: input } : { ...input };
   let options: HttpOptions = {
@@ -127,14 +127,14 @@ async function legacyRequest(ctx: ExecContext, input: string | Record<string, un
   return o.resolveWithFullResponse ? full : full.body;
 }
 
-/** Credential mit OAuth2-Daten (oAuth2Api oder ein davon abgeleiteter Typ) */
+/** Credential with OAuth2 data (oAuth2Api or a type derived from it) */
 const isOAuth2 = (c: Record<string, unknown>) => !!c.oauthTokenData || c.grantType === 'clientCredentials' || (typeof c.accessTokenUrl === 'string' && typeof c.clientId === 'string');
 
-/** helpers-Objekt (IExecuteFunctions.helpers, Ausschnitt) */
+/** helpers object (IExecuteFunctions.helpers, subset) */
 export function executeHelpers(ctx: ExecContext): Record<string, unknown> {
   const node = ctx.node;
   const credentials = async (type: string) => withCredentialDefaults(type, await ctx.getCredentials(type));
-  /** Credential anwenden: bekannte Authentifizierung oder OAuth2-Token (oauth2: Optionen wie requestOAuth2) */
+  /** Apply a credential: known authentication or OAuth2 token (oauth2: options like requestOAuth2) */
   const authenticate = async (type: string, options: HttpOptions, oauth2?: OAuth2RequestOptions): Promise<HttpOptions> => {
     const c = await credentials(type);
     if (hasAuthentication(type)) return authenticateRequest(type, c, options);
@@ -145,7 +145,7 @@ export function executeHelpers(ctx: ExecContext): Record<string, unknown> {
       return { ...options, headers };
     }
     if (hasPassiveAuthentication(type)) return options;
-    throw new NodeOperationError(node.name, `Credential-Typ "${type}" hat keine Authentifizierung, die filuflow anwenden kann`);
+    throw new NodeOperationError(node.name, `Credential type "${type}" has no authentication that filuflow can apply`);
   };
   return {
     httpRequest: (options: HttpOptions) => httpRequest(ctx, options),
@@ -156,7 +156,7 @@ export function executeHelpers(ctx: ExecContext): Record<string, unknown> {
     requestWithAuthentication: (type: string, options: Record<string, unknown>, additional?: { oauth2?: OAuth2RequestOptions }) =>
       legacyRequest(ctx, options, {}, (o) => authenticate(type, o, additional?.oauth2)),
     requestOAuth2: (type: string, options: Record<string, unknown>, oauth2?: OAuth2RequestOptions) => legacyRequest(ctx, options, {}, (o) => authenticate(type, o, oauth2)),
-    requestOAuth1: () => Promise.reject(new NodeOperationError(node.name, 'requestOAuth1 wird hier noch nicht unterstützt; bitte den HTTP Request mit OAuth1 nutzen')),
+    requestOAuth1: () => Promise.reject(new NodeOperationError(node.name, 'requestOAuth1 is not supported here yet; please use the HTTP Request node with OAuth1')),
     returnJsonArray(data: unknown): Item[] {
       const list = Array.isArray(data) ? data : [data];
       return list.map((d: Record<string, unknown> & { json?: Record<string, unknown> }) => (d?.json ? ({ ...d, json: d.json } as Item) : { json: d }));

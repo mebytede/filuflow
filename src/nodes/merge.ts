@@ -1,8 +1,8 @@
-// Merge, n8n-nodes-base.merge (typeVersion 3 bis 3.2)
-// Nachgebaut nach n8n 1.123.0 packages/nodes-base/nodes/Merge/v3:
+// Merge, n8n-nodes-base.merge (typeVersion 3 to 3.2)
+// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/Merge/v3:
 //   actions/versionDescription.ts (requiredInputs), actions/router.ts, actions/mode/*.ts,
 //   helpers/utils.ts (findMatches, mergeMatched, selectMergeMethod), helpers/descriptions.ts
-//   actions/mode/combineBySql.ts mit alasql 4.4.0 (Version wie n8n), Dateizugriffe von alasql gesperrt
+//   actions/mode/combineBySql.ts with alasql 4.4.0 (same version as n8n), alasql file access blocked
 import { randomUUID } from 'node:crypto';
 import lodash from 'lodash';
 import alasql from 'alasql';
@@ -315,9 +315,9 @@ function chooseBranch(ctx: ExecContext, inputs: Item[][]): Item[][] {
 }
 
 // ---------------------------------------------------------------------------------------------
-// combineBySql (actions/mode/combineBySql.ts, helpers/utils.ts modifySelectQuery und rowToExecutionData)
+// combineBySql (actions/mode/combineBySql.ts, helpers/utils.ts modifySelectQuery and rowToExecutionData)
 
-// alasql ohne vollständige Typen für die internen Tabellen und Datei-Engines
+// alasql lacks complete types for the internal tables and file engines
 type AlaSql = Omit<typeof alasql, 'Database'> & {
   engines?: Record<string, unknown>;
   from?: Record<string, unknown>;
@@ -328,7 +328,7 @@ type AlaSql = Omit<typeof alasql, 'Database'> & {
 const sql = alasql as unknown as AlaSql;
 type AlaDb = { exec(query: string): unknown; tables: Record<string, { data: unknown[] }> };
 
-/** Dateizugriffe aus SQL heraus sperren (n8n disableAlasqlFileAccess) */
+/** Block file access from within SQL (n8n disableAlasqlFileAccess) */
 function disableAlasqlFileAccess(): void {
   const disabled = () => {
     throw new Error('File access operations are disabled for security reasons');
@@ -340,12 +340,12 @@ function disableAlasqlFileAccess(): void {
   }
 }
 
-/** n8n getResolvables: alle {{ … }} im Text */
+/** n8n getResolvables: all {{ … }} in the text */
 function getResolvables(expression: string): string[] {
   return expression ? [...expression.matchAll(/({{[\s\S]*?}})/g)].map((m) => m[1]) : [];
 }
 
-/** n8n modifySelectQuery: bei eigener Spaltenliste die pairedItem-Spalten der genutzten Tabellen ergänzen */
+/** n8n modifySelectQuery: with a custom column list, add the pairedItem columns of the tables used */
 function modifySelectQuery(userQuery: string, inputLength: number): string {
   const selectMatch = userQuery.match(/SELECT\s+(.+?)\s+FROM/i);
   if (!selectMatch) return userQuery;
@@ -357,7 +357,7 @@ function modifySelectQuery(userQuery: string, inputLength: number): string {
   return userQuery.replace(selectMatch[0], `SELECT ${columns} FROM`);
 }
 
-/** n8n rowToExecutionData: Spalten "pairedItem…" werden zu pairedItem */
+/** n8n rowToExecutionData: columns "pairedItem…" become pairedItem */
 function rowToExecutionData(data: Json): Item {
   const pairedItem: PairedItem[] = [];
   const json: Json = {};
@@ -381,7 +381,7 @@ function combineBySql(ctx: ExecContext, inputs: Item[][]): Item[][] {
   for (const resolvable of getResolvables(query)) query = query.replace(resolvable, String(ctx.evaluateExpression(resolvable, 0)));
   const isSelect = node.typeVersion >= 3.1 ? query.toLowerCase().startsWith('select') : false;
   const successIfEmpty = node.typeVersion <= 3.1 ? true : options.emptyQueryResult === 'success';
-  // Eigene Datenbank je Lauf; n8n nimmt die Node-ID, ein Zusatz verhindert Kollisionen paralleler Läufe
+  // Separate database per run; n8n uses the node ID, a suffix prevents collisions between parallel runs
   const dbId = `${node.id ?? node.name}-${randomUUID()}`;
 
   const createTables = (db: AlaDb, rows: (input: Item[], index: number) => unknown[]) => {
@@ -396,7 +396,7 @@ function combineBySql(ctx: ExecContext, inputs: Item[][]): Item[][] {
   };
 
   if (isSelect) {
-    // Mit pairedItem je Zeile (executeSelectWithMappedPairedItems); Fehler fallen wie in n8n auf den Weg unten zurück
+    // With pairedItem per row (executeSelectWithMappedPairedItems); on errors, as in n8n, fall back to the path below
     try {
       const db = new sql.Database(dbId);
       try {
@@ -416,11 +416,11 @@ function combineBySql(ctx: ExecContext, inputs: Item[][]): Item[][] {
         delete sql.databases[dbId];
       }
     } catch (error) {
-      ctx.logger.debug?.({ err: (error as Error).message, node: node.name }, 'combineBySql: SELECT mit pairedItem fehlgeschlagen, zweiter Versuch');
+      ctx.logger.debug?.({ err: (error as Error).message, node: node.name }, 'combineBySql: SELECT with pairedItem failed, second attempt');
     }
   }
 
-  // Ein gemeinsames pairedItem aus allen Eingängen
+  // One shared pairedItem from all inputs
   const pairedItem: PairedItem[] = [];
   inputs.forEach((input, i) => {
     input.forEach((item, index) => {
@@ -453,20 +453,20 @@ function inputCount(node: WorkflowNode): number {
   return Number(node.parameters.numberInputs) || 2;
 }
 
-// Parameter wie packages/nodes-base/nodes/Merge/v3/actions/mode/*.ts und helpers/descriptions.ts (updateDisplayOptions
-// hängt die Bedingung des Modus an jede Eigenschaft).
-// resolveClash und useDataOfInput lädt n8n dynamisch (methods/loadOptions.ts: getResolveClashOptions, getInputs);
-// hier als feste Listen, resolveClash je nach numberInputs in zwei Fassungen. Der Default von resolveClash ist in n8n ''
-// (keine Option); er fehlt hier, der Wert kommt aus dem Default von clashHandling.
+// Parameters as in packages/nodes-base/nodes/Merge/v3/actions/mode/*.ts and helpers/descriptions.ts (updateDisplayOptions
+// appends the mode condition to every property).
+// n8n loads resolveClash and useDataOfInput dynamically (methods/loadOptions.ts: getResolveClashOptions, getInputs);
+// here they are fixed lists, resolveClash in two variants depending on numberInputs. The default of resolveClash in n8n is ''
+// (no option); it is omitted here, the value comes from the default of clashHandling.
 
 const numberInputsParam = (show: ParamSchema['show']): ParamSchema => ({
   name: 'numberInputs',
-  label: 'Anzahl Eingänge',
+  label: 'Number of Inputs',
   type: 'options',
   noExpression: true,
   default: 2,
   options: [2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => ({ value: n, label: String(n) })),
-  description: 'Wie viele Eingänge zusammengeführt werden; der Knoten wartet auf alle verbundenen Eingänge',
+  description: 'The number of data inputs you want to merge. The node waits for all connected inputs to be executed.',
   show,
 });
 
@@ -474,52 +474,52 @@ const NOT_ADD_SUFFIX = { resolveClash: [{ _cnd: { not: 'addSuffix' } }] };
 
 const clashHandlingParam = (defaultValue: unknown, rule: Pick<ParamSchema, 'show' | 'hide'> = {}): ParamSchema => ({
   name: 'clashHandling',
-  label: 'Umgang mit Konflikten',
+  label: 'Clash Handling',
   type: 'fixedCollection',
   default: defaultValue,
   ...rule,
   groups: [
     {
       name: 'values',
-      label: 'Werte',
+      label: 'Values',
       children: [
         {
           name: 'resolveClash',
-          label: 'Bei gleichen Feldnamen',
+          label: 'When Field Values Clash',
           type: 'options',
           options: [
-            { value: 'addSuffix', label: 'Immer Nummer des Eingangs an Feldnamen anhängen' },
-            { value: 'preferInput1', label: 'Frühesten Wert verwenden' },
+            { value: 'addSuffix', label: 'Always Add Input Number to Field Names' },
+            { value: 'preferInput1', label: 'Use Earliest Version' },
           ],
           show: { '/mode': ['combine'], '/combineBy': ['combineByPosition'], '/numberInputs': [{ _cnd: { gt: 2 } }] },
         },
         {
           name: 'resolveClash',
-          label: 'Bei gleichen Feldnamen',
+          label: 'When Field Values Clash',
           type: 'options',
           options: [
-            { value: 'addSuffix', label: 'Immer Nummer des Eingangs an Feldnamen anhängen' },
-            { value: 'preferInput1', label: 'Wert aus Eingang 1 bevorzugen' },
-            { value: 'preferLast', label: 'Wert aus Eingang 2 bevorzugen' },
+            { value: 'addSuffix', label: 'Always Add Input Number to Field Names' },
+            { value: 'preferInput1', label: 'Prefer Input 1 Version' },
+            { value: 'preferLast', label: 'Prefer Input 2 Version' },
           ],
         },
         {
           name: 'mergeMode',
-          label: 'Verschachtelte Felder zusammenführen',
+          label: 'Merging Nested Fields',
           type: 'options',
           default: 'deepMerge',
           options: [
-            { value: 'deepMerge', label: 'Tief (Deep Merge)', description: 'Auf jeder Ebene zusammenführen' },
-            { value: 'shallowMerge', label: 'Flach (Shallow Merge)', description: 'Nur oberste Ebene; Unterfelder stammen aus einem Eingang' },
+            { value: 'deepMerge', label: 'Deep Merge', description: 'Merge at every level of nesting' },
+            { value: 'shallowMerge', label: 'Shallow Merge', description: 'Merge at the top level only (all nested fields will come from the same input)' },
           ],
           show: NOT_ADD_SUFFIX,
         },
         {
           name: 'overrideEmpty',
-          label: 'Leere Felder minimieren',
+          label: 'Minimize Empty Fields',
           type: 'boolean',
           default: false,
-          description: 'Ob ein leerer bevorzugter Wert (undefined, null, leerer Text) durch den anderen ersetzt wird',
+          description: 'Whether an empty preferred value (undefined, null, empty string) is replaced by the other one',
           show: NOT_ADD_SUFFIX,
         },
       ],
@@ -531,20 +531,20 @@ const CLASH_DEFAULT = { values: { resolveClash: 'preferLast', mergeMode: 'deepMe
 
 const fuzzyCompareParam: ParamSchema = {
   name: 'fuzzyCompare',
-  label: 'Unscharf vergleichen',
+  label: 'Fuzzy Compare',
   type: 'boolean',
   default: false,
-  description: 'Ob kleine Typunterschiede beim Vergleich toleriert werden (z. B. Zahl 3 und Text "3")',
+  description: 'Whether to tolerate small type differences when comparing fields (e.g. the number 3 and the string "3")',
 };
 
 const multipleMatchesParam = (show: ParamSchema['show']): ParamSchema => ({
   name: 'multipleMatches',
-  label: 'Mehrere Treffer',
+  label: 'Multiple Matches',
   type: 'options',
   default: 'all',
   options: [
-    { value: 'all', label: 'Alle Treffer übernehmen', description: 'Bei mehreren Treffern mehrere Items ausgeben' },
-    { value: 'first', label: 'Nur ersten Treffer übernehmen', description: 'Je Treffer immer nur ein Item ausgeben' },
+    { value: 'all', label: 'Include All Matches', description: 'Output multiple items if there are multiple matches' },
+    { value: 'first', label: 'Include First Match Only', description: 'Only ever output a single item per match' },
   ],
   show,
 });
@@ -555,30 +555,30 @@ const BY_POSITION = { mode: ['combine'], combineBy: ['combineByPosition'] };
 const parameters: ParamSchema[] = [
   {
     name: 'mode',
-    label: 'Modus',
+    label: 'Mode',
     type: 'options',
     noExpression: true,
     default: 'append',
     options: [
-      { value: 'append', label: 'Anhängen', description: 'Items jedes Eingangs nacheinander ausgeben' },
-      { value: 'combine', label: 'Kombinieren', description: 'Passende Items zusammenführen' },
-      { value: 'combineBySql', label: 'SQL-Abfrage', description: 'Zusammenführen per SQL-Abfrage' },
-      { value: 'chooseBranch', label: 'Zweig wählen', description: 'Daten eines bestimmten Zweigs unverändert ausgeben' },
+      { value: 'append', label: 'Append', description: 'Output items of each input, one after the other' },
+      { value: 'combine', label: 'Combine', description: 'Merge matching items together' },
+      { value: 'combineBySql', label: 'SQL Query', description: 'Write a query to do the merge' },
+      { value: 'chooseBranch', label: 'Choose Branch', description: 'Output data from a specific branch, without modifying it' },
     ],
-    description: 'Wie die Eingangsdaten zusammengeführt werden',
+    description: 'How input data should be merged',
   },
   {
     name: 'combineBy',
-    label: 'Kombinieren nach',
+    label: 'Combine By',
     type: 'options',
     noExpression: true,
     default: 'combineByFields',
     options: [
-      { value: 'combineByFields', label: 'Gleichen Feldern', description: 'Items mit gleichen Feldwerten kombinieren' },
-      { value: 'combineByPosition', label: 'Position', description: 'Items nach ihrer Reihenfolge kombinieren' },
-      { value: 'combineAll', label: 'Allen Kombinationen', description: 'Jedes Item mit jedem (Cross Join)' },
+      { value: 'combineByFields', label: 'Matching Fields', description: 'Combine items with the same field values' },
+      { value: 'combineByPosition', label: 'Position', description: 'Combine items based on their order' },
+      { value: 'combineAll', label: 'All Possible Combinations', description: 'Every pairing of every two items (cross join)' },
     ],
-    description: 'Wie die Eingangsdaten zusammengeführt werden',
+    description: 'How input data should be merged',
     show: { mode: ['combine'] },
   },
   // append
@@ -586,106 +586,106 @@ const parameters: ParamSchema[] = [
   // combineAll
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     show: { mode: ['combine'], combineBy: ['combineAll'] },
     children: [clashHandlingParam(CLASH_DEFAULT), fuzzyCompareParam],
   },
   // combineByFields
   {
     name: 'advanced',
-    label: 'Feldnamen unterscheiden sich',
+    label: 'Fields To Match Have Different Names',
     type: 'boolean',
     default: false,
-    description: 'Ob die Felder zum Abgleich in Eingang 1 und Eingang 2 verschiedene Namen haben',
+    description: 'Whether name(s) of field to match are different in input 1 and input 2',
     show: BY_FIELDS,
   },
   {
     name: 'fieldsToMatchString',
-    label: 'Felder zum Abgleich',
+    label: 'Fields To Match',
     type: 'string',
     default: '',
-    placeholder: 'z. B. id, name',
-    description: 'Felder, über die Items abgeglichen werden (durch Komma getrennt)',
+    placeholder: 'e.g. id, name',
+    description: 'Specify the fields to use for matching input items (comma separated)',
     show: { advanced: [false], ...BY_FIELDS },
   },
   {
     name: 'mergeByFields',
-    label: 'Felder zum Abgleich',
+    label: 'Fields To Match',
     type: 'fixedCollection',
     multiple: true,
-    addLabel: 'Felder hinzufügen',
+    addLabel: 'Add Fields to Match',
     default: { values: [{ field1: '', field2: '' }] },
-    description: 'Felder, über die Items abgeglichen werden',
+    description: 'Specify the fields to use for matching input items',
     show: { advanced: [true], ...BY_FIELDS },
     groups: [
       {
         name: 'values',
-        label: 'Werte',
+        label: 'Values',
         children: [
-          { name: 'field1', label: 'Feld in Eingang 1', type: 'string', default: '', placeholder: 'z. B. id' },
-          { name: 'field2', label: 'Feld in Eingang 2', type: 'string', default: '', placeholder: 'z. B. id' },
+          { name: 'field1', label: 'Input 1 Field', type: 'string', default: '', placeholder: 'e.g. id' },
+          { name: 'field2', label: 'Input 2 Field', type: 'string', default: '', placeholder: 'e.g. id' },
         ],
       },
     ],
   },
   {
     name: 'joinMode',
-    label: 'Ausgabe',
+    label: 'Output Type',
     type: 'options',
     default: 'keepMatches',
     options: [
-      { value: 'keepMatches', label: 'Treffer behalten', description: 'Passende Items zusammengeführt (Inner Join)' },
-      { value: 'keepNonMatches', label: 'Nicht-Treffer behalten', description: 'Items ohne Gegenstück' },
-      { value: 'keepEverything', label: 'Alles behalten', description: 'Treffer zusammengeführt plus Items ohne Gegenstück (Outer Join)' },
-      { value: 'enrichInput1', label: 'Eingang 1 anreichern', description: 'Alle Items aus Eingang 1, ergänzt um Daten aus Eingang 2 (Left Join)' },
-      { value: 'enrichInput2', label: 'Eingang 2 anreichern', description: 'Alle Items aus Eingang 2, ergänzt um Daten aus Eingang 1 (Right Join)' },
+      { value: 'keepMatches', label: 'Keep Matches', description: 'Output matching items merged together (inner join)' },
+      { value: 'keepNonMatches', label: 'Keep Non-Matches', description: 'Output non-matching items' },
+      { value: 'keepEverything', label: 'Keep Everything', description: 'Output matching items merged together, plus non-matching items (outer join)' },
+      { value: 'enrichInput1', label: 'Enrich Input 1', description: 'All items of input 1, with data from input 2 added in (left join)' },
+      { value: 'enrichInput2', label: 'Enrich Input 2', description: 'All items of input 2, with data from input 1 added in (right join)' },
     ],
-    description: 'Welche Items ausgegeben werden',
+    description: 'How to select the items to send to output',
     show: BY_FIELDS,
   },
   {
     name: 'outputDataFrom',
-    label: 'Daten aus',
+    label: 'Output Data From',
     type: 'options',
     default: 'both',
     options: [
-      { value: 'both', label: 'Beiden Eingängen, zusammengeführt' },
-      { value: 'input1', label: 'Eingang 1' },
-      { value: 'input2', label: 'Eingang 2' },
+      { value: 'both', label: 'Both Inputs Merged Together' },
+      { value: 'input1', label: 'Input 1' },
+      { value: 'input2', label: 'Input 2' },
     ],
     show: { joinMode: ['keepMatches'], ...BY_FIELDS },
   },
   {
     name: 'outputDataFrom',
-    label: 'Daten aus',
+    label: 'Output Data From',
     type: 'options',
     default: 'both',
     options: [
-      { value: 'both', label: 'Beiden Eingängen, nacheinander' },
-      { value: 'input1', label: 'Eingang 1' },
-      { value: 'input2', label: 'Eingang 2' },
+      { value: 'both', label: 'Both Inputs Appended Together' },
+      { value: 'input1', label: 'Input 1' },
+      { value: 'input2', label: 'Input 2' },
     ],
     show: { joinMode: ['keepNonMatches'], ...BY_FIELDS },
   },
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     show: BY_FIELDS,
     children: [
       clashHandlingParam(CLASH_DEFAULT, { hide: { '/joinMode': ['keepMatches', 'keepNonMatches'] } }),
       clashHandlingParam(CLASH_DEFAULT, { show: { '/joinMode': ['keepMatches'], '/outputDataFrom': ['both'] } }),
       {
         name: 'disableDotNotation',
-        label: 'Punkt-Notation abschalten',
+        label: 'Disable Dot Notation',
         type: 'boolean',
         default: false,
-        description: 'Ob Unterfelder nicht über parent.child im Feldnamen angesprochen werden',
+        description: 'Whether to disallow referencing child fields using parent.child in the field name',
       },
       fuzzyCompareParam,
       multipleMatchesParam({ '/joinMode': ['keepMatches'], '/outputDataFrom': ['both'] }),
@@ -696,19 +696,19 @@ const parameters: ParamSchema[] = [
   numberInputsParam(BY_POSITION),
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     show: BY_POSITION,
     children: [
       clashHandlingParam({ values: { resolveClash: 'addSuffix' } }),
       {
         name: 'includeUnpaired',
-        label: 'Items ohne Partner übernehmen',
+        label: 'Include Any Unpaired Items',
         type: 'boolean',
         default: false,
-        description: 'Ob bei unterschiedlich vielen Items auch die Items ohne Gegenstück ausgegeben werden',
+        description: 'Whether unpaired items should be included in the result when there are differing numbers of items among the inputs',
       },
     ],
   },
@@ -716,34 +716,34 @@ const parameters: ParamSchema[] = [
   numberInputsParam({ mode: ['combineBySql'] }),
   {
     name: 'query',
-    label: 'Abfrage',
+    label: 'Query',
     type: 'code',
     language: 'sql',
     rows: 5,
     noExpression: true,
     required: true,
     default: 'SELECT * FROM input1 LEFT JOIN input2 ON input1.name = input2.id',
-    description: 'Die Eingänge stehen als Tabellen input1, input2 usw. bereit; SQL-99 im Umfang von alasql. {{ … }} wird ausgewertet.',
+    description: 'The inputs are available as tables input1, input2 etc.; SQL-99 as supported by alasql. {{ … }} is evaluated.',
     show: { mode: ['combineBySql'] },
   },
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     show: { mode: ['combineBySql'], '@version': [3.2] },
     children: [
       {
         name: 'emptyQueryResult',
-        label: 'Leeres Ergebnis',
+        label: 'Output When Empty',
         type: 'options',
         default: 'empty',
         options: [
-          { value: 'success', label: 'Erfolg' },
-          { value: 'empty', label: 'Leeres Ergebnis' },
+          { value: 'success', label: 'Success' },
+          { value: 'empty', label: 'Empty Result' },
         ],
-        description: 'Was ausgegeben wird, wenn die Abfrage keine Zeilen liefert',
+        description: 'What to output when the query returns no rows',
       },
     ],
   },
@@ -751,30 +751,30 @@ const parameters: ParamSchema[] = [
   numberInputsParam({ mode: ['chooseBranch'] }),
   {
     name: 'chooseBranchMode',
-    label: 'Ausgabe',
+    label: 'Output Type',
     type: 'options',
     default: 'waitForAll',
-    options: [{ value: 'waitForAll', label: 'Auf alle Eingänge warten' }],
+    options: [{ value: 'waitForAll', label: 'Wait for All Inputs to Arrive' }],
     show: { mode: ['chooseBranch'] },
   },
   {
     name: 'output',
-    label: 'Ausgabe',
+    label: 'Output',
     type: 'options',
     default: 'specifiedInput',
     options: [
-      { value: 'specifiedInput', label: 'Daten des gewählten Eingangs' },
-      { value: 'empty', label: 'Ein einzelnes, leeres Item' },
+      { value: 'specifiedInput', label: 'Data of Specified Input' },
+      { value: 'empty', label: 'A Single, Empty Item' },
     ],
     show: { chooseBranchMode: ['waitForAll'], mode: ['chooseBranch'] },
   },
   {
     name: 'useDataOfInput',
-    label: 'Daten von Eingang',
+    label: 'Use Data of Input',
     type: 'options',
     default: 1,
     options: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => ({ value: n, label: String(n) })),
-    description: 'Nummer des Eingangs, dessen Daten ausgegeben werden',
+    description: 'The number of the input to use data of',
     show: { output: ['specifiedInput'], mode: ['chooseBranch'] },
   },
 ];
@@ -788,7 +788,7 @@ export const mergeNode: NodeType = {
   inputs: inputCount,
   requiredInputs: (node) => ((node.parameters.mode ?? 'append') === 'chooseBranch' ? [0, 1] : 1),
   async execute(ctx) {
-    // n8n getNodeInputsData: so viele Eingänge wie konfiguriert, fehlende sind leer
+    // n8n getNodeInputsData: as many inputs as configured, missing ones are empty
     const count = inputCount(ctx.node);
     const inputs: Item[][] = Array.from({ length: count }, (_v, i) => ctx.inputs[i] ?? []);
     let mode = ctx.getParam<string>('mode', 0, 'append');
@@ -807,7 +807,7 @@ export const mergeNode: NodeType = {
       case 'combineBySql':
         return combineBySql(ctx, inputs);
       default:
-        throw new NodeOperationError(ctx.node.name, `Merge-Modus "${mode}" wird nicht unterstützt`);
+        throw new NodeOperationError(ctx.node.name, `Merge mode "${mode}" is not supported`);
     }
   },
 };

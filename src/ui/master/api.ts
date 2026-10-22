@@ -1,4 +1,4 @@
-// REST-Client für den Master. Anmeldung über das Sitzungs-Cookie (HttpOnly), ändernde Requests mit CSRF-Header.
+// REST client for the master. Authentication via the session cookie (HttpOnly), modifying requests with a CSRF header.
 import { request } from '../api.js';
 import type { CommunityPackage, CommunityPackageList, CredentialDetail, CredentialImportResult, CredentialInfo, CredentialList, CredentialSaveBody, CredentialTypeCatalog, Execution, InspectResult, NodeTypeInfo, Overview as WorkerOverview, VariableEntry, Workflow } from '../types.js';
 import type {
@@ -27,14 +27,14 @@ import type {
 const e = encodeURIComponent;
 
 export const mapi = {
-  // Anmeldung
+  // Sign-in
   status: () => request<AuthStatus>('GET', '/api/auth/status'),
   setup: (body: { setupToken: string; email: string; name: string; password: string }) => request<{ user: User }>('POST', '/api/auth/setup', body),
   login: (email: string, password: string) => request<{ mfaRequired: boolean }>('POST', '/api/auth/login', { email, password }),
   totp: (code: string) => request<{ ok: true }>('POST', '/api/auth/totp', { code }),
   logout: () => request<{ ok: true }>('POST', '/api/auth/logout'),
 
-  // Profil
+  // Profile
   me: () => request<{ user: User }>('GET', '/api/me').then((r) => r.user),
   updateMe: (name: string) => request<{ user: User }>('PUT', '/api/me', { name }).then((r) => r.user),
   changePassword: (current: string, password: string) => request<{ ok: true }>('POST', '/api/me/password', { current, password }),
@@ -46,7 +46,7 @@ export const mapi = {
   deleteToken: (id: string) => request<void>('DELETE', `/api/me/tokens/${e(id)}`),
   directory: () => request<{ data: Array<{ id: string; email: string; name: string }> }>('GET', '/api/users').then((r) => r.data),
 
-  // Verwaltung
+  // Administration
   users: () => request<{ data: User[] }>('GET', '/api/admin/users').then((r) => r.data),
   createUser: (body: { email: string; name: string; password?: string; role: string }) => request<{ user: User }>('POST', '/api/admin/users', body).then((r) => r.user),
   updateUser: (id: string, body: Record<string, unknown>) => request<{ user: User }>('PUT', `/api/admin/users/${e(id)}`, body).then((r) => r.user),
@@ -55,7 +55,7 @@ export const mapi = {
   saveSettings: (body: { requireTotp: boolean }) => request<{ requireTotp: boolean }>('PUT', '/api/admin/settings', body),
   audit: (before?: number) => request<{ data: AuditEntry[] }>('GET', `/api/admin/audit?limit=200${before ? `&before=${before}` : ''}`).then((r) => r.data),
 
-  // Mandanten und Worker
+  // Tenants and workers
   overview: () => request<Overview>('GET', '/api/admin/overview'),
   tenants: () => request<{ data: Tenant[] }>('GET', '/api/admin/tenants').then((r) => r.data),
   createTenant: (name: string, description: string) => request<Tenant>('POST', '/api/admin/tenants', { name, description }),
@@ -95,7 +95,7 @@ export const mapi = {
   updateWorkerPackage: (id: string, name: string, version?: string) => request<CommunityPackage>('PATCH', `/api/admin/workers/${e(id)}/community-packages`, { name, ...(version ? { version } : {}) }),
   removeWorkerPackage: (id: string, name: string) => request<void>('DELETE', `/api/admin/workers/${e(id)}/community-packages?name=${e(name)}`),
 
-  // Projekte
+  // Projects
   projects: () => request<{ data: Project[] }>('GET', '/api/projects').then((r) => r.data),
   project: (id: string) => request<Project>('GET', `/api/projects/${e(id)}`),
   createProject: (body: { name: string; description: string; workerId: string | null }) => request<Project>('POST', '/api/projects', body),
@@ -119,7 +119,7 @@ export const mapi = {
   setWorkflowMember: (id: string, userId: string, role: WorkflowRole) => request<unknown>('PUT', `/api/workflows/${e(id)}/members/${e(userId)}`, { role }),
   removeWorkflowMember: (id: string, userId: string) => request<void>('DELETE', `/api/workflows/${e(id)}/members/${e(userId)}`),
 
-  /** Zentrale Ausführungssuche über alle Worker */
+  /** Central execution search across all workers */
   searchExecutions: (filter: Record<string, string | undefined>) => {
     const q = new URLSearchParams();
     for (const [k, v] of Object.entries(filter)) if (v) q.set(k, v);
@@ -128,7 +128,7 @@ export const mapi = {
 
   projectOverview: (projectId: string) => request<{ overview: WorkerOverview | null; error?: string }>('GET', `/api/projects/${e(projectId)}/overview`),
 
-  // Editor und Ausführungen (beim Worker des Projekts)
+  // Editor and executions (on the project's worker)
   nodeTypes: () => request<{ data: NodeTypeInfo[] }>('GET', '/api/editor/node-types').then((r) => r.data),
   inspect: (projectId: string, workflow: Workflow) => request<InspectResult & { worker: string }>('POST', `/api/projects/${e(projectId)}/inspect`, workflow),
   run: (id: string, workflow: Workflow, trigger?: string, input?: unknown, destination?: string) =>

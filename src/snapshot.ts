@@ -1,4 +1,4 @@
-// Vergleichbare Darstellung einer Execution (gleiches Format wie scripts/extract-expected.mjs).
+// Comparable representation of an execution (same format as scripts/extract-expected.mjs).
 import type { Execution, Item } from './types.js';
 
 export interface SnapshotRun {
@@ -54,11 +54,11 @@ export function executionToSnapshot(exec: Execution): ExecutionSnapshot {
       .map((e) => e.name),
     nodes,
   };
-  // JSON-Rundreise: luxon DateTime → ISO, undefined entfällt (wie n8n beim Speichern)
+  // JSON round trip: luxon DateTime → ISO, undefined is dropped (like n8n when saving)
   return JSON.parse(JSON.stringify(snapshot)) as ExecutionSnapshot;
 }
 
-/** Entfernt Werte an Pfaden (mit * als Platzhalter) */
+/** Removes values at paths (with * as wildcard) */
 export function applyIgnore(value: unknown, patterns: string[]): unknown {
   const clone = JSON.parse(JSON.stringify(value)) as unknown;
   for (const pattern of patterns) {

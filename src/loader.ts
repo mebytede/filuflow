@@ -1,4 +1,4 @@
-// Lädt Workflow-JSONs (n8n-Export) von der Platte.
+// Loads workflow JSON files (n8n export) from disk.
 import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { Workflow } from './types.js';
@@ -10,22 +10,22 @@ export interface LoadedWorkflow {
 }
 
 /**
- * Akzeptiert ein Workflow-Objekt oder ein Array mit genau einem Workflow
- * (so exportiert `n8n export:workflow` bei `--all` bzw. manchen Versionen).
+ * Accepts a workflow object or an array with exactly one workflow
+ * (this is how `n8n export:workflow` exports with `--all` or in some versions).
  */
-export function parseWorkflow(raw: unknown, source = 'Eingabe'): Workflow {
+export function parseWorkflow(raw: unknown, source = 'input'): Workflow {
   let value = raw;
   if (Array.isArray(value)) {
     if (value.length !== 1) {
-      throw new WorkflowValidationError(`${source}: erwartet genau einen Workflow, gefunden ${value.length}`, [
-        { severity: 'error', code: 'json.structure', message: `Array mit ${value.length} Workflows` },
+      throw new WorkflowValidationError(`${source}: expected exactly one workflow, found ${value.length}`, [
+        { severity: 'error', code: 'json.structure', message: `Array with ${value.length} workflows` },
       ]);
     }
     value = value[0];
   }
   if (value === null || typeof value !== 'object') {
-    throw new WorkflowValidationError(`${source}: kein Workflow-Objekt`, [
-      { severity: 'error', code: 'json.structure', message: 'Wurzel ist kein Objekt' },
+    throw new WorkflowValidationError(`${source}: not a workflow object`, [
+      { severity: 'error', code: 'json.structure', message: 'Root is not an object' },
     ]);
   }
   return value as Workflow;
@@ -37,14 +37,14 @@ export async function loadWorkflowFile(file: string): Promise<Workflow> {
   try {
     raw = JSON.parse(text);
   } catch (error) {
-    throw new WorkflowValidationError(`${file}: ungültiges JSON`, [
+    throw new WorkflowValidationError(`${file}: invalid JSON`, [
       { severity: 'error', code: 'json.parse', message: (error as Error).message },
     ]);
   }
   return parseWorkflow(raw, file);
 }
 
-/** Lädt alle *.json eines Verzeichnisses. Fehlerhafte Dateien werden mit Fehler gemeldet. */
+/** Loads all *.json files of a directory. Invalid files are reported with an error. */
 export async function loadWorkflowDir(
   dir: string,
 ): Promise<Array<{ file: string; workflow?: Workflow; error?: Error }>> {

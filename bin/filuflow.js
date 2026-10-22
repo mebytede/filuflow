@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Startet die gebaute CLI; im Entwicklungsmodus (ohne dist) über tsx.
+// Starts the built CLI; in development mode (without dist) via tsx.
 import { existsSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';

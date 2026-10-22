@@ -1,6 +1,6 @@
 // Loop Over Items (Split in Batches), n8n-nodes-base.splitInBatches (typeVersion 3)
-// Nachgebaut nach n8n 1.123.0 packages/nodes-base/nodes/SplitInBatches/v3/SplitInBatchesV3.node.ts
-// Ausgang 0 = done, Ausgang 1 = loop. Zustand über Runs im Node-Kontext.
+// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/SplitInBatches/v3/SplitInBatchesV3.node.ts
+// Output 0 = done, output 1 = loop. State across runs is kept in the node context.
 import type { NodeType } from './types.js';
 import type { Item, PairedItem, SourceData } from '../types.js';
 import { deepCopy } from './shared/utils.js';
@@ -16,28 +16,28 @@ interface LoopContext {
   done?: boolean;
 }
 
-// Parameter wie packages/nodes-base/nodes/SplitInBatches/v3/SplitInBatchesV3.node.ts
+// Parameters as in packages/nodes-base/nodes/SplitInBatches/v3/SplitInBatchesV3.node.ts
 const parameters: ParamSchema[] = [
   {
     name: 'splitInBatchesNotice',
-    label: 'Diesen Knoten brauchen Sie oft nicht: Knoten laufen automatisch einmal für jedes Item.',
+    label: 'You may not need this node: nodes automatically run once for each input item.',
     type: 'notice',
     default: '',
   },
-  { name: 'batchSize', label: 'Batch-Größe', type: 'number', default: 1, min: 1, description: 'Anzahl der Items, die pro Durchlauf ausgegeben werden' },
+  { name: 'batchSize', label: 'Batch Size', type: 'number', default: 1, min: 1, description: 'The number of items to return with each call' },
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     children: [
       {
         name: 'reset',
-        label: 'Zurücksetzen',
+        label: 'Reset',
         type: 'boolean',
         default: false,
-        description: 'Ob der Knoten wieder von vorn beginnt und die eingehenden Items als neue Menge behandelt',
+        description: 'Whether the node starts again from the beginning and treats the incoming items as a new set of data',
       },
     ],
   },

@@ -1,4 +1,4 @@
-// Strukturiertes Logging über pino. Engine-Code nutzt nie console.log.
+// Structured logging via pino. Engine code never uses console.log.
 import { pino, type Logger as PinoLogger } from 'pino';
 
 export type Logger = Pick<PinoLogger, 'debug' | 'info' | 'warn' | 'error' | 'child'>;

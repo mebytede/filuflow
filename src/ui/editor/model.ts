@@ -1,5 +1,5 @@
-// Änderungen am Workflow-JSON im Editor: Nodes, Verbindungen, Umbenennen.
-// Format wie n8n: connections[Quelle][Typ][Ausgang] = [{ node, type, index }].
+// Changes to the workflow JSON in the editor: nodes, connections, renaming.
+// Format like n8n: connections[source][type][output] = [{ node, type, index }].
 import type { Connection, Workflow, WorkflowNode } from '../types.js';
 
 export interface Edge {
@@ -30,7 +30,7 @@ export function listEdges(wf: Workflow): Edge[] {
   return out;
 }
 
-/** Alle Vorgänger eines Knotens über main-Verbindungen (für "Bis hier ausführen") */
+/** All predecessors of a node via main connections (for "Execute up to here") */
 export function ancestors(wf: Workflow, name: string): Set<string> {
   const parents = new Map<string, string[]>();
   for (const e of listEdges(wf)) if (e.type === 'main') parents.set(e.to, [...(parents.get(e.to) ?? []), e.from]);
@@ -69,7 +69,7 @@ export function removeEdge(wf: Workflow, e: Edge): void {
   cleanupConnections(wf);
 }
 
-/** Leere Einträge am Ende entfernen (n8n speichert leere Ausgänge zwischen belegten als []) */
+/** Remove empty entries at the end (n8n stores empty outputs between used ones as []) */
 function cleanupConnections(wf: Workflow): void {
   for (const [from, byType] of Object.entries(wf.connections)) {
     for (const [type, outputs] of Object.entries(byType)) {
@@ -108,7 +108,7 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/** Verweise in Expressions auf den alten Namen anpassen ($('Name'), $node["Name"], $node.Name) */
+/** Update references to the old name in expressions ($('Name'), $node["Name"], $node.Name) */
 function renameInValue(value: unknown, oldName: string, newName: string): unknown {
   if (typeof value === 'string') {
     if (!value.includes(oldName)) return value;
@@ -162,7 +162,7 @@ export function findNode(wf: Workflow, name: string): WorkflowNode | undefined {
   return wf.nodes.find((n) => n.name === name);
 }
 
-/** Ausschnitt zum Kopieren: Nodes und Verbindungen zwischen ihnen (gleiches Format wie n8n) */
+/** Snippet for copying: nodes and the connections between them (same format as n8n) */
 export function extractSnippet(wf: Workflow, names: Set<string>): Pick<Workflow, 'nodes' | 'connections'> {
   const nodes = cloneWorkflow(wf.nodes.filter((n) => names.has(n.name)));
   const snippet: Pick<Workflow, 'nodes' | 'connections'> = { nodes, connections: {} };
@@ -170,7 +170,7 @@ export function extractSnippet(wf: Workflow, names: Set<string>): Pick<Workflow,
   return snippet;
 }
 
-/** Ausschnitt einfügen: Namen eindeutig machen, Position versetzen; liefert die neuen Namen */
+/** Paste a snippet: make names unique, offset positions; returns the new names */
 export function pasteSnippet(wf: Workflow, snippet: Pick<Workflow, 'nodes' | 'connections'>, offset: [number, number]): string[] {
   const mapping = new Map<string, string>();
   const added: string[] = [];
@@ -200,7 +200,7 @@ export function pasteSnippet(wf: Workflow, snippet: Pick<Workflow, 'nodes' | 'co
   return added;
 }
 
-export function emptyWorkflow(name = 'Neuer Workflow'): Workflow {
+export function emptyWorkflow(name = 'New workflow'): Workflow {
   return {
     name,
     nodes: [

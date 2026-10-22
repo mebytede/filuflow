@@ -1,8 +1,8 @@
-// Auslöser mit eigener Aktivierung (M31): Poll- und Trigger-Knoten aus n8n-Paketen. Wie n8n ActiveWorkflowManager
-// (getExecutePollFunctions/getExecuteTriggerFunctions): emit speichert die statischen Daten und startet eine Ausführung
-// ab dem Knoten mit den gelieferten Daten; Fehler starten den Fehler-Workflow ("trigger"-Fehlerdaten). Ein Trigger-Knoten,
-// der einen Fehler meldet, wird geschlossen und mit wachsendem Abstand neu aktiviert (WORKFLOW_REACTIVATE_INITIAL_TIMEOUT
-// 1 s, höchstens 24 h, wie addQueuedWorkflowActivation).
+// Triggers with their own activation (M31): poll and trigger nodes from n8n packages. Like n8n ActiveWorkflowManager
+// (getExecutePollFunctions/getExecuteTriggerFunctions): emit saves the static data and starts an execution
+// from the node with the supplied data; errors start the error workflow ("trigger" error data). A trigger node
+// that reports an error is closed and reactivated with increasing delay (WORKFLOW_REACTIVATE_INITIAL_TIMEOUT
+// 1 s, at most 24 h, like addQueuedWorkflowActivation).
 import { Cron } from 'croner';
 import type { Workflow, WorkflowNode } from '../types.js';
 import type { NodeRegistry } from '../nodes/registry.js';
@@ -37,12 +37,12 @@ export class TriggerActivations {
     return workflow.id ?? workflow.name;
   }
 
-  /** Knoten mit eigener Aktivierung */
+  /** Nodes with their own activation */
   nodesOf(workflow: Workflow): WorkflowNode[] {
     return workflow.nodes.filter((n) => !n.disabled && typeof this.o.registry.getVersioned(n.type, n.typeVersion)?.activate === 'function');
   }
 
-  /** Alle Auslöser des Workflows starten; bei einem Fehler werden die schon gestarteten wieder geschlossen */
+  /** Start all triggers of the workflow; on an error the ones already started are closed again */
   async activate(workflow: Workflow): Promise<string[]> {
     const nodes = this.nodesOf(workflow);
     if (!nodes.length) return [];
@@ -55,7 +55,7 @@ export class TriggerActivations {
       throw error;
     }
     this.active.set(TriggerActivations.key(workflow), started);
-    this.o.logger.info({ workflow: workflow.name, triggers: started.map((a) => a.node) }, 'Auslöser aus Paketen aktiviert');
+    this.o.logger.info({ workflow: workflow.name, triggers: started.map((a) => a.node) }, 'Package triggers activated');
     return started.map((a) => a.node);
   }
 
@@ -72,7 +72,7 @@ export class TriggerActivations {
         this.o.manager.start({ workflow, mode: 'trigger', startNodeName: node.name, triggerOutputs: outputs });
       },
       emitError: (error, options) => {
-        this.o.logger.error({ workflow: workflow.name, node: node.name, err: error.message }, 'Auslöser meldet einen Fehler');
+        this.o.logger.error({ workflow: workflow.name, node: node.name, err: error.message }, 'Trigger reported an error');
         this.o.manager.executeTriggerErrorWorkflow(workflow, error, 'trigger');
         if (options?.fatal) void this.restart(workflow, node);
       },
@@ -84,7 +84,7 @@ export class TriggerActivations {
     return entry;
   }
 
-  /** Trigger-Knoten nach einem Fehler schließen und mit wachsendem Abstand neu starten */
+  /** Close a trigger node after an error and restart it with increasing delay */
   private async restart(workflow: Workflow, node: WorkflowNode, delay = REACTIVATE_INITIAL_MS): Promise<void> {
     const key = `${TriggerActivations.key(workflow)}::${node.name}`;
     const list = this.active.get(TriggerActivations.key(workflow)) ?? [];
@@ -103,10 +103,10 @@ export class TriggerActivations {
             const now = this.active.get(TriggerActivations.key(workflow));
             if (now) now.push(entry);
             else void this.closeNode(entry);
-            this.o.logger.info({ workflow: workflow.name, node: node.name }, 'Auslöser neu aktiviert');
+            this.o.logger.info({ workflow: workflow.name, node: node.name }, 'Trigger reactivated');
           })
           .catch((error: unknown) => {
-            this.o.logger.warn({ workflow: workflow.name, node: node.name, err: (error as Error).message }, 'Neuer Start des Auslösers fehlgeschlagen');
+            this.o.logger.warn({ workflow: workflow.name, node: node.name, err: (error as Error).message }, 'Restarting the trigger failed');
             if (this.active.has(TriggerActivations.key(workflow))) void this.restart(workflow, node, Math.min(delay * 2, REACTIVATE_MAX_MS));
           });
       }, delay),
@@ -132,12 +132,12 @@ export class TriggerActivations {
       try {
         await this.closeNode(a);
       } catch (error) {
-        this.o.logger.warn({ workflow: workflow.name, node: a.node, err: (error as Error).message }, 'Auslöser ließ sich nicht sauber schließen');
+        this.o.logger.warn({ workflow: workflow.name, node: a.node, err: (error as Error).message }, 'Trigger could not be closed cleanly');
       }
     }
   }
 
-  /** Aktive Auslöser eines Workflows (Knotennamen) */
+  /** Active triggers of a workflow (node names) */
   list(workflow: Workflow): string[] {
     return (this.active.get(TriggerActivations.key(workflow)) ?? []).map((a) => a.node);
   }

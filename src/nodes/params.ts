@@ -1,10 +1,10 @@
-// Beschreibung der Parameter eines Knotentyps für die Formulare im Editor (M19).
-// Das Format ist eine eigene, vereinfachte Fassung der n8n-Parameterbeschreibung (INodeProperties in
-// packages/workflow/src/interfaces.ts): gleiche Parameternamen, Defaults und Sichtbarkeitsregeln wie n8n, damit
-// gespeicherte Workflows dieselbe Struktur haben. Die Beschreibung steuert nur das Formular; die Ausführung liest die
-// Parameter weiter selbst (mit denselben Defaults).
+// Description of a node type's parameters for the forms in the editor (M19).
+// The format is our own simplified version of the n8n parameter description (INodeProperties in
+// packages/workflow/src/interfaces.ts): same parameter names, defaults and visibility rules as n8n, so that
+// saved workflows have the same structure. The description only drives the form; execution still reads the
+// parameters itself (with the same defaults).
 
-/** Bedingung in einer Sichtbarkeitsregel (n8n displayOptions mit _cnd) */
+/** Condition in a visibility rule (n8n displayOptions with _cnd) */
 export interface ParamCondition {
   gte?: number;
   gt?: number;
@@ -18,8 +18,8 @@ export interface ParamCondition {
 }
 
 /**
- * Sichtbarkeit wie n8n displayOptions.show/hide: Schlüssel ist ein Parameter auf derselben Ebene, mit führendem "/"
- * ein Parameter der obersten Ebene, "@version" die typeVersion. Werte sind erlaubte Werte oder { _cnd: Bedingung }.
+ * Visibility like n8n displayOptions.show/hide: the key is a parameter on the same level, with a leading "/"
+ * a top-level parameter, "@version" the typeVersion. Values are allowed values or { _cnd: condition }.
  */
 export type DisplayRule = Record<string, Array<string | number | boolean | null | { _cnd: ParamCondition }>>;
 
@@ -48,12 +48,12 @@ export type ParamType =
   | 'hidden';
 
 export interface ParamSchema {
-  /** Name im Parameterobjekt (wie n8n) */
+  /** Name in the parameter object (as in n8n) */
   name: string;
-  /** Beschriftung im Formular (deutsch) */
+  /** Label in the form (English, translated in the interface) */
   label: string;
   type: ParamType;
-  /** Default wie in n8n */
+  /** Default as in n8n */
   default?: unknown;
   description?: string;
   placeholder?: string;
@@ -62,26 +62,26 @@ export interface ParamSchema {
   hide?: DisplayRule;
   /** options, multiOptions */
   options?: ParamOption[];
-  /** string: mehrzeilig mit dieser Zeilenzahl (typeOptions.rows) */
+  /** string: multi-line with this number of rows (typeOptions.rows) */
   rows?: number;
-  /** string: verdeckte Eingabe (typeOptions.password) */
+  /** string: masked input (typeOptions.password) */
   password?: boolean;
-  /** code: Sprache für Darstellung und Hilfetext */
+  /** code: language for display and help text */
   language?: 'javaScript' | 'python' | 'json' | 'html' | 'sql' | 'css';
-  /** number: Grenzen (typeOptions.minValue, maxValue, numberPrecision) */
+  /** number: limits (typeOptions.minValue, maxValue, numberPrecision) */
   min?: number;
   max?: number;
   precision?: number;
-  /** fixedCollection: mehrere Einträge je Gruppe (typeOptions.multipleValues); string: Liste von Texten */
+  /** fixedCollection: multiple entries per group (typeOptions.multipleValues); string: list of texts */
   multiple?: boolean;
-  /** Keine Expression erlaubt (noDataExpression) */
+  /** No expression allowed (noDataExpression) */
   noExpression?: boolean;
-  /** collection: mögliche Unterparameter (werden einzeln hinzugefügt) */
+  /** collection: possible sub-parameters (added one by one) */
   children?: ParamSchema[];
-  /** fixedCollection: Gruppen mit ihren Feldern */
+  /** fixedCollection: groups with their fields */
   groups?: Array<{ name: string; label: string; children: ParamSchema[] }>;
-  /** collection, fixedCollection: Beschriftung des Knopfs zum Hinzufügen */
+  /** collection, fixedCollection: label of the add button */
   addLabel?: string;
-  /** resourceLocator: Modi (z. B. list, id, url); "list" wird als freie Eingabe angeboten */
+  /** resourceLocator: modes (e.g. list, id, url); "list" is offered as free input */
   modes?: Array<{ name: string; label: string; placeholder?: string }>;
 }

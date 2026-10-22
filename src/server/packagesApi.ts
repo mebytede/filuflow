@@ -1,6 +1,6 @@
-// Community-Pakete über die REST-API (M30), angelehnt an n8n /rest/community-packages: Liste, Installieren,
-// Aktualisieren, Entfernen. Im Einzelbetrieb unter /api/community-packages, beim Worker unter
-// /api/worker/community-packages (der Master reicht Anfragen globaler Admins weiter).
+// Community packages via the REST API (M30), modeled on n8n /rest/community-packages: list, install,
+// update, remove. In standalone mode under /api/community-packages, on a worker under
+// /api/worker/community-packages (the master forwards requests from global admins).
 import type { FastifyInstance } from 'fastify';
 import type { Logger } from '../logger.js';
 import { CommunityPackageError, type CommunityPackages } from '../plugins/community.js';
@@ -19,8 +19,8 @@ export async function registerPackagesApi(api: FastifyInstance, o: PackagesApiOp
     return reply.code(status).send({ message: (error as Error).message });
   };
   const guard = (reply: { code(n: number): { send(b: unknown): unknown } }) => {
-    if (!o.packages) return reply.code(409).send({ message: 'Community-Pakete sind in dieser Instanz nicht eingerichtet' });
-    if (!o.enabled) return reply.code(403).send({ message: 'Das Installieren von Community-Paketen ist abgeschaltet (FILUFLOW_COMMUNITY_PACKAGES_ENABLED=false)' });
+    if (!o.packages) return reply.code(409).send({ message: 'Community packages are not set up on this instance' });
+    if (!o.enabled) return reply.code(403).send({ message: 'Installing community packages is disabled (FILUFLOW_COMMUNITY_PACKAGES_ENABLED=false)' });
     return undefined;
   };
 

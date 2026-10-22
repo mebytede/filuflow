@@ -1,4 +1,4 @@
-// Validierung eines Workflows (SPEC Abschnitt 6). Meldet gesammelt, bricht nie beim ersten Fehler ab.
+// Validation of a workflow (SPEC section 6). Reports all issues collected, never stops at the first error.
 import * as acorn from 'acorn';
 import type { Workflow, WorkflowNode } from './types.js';
 import type { ValidationIssue } from './errors.js';
@@ -15,11 +15,11 @@ export interface ValidationResult {
 export interface ValidateOptions {
   registry: NodeRegistry;
   credentials?: CredentialProvider;
-  /** Credentials prüfen (Default: true, wenn ein Provider übergeben wurde) */
+  /** Check credentials (default: true if a provider was passed) */
   checkCredentials?: boolean;
 }
 
-/** Prüft eine Code-Stelle einer Expression syntaktisch (wie tournament: ein Ausdruck) */
+/** Checks the syntax of a code part of an expression (like tournament: one expression) */
 export function checkExpressionSyntax(code: string): string | undefined {
   const tryParse = (src: string) =>
     acorn.parse(src, { ecmaVersion: 'latest', sourceType: 'script', allowReturnOutsideFunction: false });
@@ -32,7 +32,7 @@ export function checkExpressionSyntax(code: string): string | undefined {
         tryParse(`(${code})`);
         return undefined;
       } catch {
-        // gleiche Meldung wie ursprünglicher Fehler
+        // same message as the original error
       }
     }
     return (error as Error).message;
@@ -45,14 +45,14 @@ const REFERENCE_PATTERNS: RegExp[] = [
   /\$items\(\s*(['"`])((?:\\.|(?!\1).)*?)\1/g,
 ];
 
-/** Findet referenzierte Node-Namen in Code */
+/** Finds referenced node names in code */
 export function findNodeReferences(code: string): string[] {
   const names = new Set<string>();
   for (const pattern of REFERENCE_PATTERNS) {
     pattern.lastIndex = 0;
     let m: RegExpExecArray | null;
     while ((m = pattern.exec(code)) !== null) {
-      // Template-Strings mit ${} sind dynamisch und nicht prüfbar
+      // Template strings with ${} are dynamic and cannot be checked
       if (m[1] === '`' && m[2].includes('${')) continue;
       names.add(m[2].replace(/\\(.)/g, '$1'));
     }
@@ -69,41 +69,41 @@ export function validateWorkflow(input: unknown, options: ValidateOptions): Vali
     issues.push({ severity: 'error', ...issue });
 
   if (input === null || typeof input !== 'object' || Array.isArray(input)) {
-    add({ code: 'json.structure', message: 'Workflow ist kein JSON-Objekt' });
+    add({ code: 'json.structure', message: 'Workflow is not a JSON object' });
     return { valid: false, issues };
   }
   const wf = input as Workflow;
 
   if (!Array.isArray(wf.nodes)) {
-    add({ code: 'json.structure', message: '"nodes" fehlt oder ist kein Array', path: 'nodes' });
+    add({ code: 'json.structure', message: '"nodes" is missing or not an array', path: 'nodes' });
   }
   if (wf.connections === undefined || wf.connections === null || typeof wf.connections !== 'object' || Array.isArray(wf.connections)) {
-    add({ code: 'json.structure', message: '"connections" fehlt oder ist kein Objekt', path: 'connections' });
+    add({ code: 'json.structure', message: '"connections" is missing or not an object', path: 'connections' });
   }
   if (typeof wf.name !== 'string') {
-    add({ severity: 'warning', code: 'json.structure', message: '"name" fehlt', path: 'name' });
+    add({ severity: 'warning', code: 'json.structure', message: '"name" is missing', path: 'name' });
   }
 
-  // Ausführungsreihenfolge: wie n8n (isLegacyExecutionOrder) gilt alles außer "v1" als v0
+  // Execution order: like n8n (isLegacyExecutionOrder), everything except "v1" counts as v0
   const order = wf.settings?.executionOrder;
   if (order === undefined) {
     add({
       severity: 'warning',
       code: 'settings.executionOrder.missing',
-      message: 'settings.executionOrder fehlt; der Workflow läuft wie in n8n mit der alten Reihenfolge "v0". Für neue Workflows "v1" setzen.',
+      message: 'settings.executionOrder is missing; like in n8n, the workflow runs with the legacy order "v0". Set "v1" for new workflows.',
       path: 'settings.executionOrder',
     });
   } else if (order === 'v0') {
     add({
       severity: 'warning',
       code: 'settings.executionOrder.legacy',
-      message: 'settings.executionOrder "v0": alte Reihenfolge (Breitensuche, fehlende Vorgänger werden mit ausgeführt)',
+      message: 'settings.executionOrder "v0": legacy order (breadth-first, missing predecessors are executed as well)',
       path: 'settings.executionOrder',
     });
   } else if (order !== 'v1') {
     add({
       code: 'settings.executionOrder.unsupported',
-      message: `settings.executionOrder "${String(order)}" ist unbekannt, erlaubt sind "v1" und "v0"`,
+      message: `settings.executionOrder "${String(order)}" is unknown, allowed are "v1" and "v0"`,
       path: 'settings.executionOrder',
     });
   }
@@ -112,53 +112,53 @@ export function validateWorkflow(input: unknown, options: ValidateOptions): Vali
   const names = new Map<string, number>();
   nodes.forEach((node, i) => {
     if (!node || typeof node !== 'object') {
-      add({ code: 'json.structure', message: `Node an Index ${i} ist kein Objekt`, path: `nodes[${i}]` });
+      add({ code: 'json.structure', message: `Node at index ${i} is not an object`, path: `nodes[${i}]` });
       return;
     }
     if (typeof node.name !== 'string' || node.name === '') {
-      add({ code: 'node.invalid', message: `Node an Index ${i} hat keinen Namen`, path: `nodes[${i}].name` });
+      add({ code: 'node.invalid', message: `Node at index ${i} has no name`, path: `nodes[${i}].name` });
       return;
     }
     if (typeof node.type !== 'string') {
-      add({ code: 'node.invalid', message: 'Node hat keinen Typ', node: node.name, path: `nodes[${i}].type` });
+      add({ code: 'node.invalid', message: 'Node has no type', node: node.name, path: `nodes[${i}].type` });
     }
     if (typeof node.typeVersion !== 'number') {
-      add({ code: 'node.invalid', message: 'Node hat keine typeVersion', node: node.name, path: `nodes[${i}].typeVersion` });
+      add({ code: 'node.invalid', message: 'Node has no typeVersion', node: node.name, path: `nodes[${i}].typeVersion` });
     }
     if (node.parameters !== undefined && (typeof node.parameters !== 'object' || node.parameters === null)) {
-      add({ code: 'node.invalid', message: '"parameters" ist kein Objekt', node: node.name });
+      add({ code: 'node.invalid', message: '"parameters" is not an object', node: node.name });
     }
     names.set(node.name, (names.get(node.name) ?? 0) + 1);
   });
   for (const [name, count] of names) {
-    if (count > 1) add({ code: 'node.duplicateName', message: `Node-Name "${name}" kommt ${count}-mal vor`, node: name });
+    if (count > 1) add({ code: 'node.duplicateName', message: `Node name "${name}" occurs ${count} times`, node: name });
   }
 
-  // Verbindungen
+  // Connections
   const connections = wf.connections && typeof wf.connections === 'object' ? wf.connections : {};
   for (const [source, byType] of Object.entries(connections)) {
     if (!names.has(source)) {
-      add({ code: 'connection.unknownSource', message: `Verbindung von unbekanntem Node "${source}"`, path: `connections.${source}` });
+      add({ code: 'connection.unknownSource', message: `Connection from unknown node "${source}"`, path: `connections.${source}` });
     }
     if (!byType || typeof byType !== 'object') continue;
     for (const [type, outputs] of Object.entries(byType)) {
       if (!Array.isArray(outputs)) {
-        add({ code: 'json.structure', message: `connections.${source}.${type} ist kein Array`, node: source });
+        add({ code: 'json.structure', message: `connections.${source}.${type} is not an array`, node: source });
         continue;
       }
       outputs.forEach((targets, outputIndex) => {
         if (targets === null) return;
         if (!Array.isArray(targets)) {
-          add({ code: 'json.structure', message: `connections.${source}.${type}[${outputIndex}] ist kein Array`, node: source });
+          add({ code: 'json.structure', message: `connections.${source}.${type}[${outputIndex}] is not an array`, node: source });
           return;
         }
         for (const t of targets) {
           if (!t || typeof t.node !== 'string') {
-            add({ code: 'json.structure', message: `Ungültige Verbindung in connections.${source}.${type}[${outputIndex}]`, node: source });
+            add({ code: 'json.structure', message: `Invalid connection in connections.${source}.${type}[${outputIndex}]`, node: source });
           } else if (!names.has(t.node)) {
             add({
               code: 'connection.unknownTarget',
-              message: `Verbindung "${source}" → "${t.node}": Ziel-Node existiert nicht`,
+              message: `Connection "${source}" → "${t.node}": target node does not exist`,
               node: source,
             });
           }
@@ -167,7 +167,7 @@ export function validateWorkflow(input: unknown, options: ValidateOptions): Vali
     }
   }
 
-  // Node-Typen, Versionen, Parameter, Expressions, Credentials
+  // Node types, versions, parameters, expressions, credentials
   const checkCreds = options.checkCredentials ?? options.credentials !== undefined;
   let triggerCount = 0;
   for (const node of nodes) {
@@ -179,7 +179,7 @@ export function validateWorkflow(input: unknown, options: ValidateOptions): Vali
       add({
         severity: sev,
         code: 'node.unknownType',
-        message: `Node-Typ "${node.type}" wird nicht unterstützt${node.disabled ? ' (Node ist deaktiviert)' : ''}`,
+        message: `Node type "${node.type}" is not supported${node.disabled ? ' (node is disabled)' : ''}`,
         node: node.name,
       });
       continue;
@@ -188,7 +188,7 @@ export function validateWorkflow(input: unknown, options: ValidateOptions): Vali
       add({
         severity: sev,
         code: 'node.unsupportedVersion',
-        message: `"${node.type}" typeVersion ${node.typeVersion} wird nicht unterstützt (unterstützt: ${nodeType.versions.join(', ')})`,
+        message: `"${node.type}" typeVersion ${node.typeVersion} is not supported (supported: ${nodeType.versions.join(', ')})`,
         node: node.name,
       });
       continue;
@@ -207,7 +207,7 @@ export function validateWorkflow(input: unknown, options: ValidateOptions): Vali
         if (syntaxError) {
           add({
             code: 'expression.syntax',
-            message: `Syntaxfehler in Expression {{${chunk.text}}}: ${syntaxError}`,
+            message: `Syntax error in expression {{${chunk.text}}}: ${syntaxError}`,
             node: node.name,
             path: `parameters.${path}`,
           });
@@ -216,7 +216,7 @@ export function validateWorkflow(input: unknown, options: ValidateOptions): Vali
           if (!names.has(ref)) {
             add({
               code: 'expression.unknownNode',
-              message: `Expression referenziert unbekannten Node "${ref}"`,
+              message: `Expression references unknown node "${ref}"`,
               node: node.name,
               path: `parameters.${path}`,
             });
@@ -224,13 +224,13 @@ export function validateWorkflow(input: unknown, options: ValidateOptions): Vali
         }
       }
     }
-    // Code-Nodes: Referenzen im Code (Warnung, da Kommentare/Strings mitgezählt werden)
+    // Code nodes: references in the code (warning, because comments/strings are counted too)
     for (const key of ['jsCode', 'functionCode']) {
       const code = node.parameters?.[key];
       if (typeof code === 'string') {
         for (const ref of findNodeReferences(code)) {
           if (!names.has(ref)) {
-            add({ severity: 'warning', code: 'code.unknownNode', message: `Code referenziert unbekannten Node "${ref}"`, node: node.name, path: `parameters.${key}` });
+            add({ severity: 'warning', code: 'code.unknownNode', message: `Code references unknown node "${ref}"`, node: node.name, path: `parameters.${key}` });
           }
         }
       }
@@ -240,18 +240,18 @@ export function validateWorkflow(input: unknown, options: ValidateOptions): Vali
       for (const credType of nodeType.credentialTypes(node)) {
         const ref = node.credentials?.[credType];
         if (!ref) {
-          add({ code: 'credentials.notAssigned', message: `Node braucht Credentials vom Typ "${credType}", im Workflow ist keins zugewiesen`, node: node.name });
+          add({ code: 'credentials.notAssigned', message: `Node requires credentials of type "${credType}", none is assigned in the workflow`, node: node.name });
           continue;
         }
         const entry = options.credentials?.find(ref, credType);
         if (options.credentials && !entry) {
           add({
             code: 'credentials.missing',
-            message: `Credential "${ref.name}" (Typ ${credType}${ref.id ? `, ID ${ref.id}` : ''}) fehlt in der Credential-Datei`,
+            message: `Credential "${ref.name}" (type ${credType}${ref.id ? `, ID ${ref.id}` : ''}) is missing from the credentials file`,
             node: node.name,
           });
         } else if (options.credentials && entry) {
-          // {{ env.NAME }}-Referenzen müssen auflösbar sein
+          // {{ env.NAME }} references must be resolvable
           try {
             options.credentials.resolve(entry);
           } catch (error) {
@@ -262,18 +262,18 @@ export function validateWorkflow(input: unknown, options: ValidateOptions): Vali
     }
   }
   if (nodes.length > 0 && triggerCount === 0) {
-    add({ severity: 'warning', code: 'workflow.noTrigger', message: 'Workflow hat keinen Trigger-Node' });
+    add({ severity: 'warning', code: 'workflow.noTrigger', message: 'Workflow has no trigger node' });
   }
 
   return { valid: !issues.some((i) => i.severity === 'error'), issues };
 }
 
 export function formatIssues(issues: ValidationIssue[]): string {
-  if (issues.length === 0) return 'Keine Probleme gefunden.';
+  if (issues.length === 0) return 'No problems found.';
   return issues
     .map((i) => {
       const where = [i.node ? `[${i.node}]` : '', i.path ? `(${i.path})` : ''].filter(Boolean).join(' ');
-      return `${i.severity === 'error' ? 'FEHLER ' : 'WARNUNG'} ${i.code}${where ? ' ' + where : ''}: ${i.message}`;
+      return `${i.severity === 'error' ? 'ERROR  ' : 'WARNING'} ${i.code}${where ? ' ' + where : ''}: ${i.message}`;
     })
     .join('\n');
 }

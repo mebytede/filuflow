@@ -1,7 +1,7 @@
-// Verbindung vom Master zu den Workern in den Umgebungen der Mandanten.
-// Der Master ruft die API des Workers auf (X-API-Key = Token des Workers). Workflows werden verteilt
-// (Datei beim Worker, Kennzeichnung in meta.filuflowMaster), ausgeführt wird nur beim Worker.
-// Credentials und Ausführungsdaten bleiben beim Worker und werden bei Bedarf live abgefragt.
+// Connection from the master to the workers in the tenants' environments.
+// The master calls the worker's API (X-API-Key = the worker's token). Workflows are distributed
+// (file on the worker, marked in meta.filuflowMaster), execution happens only on the worker.
+// Credentials and execution data stay on the worker and are queried live when needed.
 import { Agent, EnvHttpProxyAgent, request as undiciRequest, type Dispatcher } from 'undici';
 import type { Logger } from '../logger.js';
 import type { Workflow } from '../types.js';
@@ -24,7 +24,7 @@ export interface WorkerHubOptions {
   db: MasterDb;
   secrets: SecretBox;
   logger: Logger;
-  /** Für Tests: eigener Dispatcher statt Agent/Proxy */
+  /** For tests: custom dispatcher instead of Agent/proxy */
   dispatcher?: Dispatcher;
   timeoutMs?: number;
 }
@@ -61,7 +61,7 @@ export class WorkerHub {
     return dispatcher;
   }
 
-  /** Request an einen Worker; Fehler als WorkerError (status 0 = nicht erreichbar) */
+  /** Request to a worker; errors as WorkerError (status 0 = unreachable) */
   async call<T = unknown>(worker: WorkerRow, method: string, path: string, body?: unknown, timeoutMs?: number): Promise<T> {
     const url = `${worker.url.replace(/\/+$/, '')}${path}`;
     let res;
@@ -79,8 +79,8 @@ export class WorkerHub {
       });
     } catch (error) {
       const e = error as Error & { code?: string; cause?: { code?: string; message?: string } };
-      const reason = e.name === 'TimeoutError' ? 'Zeitüberschreitung' : (e.cause?.code ?? e.code ?? e.cause?.message ?? e.message);
-      throw new WorkerError(`Worker "${worker.name}" ist nicht erreichbar (${reason})`, 0);
+      const reason = e.name === 'TimeoutError' ? 'timeout' : (e.cause?.code ?? e.code ?? e.cause?.message ?? e.message);
+      throw new WorkerError(`Worker "${worker.name}" is unreachable (${reason})`, 0);
     }
     const text = await res.body.text();
     let data: unknown;
@@ -91,16 +91,16 @@ export class WorkerHub {
     }
     if (res.statusCode >= 400) {
       const message = (data as { message?: string } | undefined)?.message ?? `HTTP ${res.statusCode}`;
-      throw new WorkerError(res.statusCode === 401 ? `Worker "${worker.name}" lehnt den Token ab` : message, res.statusCode, data);
+      throw new WorkerError(res.statusCode === 401 ? `Worker "${worker.name}" rejects the token` : message, res.statusCode, data);
     }
     return data as T;
   }
 
-  /** Erreichbarkeit und Version prüfen; Status in der Datenbank */
+  /** Check reachability and version; status stored in the database */
   async check(worker: WorkerRow): Promise<WorkerRow> {
     try {
       const info = await this.call<{ version?: string; webhookBaseUrl?: string; mode?: string }>(worker, 'GET', '/api/worker/info', undefined, 10_000);
-      if (info?.mode !== 'worker') throw new WorkerError('Gegenstelle ist kein filuflow-Worker (filuflow worker starten)', 0);
+      if (info?.mode !== 'worker') throw new WorkerError('Remote side is not a filuflow worker (start filuflow worker)', 0);
       this.o.db.updateWorker(worker.id, {
         status: 'online',
         last_seen_at: new Date().toISOString(),
@@ -109,8 +109,8 @@ export class WorkerHub {
         webhook_base_url: info.webhookBaseUrl ?? null,
       });
     } catch (error) {
-      // 404: filuflow serve ohne Worker-Modus (oder ein anderer Dienst unter der Adresse)
-      const message = error instanceof WorkerError && error.status === 404 ? 'Gegenstelle ist kein filuflow-Worker (filuflow worker starten)' : (error as Error).message;
+      // 404: filuflow serve without worker mode (or another service at that address)
+      const message = error instanceof WorkerError && error.status === 404 ? 'Remote side is not a filuflow worker (start filuflow worker)' : (error as Error).message;
       this.o.db.updateWorker(worker.id, { status: 'offline', last_error: message });
     }
     return this.o.db.getWorker(worker.id)!;
@@ -121,21 +121,21 @@ export class WorkerHub {
     return project?.worker_id ? this.o.db.getWorker(project.worker_id) : undefined;
   }
 
-  /** Workflow mit Kennzeichnung für den Worker */
+  /** Workflow with marker for the worker */
   private deployable(row: WorkflowRow): Workflow {
     const wf = JSON.parse(row.data) as Workflow;
     const meta = (wf.meta && typeof wf.meta === 'object' ? wf.meta : {}) as Record<string, unknown>;
     return { ...wf, id: row.id, active: row.active === 1, meta: { ...meta, [MASTER_MARKER]: { version: row.version, projectId: row.project_id } } };
   }
 
-  /** Workflow an den Worker seines Projekts verteilen; Ergebnis in der Datenbank */
+  /** Distribute a workflow to its project's worker; result stored in the database */
   async deploy(row: WorkflowRow): Promise<WorkflowRow> {
     const worker = this.workerForProject(row.project_id);
     if (!worker) {
-      this.o.db.setDeployment(row.id, { version: null, workerId: null, error: 'Projekt hat keinen Worker' });
+      this.o.db.setDeployment(row.id, { version: null, workerId: null, error: 'Project has no worker' });
       return this.o.db.getWorkflow(row.id)!;
     }
-    // Vorher bei einem anderen Worker: dort entfernen (Projekt umgezogen)
+    // Previously on another worker: remove it there (project moved)
     if (row.deployed_worker_id && row.deployed_worker_id !== worker.id) {
       const old = this.o.db.getWorker(row.deployed_worker_id);
       if (old) await this.undeploy(row.id, old).catch(() => undefined);
@@ -160,22 +160,22 @@ export class WorkerHub {
   }
 
   /**
-   * Abgleich eines Workers: fehlende oder veraltete Workflows verteilen, vom Master entfernte löschen
-   * (nur solche mit Kennzeichnung des Masters; von Hand abgelegte Dateien bleiben unberührt).
+   * Sync a worker: distribute missing or outdated workflows, delete those removed from the master
+   * (only those with the master's marker; manually placed files stay untouched).
    */
   async sync(worker: WorkerRow): Promise<{ deployed: number; removed: number; errors: string[] }> {
     const result = { deployed: 0, removed: 0, errors: [] as string[] };
     if (this.syncing.has(worker.id)) return result;
     this.syncing.add(worker.id);
     try {
-      // Gemeinsame Credentials zuerst, damit verteilte Workflows sie beim Prüfen schon finden
+      // Shared credentials first, so distributed workflows already find them during validation
       result.errors.push(...(await this.syncCredentials(worker)));
       const remote = await this.call<{ data: WorkerWorkflowStatus[] }>(worker, 'GET', '/api/worker/workflows');
       const remoteById = new Map(remote.data.map((w) => [w.id, w]));
       const local = this.o.db.listWorkflowsForWorker(worker.id);
       for (const row of local) {
         const r = remoteById.get(row.id);
-        // Stand beim Worker ist aktuell (Aktivierungsfehler bleiben stehen, bis sich der Workflow ändert)
+        // Worker is up to date (activation errors remain until the workflow changes)
         if (r?.masterVersion === row.version) continue;
         const after = await this.deploy(row);
         if (after.deploy_error) result.errors.push(`${row.name}: ${after.deploy_error}`);
@@ -197,7 +197,7 @@ export class WorkerHub {
     return result;
   }
 
-  /** Ein gemeinsames Credential an einen Worker verteilen (anlegen, ändern oder umbenennen) */
+  /** Distribute a shared credential to a worker (create, update or rename) */
   async deployCredential(credential: SharedCredentialRow, worker: WorkerRow): Promise<string | null> {
     const row = this.o.db.sharedCredentialWorkers(credential.id).find((r) => r.worker_id === worker.id);
     if (!row) return null;
@@ -216,7 +216,7 @@ export class WorkerHub {
     }
   }
 
-  /** Gemeinsame Credentials eines Workers abgleichen: veraltete verteilen, aufgehobene entfernen */
+  /** Sync a worker's shared credentials: distribute outdated ones, remove revoked ones */
   async syncCredentials(worker: WorkerRow): Promise<string[]> {
     const errors: string[] = [];
     for (const name of this.o.db.pendingRemovals(worker.id)) {
@@ -225,7 +225,7 @@ export class WorkerHub {
         this.o.db.removalDone(worker.id, name);
       } catch (error) {
         if (error instanceof WorkerError && error.status === 404) this.o.db.removalDone(worker.id, name);
-        else errors.push(`Credential ${name} entfernen: ${(error as Error).message}`);
+        else errors.push(`Remove credential ${name}: ${(error as Error).message}`);
       }
     }
     for (const c of this.o.db.sharedCredentialsForWorker(worker.id)) {
@@ -241,7 +241,7 @@ export class WorkerHub {
       const checked = await this.check(worker);
       if (checked.status === 'online') {
         const r = await this.sync(checked);
-        if (r.deployed || r.removed) this.o.logger.info({ worker: worker.name, ...r }, 'Worker abgeglichen');
+        if (r.deployed || r.removed) this.o.logger.info({ worker: worker.name, ...r }, 'Worker synced');
       }
     }
   }
