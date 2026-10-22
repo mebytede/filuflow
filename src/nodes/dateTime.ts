@@ -151,7 +151,7 @@ const parameters: ParamSchema[] = [
   ]),
 
   // addToDate
-  notice('addToDate', "Das geht auch per Expression, z. B. {{ your_date.plus(5, 'minutes') }}."),
+  notice('addToDate', "You can also do this using an expression, e.g. {{ your_date.plus(5, 'minutes') }}."),
   {
     name: 'magnitude',
     label: 'Date to Add To',
@@ -183,7 +183,7 @@ const parameters: ParamSchema[] = [
   options('addToDate'),
 
   // subtractFromDate
-  notice('subtractFromDate', "Das geht auch per Expression, z. B. {{ your_date.minus(5, 'minutes') }}."),
+  notice('subtractFromDate', "You can also do this using an expression, e.g. {{ your_date.minus(5, 'minutes') }}."),
   {
     name: 'magnitude',
     label: 'Date to Subtract From',
@@ -215,7 +215,7 @@ const parameters: ParamSchema[] = [
   options('subtractFromDate'),
 
   // formatDate
-  notice('formatDate', "Das geht auch per Expression, z. B. {{ your_date.format('yyyy-MM-dd') }}."),
+  notice('formatDate', "You can also do this using an expression, e.g. {{ your_date.format('yyyy-MM-dd') }}."),
   {
     name: 'date',
     label: 'Date',
@@ -270,7 +270,7 @@ const parameters: ParamSchema[] = [
   ]),
 
   // roundDate
-  notice('roundDate', "Das geht auch per Expression, z. B. {{ your_date.beginningOf('month') }} oder {{ your_date.endOfMonth() }}."),
+  notice('roundDate', "You can also do this using an expression, e.g. {{ your_date.beginningOf('month') }} or {{ your_date.endOfMonth() }}."),
   {
     name: 'date',
     label: 'Date',

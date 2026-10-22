@@ -1,6 +1,6 @@
-// OpenAI Chat Model, @n8n/n8n-nodes-langchain.lmChatOpenAi (typeVersion 1 bis 1.3)
-// Nachgebaut nach n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/llms/LMChatOpenAi/LmChatOpenAi.node.ts
-// Chat-Completions-API und ab v1.3 (Default) die Responses API mit eingebauten Tools (M26).
+// OpenAI Chat Model, @n8n/n8n-nodes-langchain.lmChatOpenAi (typeVersion 1 to 1.3)
+// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/llms/LMChatOpenAi/LmChatOpenAi.node.ts
+// Chat Completions API and from v1.3 (default) the Responses API with built-in tools (M26).
 import type { NodeType } from './types.js';
 import type { WorkflowNode } from '../types.js';
 import { OpenAiChatModel } from '../ai/models/openai.js';
@@ -12,43 +12,43 @@ function responsesApiEnabled(node: WorkflowNode): boolean {
   return node.typeVersion >= 1.3 && node.parameters.responsesApiEnabled !== false;
 }
 
-// Parameter wie LmChatOpenAi.node.ts (properties, n8n 1.123.0). Das Modell lädt n8n per API (loadOptions bzw.
-// searchModels); hier ist es eine freie Eingabe.
-// Abweichungen, weil der Editor keine verschachtelten Pfade in "/name" und keine Regex kennt:
-// - Die Hinweise zu JSON-Antworten (INCLUDE_JSON_WARNING, sichtbar bei /options.responseFormat bzw.
-//   /options.textFormat.textOptions.type = json_object) und zu "Base URL" (/options.baseURL) stehen in der
-//   Beschreibung der betroffenen Optionen.
-// - reasoningEffort zeigt n8n per Regex auf dem Modellnamen. Bis v1.1 hier per Präfix (o1, o3 bis o9, gpt-5, daher auch
-//   bei o1-mini); ab v1.2 ist das Modell ein Resource Locator, dort ist die Option immer sichtbar.
-const JSON_WARNING = 'Bei JSON muss der Prompt das Wort "json" enthalten.';
+// Parameters like LmChatOpenAi.node.ts (properties, n8n 1.123.0). n8n loads the model via API (loadOptions or
+// searchModels); here it is a free input.
+// Deviations, because the editor knows no nested paths in "/name" and no regex:
+// - The notices about JSON responses (INCLUDE_JSON_WARNING, visible for /options.responseFormat or
+//   /options.textFormat.textOptions.type = json_object) and about "Base URL" (/options.baseURL) are in the
+//   description of the affected options.
+// - n8n shows reasoningEffort via a regex on the model name. Up to v1.1 here via prefix (o1, o3 to o9, gpt-5, hence also
+//   for o1-mini); from v1.2 the model is a resource locator, there the option is always visible.
+const JSON_WARNING = 'For JSON, the prompt must contain the word "json".';
 const REASONING_MODELS = ['o1', 'o3', 'o4', 'o5', 'o6', 'o7', 'o8', 'o9', 'gpt-5'].map((prefix) => ({ _cnd: { startsWith: prefix } }));
 const RESPONSES_API: ParamSchema['show'] = { '@version': [{ _cnd: { gte: 1.3 } }], '/responsesApiEnabled': [true] };
 const LOW_MEDIUM_HIGH = [
-  { value: 'low', label: 'Niedrig' },
-  { value: 'medium', label: 'Mittel' },
-  { value: 'high', label: 'Hoch' },
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
 ];
 const completionsResponseFormat: ParamSchema = {
   name: 'responseFormat',
-  label: 'Antwortformat',
+  label: 'Response Format',
   type: 'options',
   default: 'text',
   options: [
-    { value: 'text', label: 'Text', description: 'Normale Textantwort' },
-    { value: 'json_object', label: 'JSON', description: 'JSON-Modus, die Antwort ist gültiges JSON' },
+    { value: 'text', label: 'Text', description: 'Regular text response' },
+    { value: 'json_object', label: 'JSON', description: 'Enables JSON mode, which should guarantee the message the model generates is valid JSON' },
   ],
   description: JSON_WARNING,
 };
 const reasoningEffort: ParamSchema = {
   name: 'reasoningEffort',
-  label: 'Reasoning-Aufwand',
+  label: 'Reasoning Effort',
   type: 'options',
   default: 'medium',
-  description: 'Wie viele Reasoning-Token das Modell verwenden darf (o1, o3 und neuer, gpt-5)',
+  description: 'Controls the amount of reasoning tokens to use (o1, o3 and newer, gpt-5)',
   options: [
-    { value: 'low', label: 'Niedrig', description: 'Schnell und sparsam' },
-    { value: 'medium', label: 'Mittel', description: 'Ausgewogen zwischen Tempo und Genauigkeit' },
-    { value: 'high', label: 'Hoch', description: 'Gründlicher, aber langsamer und mit mehr Token' },
+    { value: 'low', label: 'Low', description: 'Favors speed and economical token usage' },
+    { value: 'medium', label: 'Medium', description: 'Balance between speed and reasoning accuracy' },
+    { value: 'high', label: 'High', description: 'Favors more complete reasoning at the cost of more tokens generated and slower responses' },
   ],
 };
 const jsonSchemaExample = `{
@@ -63,89 +63,89 @@ const jsonSchemaExample = `{
 }`;
 
 const parameters: ParamSchema[] = [
-  { name: 'notice', label: 'Dieser Node muss mit einer AI Chain oder einem AI Agent verbunden werden.', type: 'notice', default: '' },
+  { name: 'notice', label: 'This node must be connected to an AI chain or AI agent.', type: 'notice', default: '' },
   {
     name: 'model',
-    label: 'Modell',
+    label: 'Model',
     type: 'string',
     default: 'gpt-4o-mini',
-    placeholder: 'z. B. gpt-4o-mini',
-    description: 'Modell, das die Antwort erzeugt',
+    placeholder: 'e.g. gpt-4o-mini',
+    description: 'The model which will generate the completion',
     hide: { '@version': [{ _cnd: { gte: 1.2 } }] },
   },
   {
     name: 'model',
-    label: 'Modell',
+    label: 'Model',
     type: 'resourceLocator',
     default: { mode: 'list', value: 'gpt-4.1-mini' },
     required: true,
     modes: [
-      { name: 'list', label: 'Aus Liste', placeholder: 'z. B. gpt-4.1-mini' },
+      { name: 'list', label: 'From List', placeholder: 'e.g. gpt-4.1-mini' },
       { name: 'id', label: 'ID', placeholder: 'gpt-4.1-mini' },
     ],
-    description: 'Modell aus der Liste oder per ID',
+    description: 'Model from the list or by ID',
     hide: { '@version': [{ _cnd: { lte: 1.1 } }] },
   },
   {
     name: 'responsesApiEnabled',
-    label: 'Responses API verwenden',
+    label: 'Use Responses API',
     type: 'boolean',
     default: true,
-    description: 'Die Responses API unterstützt filuflow nicht; bitte ausschalten.',
+    description: 'filuflow does not support the Responses API; please turn it off.',
     show: { '@version': [{ _cnd: { gte: 1.3 } }] },
   },
   {
     name: 'builtInTools',
-    label: 'Eingebaute Tools',
+    label: 'Built-in Tools',
     type: 'collection',
     default: {},
-    placeholder: 'Tool hinzufügen',
-    addLabel: 'Tool hinzufügen',
+    placeholder: 'Add Built-in Tool',
+    addLabel: 'Add Built-in Tool',
     show: RESPONSES_API,
     children: [
       {
         name: 'webSearch',
-        label: 'Websuche',
+        label: 'Web Search',
         type: 'collection',
         default: { searchContextSize: 'medium' },
         children: [
           {
             name: 'searchContextSize',
-            label: 'Umfang des Suchkontexts',
+            label: 'Search Context Size',
             type: 'options',
             default: 'medium',
             options: LOW_MEDIUM_HIGH,
-            description: 'Wie viel vom Kontextfenster die Suche nutzen darf',
+            description: 'How much of the context window the search may use',
           },
           {
             name: 'allowedDomains',
-            label: 'Erlaubte Domains',
+            label: 'Web Search Allowed Domains',
             type: 'string',
             default: '',
-            placeholder: 'z. B. google.com, wikipedia.org',
-            description: 'Kommagetrennte Liste; gesucht wird nur in diesen Domains.',
+            placeholder: 'e.g. google.com, wikipedia.org',
+            description: 'Comma-separated list of domains to search; only domains in this list will be searched.',
           },
-          { name: 'country', label: 'Land', type: 'string', default: '', placeholder: 'z. B. US, GB' },
-          { name: 'city', label: 'Stadt', type: 'string', default: '', placeholder: 'z. B. New York, London' },
-          { name: 'region', label: 'Region', type: 'string', default: '', placeholder: 'z. B. New York, London' },
+          { name: 'country', label: 'Country', type: 'string', default: '', placeholder: 'e.g. US, GB' },
+          { name: 'city', label: 'City', type: 'string', default: '', placeholder: 'e.g. New York, London' },
+          { name: 'region', label: 'Region', type: 'string', default: '', placeholder: 'e.g. New York, London' },
         ],
       },
       {
         name: 'fileSearch',
-        label: 'Dateisuche',
+        label: 'File Search',
         type: 'collection',
         default: { vectorStoreIds: '[]' },
         children: [
           {
             name: 'vectorStoreIds',
-            label: 'Vector-Store-IDs',
+            label: 'Vector Store IDs',
             type: 'json',
             default: '[]',
             required: true,
-            description: 'IDs der Vector Stores für die Dateisuche (im OpenAI Dashboard verwaltet)',
+            description: 'The vector store IDs to use for the file search (managed in the OpenAI dashboard)',
           },
           { name: 'filters', label: 'Filter', type: 'json', default: '{}' },
-          { name: 'maxResults', label: 'Höchstens Ergebnisse', type: 'number', default: 1, min: 1, max: 50 },
+          { name: 'maxResults', label: 'Max Results', type: 'number', default: 1, min: 1, max: 50 },
         ],
       },
       {
@@ -153,25 +153,25 @@ const parameters: ParamSchema[] = [
         label: 'Code Interpreter',
         type: 'boolean',
         default: true,
-        description: 'Ob das Modell Code in einer Sandbox ausführen darf',
+        description: 'Whether to allow the model to execute code in a sandboxed environment',
       },
     ],
   },
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    placeholder: 'Option hinzufügen',
-    addLabel: 'Option hinzufügen',
-    description: 'Weitere Optionen',
+    placeholder: 'Add Option',
+    addLabel: 'Add Option',
+    description: 'Additional options to add',
     children: [
       {
         name: 'baseURL',
         label: 'Base URL',
         type: 'string',
         default: 'https://api.openai.com/v1',
-        description: 'Andere Basis-URL; nicht jedes fremde Modell ist chatfähig oder kann Tools und JSON.',
+        description: 'Override the default base URL for the API; not every third-party model supports chat, tools or JSON.',
         hide: { '@version': [{ _cnd: { gte: 1.1 } }] },
       },
       {
@@ -182,21 +182,21 @@ const parameters: ParamSchema[] = [
         min: -2,
         max: 2,
         precision: 1,
-        description: 'Positive Werte bestrafen häufige Token und senken Wiederholungen.',
+        description: 'Positive values penalize new tokens based on their existing frequency in the text so far, decreasing the model’s likelihood to repeat the same line verbatim.',
       },
       {
         name: 'maxTokens',
-        label: 'Höchstzahl Token',
+        label: 'Maximum Number of Tokens',
         type: 'number',
         default: -1,
         max: 32768,
-        description: 'Maximale Zahl erzeugter Token (-1 ohne Grenze)',
+        description: 'The maximum number of tokens to generate (-1 for no limit)',
       },
       { ...completionsResponseFormat, show: { '@version': [{ _cnd: { lt: 1.3 } }] } },
       { ...completionsResponseFormat, show: { '@version': [{ _cnd: { gte: 1.3 } }], '/responsesApiEnabled': [false] } },
       {
         name: 'textFormat',
-        label: 'Antwortformat',
+        label: 'Response Format',
         type: 'fixedCollection',
         default: { textOptions: [{ type: 'text' }] },
         show: RESPONSES_API,
@@ -206,31 +206,31 @@ const parameters: ParamSchema[] = [
             label: 'Text',
             children: [
               {
-                // Default '' wie n8n (nicht in dessen Optionen); hier als eigene Option, damit er auswählbar bleibt
+                // Default '' like n8n (not among its options); here as its own option so it stays selectable
                 name: 'type',
-                label: 'Typ',
+                label: 'Type',
                 type: 'options',
                 default: '',
                 description: JSON_WARNING,
                 options: [
-                  { value: '', label: 'Keine Angabe' },
+                  { value: '', label: 'Not Specified' },
                   { value: 'text', label: 'Text' },
-                  { value: 'json_schema', label: 'JSON Schema (empfohlen)' },
-                  { value: 'json_object', label: 'JSON-Objekt' },
+                  { value: 'json_schema', label: 'JSON Schema (recommended)' },
+                  { value: 'json_object', label: 'JSON Object' },
                 ],
               },
-              { name: 'verbosity', label: 'Ausführlichkeit', type: 'options', default: 'medium', options: LOW_MEDIUM_HIGH },
+              { name: 'verbosity', label: 'Verbosity', type: 'options', default: 'medium', options: LOW_MEDIUM_HIGH },
               {
                 name: 'name',
                 label: 'Name',
                 type: 'string',
                 default: 'my_schema',
-                description: 'Name des Formats: a-z, A-Z, 0-9, _ und -, höchstens 64 Zeichen',
+                description: 'The name of the response format; a-z, A-Z, 0-9, underscores and dashes, max 64 characters',
                 show: { type: ['json_schema'] },
               },
               {
                 name: 'requiredNotice',
-                label: 'Im Modus "Strict" müssen alle Eigenschaften im Schema als "required" markiert sein.',
+                label: 'All properties in the schema must be set to "required" when using "strict" mode.',
                 type: 'notice',
                 default: '',
                 show: { strict: [true] },
@@ -240,15 +240,15 @@ const parameters: ParamSchema[] = [
                 label: 'Schema',
                 type: 'json',
                 default: jsonSchemaExample,
-                description: 'Schema des Antwortformats',
+                description: 'The schema of the response format',
                 show: { type: ['json_schema'] },
               },
               {
                 name: 'description',
-                label: 'Beschreibung',
+                label: 'Description',
                 type: 'string',
                 default: '',
-                description: 'Beschreibung des Antwortformats',
+                description: 'The description of the response format',
                 show: { type: ['json_schema'] },
               },
               {
@@ -256,7 +256,7 @@ const parameters: ParamSchema[] = [
                 label: 'Strict',
                 type: 'boolean',
                 default: false,
-                description: 'Ob die Antwort immer genau dem JSON Schema entsprechen muss',
+                description: 'Whether to require that the AI will always generate responses that match the provided JSON Schema',
                 show: { type: ['json_schema'] },
               },
             ],
@@ -271,17 +271,17 @@ const parameters: ParamSchema[] = [
         min: -2,
         max: 2,
         precision: 1,
-        description: 'Positive Werte bestrafen bereits vorgekommene Token und fördern neue Themen.',
+        description: 'Positive values penalize new tokens based on whether they appear in the text so far, increasing the model’s likelihood to talk about new topics.',
       },
       {
         name: 'temperature',
-        label: 'Temperatur',
+        label: 'Sampling Temperature',
         type: 'number',
         default: 0.7,
         min: 0,
         max: 2,
         precision: 1,
-        description: 'Steuert die Zufälligkeit; niedrige Werte machen die Antwort deterministischer.',
+        description: 'Controls randomness: lowering results in less random completions.',
       },
       { ...reasoningEffort, show: { '@version': [{ _cnd: { lte: 1.1 } }], '/model': REASONING_MODELS } },
       { ...reasoningEffort, show: { '@version': [{ _cnd: { gte: 1.2 } }] } },
@@ -290,9 +290,9 @@ const parameters: ParamSchema[] = [
         label: 'Timeout',
         type: 'number',
         default: 60000,
-        description: 'Maximale Dauer einer Anfrage in Millisekunden',
+        description: 'Maximum amount of time a request is allowed to take in milliseconds',
       },
-      { name: 'maxRetries', label: 'Höchstzahl Wiederholungen', type: 'number', default: 2, description: 'Wie oft eine Anfrage höchstens wiederholt wird' },
+      { name: 'maxRetries', label: 'Max Retries', type: 'number', default: 2, description: 'Maximum number of retries to attempt' },
       {
         name: 'topP',
         label: 'Top P',
@@ -301,22 +301,22 @@ const parameters: ParamSchema[] = [
         min: 0,
         max: 1,
         precision: 1,
-        description: 'Nucleus Sampling; besser dies oder die Temperatur ändern, nicht beides.',
+        description: 'Controls diversity via nucleus sampling; we generally recommend altering this or temperature but not both.',
       },
       {
         name: 'conversationId',
-        label: 'Conversation-ID',
+        label: 'Conversation ID',
         type: 'string',
         default: '',
-        description: 'Konversation, der Ein- und Ausgaben dieser Antwort hinzugefügt werden',
+        description: 'The conversation that this response belongs to; input and output items are added to it',
         show: RESPONSES_API,
       },
       {
         name: 'promptCacheKey',
-        label: 'Prompt-Cache-Schlüssel',
+        label: 'Prompt Cache Key',
         type: 'string',
         default: '',
-        description: 'Schlüssel, mit dem OpenAI ähnliche Anfragen im Cache zusammenfasst',
+        description: 'Used by OpenAI to cache responses for similar requests',
         show: RESPONSES_API,
       },
       {
@@ -324,7 +324,7 @@ const parameters: ParamSchema[] = [
         label: 'Safety Identifier',
         type: 'string',
         default: '',
-        description: 'Stabile Kennung des Endnutzers zur Missbrauchserkennung durch OpenAI',
+        description: 'A stable identifier for your end users, used to help OpenAI detect abuse',
         show: RESPONSES_API,
       },
       {
@@ -332,21 +332,21 @@ const parameters: ParamSchema[] = [
         label: 'Service Tier',
         type: 'options',
         default: 'auto',
-        description: 'Service Tier der Anfrage',
+        description: 'The service tier to use for the request',
         options: [
           { value: 'auto', label: 'Auto' },
           { value: 'flex', label: 'Flex' },
-          { value: 'default', label: 'Standard' },
+          { value: 'default', label: 'Default' },
           { value: 'priority', label: 'Priority' },
         ],
         show: RESPONSES_API,
       },
       {
         name: 'metadata',
-        label: 'Metadaten',
+        label: 'Metadata',
         type: 'json',
         default: '{}',
-        description: 'Bis zu 16 Schlüssel-Wert-Paare zur Antwort',
+        description: 'Up to 16 key-value pairs attached to the response',
         show: RESPONSES_API,
       },
       {
@@ -356,7 +356,7 @@ const parameters: ParamSchema[] = [
         default: 0,
         min: 0,
         max: 20,
-        description: 'Zahl der wahrscheinlichsten Token mit Log-Wahrscheinlichkeit je Position (0 bis 20)',
+        description: 'Number of most likely tokens to return at each token position, each with an associated log probability (0 to 20)',
         show: RESPONSES_API,
       },
       {
@@ -364,16 +364,16 @@ const parameters: ParamSchema[] = [
         label: 'Prompt',
         type: 'fixedCollection',
         default: { promptOptions: [{ promptId: '' }] },
-        description: 'Wiederverwendbare Prompt-Vorlage aus dem OpenAI Dashboard',
+        description: 'Reusable prompt template from the OpenAI dashboard',
         show: RESPONSES_API,
         groups: [
           {
             name: 'promptOptions',
             label: 'Prompt',
             children: [
-              { name: 'promptId', label: 'Prompt-ID', type: 'string', default: '', description: 'ID der Prompt-Vorlage' },
-              { name: 'version', label: 'Version', type: 'string', default: '', description: 'Optionale Version der Vorlage' },
-              { name: 'variables', label: 'Variablen', type: 'json', default: '{}', description: 'Werte für die Platzhalter der Vorlage' },
+              { name: 'promptId', label: 'Prompt ID', type: 'string', default: '', description: 'The unique identifier of the prompt template to use' },
+              { name: 'version', label: 'Version', type: 'string', default: '', description: 'Optional version of the prompt template' },
+              { name: 'variables', label: 'Variables', type: 'json', default: '{}', description: 'Values for the placeholders of the template' },
             ],
           },
         ],
@@ -382,7 +382,7 @@ const parameters: ParamSchema[] = [
   },
 ];
 
-/** n8n jsonParse mit errorMessage */
+/** n8n jsonParse with errorMessage */
 function parseJson(nodeName: string, value: unknown, errorMessage: string): unknown {
   if (typeof value !== 'string') return value;
   try {
@@ -392,7 +392,7 @@ function parseJson(nodeName: string, value: unknown, errorMessage: string): unkn
   }
 }
 
-/** Leere Werte entfernen (common.ts removeEmptyProperties) */
+/** Remove empty values (common.ts removeEmptyProperties) */
 function removeEmpty(obj: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== '' && v !== undefined && !(v && typeof v === 'object' && Object.keys(v).length === 0)));
 }
@@ -437,7 +437,7 @@ export function prepareAdditionalResponsesParams(nodeName: string, options: Reco
   if (options.conversationId) body.conversation = options.conversationId;
   if (options.metadata) body.metadata = parseJson(nodeName, options.metadata, 'Failed to parse metadata');
   if (options.promptConfig) {
-    // fixedCollection ohne multipleValues: Objekt; der Default von n8n ist eine Liste
+    // fixedCollection without multipleValues: object; the n8n default is a list
     const raw = (options.promptConfig as { promptOptions?: unknown }).promptOptions;
     const prompt = ((Array.isArray(raw) ? raw[0] : raw) ?? {}) as { promptId?: string; version?: string; variables?: string };
     body.prompt = removeEmpty({
