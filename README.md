@@ -33,7 +33,7 @@ und antworten. Jeder Lauf wird protokolliert und lässt sich Knoten für Knoten 
 | **Auslöser** | Webhooks mit Antwort-Knoten und Authentifizierung, Zeitpläne, Fehler-Workflows, Aufruf durch andere Workflows, REST-API |
 | **Knoten** | Daten setzen, filtern, sortieren, zusammenfassen, verzweigen (If, Switch), zusammenführen, Schleifen, Code (JavaScript und Python), HTTP (mit Pagination, Digest-Auth, Client-Zertifikaten), HTML, XML, Datum, Krypto |
 | **KI** | AI Agent mit Tools, LLM Chain, Extraktion, Klassifikation, Stimmungsanalyse; Modelle von OpenAI, Anthropic, Google Gemini, Azure, Mistral, Groq, DeepSeek, OpenRouter und Ollama; Embeddings, Vektorspeicher und Q&A Chain (RAG) |
-| **Aufseher** | ein Modell behält die Workflows im Blick: feste Regeln, Analyse fehlgeschlagener Läufe, Tagesbericht, Verbesserungen als geprüfter Vorschlag mit Diff; ein Mensch entscheidet |
+| **Aufseher** | ein Modell behält die Workflows im Blick: feste Regeln, Analyse fehlgeschlagener Läufe, Tagesbericht, Verbesserungen als geprüfter Vorschlag mit Diff, Gespräch im Editor, auch im Master je Worker; ein Mensch entscheidet |
 | **Credentials** | in der Oberfläche anlegen und bearbeiten (Formulare je Typ) oder als Datei pflegen, verschlüsselt mit AES-256-GCM, Werte aus Umgebungsvariablen; geheime Werte erscheinen nie in Logs oder der Oberfläche |
 | **Team und Mandanten** | Master mit Benutzern, Rechten und Projekten; Worker in der Umgebung jedes Mandanten; Anmeldung mit Passwort und TOTP oder SSO (OIDC) |
 | **Kommandozeile** | Workflows prüfen und ausführen, Ausführungen ansehen, Credentials verschlüsseln, Benutzer verwalten |
@@ -429,6 +429,11 @@ bleibt davon unberührt.
   Workflow eine andere Rolle als im Projekt: Bearbeiten für sonst Lesende, "Kein Zugriff" für einen vertraulichen Workflow oder
   "Verwalten" (darf selbst Rollen vergeben). Personen außerhalb des Projekts sehen das Projekt dann als Gast mit genau den für sie
   freigegebenen Workflows. Projekt-Admins und globale Administratoren haben immer vollen Zugriff.
+- **Aufseher:** Jeder Worker hat seinen eigenen Aufseher. Die Seite **Aufseher** im Master zeigt Hinweise und Vorschläge
+  aller Worker für die Workflows, die Sie sehen dürfen. Analysieren, Vorschläge erstellen und das Aufseher-Fenster im Editor
+  brauchen das Recht "Aufseher nutzen" (in "Bearbeiten" enthalten), Annehmen zusätzlich "Bearbeiten". Ein angenommener
+  Vorschlag wird eine neue Version im Master und wie jede Version verteilt; beim Worker selbst lässt er sich nicht annehmen.
+  Modell, Budget und Berichte stellen Administratoren je Worker ein (Verwaltung, Worker, Aufseher).
 - **Ausführungen** in der Seitenleiste durchsucht die Ausführungen aller Projekte über alle Worker auf einmal: nach Text (ID,
   Workflow, Knoten, Fehlermeldung), Status, Projekt, Worker und Zeitraum. Nicht erreichbare Worker erscheinen als Hinweis.
 - Workflows sind im Master versioniert. Speichern zwei Personen gleichzeitig, fragt der Editor nach; ältere Versionen lassen sich

@@ -156,6 +156,20 @@ export async function registerSupervisorApi(api: FastifyInstance, o: SupervisorA
     }
   });
 
+  // Vom Master entschieden (M38): Status setzen, nichts speichern
+  api.post(`${p}/proposals/:id/decided`, async (request, reply) => {
+    const s = sup(reply);
+    if (!s) return reply;
+    const b = (request.body ?? {}) as { status?: unknown; by?: unknown; result?: { workflowId?: unknown; version?: unknown } };
+    if (b.status !== 'accepted' && b.status !== 'rejected') return reply.code(400).send({ message: 'status muss accepted oder rejected sein' });
+    const result = b.result && typeof b.result.workflowId === 'string' ? { workflowId: b.result.workflowId, ...(typeof b.result.version === 'number' ? { version: b.result.version } : {}) } : undefined;
+    try {
+      return s.markDecided((request.params as { id: string }).id, { status: b.status, ...(typeof b.by === 'string' ? { by: b.by.slice(0, 200) } : {}), ...(result ? { result } : {}) });
+    } catch (error) {
+      return modelErrorReply(reply, error);
+    }
+  });
+
   api.post(`${p}/proposals/:id/test`, async (request, reply) => {
     const s = sup(reply);
     if (!s) return reply;

@@ -353,6 +353,9 @@ export interface SupervisorFinding {
   /** Master: Worker, auf dem der Hinweis entstand */
   workerId?: string;
   workerName?: string;
+  projectId?: string;
+  /** Master: darf die Person analysieren, Vorschläge erstellen, verwerfen? */
+  canUse?: boolean;
 }
 
 export interface SupervisorSettings {
@@ -382,6 +385,9 @@ export interface SupervisorStatus {
   proposals: number;
   lastScan?: string;
   lastReport?: string;
+  /** Master: Worker insgesamt und mit Modell, nicht erreichbare Worker */
+  workers?: { total: number; withModel: number };
+  errors?: string[];
 }
 
 export interface SupervisorReport {
@@ -422,6 +428,10 @@ export interface SupervisorProposal {
   result?: { workflowId: string; version?: number };
   workerId?: string;
   workerName?: string;
+  projectId?: string;
+  /** Master: Rechte der Person für diesen Vorschlag */
+  canAccept?: boolean;
+  canUse?: boolean;
 }
 
 export interface SupervisorChatMessage {

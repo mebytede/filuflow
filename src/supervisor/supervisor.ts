@@ -72,6 +72,14 @@ export interface SupervisorOptions {
   saveWorkflow?(workflow: Workflow, id: string | undefined, by?: string): Promise<{ id: string; version?: number }>;
   /** Manueller Lauf mit Testdaten (führt Knoten wirklich aus) */
   testRun?(workflow: Workflow): Promise<{ executionId: string; status: string }>;
+  /** Worker (M38): Vorschläge nimmt der Master an; hier nur als entschieden markieren */
+  acceptInMaster?: boolean;
+}
+
+/** Version im Master aus der Kennzeichnung eines verteilten Workflows */
+function masterVersionOf(workflow: Workflow | undefined): number | undefined {
+  const marker = (workflow?.meta as Record<string, { version?: unknown }> | undefined)?.filuflowMaster;
+  return typeof marker?.version === 'number' ? marker.version : undefined;
 }
 
 export const SYSTEM_PROMPT = [
@@ -399,6 +407,7 @@ export class Supervisor {
       operations: o.operations,
       workflow: proposed,
       ...(base ? { baseHash: workflowHash(base) } : {}),
+      ...(masterVersionOf(base) !== undefined ? { baseVersion: masterVersionOf(base) } : {}),
       diff,
       validation: { valid: validation.valid, issues: validation.issues.map((i) => ({ severity: i.severity, message: i.message, ...(i.node ? { node: i.node } : {}) })) },
       status: 'open',
@@ -507,6 +516,7 @@ export class Supervisor {
     this.needsProposals();
     const p = this.store.getProposal(id);
     if (!p) throw new ProposalError('Vorschlag nicht gefunden', 404);
+    if (this.o.acceptInMaster) throw new ProposalError('Dieser Server ist ein Worker: Vorschläge werden im Master angenommen', 409);
     if (p.status !== 'open') throw new ProposalError(`Der Vorschlag ist nicht mehr offen (${p.status})`, 409);
     const proposed = JSON.parse(JSON.stringify(p.workflow)) as Workflow;
     let current: Workflow | undefined;
@@ -533,6 +543,18 @@ export class Supervisor {
     } catch {
       // Prüfung läuft spätestens beim nächsten Intervall
     }
+    return done;
+  }
+
+  /** Vom Master angenommen oder verworfen (M38): nur den Status setzen */
+  markDecided(id: string, o: { status: 'accepted' | 'rejected'; by?: string; result?: { workflowId: string; version?: number } }): Proposal {
+    const p = this.store.getProposal(id);
+    if (!p) throw new ProposalError('Vorschlag nicht gefunden', 404);
+    if (p.status !== 'open' && !(o.status === 'rejected' && p.status === 'stale')) throw new ProposalError(`Der Vorschlag ist nicht mehr offen (${p.status})`, 409);
+    const done: Proposal = { ...p, status: o.status, decidedAt: new Date().toISOString(), ...(o.by ? { decidedBy: o.by } : {}), ...(o.result ? { result: o.result } : {}) };
+    this.store.saveProposal(done);
+    if (p.findingId && o.status === 'rejected') this.store.setFindingProposal(p.findingId, null);
+    if (o.status === 'accepted' && p.kind === 'change') for (const other of this.store.listProposals({ status: 'open', workflowId: p.workflowId, limit: 2000 })) if (other.id !== p.id) this.markStale(other);
     return done;
   }
 

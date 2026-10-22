@@ -361,6 +361,7 @@ export async function workerPage(id: string): Promise<HTMLElement> {
         toast(r.errors.length ? `Abgleich mit Fehlern: ${r.errors.join('; ')}` : `Abgeglichen: ${r.deployed} verteilt, ${r.removed} entfernt`, r.errors.length ? 'error' : 'success');
         await reload();
       }),
+      h('a', { class: 'btn', href: `#/admin/worker/${e(id)}/supervisor/settings` }, 'Aufseher'),
       action('Bearbeiten', async () => {
         const r = await workerDialog(tenants, w);
         if (!r) return;
@@ -607,6 +608,8 @@ const ACTION_LABEL: Record<ProjectAction, string> = {
   'execution.read': 'Ausführungen ansehen',
   'execution.cancel': 'Ausführungen abbrechen',
   'credentials.read': 'Namen der Credentials sehen',
+  'supervisor.read': 'Hinweise und Vorschläge des Aufsehers sehen',
+  'supervisor.use': 'Aufseher nutzen (analysieren, Vorschläge erstellen, fragen)',
 };
 
 export async function rolesPage(): Promise<HTMLElement> {

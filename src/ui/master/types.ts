@@ -19,7 +19,9 @@ export type ProjectAction =
   | 'workflow.share'
   | 'execution.read'
   | 'execution.cancel'
-  | 'credentials.read';
+  | 'credentials.read'
+  | 'supervisor.read'
+  | 'supervisor.use';
 
 export interface User {
   id: string;

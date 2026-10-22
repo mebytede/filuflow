@@ -22,7 +22,7 @@ import type { SupervisorProposal } from './types.js';
 const supervisorChat: SupervisorChatBackend = {
   chat: (body) => api.supervisorChat(body),
   findings: (workflowId) => api.findings({ workflow: workflowId }),
-  proposalAction: (id, action) => api.proposalAction(id, action),
+  proposalAction: (p, action) => api.proposalAction(p.id, action),
   supervisorHref: '#/supervisor',
 };
 

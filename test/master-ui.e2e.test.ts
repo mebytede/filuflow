@@ -206,6 +206,27 @@ describe('Master-Oberfläche', () => {
     await page.waitForSelector('td:has-text("Betrieb")');
     expect(await page.locator('tr:has-text("Betrieb") td.small').textContent()).toBe('Workflows ausführen');
 
+    // Aufseher je Worker (M38): Einstellungen beim Worker, Hinweise nach dem Prüfen
+    await page.goto(`${base}/#/admin/overview`);
+    await page.click('a.strong:has-text("Produktion")');
+    await page.click('a.btn:has-text("Aufseher")');
+    await page.waitForSelector('.page-head:has-text("Aufseher: Produktion")');
+    await page.waitForSelector('select[aria-label="Anbieter"]');
+    await page.fill('input[aria-label="Tagesbudget"]', '12345');
+    await page.click('.supervisor-settings button:has-text("Speichern")');
+    await page.waitForSelector('.toast:has-text("Einstellungen gespeichert")');
+    expect(worker!.supervisor!.settings().dailyTokenBudget).toBe(12345);
+    // Ein Fehlerbild beim Worker (wie nach einer fehlgeschlagenen Ausführung)
+    const deployedWf = worker!.workflows.list()[0].workflow;
+    worker!.supervisor!.store.upsertFinding({ rule: 'execution-failed', severity: 'error', workflowId: deployedWf.id!, workflowName: deployedWf.name, title: 'Ausführung fehlgeschlagen in "Start"', detail: 'Zeitüberschreitung', key: 'x' }, { increment: true });
+    await page.click('.tab:has-text("Hinweise")');
+    await page.click('button:has-text("Jetzt prüfen")');
+    await page.waitForSelector('.finding:has-text("Zeitüberschreitung")');
+    // Seite "Aufseher" für alle: Hinweise mit Worker
+    await page.click('.side-link:has-text("Aufseher")');
+    await page.waitForSelector('.finding-meta:has-text("Worker Produktion")');
+    await shot(page, '06b-supervisor');
+
     // Zurück zur Seite des Workers
     await page.goto(`${base}/#/admin/overview`);
     await page.click('a.strong:has-text("Produktion")');
@@ -285,6 +306,12 @@ describe('Master-Oberfläche', () => {
     await page.waitForSelector('.editor-header .pill:has-text("nur lesen")');
     expect(await page.locator('button:has-text("Testlauf")').count()).toBe(0);
     await shot(page, '08-viewer');
+    // Leserin sieht Hinweise, aber keine Aktionen und kein Aufseher-Fenster
+    expect(await page.locator('button[aria-label="Aufseher fragen"]').count()).toBe(0);
+    await page.goto(`${base}/#/supervisor`);
+    await page.waitForSelector('.finding');
+    expect(await page.locator('.tab:has-text("Einstellungen")').count()).toBe(0);
+    expect(await page.locator('.finding button:has-text("Verwerfen")').count()).toBe(0);
 
     expect(errors).toEqual([]);
     await page.close();

@@ -126,6 +126,8 @@ export interface Proposal {
   workflow: unknown;
   /** Prüfsumme des Stands, auf dem der Vorschlag beruht (Annehmen nur, wenn er sich nicht geändert hat) */
   baseHash?: string;
+  /** Version im Master, auf der der Vorschlag beruht (Workflows, die der Master verteilt hat) */
+  baseVersion?: number;
   diff: DiffEntry[];
   validation: { valid: boolean; issues: Array<{ severity: string; message: string; node?: string }> };
   status: ProposalStatus;

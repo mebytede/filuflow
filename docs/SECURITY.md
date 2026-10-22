@@ -104,7 +104,11 @@ Regeln).
 Der Aufseher ändert nichts selbst. Seine Werkzeuge lesen nur; Änderungen entstehen als Vorschlag, den ein Mensch annimmt
 (M36). Vorschläge können maskierte Werte nicht zurückschreiben, Annehmen ändert die Aktivierung nicht, und ein Probelauf,
 der Knoten wirklich ausführt, startet nur nach einer Rückfrage. Wer die REST-API des Servers nutzen darf, darf auch
-Vorschläge annehmen; im Master regeln das die Rollen (M38).
+Vorschläge annehmen; im Master regeln das die Rollen (M38): Hinweise und Vorschläge sieht, wer `supervisor.read` für den
+Workflow hat, Analysen, Vorschläge und Gespräche (Kosten, Daten an das Modell) brauchen `supervisor.use`, Annehmen
+zusätzlich `workflow.edit`. Beim Worker selbst lassen sich Vorschläge nicht annehmen. An den Master gehen Hinweise,
+Analysen und Vorschläge, keine Ausführungsdaten; Einstellungen des Aufsehers je Worker ändern nur globale Admins (mit
+Audit-Eintrag).
 Antworten des Modells werden als Text angezeigt, nicht als HTML. Das Tagesbudget begrenzt die Kosten auch dann, wenn ein
 Fehler sehr oft auftritt.
 

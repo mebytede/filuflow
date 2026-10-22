@@ -251,6 +251,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
         }
       },
       saveWorkflow: async (wf, id) => ({ id: (await workflows!.save(wf, id)).workflow.id as string }),
+      acceptInMaster: !!options.worker,
       testRun: async (wf) => {
         runner.checkStart(wf);
         const entry = manager.start({ workflow: wf, mode: 'manual', usePinData: true });

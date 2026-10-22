@@ -10,7 +10,7 @@ import { severityWord } from '../views/supervisor.js';
 export interface SupervisorChatBackend {
   chat(body: { messages: Array<{ role: 'user' | 'assistant'; content: string }>; workflowId?: string }): Promise<{ reply: string; proposals: SupervisorProposal[] }>;
   findings(workflowId: string): Promise<SupervisorFinding[]>;
-  proposalAction(id: string, action: 'accept' | 'reject'): Promise<SupervisorProposal>;
+  proposalAction(p: SupervisorProposal, action: 'accept' | 'reject'): Promise<SupervisorProposal>;
   /** Link zur Seite "Aufseher" */
   supervisorHref: string;
   canAccept?: boolean;
@@ -142,7 +142,7 @@ export class SupervisorDrawer {
       }
       btn.setAttribute('disabled', '');
       try {
-        const r = await this.o.backend.proposalAction(p.id, action);
+        const r = await this.o.backend.proposalAction(p, action);
         this.proposals.set(p.id, r);
         this.render();
         if (action === 'accept') {

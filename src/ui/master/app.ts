@@ -4,6 +4,7 @@ import { h, toast } from '../dom.js';
 import type { NodeTypeInfo } from '../types.js';
 import type { Editor } from '../editor/editor.js';
 import { mapi } from './api.js';
+import { masterSupervisorPage, workerSupervisorPage } from './supervisor.js';
 import { loginPage, profilePage, setupPage } from './auth.js';
 import { projectExecutionsPage, projectMembersPage, projectSettingsPage, projectsPage, projectWorkflowsPage } from './projects.js';
 import { masterExecutionView, masterWorkflowView } from './workflow.js';
@@ -42,6 +43,7 @@ export function startMaster(app: HTMLElement): void {
     return [
       { key: 'projects', label: 'Projekte', icon: 'folder', href: '#/projects' },
       { key: 'executions', label: 'Ausführungen', icon: 'list-checks', href: '#/executions' },
+      { key: 'supervisor', label: 'Aufseher', icon: 'scan-eye', href: '#/supervisor' },
       ...(u.role === 'admin' ? [{ key: 'admin', label: 'Verwaltung', icon: 'building-2', href: '#/admin/overview' }] : []),
     ];
   };
@@ -124,6 +126,7 @@ export function startMaster(app: HTMLElement): void {
       const [a, b, c, d] = parts;
       if (!a || a === 'projects' || a === 'login' || a === 'setup') setPage('projects', await projectsPage(u), undefined, seq);
       else if (a === 'executions') setPage('executions', await executionSearchPage(params, u), undefined, seq);
+      else if (a === 'supervisor') setPage('supervisor', await masterSupervisorPage(b ?? 'findings', params), undefined, seq);
       else if (a === 'project' && b && !c) setPage('projects', await projectWorkflowsPage(b), undefined, seq);
       else if (a === 'project' && b && c === 'executions') setPage('projects', await projectExecutionsPage(b, params), undefined, seq);
       else if (a === 'project' && b && c === 'execution' && d) {
@@ -150,6 +153,7 @@ export function startMaster(app: HTMLElement): void {
       } else if (a === 'admin' && u.role === 'admin') {
         if (!b || b === 'overview') setPage('admin', await overviewPage(), undefined, seq);
         else if (b === 'tenants') setPage('admin', await tenantsPage(), undefined, seq);
+        else if (b === 'worker' && c && d === 'supervisor') setPage('admin', await workerSupervisorPage(c, parts[4] ?? 'settings', params), undefined, seq);
         else if (b === 'worker' && c) setPage('admin', await workerPage(c), undefined, seq);
         else if (b === 'users') setPage('admin', await usersPage(u), undefined, seq);
         else if (b === 'credentials') setPage('admin', await sharedCredentialsPage(), undefined, seq);

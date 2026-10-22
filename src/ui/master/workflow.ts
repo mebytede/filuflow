@@ -11,6 +11,7 @@ import { button } from '../shell.js';
 import type { MasterWorkflow, User } from './types.js';
 import { credentialFormDialog } from '../views/credentialForm.js';
 import { WORKER_CREDENTIAL_NOTE, workerCredentialBackend } from './admin.js';
+import { masterChatBackend } from './supervisor.js';
 
 const e = encodeURIComponent;
 
@@ -145,6 +146,20 @@ export async function masterWorkflowView(id: string, types: NodeTypeInfo[], user
     readonly: !can(detail, 'workflow.edit'),
     readonlyNote: 'nur lesen',
     backend,
+    // Aufseher-Fenster (M38): mit dem Recht "Aufseher nutzen"
+    ...(can(detail, 'supervisor.use') && project.worker
+      ? {
+          supervisor: {
+            ...masterChatBackend(project.id, can(detail, 'workflow.edit')),
+            onAccepted: (p: { kind: string; result?: { workflowId: string } }) => {
+              const target = p.result?.workflowId ?? id;
+              // Neu laden: Hash neu setzen löst das Routing aus, auch für denselben Workflow
+              if (location.hash === `#/workflow/${e(target)}`) window.dispatchEvent(new HashChangeEvent('hashchange'));
+              else location.hash = `#/workflow/${e(target)}`;
+            },
+          },
+        }
+      : {}),
     brandHref: '#/projects',
     crumbs: [
       { label: 'Projekte', href: '#/projects' },

@@ -55,7 +55,7 @@ export function proposalCard(p: SupervisorProposal, backend: SupervisorBackend, 
   const run = async (btn: HTMLElement, action: 'accept' | 'reject' | 'test', done: (r: SupervisorProposal) => string) => {
     btn.setAttribute('disabled', '');
     try {
-      const r = await backend.proposalAction!(p.id, action);
+      const r = await backend.proposalAction!(p, action);
       toast(done(r), action === 'test' && r.testRun?.status !== 'success' ? 'error' : 'success');
       onChange();
     } catch (error) {
@@ -64,8 +64,8 @@ export function proposalCard(p: SupervisorProposal, backend: SupervisorBackend, 
       if (action === 'accept') onChange();
     }
   };
-  if (p.status === 'open') {
-    if (backend.canAccept !== false) {
+  if (p.status === 'open' && p.canUse !== false) {
+    if (backend.canAccept !== false && p.canAccept !== false) {
       const accept: HTMLElement = button('Annehmen', {
         variant: 'primary',
         size: 's',
@@ -85,7 +85,7 @@ export function proposalCard(p: SupervisorProposal, backend: SupervisorBackend, 
     });
     actions.append(test);
   }
-  if (p.status === 'open' || p.status === 'stale') {
+  if ((p.status === 'open' || p.status === 'stale') && p.canUse !== false) {
     const reject: HTMLElement = button('Verwerfen', { size: 's', onclick: () => void run(reject, 'reject', () => 'Vorschlag verworfen') });
     actions.append(reject);
   }
@@ -97,7 +97,7 @@ export function proposalCard(p: SupervisorProposal, backend: SupervisorBackend, 
         icon: 'braces',
         onclick: async () => {
           try {
-            const full = await backend.proposal!(p.id);
+            const full = await backend.proposal!(p);
             await dialog(`Vorgeschlagener Stand: ${p.workflowName}`, h('pre', { class: 'json-view' }, JSON.stringify(full.workflow, null, 2)), { cancel: 'Schließen', wide: true });
           } catch (error) {
             toast((error as Error).message, 'error');
@@ -107,7 +107,7 @@ export function proposalCard(p: SupervisorProposal, backend: SupervisorBackend, 
     );
   }
   const pending = p.validation.issues.filter((i) => i.severity === 'error');
-  const execHref = p.testRun ? backend.executionHref(p.testRun.executionId) : undefined;
+  const execHref = p.testRun ? backend.executionHref(p.testRun.executionId, p as { workerId?: string; projectId?: string }) : undefined;
   const target = p.kind === 'new' ? h('span', null, 'Neuer Workflow') : p.workflowId ? h('a', { href: backend.workflowHref(p.result?.workflowId ?? p.workflowId) }, p.workflowName) : null;
   return h(
     'article',

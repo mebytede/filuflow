@@ -470,3 +470,17 @@ keine Gesprächsdaten zu speichern oder aufzuräumen, und jede Antwort sieht den
 leeren Workflow aufgebaut und inaktiv angelegt. Vorschläge beziehen sich immer auf den gespeicherten Stand, nicht auf
 ungespeicherte Änderungen im Editor; das Fenster sagt das, und Annehmen warnt, wenn im Editor etwas ungespeichert ist.
 
+## Aufseher im Master (M38)
+Der Aufseher läuft beim Worker, nicht im Master: Dort liegen die Ausführungen, die Credentials für das Modell und der
+Validator mit den installierten Paketen, und die Daten eines Mandanten verlassen seine Umgebung nur Richtung Modell, nicht
+Richtung Master (der Master bekommt Hinweise, Analysen und Vorschläge, aber keine Ausführungsdaten). Der Master sammelt
+Hinweise und Vorschläge bei den Workern ein und filtert sie nach den Rechten der Person; es gibt keine Kopie im Master, die
+veralten könnte.
+
+Angenommen wird im Master, weil dort die Quelle der Workflows ist: Ein beim Worker gespeicherter Stand würde beim nächsten
+Abgleich überschrieben. Der Vorschlag trägt die Master-Version, auf der er beruht (aus der Kennzeichnung des verteilten
+Workflows); nur wenn sie der aktuellen Version entspricht, wird der vorgeschlagene Stand ohne die Kennzeichnung als neue
+Version gespeichert und verteilt. Danach markiert der Worker den Vorschlag als angenommen. Für die Rechte gibt es zwei neue
+Aktionen: `supervisor.read` (Hinweise und Vorschläge sehen) und `supervisor.use` (Analysen, Vorschläge und Gespräche, die
+Token kosten); Annehmen verlangt zusätzlich `workflow.edit`, weil es den Workflow ändert.
+
