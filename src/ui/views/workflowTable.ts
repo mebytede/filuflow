@@ -122,7 +122,7 @@ export function workflowTable(rows: WorkflowRow[], o: { source?: string; emptyTe
         h(
           'thead',
           null,
-          h('tr', null, h('th', null, t('Name')), h('th', null, t('Trigger')), h('th', null, t('State')), h('th', null, t('Last run')), h('th', { class: 'num col-optional' }, t('Duration')), h('th', { class: 'num col-optional' }, t('Runs')), h('th', null, '')),
+          h('tr', null, h('th', null, t('Name')), h('th', null, t('Triggers')), h('th', null, t('State')), h('th', null, t('Last run')), h('th', { class: 'num col-optional' }, t('Duration')), h('th', { class: 'num col-optional' }, t('Runs')), h('th', null, '')),
         ),
         body,
       ),

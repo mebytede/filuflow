@@ -52,7 +52,7 @@ const STATUSES: Array<[string, string]> = [
   ['canceled', t('Canceled')],
 ];
 
-const MODES: Record<string, string> = { manual: t('Manual'), trigger: t('Trigger mode'), webhook: t('Webhook'), cli: 'CLI', integrated: t('Sub-workflow'), error: t('Error workflow') };
+const MODES: Record<string, string> = { manual: t('Manual'), trigger: t('Trigger'), webhook: t('Webhook'), cli: 'CLI', integrated: t('Sub-workflow'), error: t('Error workflow') };
 
 function runMs(e: Execution): number | undefined {
   return e.stoppedAt ? new Date(e.stoppedAt).getTime() - new Date(e.startedAt).getTime() : undefined;

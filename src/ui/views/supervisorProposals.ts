@@ -7,7 +7,7 @@ import type { SupervisorBackend } from './supervisor.js';
 import { t } from '../i18n.js';
 
 const STATUS: Record<string, [string, string]> = {
-  open: [t('Open'), 'muted'],
+  open: [t('Pending'), 'muted'],
   accepted: [t('Accepted'), 'success'],
   rejected: [t('Dismissed'), 'muted'],
   stale: [t('Outdated'), 'warning'],
@@ -143,7 +143,7 @@ export async function proposalList(backend: SupervisorBackend, query: URLSearchP
   const segmented = h(
     'div',
     { class: 'segmented', role: 'group', 'aria-label': t('Status') },
-    ...([['open', t('Open')], ['accepted', t('Accepted')], ['rejected', t('Dismissed')], ['stale', t('Outdated')]] as const).map(([value, text]) =>
+    ...([['open', t('Pending')], ['accepted', t('Accepted')], ['rejected', t('Dismissed')], ['stale', t('Outdated')]] as const).map(([value, text]) =>
       h('button', { type: 'button', class: status === value ? 'on' : '', 'aria-pressed': String(status === value), onclick: () => (location.hash = `${base}/proposals?status=${value}`) }, text),
     ),
   );

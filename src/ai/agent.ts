@@ -1,11 +1,11 @@
-// AI Agent (Tools Agent) ohne LangChain.
-// Nachgebaut nach n8n 1.123.0 packages/@n8n/nodes-langchain:
+// AI Agent (Tools Agent) without LangChain.
+// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain:
 //   nodes/agents/Agent/agents/ToolsAgent/common.ts (prepareMessages, getTools, getAgentStepsParser,
 //     handleAgentFinishOutput, extractBinaryMessages, getChatModel)
-//   nodes/agents/Agent/agents/ToolsAgent/V2/execute.ts (AgentExecutor: Tools werden direkt aufgerufen)
-//   nodes/agents/Agent/agents/ToolsAgent/V3/ (Tools werden per EngineRequest von der Engine ausgeführt)
+//   nodes/agents/Agent/agents/ToolsAgent/V2/execute.ts (AgentExecutor: tools are called directly)
+//   nodes/agents/Agent/agents/ToolsAgent/V3/ (tools are executed by the engine via EngineRequest)
 //   utils/agent-execution/ (buildSteps, createEngineRequests, saveToMemory)
-// und @langchain/classic 1.0.5: agents/tool_calling/output_parser.js (parseAIMessageToToolAction),
+// and @langchain/classic 1.0.5: agents/tool_calling/output_parser.js (parseAIMessageToToolAction),
 //   agents/format_scratchpad/tool_calling.js (formatToToolMessages), agents/executor.js (AgentExecutor._call)
 import type { EngineAction, EngineRequest, EngineResponse, ExecContext } from '../nodes/types.js';
 import type { Item } from '../types.js';
@@ -34,13 +34,13 @@ export interface AgentOptions {
   passthroughBinaryImages?: boolean;
 }
 
-/** Ein Tool-Aufruf des Modells (ToolsAgentAction) */
+/** A tool call of the model (ToolsAgentAction) */
 export interface AgentAction {
   tool: string;
   toolInput: unknown;
   toolCallId: string;
   log: string;
-  /** Nachrichten für den Scratchpad (nur beim ersten Aufruf einer Antwort) */
+  /** Messages for the scratchpad (only on the first call of a response) */
   messageLog: ChatMessage[];
   type?: string;
 }
@@ -54,7 +54,7 @@ interface AgentFinish {
   returnValues: Record<string, unknown>;
 }
 
-/** Ein Tool, das das Modell aufrufen kann (verbundene Tools plus ggf. format_final_json_response) */
+/** A tool the model can call (connected tools plus format_final_json_response if applicable) */
 interface AgentTool {
   name: string;
   description: string;
@@ -69,7 +69,7 @@ export interface AgentSetup {
   memory?: BufferWindowMemory;
 }
 
-/** buildExecutionContext / Beginn von toolsAgentExecute: Memory, Modell, Fallback-Modell */
+/** buildExecutionContext / start of toolsAgentExecute: memory, model, fallback model */
 export async function getAgentSetup(ctx: ExecContext): Promise<AgentSetup> {
   const needsFallback = ctx.getParam<boolean>('needsFallback', 0, false);
   const memory = await ctx.getSubNodeInstance<BufferWindowMemory>('ai_memory', 0, 0);
@@ -85,13 +85,13 @@ export async function getAgentSetup(ctx: ExecContext): Promise<AgentSetup> {
   return { model, fallbackModel, memory };
 }
 
-/** getOptionalOutputParser: nur mit "Require Specific Output Format" (hasOutputParser, Default false) */
+/** getOptionalOutputParser: only with "Require Specific Output Format" (hasOutputParser, default false) */
 async function getOutputParser(ctx: ExecContext, itemIndex: number): Promise<StructuredOutputParserInstance | undefined> {
   if (ctx.getParam<boolean>('hasOutputParser', 0, false) !== true) return undefined;
   return ctx.getSubNodeInstance<StructuredOutputParserInstance>('ai_outputParser', 0, itemIndex);
 }
 
-/** getTools: verbundene Tools (eindeutige Namen) und das Tool für die strukturierte Antwort */
+/** getTools: connected tools (unique names) and the tool for the structured response */
 async function getTools(ctx: ExecContext, itemIndex: number, outputParser?: StructuredOutputParserInstance): Promise<AgentTool[]> {
   const connected = await ctx.getSubNodeInstances<ToolInstance>('ai_tool', itemIndex);
   const seen = new Set<string>();
@@ -118,7 +118,7 @@ function isTextFile(mimeType: string): boolean {
   );
 }
 
-/** extractBinaryMessages: Bilder als Data-URL, Textdateien als Text */
+/** extractBinaryMessages: images as data URL, text files as text */
 async function binaryMessage(ctx: ExecContext, itemIndex: number): Promise<ChatMessage | undefined> {
   const binary = ctx.items[itemIndex]?.binary;
   if (!binary) return undefined;
@@ -151,7 +151,7 @@ interface PromptInput {
   version: number;
 }
 
-/** prepareMessages + ChatPromptTemplate mit system_message, formatting_instructions, chat_history, input, agent_scratchpad */
+/** prepareMessages + ChatPromptTemplate with system_message, formatting_instructions, chat_history, input, agent_scratchpad */
 function buildMessages(p: PromptInput): ChatMessage[] {
   const values = { system_message: p.options.systemMessage ?? SYSTEM_MESSAGE, formatting_instructions: FORMATTING_INSTRUCTIONS, input: p.input };
   const useSystemMessage = p.options.systemMessage ?? p.version < 1.9;
@@ -168,7 +168,7 @@ function buildMessages(p: PromptInput): ChatMessage[] {
   return messages;
 }
 
-/** Modell aufrufen; bei Fehler das Fallback-Modell (RunnableWithFallbacks) */
+/** Call the model; on error the fallback model (RunnableWithFallbacks) */
 async function invokeWithFallback(setup: AgentSetup, messages: ChatMessage[], tools: ToolDefinition[], onToken?: (text: string) => void, includeBuiltInTools = false): Promise<ChatResult> {
   const options = { tools, ...(onToken ? { onToken } : {}), ...(includeBuiltInTools ? { includeBuiltInTools } : {}) };
   try {
@@ -180,8 +180,8 @@ async function invokeWithFallback(setup: AgentSetup, messages: ChatMessage[], to
 }
 
 /**
- * Streaming wie n8n ToolsAgent V2 execute.ts / V3 runAgent.ts: ab typeVersion 2.1, wenn die Antwort gestreamt wird und
- * options.enableStreaming nicht ausgeschaltet ist
+ * Streaming as in n8n ToolsAgent V2 execute.ts / V3 runAgent.ts: from typeVersion 2.1, when the response is streamed and
+ * options.enableStreaming is not turned off
  */
 function streamingEnabled(ctx: ExecContext): boolean {
   return ctx.node.typeVersion >= 2.1 && ctx.isStreaming() && ctx.getParam<boolean>('options.enableStreaming', 0, true) !== false;
@@ -190,7 +190,7 @@ function streamingEnabled(ctx: ExecContext): boolean {
 /** parseAIMessageToToolAction */
 function parseModelResult(result: ChatResult): AgentAction[] | AgentFinish {
   const message = result.message;
-  // Inhalt wie die LangChain-AIMessage (Gemini und Anthropic: Blöcke, wenn es nicht genau ein Text ist)
+  // Content like the LangChain AIMessage (Gemini and Anthropic: blocks unless it is exactly one text)
   const content: unknown = message.lc ? message.lc.content : message.content;
   const stringified = typeof content === 'string' ? content : JSON.stringify(content);
   if (!result.toolCalls.length) return { returnValues: { output: content } };
@@ -203,7 +203,7 @@ function parseModelResult(result: ChatResult): AgentAction[] | AgentFinish {
   }));
 }
 
-/** handleAgentFinishOutput: Inhalt aus Blöcken (Anthropic) zu Text zusammenfügen */
+/** handleAgentFinishOutput: join content from blocks (Anthropic) into text */
 function handleAgentFinishOutput(finish: AgentFinish): AgentFinish {
   const output = finish.returnValues.output;
   if (!Array.isArray(output)) return finish;
@@ -225,12 +225,12 @@ function handleAgentFinishOutput(finish: AgentFinish): AgentFinish {
   return finish;
 }
 
-/** n8n jsonParse: JSON.parse, das bei Fehler wirft */
+/** n8n jsonParse: JSON.parse that throws on error */
 function jsonParse(text: unknown): unknown {
   return JSON.parse(String(text));
 }
 
-/** getAgentStepsParser: strukturierte Antwort über das Tool oder aus dem Text */
+/** getAgentStepsParser: structured response via the tool or from the text */
 function applyStepsParser(
   steps: AgentAction[] | AgentFinish,
   outputParser: StructuredOutputParserInstance | undefined,
@@ -267,7 +267,7 @@ function applyStepsParser(
   return Array.isArray(steps) ? steps : handleAgentFinishOutput(steps);
 }
 
-/** Ausgabe-Item ohne interne Schlüssel (finalizeResult) */
+/** Output item without internal keys (finalizeResult) */
 function finalizeResult(result: Record<string, unknown>, itemIndex: number, memory?: BufferWindowMemory, outputParser?: StructuredOutputParserInstance): Item {
   if (memory && outputParser) {
     const parsed = jsonParse(result.output) as { output?: unknown } | null;
@@ -280,7 +280,7 @@ function finalizeResult(result: Record<string, unknown>, itemIndex: number, memo
   return { json, pairedItem: { item: itemIndex } };
 }
 
-/** AIMessage im LangChain-Serialisierungsformat (für intermediateSteps in der Ausgabe) */
+/** AIMessage in the LangChain serialization format (for intermediateSteps in the output) */
 function serializeMessage(m: ChatMessage, synthetic: boolean): Record<string, unknown> {
   if (m.lc) return { lc: 1, type: 'constructor', id: ['langchain_core', 'messages', 'AIMessage'], kwargs: m.lc.kwargs };
   const type = m.role === 'human' ? 'HumanMessage' : m.role === 'system' ? 'SystemMessage' : m.role === 'tool' ? 'ToolMessage' : 'AIMessage';
@@ -327,7 +327,7 @@ async function prepareItem(ctx: ExecContext, itemIndex: number): Promise<ItemCon
   return { input, options, outputParser, tools, binary };
 }
 
-/** Batches abarbeiten (Promise.allSettled je Batch, continueOnFail je Item) */
+/** Process batches (Promise.allSettled per batch, continueOnFail per item) */
 async function runBatches<T>(
   ctx: ExecContext,
   run: (itemIndex: number) => Promise<T>,
@@ -340,7 +340,7 @@ async function runBatches<T>(
   for (let i = 0; i < items.length; i += batchSize) {
     const batch = items.slice(i, i + batchSize);
     const results = await Promise.allSettled(batch.map((_item, b) => run(i + b)));
-    // Nur zur Prüfung, ob ein Output Parser verbunden ist (n8n: getOptionalOutputParser(ctx, 0) nach dem Batch)
+    // Only to check whether an output parser is connected (n8n: getOptionalOutputParser(ctx, 0) after the batch)
     const outputParser = await getOutputParser(ctx, 0);
     results.forEach((result, b) => {
       const itemIndex = i + b;
@@ -359,7 +359,7 @@ async function runBatches<T>(
 }
 
 // ---------------------------------------------------------------------------------------------
-// V2 (typeVersion 2 bis 2.2): AgentExecutor, Tools werden direkt aufgerufen
+// V2 (typeVersion 2 to 2.2): AgentExecutor, tools are called directly
 // ---------------------------------------------------------------------------------------------
 
 async function runAgentExecutor(ctx: ExecContext, setup: AgentSetup, itemIndex: number): Promise<Record<string, unknown>> {
@@ -367,12 +367,12 @@ async function runAgentExecutor(ctx: ExecContext, setup: AgentSetup, itemIndex: 
   const maxIterations = item.options.maxIterations ?? 10;
   const definitions = toolDefinitions(item.tools);
   const toolsByName = new Map(item.tools.map((t) => [t.name.toLowerCase(), t]));
-  // BaseChain: Memory zu Beginn laden, am Ende speichern
+  // BaseChain: load memory at the start, save at the end
   const chatHistory = setup.memory ? await setup.memory.load() : undefined;
   const steps: AgentStep[] = [];
   let iterations = 0;
   let finish: AgentFinish | undefined;
-  // V2 streamt den ganzen Lauf (streamEvents): ein begin, die Text-Teile aller Modellaufrufe, ein end
+  // V2 streams the whole run (streamEvents): one begin, the text chunks of all model calls, one end
   const stream = streamingEnabled(ctx);
   const onToken = stream ? (text: string) => ctx.sendChunk('item', itemIndex, text) : undefined;
   if (stream) ctx.sendChunk('begin', itemIndex);
@@ -392,7 +392,7 @@ async function runAgentExecutor(ctx: ExecContext, setup: AgentSetup, itemIndex: 
           observation = tool?.instance ? await tool.instance.invoke(action.toolInput) : `${action.tool} is not a valid tool, try another one.`;
           if (typeof observation !== 'string') throw new Error('Received unsupported non-string response from tool call.');
         } catch (error) {
-          // ToolInputParsingException wird weitergereicht; andere Fehler ergeben eine leere Beobachtung
+          // ToolInputParsingException is passed on; other errors result in an empty observation
           if ((error as Error).name === 'ZValidationError') throw error;
           observation = undefined;
         }
@@ -423,7 +423,7 @@ export async function executeAgentV2(ctx: ExecContext): Promise<Item[][]> {
 }
 
 // ---------------------------------------------------------------------------------------------
-// V3 (typeVersion 3): Tool-Aufrufe als EngineRequest
+// V3 (typeVersion 3): tool calls as EngineRequest
 // ---------------------------------------------------------------------------------------------
 
 export interface RequestMetadata {
@@ -432,7 +432,7 @@ export interface RequestMetadata {
   iterationCount?: number;
 }
 
-/** buildSteps: Tool-Ergebnisse aus der Engine-Antwort als Schritte */
+/** buildSteps: tool results from the engine response as steps */
 function buildSteps(response: EngineResponse<RequestMetadata> | undefined, itemIndex: number): AgentStep[] {
   const steps: AgentStep[] = [];
   if (!response) return steps;
@@ -465,7 +465,7 @@ function buildSteps(response: EngineResponse<RequestMetadata> | undefined, itemI
   return steps;
 }
 
-/** saveToMemory mit Tool-Kontext (buildToolContext) */
+/** saveToMemory with tool context (buildToolContext) */
 async function saveToMemory(input: string, output: string, memory: BufferWindowMemory | undefined, steps: AgentStep[]): Promise<void> {
   if (!output || !memory) return;
   let full = output;
@@ -488,10 +488,10 @@ async function runAgentV3Item(
   const item = await prepareItem(ctx, itemIndex);
   const chatHistory = setup.memory ? await setup.memory.load() : undefined;
   const messages = buildMessages({ input: item.input, options: item.options, hasParser: !!item.outputParser, chatHistory, binary: item.binary, steps, version: ctx.node.typeVersion });
-  // V3 streamt je Modellaufruf (processEventStream: begin, Text-Teile, end)
+  // V3 streams per model call (processEventStream: begin, text chunks, end)
   const stream = streamingEnabled(ctx);
   if (stream) ctx.sendChunk('begin', itemIndex);
-  // V3 (createAgentSequence getAllTools): eingebaute Tools des Modells (OpenAI Responses API) zusätzlich
+  // V3 (createAgentSequence getAllTools): built-in tools of the model (OpenAI Responses API) in addition
   const result = await invokeWithFallback(setup, messages, toolDefinitions(item.tools), stream ? (text) => ctx.sendChunk('item', itemIndex, text) : undefined, true);
   if (stream) ctx.sendChunk('end', itemIndex);
   const output = applyStepsParser(parseModelResult(result), item.outputParser, setup.memory);
@@ -502,7 +502,7 @@ async function runAgentV3Item(
     if (item.options.returnIntermediateSteps && steps.length > 0) finalResult.intermediateSteps = serializeSteps(steps, true);
     return { kind: 'finish', result: finalResult };
   }
-  // createEngineRequests: Tool-Name auf den Node abbilden
+  // createEngineRequests: map the tool name to the node
   const actions: EngineAction[] = [];
   for (const action of output) {
     const tool = item.tools.find((t) => t.name === action.tool);

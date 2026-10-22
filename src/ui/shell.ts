@@ -105,7 +105,7 @@ const STATUS_WORDS: Record<string, [string, string]> = {
   new: [t('Waiting to start'), 'muted'],
   waiting: [t('Waiting'), 'muted'],
   canceled: [t('Canceled'), 'warning'],
-  warning: [t('Warning'), 'warning'],
+  warning: [t('Notice'), 'warning'],
   none: [t('Not run yet'), 'muted'],
   skipped: [t('Not executed'), 'muted'],
   // Worker status or version not known (older servers send the German 'unbekannt')

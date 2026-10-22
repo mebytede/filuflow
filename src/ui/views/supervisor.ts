@@ -57,7 +57,7 @@ export const standaloneSupervisorBackend: SupervisorBackend = {
 
 export const SEVERITY_WORD: Record<string, [string, string]> = {
   error: [t('Error'), 'error'],
-  warning: [t('Warning severity'), 'warning'],
+  warning: [t('Warning'), 'warning'],
   info: [t('Info'), 'muted'],
 };
 
@@ -168,7 +168,7 @@ async function findingsTab(backend: SupervisorBackend, query: URLSearchParams, b
   const segmented = h(
     'div',
     { class: 'segmented', role: 'group', 'aria-label': t('Status') },
-    ...([['open', t('Open')], ['dismissed', t('Dismissed')], ['resolved', t('Resolved')]] as const).map(([value, text]) =>
+    ...([['open', t('Unresolved')], ['dismissed', t('Dismissed')], ['resolved', t('Resolved')]] as const).map(([value, text]) =>
       h('button', { type: 'button', class: status === value ? 'on' : '', 'aria-pressed': String(status === value), onclick: () => (location.hash = `${base}/findings?status=${value}`) }, text),
     ),
   );
