@@ -1,5 +1,5 @@
-// Speicher des Aufsehers in derselben SQLite-Datenbank wie die Ausführungen: Hinweise, Vorschläge, Berichte und der
-// Token-Verbrauch je Tag (für das Budget).
+// Supervisor storage in the same SQLite database as the executions: findings, proposals, reports and the
+// token usage per day (for the budget).
 import type Database from 'better-sqlite3';
 import { randomUUID } from 'node:crypto';
 import type { Finding, FindingAnalysis, FindingStatus, Proposal, ProposalStatus, Report, RuleFinding, UsageDay } from './types.js';
@@ -105,11 +105,11 @@ export class SupervisorStore {
     db.exec(SCHEMA);
   }
 
-  // Hinweise
+  // Findings
 
   /**
-   * Befund eintragen: neu anlegen oder Zeit und Text aktualisieren. Verworfene Hinweise bleiben verworfen, erledigte
-   * werden wieder offen. count zählt nur hoch, wenn increment gesetzt ist (Ereignisse statt Zustände).
+   * Record a finding: create it or update time and text. Dismissed findings stay dismissed, resolved ones
+   * are reopened. count only increments if increment is set (events rather than states).
    */
   upsertFinding(f: RuleFinding, o: { increment?: boolean; now?: string; fingerprint?: string } = {}): Finding {
     const now = o.now ?? new Date().toISOString();
@@ -166,7 +166,7 @@ export class SupervisorStore {
     return (this.db.prepare(sql).all(...args) as FindingRow[]).map(toFinding);
   }
 
-  /** Offene Befunde einer Quelle, die bei der letzten Prüfung nicht mehr auftraten, als erledigt markieren */
+  /** Mark open findings of a source that no longer occurred in the last check as resolved */
   resolveMissing(workflowIds: string[] | undefined, seen: Set<string>, rules: string[], now = new Date().toISOString()): number {
     const rows = this.db.prepare(`SELECT id, fingerprint, workflow_id, rule FROM supervisor_findings WHERE status = 'open'`).all() as Array<{ id: string; fingerprint: string; workflow_id: string; rule: string }>;
     const scope = workflowIds ? new Set(workflowIds) : undefined;
@@ -181,7 +181,7 @@ export class SupervisorStore {
     return n;
   }
 
-  /** Befunde zu Workflows, die es nicht mehr gibt, entfernen */
+  /** Remove findings for workflows that no longer exist */
   removeFindingsExcept(workflowIds: string[]): number {
     const keep = new Set(workflowIds);
     const rows = this.db.prepare(`SELECT DISTINCT workflow_id FROM supervisor_findings`).all() as Array<{ workflow_id: string }>;
@@ -204,7 +204,7 @@ export class SupervisorStore {
     this.db.prepare(`UPDATE supervisor_findings SET proposal_id = ?, updated_at = ? WHERE id = ?`).run(proposalId, new Date().toISOString(), id);
   }
 
-  /** Ereignisbefunde (fehlgeschlagene Ausführungen) ohne neues Auftreten seit `before` als erledigt markieren */
+  /** Mark event findings (failed executions) without a new occurrence since `before` as resolved */
   resolveStaleEvents(rule: string, before: string, stillFailing: (workflowId: string) => boolean): number {
     const rows = this.db.prepare(`SELECT id, workflow_id FROM supervisor_findings WHERE status = 'open' AND rule = ? AND last_seen < ?`).all(rule, before) as Array<{ id: string; workflow_id: string }>;
     const update = this.db.prepare(`UPDATE supervisor_findings SET status = 'resolved', updated_at = ? WHERE id = ?`);
@@ -227,7 +227,7 @@ export class SupervisorStore {
     return out;
   }
 
-  // Vorschläge (M36)
+  // Proposals (M36)
 
   saveProposal(p: Proposal): Proposal {
     this.db
@@ -263,11 +263,11 @@ export class SupervisorStore {
     return (this.db.prepare(sql).all(...args) as Array<{ data: string }>).map((r) => JSON.parse(r.data) as Proposal);
   }
 
-  // Berichte
+  // Reports
 
   saveReport(r: Report): Report {
     this.db.prepare(`INSERT OR REPLACE INTO supervisor_reports (id, created_at, data) VALUES (?, ?, ?)`).run(r.id, r.createdAt, JSON.stringify(r));
-    // Höchstens 90 Berichte behalten
+    // Keep at most 90 reports
     this.db.prepare(`DELETE FROM supervisor_reports WHERE id NOT IN (SELECT id FROM supervisor_reports ORDER BY created_at DESC LIMIT 90)`).run();
     return r;
   }
@@ -276,7 +276,7 @@ export class SupervisorStore {
     return (this.db.prepare(`SELECT data FROM supervisor_reports ORDER BY created_at DESC LIMIT ?`).all(Math.min(Math.max(limit, 1), 90)) as Array<{ data: string }>).map((r) => JSON.parse(r.data) as Report);
   }
 
-  // Verbrauch
+  // Usage
 
   addUsage(tokens: number, day = today()): void {
     this.db.prepare(`INSERT INTO supervisor_usage (day, tokens, calls) VALUES (?, ?, 1) ON CONFLICT(day) DO UPDATE SET tokens = tokens + excluded.tokens, calls = calls + 1`).run(day, Math.max(0, Math.round(tokens)));
@@ -292,7 +292,7 @@ export class SupervisorStore {
   }
 }
 
-/** Tag in Ortszeit des Servers (YYYY-MM-DD) */
+/** Day in server local time (YYYY-MM-DD) */
 export function today(date = new Date()): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');

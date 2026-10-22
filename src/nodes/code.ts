@@ -1,9 +1,9 @@
-// Code, n8n-nodes-base.code (typeVersion 1, 2): JavaScript, Python (Pyodide) und Python (Native).
-// Nachgebaut nach n8n 1.123.0 packages/nodes-base/nodes/Code:
+// Code, n8n-nodes-base.code (typeVersion 1, 2): JavaScript, Python (Pyodide) and Python (Native).
+// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/Code:
 //   Code.node.ts, JavaScriptSandbox.ts, PythonSandbox.ts, PythonTaskRunnerSandbox.ts (PYTHON_TEXT_KEYS),
 //   Sandbox.ts, result-validation.ts, utils.ts (standardizeOutput), JsCodeValidator.ts, ExecutionError.ts,
 //   ValidationError.ts, packages/core/.../utils/normalize-items.ts
-// Sandbox mit `require` nur für freigegebene Module (shared/requireResolver.ts) und Timeout (Default 60 s, FILUFLOW_CODE_TIMEOUT_MS). Python: src/python/.
+// Sandbox with `require` only for allowed modules (shared/requireResolver.ts) and a timeout (default 60 s, FILUFLOW_CODE_TIMEOUT_MS). Python: src/python/.
 import vm from 'node:vm';
 import { executeHelpers } from './shared/executeHelpers.js';
 import type { ExecContext, NodeType } from './types.js';
@@ -18,7 +18,7 @@ export const CODE_TIMEOUT_MS = Number(process.env.FILUFLOW_CODE_TIMEOUT_MS ?? 60
 
 const REQUIRED_N8N_ITEM_KEYS = new Set(['json', 'binary', 'pairedItem', 'error', 'index']);
 
-/** n8n result-validation.ts TextKeys: JavaScript spricht von "object", Python von "dictionary" */
+/** n8n result-validation.ts TextKeys: JavaScript says "object", Python says "dictionary" */
 interface TextKeys {
   singular: string;
   plural: string;
@@ -44,7 +44,7 @@ class CodeValidationError extends Error {
   }
 }
 
-/** n8n ExecutionError: Meldung und Zeilennummer aus dem Stack */
+/** n8n ExecutionError: message and line number from the stack */
 class CodeExecutionError extends Error {
   description: string | null = null;
   itemIndex?: number;
@@ -96,7 +96,7 @@ function isTraversable(v: unknown): v is Record<string, unknown> {
   return isObject(v) && typeof v.toJSON !== 'function' && Object.keys(v).length > 0;
 }
 
-/** n8n standardizeOutput: Nicht-Standard-Objekte (Date, RegExp …) in der Tiefe zu Strings */
+/** n8n standardizeOutput: non-standard objects (Date, RegExp …) converted to strings at any depth */
 export function standardizeOutput(output: Record<string, unknown>): Record<string, unknown> {
   const rec = (obj: Record<string, unknown>, known = new WeakSet<object>()): Record<string, unknown> => {
     for (const [key, value] of Object.entries(obj)) {
@@ -247,14 +247,14 @@ export function sandboxContext(ctx: ExecContext, index: number): Record<string, 
   const context: Record<string, unknown> = {
     $getNodeParameter: (name: string, itemIndex = index, fallback?: unknown) => ctx.getParam(name, itemIndex, fallback),
     $getWorkflowStaticData: (type: 'global' | 'node') => ctx.getStaticData(type),
-    // Wie n8n: this.helpers des Knotens (httpRequest, httpRequestWithAuthentication, Binärdaten …) plus normalizeItems
+    // Like n8n: the node's this.helpers (httpRequest, httpRequestWithAuthentication, binary data …) plus normalizeItems
     helpers: { ...executeHelpers(ctx), normalizeItems },
     ...proxy,
   };
   return context;
 }
 
-/** Kontext von Code-Node (mit items bzw. item) und Code Tool; JavaScript bekommt zusätzlich console, Timer usw. */
+/** Context of the Code node (with items or item) and the Code Tool; JavaScript additionally gets console, timers etc. */
 export function codeContext(ctx: ExecContext, index: number, mode: string | undefined): Record<string, unknown> {
   const context = sandboxContext(ctx, index);
   const input = context.$input as { all(): Item[]; item: Item };
@@ -283,7 +283,7 @@ export function buildContext(ctx: ExecContext, index: number, mode: string, logs
     TextDecoder,
     structuredClone,
     module: { exports: {} },
-    // Nur freigegebene Module (NODE_FUNCTION_ALLOW_BUILTIN / _EXTERNAL), sonst "Module 'x' is disallowed"
+    // Only allowed modules (NODE_FUNCTION_ALLOW_BUILTIN / _EXTERNAL), otherwise "Module 'x' is disallowed"
     require: createRequireResolver(),
   });
   return context;
@@ -291,7 +291,7 @@ export function buildContext(ctx: ExecContext, index: number, mode: string, logs
 
 export async function runInSandbox(ctx: ExecContext, code: string, context: Record<string, unknown>): Promise<unknown> {
   const vmContext = vm.createContext(context, { codeGeneration: { strings: false, wasm: false }, name: `filuflow-code:${ctx.node.name}` });
-  // Eine Zeile Präfix, damit Zeilennummern im Stack dem Code entsprechen (wie n8n "module.exports = async function() {…")
+  // One line of prefix so line numbers in the stack match the code (like n8n "module.exports = async function() {…")
   const script = new vm.Script(`(async function() {${code}\n})()`, { filename: 'Code' });
   let timer: NodeJS.Timeout | undefined;
   try {
@@ -321,7 +321,7 @@ function mapItemsNotDefined(code: string, error: unknown, name: 'items' | 'item'
 
 const LANGUAGES = ['javaScript', 'python', 'pythonNative'];
 
-/** n8n NodesConfig.pythonEnabled (N8N_PYTHON_ENABLED): Python lässt sich abschalten */
+/** n8n NodesConfig.pythonEnabled (N8N_PYTHON_ENABLED): Python can be disabled */
 function pythonEnabled(): boolean {
   const value = process.env.FILUFLOW_PYTHON_ENABLED ?? process.env.N8N_PYTHON_ENABLED;
   return value !== 'false';
@@ -336,9 +336,9 @@ function wrapCodeError(node: { name: string }, error: unknown): Error {
 }
 
 /**
- * Python wie n8n Code.node.ts: "python" mit Pyodide (Kontext mit "_" statt "$", je Item ein Lauf),
- * "pythonNative" in einem eigenen Python-Prozess (nur _items bzw. _item, ein Prozess für alle Items).
- * Ergebnisse prüft dieselbe Validierung wie bei JavaScript, mit "dictionary" statt "object".
+ * Python like n8n Code.node.ts: "python" with Pyodide (context with "_" instead of "$", one run per item),
+ * "pythonNative" in a separate Python process (only _items or _item, one process for all items).
+ * Results are checked by the same validation as for JavaScript, with "dictionary" instead of "object".
  */
 async function executePython(ctx: ExecContext, language: 'python' | 'pythonNative'): Promise<Item[][]> {
   const node = ctx.node;
@@ -404,11 +404,11 @@ async function executePython(ctx: ExecContext, language: 'python' | 'pythonNativ
   return [out];
 }
 
-// Parameter wie Code.node.ts (mode, language) sowie descriptions/JavascriptCodeDescription.ts und
-// descriptions/PythonCodeDescription.ts. In n8n ist der Default von jsCode/pythonCode leer; den Startcode setzt der
-// Editor aus CODE_PLACEHOLDERS (packages/frontend/editor-ui/src/features/shared/editors/components/CodeNodeEditor/
-// constants.ts) je Sprache und Modus. Hier steht dieser Startcode als Default. Deshalb ist pythonCode, anders als in
-// n8n, getrennt für python und pythonNative beschrieben (gleiche Sichtbarkeit, anderer Startcode).
+// Parameters like Code.node.ts (mode, language) and descriptions/JavascriptCodeDescription.ts and
+// descriptions/PythonCodeDescription.ts. In n8n the default of jsCode/pythonCode is empty; the editor sets the starter code
+// from CODE_PLACEHOLDERS (packages/frontend/editor-ui/src/features/shared/editors/components/CodeNodeEditor/
+// constants.ts) per language and mode. Here that starter code is the default. That is why pythonCode, unlike in
+// n8n, is described separately for python and pythonNative (same visibility, different starter code).
 const JS_ALL_ITEMS = `// Loop over input items and add a new field called 'myNewField' to the JSON of each one
 for (const item of $input.all()) {
   item.json.myNewField = 1;
@@ -442,7 +442,7 @@ function jsCode(show: ParamSchema['show'], def: string): ParamSchema {
     language: 'javaScript',
     default: def,
     noExpression: true,
-    description: 'Auszuführender JavaScript-Code, z. B. mit $today für Datumswerte und $jmespath für JSON-Abfragen',
+    description: 'JavaScript code to execute, e.g. with $today for date values and $jmespath for JSON queries',
     show,
   };
 }
@@ -455,7 +455,7 @@ function pythonCode(language: string, mode: string, def: string): ParamSchema {
     language: 'python',
     default: def,
     noExpression: true,
-    description: 'Auszuführender Python-Code',
+    description: 'Python code to execute',
     show: { language: [language], mode: [mode] },
   };
 }
@@ -463,18 +463,18 @@ function pythonCode(language: string, mode: string, def: string): ParamSchema {
 const parameters: ParamSchema[] = [
   {
     name: 'mode',
-    label: 'Modus',
+    label: 'Mode',
     type: 'options',
     default: 'runOnceForAllItems',
     noExpression: true,
     options: [
-      { value: 'runOnceForAllItems', label: 'Einmal für alle Items', description: 'Code nur einmal ausführen, egal wie viele Items eingehen' },
-      { value: 'runOnceForEachItem', label: 'Einmal je Item', description: 'Code für jedes eingehende Item einmal ausführen' },
+      { value: 'runOnceForAllItems', label: 'Run Once for All Items', description: 'Run this code only once, no matter how many input items there are' },
+      { value: 'runOnceForEachItem', label: 'Run Once for Each Item', description: 'Run this code as many times as there are input items' },
     ],
   },
   {
     name: 'language',
-    label: 'Sprache',
+    label: 'Language',
     type: 'options',
     default: 'javaScript',
     noExpression: true,
@@ -482,10 +482,10 @@ const parameters: ParamSchema[] = [
     options: [
       { value: 'javaScript', label: 'JavaScript' },
       { value: 'python', label: 'Python (Pyodide)' },
-      { value: 'pythonNative', label: 'Python (nativ)' },
+      { value: 'pythonNative', label: 'Python (Native)' },
     ],
   },
-  { name: 'language', label: 'Sprache', type: 'hidden', default: 'javaScript', show: { '@version': [1] } },
+  { name: 'language', label: 'Language', type: 'hidden', default: 'javaScript', show: { '@version': [1] } },
 
   jsCode({ '@version': [1], mode: ['runOnceForAllItems'] }, JS_ALL_ITEMS),
   jsCode({ '@version': [1], mode: ['runOnceForEachItem'] }, JS_EACH_ITEM),
@@ -493,7 +493,7 @@ const parameters: ParamSchema[] = [
   jsCode({ '@version': [2], language: ['javaScript'], mode: ['runOnceForEachItem'] }, JS_EACH_ITEM),
   {
     name: 'notice',
-    label: 'Mit $ erhalten Sie eine Liste der besonderen Variablen und Methoden. Ausgaben von console.log() erscheinen in der Browser-Konsole.',
+    label: 'Type $ for a list of special vars/methods. Debug by using console.log() statements and viewing their output in the browser console.',
     type: 'notice',
     default: '',
     show: { language: ['javaScript'] },
@@ -505,14 +505,14 @@ const parameters: ParamSchema[] = [
   pythonCode('pythonNative', 'runOnceForEachItem', PY_NATIVE_EACH_ITEM),
   {
     name: 'notice',
-    label: 'Ausgaben von print() erscheinen in der Browser-Konsole.',
+    label: 'Debug by using print() statements and viewing their output in the browser console.',
     type: 'notice',
     default: '',
     show: { language: ['python'] },
   },
   {
     name: 'notice',
-    label: 'Ausgaben von print() erscheinen in der Browser-Konsole. Natives Python kennt keine _-Helfer außer _items (alle Items) und _item (je Item).',
+    label: 'Debug by using print() statements and viewing their output in the browser console. Native Python has no _ helpers except _items (all items) and _item (per item).',
     type: 'notice',
     default: '',
     show: { language: ['pythonNative'] },
@@ -528,7 +528,7 @@ export const codeNode: NodeType = {
   validate(node) {
     const language = (node.parameters.language as string | undefined) ?? 'javaScript';
     if (node.typeVersion === 2 && !LANGUAGES.includes(language)) {
-      return [{ code: 'node.unsupportedParameter', message: `Code-Node: Sprache "${language}" wird nicht unterstützt (javaScript, python, pythonNative)`, path: 'parameters.language' }];
+      return [{ code: 'node.unsupportedParameter', message: `Code node: language "${language}" is not supported (javaScript, python, pythonNative)`, path: 'parameters.language' }];
     }
     return [];
   },

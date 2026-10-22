@@ -1,9 +1,9 @@
-// require im Code-Node mit Freigabelisten, nachgebaut nach n8n 1.123.0
-// packages/@n8n/task-runner/src/js-task-runner/require-resolver.ts und js-task-runner.ts (parseModuleAllowList):
-//   NODE_FUNCTION_ALLOW_BUILTIN / NODE_FUNCTION_ALLOW_EXTERNAL: Modulnamen mit Komma getrennt oder "*"
-//   (filuflow liest zuerst FILUFLOW_FUNCTION_ALLOW_BUILTIN / FILUFLOW_FUNCTION_ALLOW_EXTERNAL).
-// Ohne Freigabe ist jedes Modul gesperrt: "Module 'x' is disallowed". Externe Module werden aus der Installation von
-// filuflow geladen (node_modules neben dem Paket), wie bei n8n aus der des Task-Runners.
+// require in the Code node with allow lists, rebuilt after n8n 1.123.0
+// packages/@n8n/task-runner/src/js-task-runner/require-resolver.ts and js-task-runner.ts (parseModuleAllowList):
+//   NODE_FUNCTION_ALLOW_BUILTIN / NODE_FUNCTION_ALLOW_EXTERNAL: module names separated by commas, or "*"
+//   (filuflow reads FILUFLOW_FUNCTION_ALLOW_BUILTIN / FILUFLOW_FUNCTION_ALLOW_EXTERNAL first).
+// Without an allow entry every module is blocked: "Module 'x' is disallowed". External modules are loaded from the
+// filuflow installation (node_modules next to the package), as n8n loads them from the task runner's.
 import { createRequire, isBuiltin } from 'node:module';
 
 export type AllowList = Set<string> | '*';

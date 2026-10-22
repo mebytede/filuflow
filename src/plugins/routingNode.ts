@@ -1,8 +1,8 @@
-// Deklarative Knoten aus n8n-Paketen (M29): Knoten ohne execute beschreiben ihre Requests in der Beschreibung
-// (requestDefaults, routing an Parametern und Auswahlwerten, requestOperations). Verhalten wie n8n 1.123.0
+// Declarative nodes from n8n packages (M29): nodes without execute describe their requests in the description
+// (requestDefaults, routing on parameters and option values, requestOperations). Behavior as in n8n 1.123.0
 // (n8n-core 1.122.0) packages/core/src/execution-engine/routing-node.ts (runNode, getRequestOptionsFromParameters,
-// makeRequest, runPostReceiveAction, postProcessResponseData) und packages/core/src/nodes-loader/directory-loader.ts
-// (applyDeclarativeNodeOptionParameters); eigene Umsetzung.
+// makeRequest, runPostReceiveAction, postProcessResponseData) and packages/core/src/nodes-loader/directory-loader.ts
+// (applyDeclarativeNodeOptionParameters); own implementation.
 import type { ExecContext } from '../nodes/types.js';
 import type { Item, NodeOutput } from '../types.js';
 import { NodeApiError, serializeError } from '../errors.js';
@@ -12,8 +12,8 @@ import { isDisplayed, withDefaults, type N8nNodeDescription, type N8nProperty } 
 import { executeSingleFunctions } from './n8nNode.js';
 
 type Values = Record<string, unknown>;
-// Funktionen aus dem Paket (preSend, postReceive, pagination) bekommen den this-Kontext von IExecuteSingleFunctions
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Signaturen stammen aus fremdem JavaScript-Code
+// Functions from the package (preSend, postReceive, pagination) get the this context of IExecuteSingleFunctions
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- signatures come from third-party JavaScript code
 type PackageFunction = (this: any, ...args: any[]) => Promise<any>;
 
 interface PostReceiveAction {
@@ -47,7 +47,7 @@ interface FullResponse {
 
 const emptyResult = (): ResultOptions => ({ options: { qs: {}, body: {}, headers: {} }, preSend: [], postReceive: [], requestOperations: {} });
 
-/** Ist der Knoten deklarativ (kein execute, kein Trigger, keine Webhooks)? n8n führt solche Knoten über RoutingNode aus */
+/** Is the node declarative (no execute, no trigger, no webhooks)? n8n runs such nodes via RoutingNode */
 export function isDeclarative(node: { execute?: unknown; trigger?: unknown; poll?: unknown; webhook?: unknown; supplyData?: unknown; description: N8nNodeDescription }): boolean {
   const d = node.description;
   if (node.execute || node.trigger || node.poll || node.webhook || node.supplyData || d.polling || d.webhooks?.length) return false;
@@ -58,7 +58,7 @@ function hasRouting(props: N8nProperty[] | undefined): boolean {
   return (props ?? []).some((p) => !!p.routing || hasRouting(p.options as N8nProperty[] | undefined) || (p.options ?? []).some((o) => hasRouting(o.values)));
 }
 
-/** directory-loader.ts applyDeclarativeNodeOptionParameters: Einstellung "Request Options" (Batching, SSL, Proxy, Timeout) */
+/** directory-loader.ts applyDeclarativeNodeOptionParameters: "Request Options" setting (batching, SSL, proxy, timeout) */
 const REQUEST_OPTIONS: N8nProperty = {
   displayName: 'Request Options',
   name: 'requestOptions',
@@ -91,7 +91,7 @@ const REQUEST_OPTIONS: N8nProperty = {
   ],
 };
 
-/** Beschreibung um "Request Options" ergänzen (eine eigene requestOptions-Sammlung wird zusammengeführt und sortiert) */
+/** Add "Request Options" to the description (an own requestOptions collection is merged and sorted) */
 export function withRequestOptions(description: N8nNodeDescription): N8nNodeDescription {
   const props = [...description.properties];
   const i = props.findIndex((p) => p.name === 'requestOptions');
@@ -104,7 +104,7 @@ export function withRequestOptions(description: N8nNodeDescription): N8nNodeDesc
   return { ...description, properties: props };
 }
 
-/** lodash set mit Punkt- und Index-Pfad */
+/** lodash set with dot and index path */
 function setPath(target: Values, path: string, value: unknown): void {
   const parts = path.replace(/\[(\w+)\]/g, '.$1').split('.').filter(Boolean);
   let cur: Values = target;
@@ -118,7 +118,7 @@ function setPath(target: Values, path: string, value: unknown): void {
   });
 }
 
-/** lodash merge (tief, Arrays je Index, undefined überschreibt nicht) */
+/** lodash merge (deep, arrays per index, undefined does not overwrite) */
 function merge(target: Values, source: Values): Values {
   for (const [k, v] of Object.entries(source)) {
     if (v === undefined) continue;
@@ -136,7 +136,7 @@ export async function runRoutingNode(ctx: ExecContext, rawDescription: N8nNodeDe
   const params = withDefaults(description.properties, node.parameters ?? {}, version);
   const items = ctx.inputs[0] ?? [];
 
-  /** getParameterValue: Objekte und "="-Werte über die Expression-Engine, mit Zusatzschlüsseln wie $credentials */
+  /** getParameterValue: objects and "=" values via the expression engine, with extra keys like $credentials */
   const value = (v: unknown, itemIndex: number, keys: Values, asString = false): unknown => {
     if ((v && typeof v === 'object') || (typeof v === 'string' && v.charAt(0) === '=')) {
       const resolved = ctx.resolveValue(v, itemIndex, keys);
@@ -145,7 +145,7 @@ export async function runRoutingNode(ctx: ExecContext, rawDescription: N8nNodeDe
     return v;
   };
 
-  // prepareCredentials: ein Credential oder das zur Einstellung "authentication" passende
+  // prepareCredentials: a single credential or the one matching the "authentication" setting
   let credentialType: string | undefined;
   let credentials: Values | undefined;
   const declared = description.credentials ?? [];
@@ -168,7 +168,7 @@ export async function runRoutingNode(ctx: ExecContext, rawDescription: N8nNodeDe
   const optionsFrom = (thisArgs: Values, prop: Omit<N8nProperty, 'type'> & { type?: string; value?: unknown }, itemIndex: number, path: string, keys: Values): ResultOptions | undefined => {
     const out = emptyResult();
     let basePath = path ? `${path}.` : '';
-    // n8n prüft die Sichtbarkeit immer gegen die Parameter der obersten Ebene
+    // n8n always checks visibility against the top-level parameters
     if (!isDisplayed(prop.displayOptions, params, params, version)) return undefined;
     const routing = prop.routing as
       | {
@@ -285,7 +285,7 @@ export async function runRoutingNode(ctx: ExecContext, rawDescription: N8nNodeDe
         return [{ json: value(p.value, itemIndex, { $response: response, $value: parameterValue, $version: version }) as Values }];
       case 'sort': {
         const key = String(p.key);
-        // a.json[key]?.toString().toLowerCase() ?? '' wie in n8n
+        // a.json[key]?.toString().toLowerCase() ?? '' as in n8n
         const text = (item: Item) => {
           const v = item.json[key];
           return v === undefined || v === null ? '' : String(v).toLowerCase();
@@ -325,7 +325,7 @@ export async function runRoutingNode(ctx: ExecContext, rawDescription: N8nNodeDe
     return out;
   };
 
-  /** rawRoutingRequest: volle Antwort, mit Authentifizierung des Credentials */
+  /** rawRoutingRequest: full response, with authentication of the credential */
   const rawRequest = async (thisArgs: Values, request: ResultOptions): Promise<FullResponse> => {
     request.options.returnFullResponse = true;
     const helpers = thisArgs.helpers as {

@@ -1,9 +1,9 @@
-// Community-Pakete installieren, aktualisieren und entfernen (M30), wie n8n 1.123.0
-// packages/cli/src/modules/community-packages/community-packages.service.ts: Paketname prüfen (n8n-nodes-…, optional
-// mit Scope und Version), Version in der Registry prüfen, `npm pack` in einen Download-Ordner, entpacken nach
-// <ordner>/node_modules/<paket>, dev-/peer-/optionalDependencies entfernen, `npm install` ohne Skripte, Knoten laden;
-// enthält das Paket keine Knoten, wird es wieder entfernt. Die Liste der Pakete liegt in <ordner>/filuflow-packages.json
-// (n8n: Datenbanktabelle installed_packages), die Abhängigkeiten in <ordner>/package.json wie bei n8n.
+// Install, update and remove community packages (M30), as in n8n 1.123.0
+// packages/cli/src/modules/community-packages/community-packages.service.ts: check the package name (n8n-nodes-..., optionally
+// with scope and version), check the version in the registry, `npm pack` into a download folder, extract to
+// <dir>/node_modules/<package>, remove dev/peer/optionalDependencies, `npm install` without scripts, load nodes;
+// if the package contains no nodes, it is removed again. The list of packages is in <dir>/filuflow-packages.json
+// (n8n: database table installed_packages), the dependencies in <dir>/package.json as in n8n.
 import { execFile } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -17,11 +17,11 @@ import { unregisterCredentialType } from '../credentials/types.js';
 import { unregisterCredentialAuth } from '../credentials/authenticate.js';
 
 export const DEFAULT_NPM_REGISTRY = 'https://registry.npmjs.org';
-/** community-packages.service.ts NPM_COMMON_ARGS und NPM_INSTALL_ARGS */
+/** community-packages.service.ts NPM_COMMON_ARGS and NPM_INSTALL_ARGS */
 const NPM_INSTALL_ARGS = ['--audit=false', '--fund=false', '--bin-links=false', '--install-strategy=shallow', '--ignore-scripts=true', '--package-lock=false'];
 const INVALID_OR_SUSPICIOUS_PACKAGE_NAME = /[^0-9a-z@\-._/]/;
 const NODE_PACKAGE_PREFIX = 'n8n-nodes-';
-/** semver.valid (auch mit "v" oder "=" davor) */
+/** semver.valid (also with a leading "v" or "=") */
 const SEMVER = /^[v=]?\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$/;
 
 export interface InstalledPackage {
@@ -33,7 +33,7 @@ export interface InstalledPackage {
   updatedAt: string;
 }
 
-/** Fehler mit HTTP-Status für die API */
+/** Error with an HTTP status for the API */
 export class CommunityPackageError extends Error {
   constructor(
     message: string,
@@ -48,38 +48,38 @@ export type ExecFn = (file: string, args: string[], options: { cwd: string; env?
 const defaultExec: ExecFn = (file, args, options) => promisify(execFile)(file, args, { ...options, maxBuffer: 20 * 1024 * 1024 }) as Promise<{ stdout: string; stderr: string }>;
 
 export interface CommunityPackagesOptions {
-  /** Ordner der installierten Pakete (Standard ~/.filuflow/nodes, wie ~/.n8n/nodes) */
+  /** Folder of the installed packages (default ~/.filuflow/nodes, like ~/.n8n/nodes) */
   dir: string;
   registry: NodeRegistry;
   npmRegistry?: string;
   logger?: Logger;
   exec?: ExecFn;
-  /** Umgebung für npm (Tests: eigener Cache) */
+  /** Environment for npm (tests: own cache) */
   env?: NodeJS.ProcessEnv;
-  /** nach jeder Änderung (Server: Workflows neu prüfen) */
+  /** after every change (server: re-check workflows) */
   onChange?: () => Promise<void> | void;
 }
 
-/** Standardordner: FILUFLOW_NODES_DIR, sonst ~/.filuflow/nodes */
+/** Default folder: FILUFLOW_NODES_DIR, otherwise ~/.filuflow/nodes */
 export function defaultCommunityDir(env: NodeJS.ProcessEnv = process.env): string {
   return env.FILUFLOW_NODES_DIR || join(homedir(), '.filuflow', 'nodes');
 }
 
-/** Installation erlaubt? FILUFLOW_COMMUNITY_PACKAGES_ENABLED bzw. N8N_COMMUNITY_PACKAGES_ENABLED (Standard an) */
+/** Installation allowed? FILUFLOW_COMMUNITY_PACKAGES_ENABLED or N8N_COMMUNITY_PACKAGES_ENABLED (default on) */
 export function communityPackagesEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   const v = env.FILUFLOW_COMMUNITY_PACKAGES_ENABLED ?? env.N8N_COMMUNITY_PACKAGES_ENABLED;
   return v === undefined || !['false', '0', 'no'].includes(v.toLowerCase());
 }
 
-/** parseNpmPackageName: Name (mit Scope), optional @Version */
+/** parseNpmPackageName: name (with scope), optionally @version */
 export function parseNpmPackageName(raw: string): { packageName: string; scope?: string; version?: string } {
-  if (!raw) throw new CommunityPackageError('Bitte einen Paketnamen angeben');
-  if (INVALID_OR_SUSPICIOUS_PACKAGE_NAME.test(raw)) throw new CommunityPackageError('Der Paketname darf nur aus einem Wort bestehen (Kleinbuchstaben, Ziffern, @ - . _ /)');
+  if (!raw) throw new CommunityPackageError('Please provide a package name');
+  if (INVALID_OR_SUSPICIOUS_PACKAGE_NAME.test(raw)) throw new CommunityPackageError('The package name must be a single word (lowercase letters, digits, @ - . _ /)');
   const scope = raw.includes('/') ? raw.split('/')[0] : undefined;
   const withoutScope = scope ? raw.replace(`${scope}/`, '') : raw;
-  if (!withoutScope.startsWith(NODE_PACKAGE_PREFIX)) throw new CommunityPackageError(`Der Paketname muss mit ${NODE_PACKAGE_PREFIX} beginnen`);
+  if (!withoutScope.startsWith(NODE_PACKAGE_PREFIX)) throw new CommunityPackageError(`The package name must start with ${NODE_PACKAGE_PREFIX}`);
   const version = withoutScope.includes('@') ? withoutScope.split('@')[1] : undefined;
-  if (version && !SEMVER.test(version)) throw new CommunityPackageError(`Ungültige Version: ${version}`);
+  if (version && !SEMVER.test(version)) throw new CommunityPackageError(`Invalid version: ${version}`);
   return { packageName: version ? raw.replace(`@${version}`, '') : raw, ...(scope ? { scope } : {}), ...(version ? { version } : {}) };
 }
 
@@ -90,7 +90,7 @@ export class CommunityPackages {
   private readonly npmRegistry: string;
   private readonly exec: ExecFn;
   private readonly reports = new Map<string, PluginReport>();
-  /** eine Änderung nach der anderen */
+  /** one change after the other */
   private queue: Promise<unknown> = Promise.resolve();
 
   constructor(private readonly o: CommunityPackagesOptions) {
@@ -118,17 +118,17 @@ export class CommunityPackages {
 
   packageDir(name: string): string {
     const dir = resolve(this.dir, 'node_modules', name);
-    if (!dir.startsWith(`${this.dir}${sep}node_modules${sep}`)) throw new CommunityPackageError('Ungültiger Paketname');
+    if (!dir.startsWith(`${this.dir}${sep}node_modules${sep}`)) throw new CommunityPackageError('Invalid package name');
     return dir;
   }
 
-  /** Installierte Pakete beim Start laden (Probleme stehen im Bericht) */
+  /** Load installed packages at startup (problems are in the report) */
   async loadInstalled(): Promise<PluginReport[]> {
     const out: PluginReport[] = [];
     for (const p of this.list()) {
       const dir = this.packageDir(p.packageName);
       if (!existsSync(dir)) {
-        out.push({ source: dir, kind: 'n8n-package', nodes: [], credentials: [], errors: ['Paket fehlt im Ordner, bitte neu installieren'] });
+        out.push({ source: dir, kind: 'n8n-package', nodes: [], credentials: [], errors: ['Package missing from the folder, please reinstall'] });
         continue;
       }
       const [report] = await loadPlugins([dir], this.o.registry);
@@ -149,7 +149,7 @@ export class CommunityPackages {
   install(spec: string, version?: string): Promise<InstalledPackage> {
     return this.serial(async () => {
       const parsed = parseNpmPackageName(spec);
-      if (this.list().some((p) => p.packageName === parsed.packageName)) throw new CommunityPackageError(`Das Paket ${parsed.packageName} ist bereits installiert`);
+      if (this.list().some((p) => p.packageName === parsed.packageName)) throw new CommunityPackageError(`The package ${parsed.packageName} is already installed`);
       return this.installOrUpdate(parsed.packageName, version ?? parsed.version);
     });
   }
@@ -158,7 +158,7 @@ export class CommunityPackages {
     return this.serial(async () => {
       const { packageName } = parseNpmPackageName(name);
       const installed = this.list().find((p) => p.packageName === packageName);
-      if (!installed) throw new CommunityPackageError(`Das Paket ${packageName} ist nicht installiert`, 404);
+      if (!installed) throw new CommunityPackageError(`The package ${packageName} is not installed`, 404);
       return this.installOrUpdate(packageName, version, installed);
     });
   }
@@ -168,17 +168,17 @@ export class CommunityPackages {
       const { packageName } = parseNpmPackageName(name);
       const list = this.list();
       const installed = list.find((p) => p.packageName === packageName);
-      if (!installed) throw new CommunityPackageError(`Das Paket ${packageName} ist nicht installiert`, 404);
+      if (!installed) throw new CommunityPackageError(`The package ${packageName} is not installed`, 404);
       this.unload(packageName, installed);
       rmSync(this.packageDir(packageName), { recursive: true, force: true });
       this.updatePackageJson(packageName, undefined);
       this.save(list.filter((p) => p.packageName !== packageName));
-      this.o.logger?.info({ packageName }, 'Community-Paket entfernt');
+      this.o.logger?.info({ packageName }, 'Community package removed');
       await this.o.onChange?.();
     });
   }
 
-  /** checkIfVersionExistsOrThrow: Version (oder ein Tag wie latest) in der Registry, über npm (Proxy, Anmeldung wie npm) */
+  /** checkIfVersionExistsOrThrow: version (or a tag like latest) in the registry, via npm (proxy, authentication as npm) */
   private async resolveVersion(packageName: string, version: string): Promise<string> {
     const out = (await this.npm(['view', `${packageName}@${version}`, 'version', '--json', `--registry=${this.npmRegistry}`], this.dir)).trim();
     let parsed: unknown;
@@ -188,7 +188,7 @@ export class CommunityPackages {
       parsed = out;
     }
     const resolved = Array.isArray(parsed) ? parsed.at(-1) : parsed;
-    if (typeof resolved !== 'string' || !resolved) throw new CommunityPackageError(`Die Version ${version} von ${packageName} gibt es nicht`, 404);
+    if (typeof resolved !== 'string' || !resolved) throw new CommunityPackageError(`Version ${version} of ${packageName} does not exist`, 404);
     return resolved;
   }
 
@@ -199,14 +199,14 @@ export class CommunityPackages {
       return stdout;
     } catch (error) {
       const message = String((error as { stderr?: string }).stderr || (error as Error).message);
-      if (/ENOSPC|insufficient space/i.test(message)) throw new CommunityPackageError('Auf dem Datenträger ist kein Platz mehr', 507);
-      if (/E404|404 Not Found|No matching version/i.test(message)) throw new CommunityPackageError('Das Paket oder die Version wurde nicht gefunden', 404);
-      this.o.logger?.warn({ args: args[0], message }, 'npm fehlgeschlagen');
-      throw new CommunityPackageError('Das Paket konnte nicht installiert werden', 500);
+      if (/ENOSPC|insufficient space/i.test(message)) throw new CommunityPackageError('No space left on the device', 507);
+      if (/E404|404 Not Found|No matching version/i.test(message)) throw new CommunityPackageError('The package or version was not found', 404);
+      this.o.logger?.warn({ args: args[0], message }, 'npm failed');
+      throw new CommunityPackageError('The package could not be installed', 500);
     }
   }
 
-  /** downloadPackage: npm pack, entpacken, Abhängigkeiten ohne Skripte installieren */
+  /** downloadPackage: npm pack, extract, install dependencies without scripts */
   private async download(packageName: string, version: string): Promise<void> {
     const target = this.packageDir(packageName);
     const downloads = join(this.dir, '.downloads');
@@ -218,7 +218,7 @@ export class CommunityPackages {
       try {
         await this.exec('tar', ['-xzf', tarball, '-C', target, '--strip-components=1'], { cwd: downloads });
       } catch (error) {
-        throw new CommunityPackageError(`Das Paket ließ sich nicht entpacken: ${(error as Error).message}`, 500);
+        throw new CommunityPackageError(`The package could not be extracted: ${(error as Error).message}`, 500);
       }
       const pkgFile = join(target, 'package.json');
       const { devDependencies: _dev, peerDependencies: _peer, optionalDependencies: _optional, ...pkg } = JSON.parse(readFileSync(pkgFile, 'utf8')) as Record<string, unknown>;
@@ -230,7 +230,7 @@ export class CommunityPackages {
     }
   }
 
-  /** updatePackageJsonDependency: <ordner>/package.json mit den installierten Paketen */
+  /** updatePackageJsonDependency: <dir>/package.json with the installed packages */
   private updatePackageJson(packageName: string, version: string | undefined): void {
     const file = join(this.dir, 'package.json');
     let pkg: { name?: string; private?: boolean; dependencies?: Record<string, string> } = {};
@@ -246,7 +246,7 @@ export class CommunityPackages {
     writeFileSync(file, JSON.stringify(pkg, null, 2));
   }
 
-  /** Knoten und Credential-Typen eines Pakets aus der Registry nehmen, Module aus dem require-Cache entfernen */
+  /** Remove the nodes and credential types of a package from the registry, remove modules from the require cache */
   private unload(packageName: string, installed?: InstalledPackage): void {
     const report = this.reports.get(packageName);
     for (const type of report?.nodes ?? installed?.installedNodes.map((n) => n.type) ?? []) this.o.registry.unregister(type);
@@ -276,7 +276,7 @@ export class CommunityPackages {
       this.updatePackageJson(packageName, undefined);
       if (installed) this.save(this.list().filter((p) => p.packageName !== packageName));
       const details = report?.errors.length ? ` (${report.errors.join('; ')})` : '';
-      throw new CommunityPackageError(`Das Paket enthält keine Knoten, die filuflow laden kann${details}`);
+      throw new CommunityPackageError(`The package contains no nodes that filuflow can load${details}`);
     }
     this.reports.set(packageName, report);
     const now = new Date().toISOString();
@@ -289,12 +289,12 @@ export class CommunityPackages {
       updatedAt: now,
     };
     this.save([...this.list().filter((p) => p.packageName !== packageName), entry].sort((a, b) => a.packageName.localeCompare(b.packageName)));
-    this.o.logger?.info({ packageName, version, nodes: entry.installedNodes.length }, installed ? 'Community-Paket aktualisiert' : 'Community-Paket installiert');
+    this.o.logger?.info({ packageName, version, nodes: entry.installedNodes.length }, installed ? 'Community package updated' : 'Community package installed');
     await this.o.onChange?.();
     return { ...entry, ...(report.errors.length ? { warnings: report.errors } : {}) } as InstalledPackage;
   }
 
-  /** Bericht eines geladenen Pakets (Fehler einzelner Knoten) */
+  /** Report of a loaded package (errors of individual nodes) */
   report(packageName: string): PluginReport | undefined {
     return this.reports.get(packageName);
   }

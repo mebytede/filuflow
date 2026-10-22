@@ -1,10 +1,10 @@
-// Beschreibungen aus n8n-Paketen (INodeTypeDescription, INodeProperties, ICredentialType) in filuflow-Formate
-// übersetzen und Defaults wie n8n ergänzen (M24). Verhalten nach n8n 1.123.0 packages/workflow/src/interfaces.ts und
-// node-helpers.ts (displayParameter, getNodeParameters); eigene, vereinfachte Umsetzung.
+// Convert descriptions from n8n packages (INodeTypeDescription, INodeProperties, ICredentialType) into filuflow formats
+// and fill in defaults like n8n (M24). Behavior after n8n 1.123.0 packages/workflow/src/interfaces.ts and
+// node-helpers.ts (displayParameter, getNodeParameters); own, simplified implementation.
 import type { DisplayRule, ParamSchema, ParamType } from '../nodes/params.js';
 import type { CredentialField, CredentialTypeSchema } from '../credentials/types.js';
 
-/** Ausschnitt aus INodeProperties, den filuflow auswertet */
+/** Excerpt of INodeProperties that filuflow evaluates */
 export interface N8nProperty {
   displayName?: string;
   name: string;
@@ -17,7 +17,7 @@ export interface N8nProperty {
   noDataExpression?: boolean;
   displayOptions?: { show?: DisplayRule; hide?: DisplayRule };
   typeOptions?: Record<string, unknown>;
-  /** options/multiOptions: Werte; collection: Unterparameter; fixedCollection: Gruppen */
+  /** options/multiOptions: values; collection: sub-parameters; fixedCollection: groups */
   options?: Array<Omit<N8nProperty, 'type'> & { type?: string; value?: string | number | boolean; values?: N8nProperty[] }>;
   modes?: Array<{ name: string; displayName?: string; placeholder?: string }>;
   routing?: unknown;
@@ -36,7 +36,7 @@ export interface N8nNodeDescription {
   properties: N8nProperty[];
   credentials?: Array<{ name: string; required?: boolean; displayOptions?: { show?: DisplayRule; hide?: DisplayRule } }>;
   requestDefaults?: Record<string, unknown>;
-  /** Pagination usw. für deklarative Knoten */
+  /** Pagination etc. for declarative nodes */
   requestOperations?: Record<string, unknown>;
   polling?: boolean;
   webhooks?: unknown[];
@@ -60,15 +60,15 @@ const TYPE_MAP: Record<string, ParamType> = {
   hidden: 'hidden',
 };
 
-/** INodeProperties -> ParamSchema (Formular im Editor) */
+/** INodeProperties -> ParamSchema (form in the editor) */
 export function propertiesToSchema(props: N8nProperty[]): ParamSchema[] {
   return props.map((p) => {
     const t = p.typeOptions ?? {};
-    // Auswahllisten, die n8n zur Laufzeit lädt (loadOptionsMethod), werden zu freien Eingaben
+    // Option lists that n8n loads at runtime (loadOptionsMethod) become free input
     const dynamic = (p.type === 'options' || p.type === 'multiOptions') && (t.loadOptionsMethod || t.loadOptions);
     const type: ParamType = dynamic ? 'string' : (TYPE_MAP[p.type] ?? (p.type === 'credentialsSelect' ? 'string' : 'json'));
     const schema: ParamSchema = { name: p.name, label: p.displayName ?? p.name, type, ...(p.default !== undefined ? { default: p.default } : {}) };
-    const description = [p.description, dynamic ? 'Werte, die n8n zur Laufzeit lädt, bitte direkt eintragen.' : undefined].filter(Boolean).join(' ');
+    const description = [p.description, dynamic ? 'Please enter values that n8n loads at runtime directly.' : undefined].filter(Boolean).join(' ');
     if (description) schema.description = description;
     if (p.placeholder) schema.placeholder = p.placeholder;
     if (p.required) schema.required = true;
@@ -116,7 +116,7 @@ function matches(value: unknown, allowed: unknown): boolean {
   return value === allowed;
 }
 
-/** node-helpers.ts displayParameter: show verlangt einen passenden Wert je Schlüssel, hide blendet bei einem Treffer aus */
+/** node-helpers.ts displayParameter: show requires a matching value per key, hide hides on any match */
 export function isDisplayed(options: N8nProperty['displayOptions'], values: Values, root: Values, version: number): boolean {
   if (!options) return true;
   const lookup = (key: string): unknown => {
@@ -129,7 +129,7 @@ export function isDisplayed(options: N8nProperty['displayOptions'], values: Valu
     for (const [key, allowed] of Object.entries(rule)) {
       const value = lookup(key);
       const list = Array.isArray(value) ? value : [value];
-      // displayParameter: ein Ausdruck als Wert zeigt den Parameter immer an
+      // displayParameter: an expression as value always shows the parameter
       if (show && list.some((v) => typeof v === 'string' && v.charAt(0) === '=')) continue;
       const hit = list.some((v) => allowed.some((a) => matches(v, a)));
       if (show && !hit) return false;
@@ -143,8 +143,8 @@ export function isDisplayed(options: N8nProperty['displayOptions'], values: Valu
 const copy = <T>(v: T): T => (v === undefined || v === null || typeof v !== 'object' ? v : (structuredClone(v) as T));
 
 /**
- * Parameter mit Defaults wie n8n getNodeParameters: sichtbare Parameter ohne Wert erhalten ihren Default (gleichnamige:
- * der erste sichtbare), Einträge von fixedCollections werden um die Defaults ihrer Felder ergänzt.
+ * Parameters with defaults like n8n getNodeParameters: visible parameters without a value get their default (same name:
+ * the first visible one), entries of fixedCollections are filled with the defaults of their fields.
  */
 export function withDefaults(props: N8nProperty[], params: Values, version: number, root?: Values): Values {
   const out: Values = { ...params };
@@ -169,12 +169,12 @@ export function withDefaults(props: N8nProperty[], params: Values, version: numb
   return out;
 }
 
-/** Credential-Typen, die der Knoten mit diesen Parametern braucht (description.credentials mit displayOptions) */
+/** Credential types the node needs with these parameters (description.credentials with displayOptions) */
 export function neededCredentials(description: N8nNodeDescription, params: Values, version: number): string[] {
   return (description.credentials ?? []).filter((c) => isDisplayed(c.displayOptions, params, params, version)).map((c) => c.name);
 }
 
-/** Ausschnitt aus ICredentialType */
+/** Excerpt of ICredentialType */
 export interface N8nCredentialType {
   name: string;
   displayName?: string;
@@ -184,13 +184,13 @@ export interface N8nCredentialType {
   authenticate?: unknown;
 }
 
-/** ICredentialType -> Formular in der Oberfläche */
+/** ICredentialType -> form in the web interface */
 export function credentialToSchema(c: N8nCredentialType): CredentialTypeSchema {
   const fields: CredentialField[] = [];
   for (const p of c.properties ?? []) {
     if (p.type === 'notice') continue;
     if (p.type === 'hidden') {
-      // Feste Werte (z. B. URLs eines OAuth2-Dienstes); Ausdrücke mit $self wertet das Laden aus (M28)
+      // Fixed values (e.g. URLs of an OAuth2 service); expressions with $self are evaluated on load (M28)
       const value = typeof p.default === 'number' ? String(p.default) : p.default;
       if (typeof value === 'string' || typeof value === 'boolean') fields.push({ name: p.name, label: p.displayName ?? p.name, kind: 'hidden', default: value });
       continue;
@@ -210,7 +210,7 @@ export function credentialToSchema(c: N8nCredentialType): CredentialTypeSchema {
   return {
     name: c.name,
     label: c.displayName ?? c.name,
-    description: `Aus einem n8n-Paket${c.documentationUrl ? ` (${c.documentationUrl})` : ''}.`,
+    description: `From an n8n package${c.documentationUrl ? ` (${c.documentationUrl})` : ''}.`,
     fields,
     ...(c.extends?.length ? { extends: c.extends } : {}),
   };

@@ -1,7 +1,7 @@
-// Was der Aufseher dem Modell zeigt (SECURITY.md, Abschnitt Aufseher): Aufbau des Workflows mit maskierten
-// Geheimnissen, Fehlermeldungen und Laufzeiten; Beispieldaten nur im Datenumfang "samples", gekürzt und maskiert.
-// Credential-Werte gehen nie hinaus: Credentials erscheinen nur mit Namen, bekannte geheime Werte werden in allen Texten
-// ersetzt, Parameter mit Namen wie password, token oder apiKey werden unabhängig vom Wert maskiert.
+// What the supervisor shows the model (SECURITY.md, section on the supervisor): structure of the workflow with masked
+// secrets, error messages and run times; sample data only with data scope "samples", truncated and masked.
+// Credential values never leave: credentials appear only by name, known secret values are replaced in all texts,
+// parameters with names such as password, token or apiKey are masked regardless of their value.
 import { maskDeep } from '../credentials/store.js';
 import type { Item, Workflow } from '../types.js';
 import type { StoredExecution } from '../server/store.js';
@@ -11,7 +11,7 @@ import type { DataScope } from './types.js';
 export const MASK = '***';
 const SAMPLE_CHARS = 1500;
 
-/** Wert unter einem Pfad wie a.b[0].c ersetzen */
+/** Replace the value under a path like a.b[0].c */
 function setPath(target: unknown, path: string, value: unknown): void {
   const parts = path.match(/[^.[\]]+/g) ?? [];
   let cur = target as Record<string, unknown> | unknown[];
@@ -24,12 +24,12 @@ function setPath(target: unknown, path: string, value: unknown): void {
   if (last !== undefined && cur && typeof cur === 'object' && last in cur) (cur as Record<string, unknown>)[last] = value;
 }
 
-/** Text auf eine Länge kürzen, mit Hinweis */
+/** Truncate text to a length, with a note */
 export function clip(text: string, max: number): string {
-  return text.length <= max ? text : `${text.slice(0, max)} … (${text.length - max} Zeichen gekürzt)`;
+  return text.length <= max ? text : `${text.slice(0, max)} ... (${text.length - max} characters truncated)`;
 }
 
-/** Workflow für das Modell: ohne pinData und statische Daten, Geheimnisse maskiert */
+/** Workflow for the model: without pinData and static data, secrets masked */
 export function maskWorkflow(workflow: Workflow, secrets: string[], scope: DataScope = 'structure'): Record<string, unknown> {
   const copy = JSON.parse(JSON.stringify(workflow)) as Workflow & { pinData?: Record<string, unknown>; staticData?: unknown; meta?: unknown };
   for (const node of copy.nodes ?? []) {
@@ -56,7 +56,7 @@ function firstItems(items: Array<Item[] | null> | undefined): string | undefined
   return clip(JSON.stringify(list.slice(0, 2).map((i) => i.json)), SAMPLE_CHARS);
 }
 
-/** Auszug einer Ausführung: Status, Fehler, Läufe je Knoten; Beispieldaten nur mit "samples" */
+/** Excerpt of an execution: status, error, runs per node; sample data only with "samples" */
 export function executionExcerpt(execution: StoredExecution, secrets: string[], scope: DataScope = 'structure'): Record<string, unknown> {
   const runData = execution.runData ?? {};
   const nodes = Object.entries(runData).map(([name, runs]) => {
@@ -91,11 +91,11 @@ export function executionExcerpt(execution: StoredExecution, secrets: string[], 
     if (previous) {
       const prevRuns = runData[previous];
       const s = firstItems(prevRuns?.[prevRuns.length - 1]?.data?.main);
-      if (s) samples[`Eingang von ${failedNode} (Ausgang von ${previous})`] = s;
+      if (s) samples[`Input of ${failedNode} (output of ${previous})`] = s;
     }
     if (failedNode) {
       const s = firstItems(task?.data?.main);
-      if (s) samples[`Ausgang von ${failedNode}`] = s;
+      if (s) samples[`Output of ${failedNode}`] = s;
     }
     if (Object.keys(samples).length) out.samples = samples;
   }

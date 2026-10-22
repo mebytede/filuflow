@@ -1,19 +1,20 @@
-// Seite "Aufseher" (M35 bis M37): Hinweise mit Analyse, Vorschläge, Berichte und Einstellungen. Der Aufseher schlägt
-// nur vor; Annehmen, Verwerfen und alle Einstellungen liegen bei den Menschen. Die Datenquelle ist austauschbar
-// (Einzelbetrieb: eigene API; Master: über den Master für einen Worker).
+// "Supervisor" page (M35 to M37): findings with analysis, proposals, reports and settings. The supervisor only
+// proposes; accepting, discarding and all settings are up to humans. The data source is interchangeable
+// (standalone mode: own API; master: via the master for a worker).
 import { api } from '../api.js';
 import { appendAll, h, toast } from '../dom.js';
 import { button, kpis, pageHead, shortTime, toggleSwitch } from '../shell.js';
 import { proposalList } from './supervisorProposals.js';
+import { dateLocale, t, tl } from '../i18n.js';
 import type { CredentialInfo, SupervisorFinding, SupervisorProposal, SupervisorProvider, SupervisorReport, SupervisorSettings, SupervisorStatus } from '../types.js';
 
 export interface SupervisorBackend {
   status(): Promise<SupervisorStatus>;
   findings(filter: { status?: string; workflow?: string }): Promise<SupervisorFinding[]>;
   findingAction(f: SupervisorFinding, action: 'dismiss' | 'reopen' | 'analyze'): Promise<SupervisorFinding>;
-  /** Prüfung jetzt; ohne Methode kein Knopf */
+  /** Scan now; without the method, no button */
   scan?(): Promise<unknown>;
-  /** Berichte und Einstellungen (Einzelbetrieb, im Master je Worker); ohne Methoden keine Reiter */
+  /** Reports and settings (standalone mode, per worker in the master); without the methods, no tabs */
   reports?(): Promise<SupervisorReport[]>;
   createReport?(): Promise<SupervisorReport>;
   settings?(): Promise<{ settings: SupervisorSettings; providers: SupervisorProvider[] }>;
@@ -22,14 +23,14 @@ export interface SupervisorBackend {
   workflows?(): Promise<Array<{ id: string; name: string }>>;
   workflowHref(id: string): string;
   executionHref(id: string, item?: { workerId?: string; projectId?: string }): string | undefined;
-  /** Vorschläge (M36); ohne diese Methoden kein Reiter "Vorschläge" */
+  /** Proposals (M36); without these methods, no "Proposals" tab */
   proposals?(filter: { status?: string; workflow?: string }): Promise<SupervisorProposal[]>;
   proposal?(p: SupervisorProposal): Promise<SupervisorProposal>;
   propose?(f: SupervisorFinding): Promise<SupervisorProposal>;
   proposalAction?(p: SupervisorProposal, action: 'accept' | 'reject' | 'test'): Promise<SupervisorProposal>;
-  /** Darf der Benutzer Vorschläge annehmen? */
+  /** May the user accept proposals? */
   canAccept?: boolean;
-  /** Darf der Benutzer Einstellungen ändern? */
+  /** May the user change settings? */
   canConfigure?: boolean;
 }
 
@@ -55,9 +56,9 @@ export const standaloneSupervisorBackend: SupervisorBackend = {
 };
 
 export const SEVERITY_WORD: Record<string, [string, string]> = {
-  error: ['Fehler', 'error'],
-  warning: ['Warnung', 'warning'],
-  info: ['Info', 'muted'],
+  error: [t('Error'), 'error'],
+  warning: [t('Warning severity'), 'warning'],
+  info: [t('Info'), 'muted'],
 };
 
 export function severityWord(severity: string): HTMLElement {
@@ -70,25 +71,25 @@ function tabs(base: string, active: string, backend: SupervisorBackend): HTMLEle
   return h(
     'nav',
     { class: 'tabs page-tabs' },
-    tab('findings', 'Hinweise'),
-    backend.proposals ? tab('proposals', 'Vorschläge') : null,
-    backend.reports ? tab('reports', 'Berichte') : null,
-    backend.settings ? tab('settings', 'Einstellungen') : null,
+    tab('findings', t('Findings')),
+    backend.proposals ? tab('proposals', t('Proposals')) : null,
+    backend.reports ? tab('reports', t('Reports')) : null,
+    backend.settings ? tab('settings', t('Settings')) : null,
   );
 }
 
 function statusKpis(st: SupervisorStatus): HTMLElement {
   return kpis([
-    { label: 'Fehler', value: String(st.counts.error), ...(st.counts.error ? { tone: 'error' as const } : {}) },
-    { label: 'Warnungen', value: String(st.counts.warning), ...(st.counts.warning ? { tone: 'warning' as const } : {}) },
-    { label: 'Offene Vorschläge', value: String(st.proposals) },
+    { label: t('Errors'), value: String(st.counts.error), ...(st.counts.error ? { tone: 'error' as const } : {}) },
+    { label: t('Warnings'), value: String(st.counts.warning), ...(st.counts.warning ? { tone: 'warning' as const } : {}) },
+    { label: t('Open proposals'), value: String(st.proposals) },
     st.workers
-      ? { label: 'Worker mit Modell', value: `${st.workers.withModel} von ${st.workers.total}` }
-      : { label: 'Token heute', value: st.usage.budget ? `${st.usage.today.toLocaleString('de-DE')} / ${st.usage.budget.toLocaleString('de-DE')}` : 'Modell aus' },
+      ? { label: t('Workers with model'), value: t('{count} of {total}', { count: st.workers.withModel, total: st.workers.total }) }
+      : { label: t('Tokens today'), value: st.usage.budget ? `${st.usage.today.toLocaleString(dateLocale())} / ${st.usage.budget.toLocaleString(dateLocale())}` : t('Model off') },
   ]);
 }
 
-/** Eine Zeile je Hinweis mit Analyse und Aktionen */
+/** One row per finding with analysis and actions */
 export function findingCard(f: SupervisorFinding, backend: SupervisorBackend, o: { modelReady: boolean; onChange: () => void; showWorkflow?: boolean }): HTMLElement {
   const busy = (btn: HTMLElement, on: boolean) => btn.toggleAttribute('disabled', on);
   const act = async (btn: HTMLElement, action: 'dismiss' | 'reopen' | 'analyze', done: string) => {
@@ -102,17 +103,17 @@ export function findingCard(f: SupervisorFinding, backend: SupervisorBackend, o:
       busy(btn, false);
     }
   };
-  const analyzeBtn: HTMLElement = button(f.analysis?.text ? 'Neu analysieren' : 'Analysieren', { size: 's', icon: 'brain', onclick: () => void act(analyzeBtn, 'analyze', 'Analyse fertig') });
+  const analyzeBtn: HTMLElement = button(f.analysis?.text ? t('Analyze again') : t('Analyze'), { size: 's', icon: 'brain', onclick: () => void act(analyzeBtn, 'analyze', t('Analysis done')) });
   const proposeBtn: HTMLElement | null =
     backend.propose && o.modelReady && f.status === 'open' && !f.proposalId
-      ? button('Vorschlag erstellen', {
+      ? button(t('Create proposal'), {
           size: 's',
           icon: 'lightbulb',
           onclick: async () => {
             busy(proposeBtn!, true);
             try {
               const p = await backend.propose!(f);
-              toast(`Vorschlag "${p.title}" erstellt`, 'success');
+              toast(t('Proposal "{title}" created', { title: p.title }), 'success');
               o.onChange();
             } catch (error) {
               toast((error as Error).message, 'error');
@@ -123,8 +124,8 @@ export function findingCard(f: SupervisorFinding, backend: SupervisorBackend, o:
       : null;
   const toggleBtn: HTMLElement =
     f.status === 'open'
-      ? button('Verwerfen', { size: 's', onclick: () => void act(toggleBtn, 'dismiss', 'Hinweis verworfen') })
-      : button('Wieder öffnen', { size: 's', onclick: () => void act(toggleBtn, 'reopen', 'Hinweis wieder offen') });
+      ? button(t('Dismiss'), { size: 's', onclick: () => void act(toggleBtn, 'dismiss', t('Finding dismissed')) })
+      : button(t('Reopen'), { size: 's', onclick: () => void act(toggleBtn, 'reopen', t('Finding reopened')) });
   const execHref = f.executionId ? backend.executionHref(f.executionId, f as { workerId?: string; projectId?: string }) : undefined;
   return h(
     'article',
@@ -134,7 +135,7 @@ export function findingCard(f: SupervisorFinding, backend: SupervisorBackend, o:
       { class: 'finding-head' },
       severityWord(f.severity),
       h('strong', null, f.title),
-      f.count > 1 ? h('span', { class: 'muted small' }, `${f.count}-mal`) : null,
+      f.count > 1 ? h('span', { class: 'muted small' }, t('{count} times', { count: f.count })) : null,
       h('span', { class: 'spacer' }),
       h('span', { class: 'muted small', title: f.lastSeen }, shortTime(f.lastSeen)),
     ),
@@ -142,18 +143,18 @@ export function findingCard(f: SupervisorFinding, backend: SupervisorBackend, o:
       'div',
       { class: 'finding-meta muted small' },
       o.showWorkflow !== false ? h('a', { href: backend.workflowHref(f.workflowId) }, f.workflowName) : null,
-      f.workerName ? h('span', null, `Worker ${f.workerName}`) : null,
-      f.nodeName ? h('span', null, `Knoten ${f.nodeName}`) : null,
-      execHref ? h('a', { href: execHref }, 'Ausführung ansehen') : null,
-      f.status !== 'open' ? h('span', null, f.status === 'dismissed' ? 'Verworfen' : 'Erledigt') : null,
+      f.workerName ? h('span', null, t('Worker {name}', { name: f.workerName })) : null,
+      f.nodeName ? h('span', null, t('Node {name}', { name: f.nodeName })) : null,
+      execHref ? h('a', { href: execHref }, t('View execution')) : null,
+      f.status !== 'open' ? h('span', null, f.status === 'dismissed' ? t('Dismissed') : t('Resolved')) : null,
     ),
     h('p', { class: 'finding-detail' }, f.detail),
     f.analysis?.text
-      ? h('div', { class: 'finding-analysis' }, h('span', { class: 'label' }, `Analyse (${f.analysis.model}, ${shortTime(f.analysis.at)})`), h('p', null, f.analysis.text))
+      ? h('div', { class: 'finding-analysis' }, h('span', { class: 'label' }, t('Analysis ({model}, {time})', { model: f.analysis.model, time: shortTime(f.analysis.at) })), h('p', null, f.analysis.text))
       : f.analysis?.error
-        ? h('p', { class: 'error-text small' }, `Analyse nicht möglich: ${f.analysis.error}`)
+        ? h('p', { class: 'error-text small' }, t('Analysis not possible: {error}', { error: f.analysis.error }))
         : null,
-    f.proposalId ? h('p', { class: 'small' }, 'Zu diesem Hinweis gibt es einen Vorschlag (Reiter "Vorschläge").') : null,
+    f.proposalId ? h('p', { class: 'small' }, t('There is a proposal for this finding ("Proposals" tab).')) : null,
     f.canUse === false ? null : h('div', { class: 'finding-actions' }, o.modelReady && f.status === 'open' ? analyzeBtn : null, proposeBtn, toggleBtn),
   );
 }
@@ -166,19 +167,19 @@ async function findingsTab(backend: SupervisorBackend, query: URLSearchParams, b
   const refresh = async () => wrap.replaceWith(await findingsTab(backend, query, base, await backend.status()));
   const segmented = h(
     'div',
-    { class: 'segmented', role: 'group', 'aria-label': 'Status' },
-    ...([['open', 'Offen'], ['dismissed', 'Verworfen'], ['resolved', 'Erledigt']] as const).map(([value, text]) =>
+    { class: 'segmented', role: 'group', 'aria-label': t('Status') },
+    ...([['open', t('Open')], ['dismissed', t('Dismissed')], ['resolved', t('Resolved')]] as const).map(([value, text]) =>
       h('button', { type: 'button', class: status === value ? 'on' : '', 'aria-pressed': String(status === value), onclick: () => (location.hash = `${base}/findings?status=${value}`) }, text),
     ),
   );
-  const scanBtn: HTMLElement = button('Jetzt prüfen', {
+  const scanBtn: HTMLElement = button(t('Scan now'), {
     size: 's',
     icon: 'refresh-cw',
     onclick: async () => {
       scanBtn.setAttribute('disabled', '');
       try {
         await backend.scan!();
-        toast('Prüfung abgeschlossen', 'success');
+        toast(t('Scan complete'), 'success');
         reload();
       } catch (error) {
         toast((error as Error).message, 'error');
@@ -189,13 +190,13 @@ async function findingsTab(backend: SupervisorBackend, query: URLSearchParams, b
   appendAll(
     wrap,
     statusKpis(st),
-    !st.enabled ? h('div', { class: 'notice' }, h('strong', null, 'Der Aufseher ist ausgeschaltet.'), 'Schalten Sie ihn unter "Einstellungen" ein.') : null,
-    st.enabled && !st.modelReady ? h('p', { class: 'muted' }, backend.settings ? 'Ohne Modell prüft der Aufseher nur mit festen Regeln. Für Analysen und Vorschläge stellen Sie unter "Einstellungen" ein Modell ein.' : 'Ohne Modell prüft der Aufseher nur mit festen Regeln. Ein Modell stellen Administratoren je Worker ein (Verwaltung, Worker, Aufseher).') : null,
-    st.errors?.length ? h('div', { class: 'notice' }, h('strong', null, 'Nicht alle Worker erreichbar'), st.errors.join('; ')) : null,
-    h('div', { class: 'toolbar finding-toolbar' }, segmented, h('span', { class: 'spacer' }), st.lastScan ? h('span', { class: 'muted small' }, `Zuletzt geprüft ${shortTime(st.lastScan)}`) : null, st.enabled && backend.scan ? scanBtn : null),
+    !st.enabled ? h('div', { class: 'notice' }, h('strong', null, t('The supervisor is switched off.')), t('Switch it on under "Settings".')) : null,
+    st.enabled && !st.modelReady ? h('p', { class: 'muted' }, backend.settings ? t('Without a model, the supervisor only checks with fixed rules. For analyses and proposals, set up a model under "Settings".') : t('Without a model, the supervisor only checks with fixed rules. Administrators set up a model per worker (Administration, Workers, Supervisor).')) : null,
+    st.errors?.length ? h('div', { class: 'notice' }, h('strong', null, t('Not all workers reachable')), st.errors.join('; ')) : null,
+    h('div', { class: 'toolbar finding-toolbar' }, segmented, h('span', { class: 'spacer' }), st.lastScan ? h('span', { class: 'muted small' }, t('Last scanned {time}', { time: shortTime(st.lastScan) })) : null, st.enabled && backend.scan ? scanBtn : null),
     list.length
       ? h('div', { class: 'finding-list' }, list.map((f) => findingCard(f, backend, { modelReady: st.modelReady, onChange: reload })))
-      : h('div', { class: 'empty' }, h('p', null, status === 'open' ? 'Keine offenen Hinweise. Der Aufseher meldet sich, wenn ihm etwas auffällt.' : 'Keine Hinweise in dieser Ansicht.')),
+      : h('div', { class: 'empty' }, h('p', null, status === 'open' ? t('No open findings. The supervisor reports when it notices something.') : t('No findings in this view.'))),
   );
   return wrap;
 }
@@ -203,7 +204,7 @@ async function findingsTab(backend: SupervisorBackend, query: URLSearchParams, b
 async function reportsTab(backend: SupervisorBackend): Promise<HTMLElement> {
   const list = await backend.reports!();
   const wrap = h('div', null);
-  const createBtn: HTMLElement = button('Bericht jetzt erstellen', {
+  const createBtn: HTMLElement = button(t('Create report now'), {
     icon: 'file-text',
     onclick: async () => {
       createBtn.setAttribute('disabled', '');
@@ -218,7 +219,7 @@ async function reportsTab(backend: SupervisorBackend): Promise<HTMLElement> {
   });
   appendAll(
     wrap,
-    h('div', { class: 'toolbar finding-toolbar' }, h('p', { class: 'muted', style: { margin: '0' } }, 'Der Tagesbericht fasst die letzten 24 Stunden zusammen. Er entsteht einmal am Tag zur eingestellten Stunde.'), h('span', { class: 'spacer' }), createBtn),
+    h('div', { class: 'toolbar finding-toolbar' }, h('p', { class: 'muted', style: { margin: '0' } }, t('The daily report summarizes the last 24 hours. It is created once a day at the configured hour.')), h('span', { class: 'spacer' }), createBtn),
     list.length
       ? h(
           'div',
@@ -227,12 +228,12 @@ async function reportsTab(backend: SupervisorBackend): Promise<HTMLElement> {
             h(
               'article',
               { class: 'finding card' },
-              h('div', { class: 'finding-head' }, h('strong', null, new Date(r.createdAt).toLocaleString('de-DE')), h('span', { class: 'spacer' }), h('span', { class: 'muted small' }, r.model ? `Zusammengefasst von ${r.model}` : 'Ohne Modell')),
+              h('div', { class: 'finding-head' }, h('strong', null, new Date(r.createdAt).toLocaleString(dateLocale())), h('span', { class: 'spacer' }), h('span', { class: 'muted small' }, r.model ? t('Summarized by {model}', { model: r.model }) : t('Without model'))),
               h('p', { class: 'finding-detail report-text' }, r.text),
             ),
           ),
         )
-      : h('div', { class: 'empty' }, h('p', null, 'Noch keine Berichte.')),
+      : h('div', { class: 'empty' }, h('p', null, t('No reports yet.'))),
   );
   return wrap;
 }
@@ -245,19 +246,19 @@ async function settingsTab(backend: SupervisorBackend): Promise<HTMLElement> {
   const [{ settings, providers }, credentials, workflows] = await Promise.all([backend.settings!(), backend.credentials?.() ?? Promise.resolve([]), backend.workflows?.() ?? Promise.resolve([])]);
   const s: SupervisorSettings = JSON.parse(JSON.stringify(settings)) as SupervisorSettings;
   const readonly = backend.canConfigure === false;
-  const providerSel = h('select', { class: 'param-input', 'aria-label': 'Anbieter', disabled: readonly }, h('option', { value: '' }, 'Kein Modell (nur feste Regeln)'), ...providers.map((p) => h('option', { value: p.id, selected: s.model?.provider === p.id }, p.label)));
-  const credSel = h('select', { class: 'param-input', 'aria-label': 'Credential', disabled: readonly });
-  const modelInput = h('input', { type: 'text', class: 'param-input mono', value: s.model?.model ?? '', 'aria-label': 'Modell-ID', spellcheck: false, disabled: readonly });
+  const providerSel = h('select', { class: 'param-input', 'aria-label': t('Provider'), disabled: readonly }, h('option', { value: '' }, t('No model (fixed rules only)')), ...providers.map((p) => h('option', { value: p.id, selected: s.model?.provider === p.id }, tl(p.label))));
+  const credSel = h('select', { class: 'param-input', 'aria-label': t('Credential'), disabled: readonly });
+  const modelInput = h('input', { type: 'text', class: 'param-input mono', value: s.model?.model ?? '', 'aria-label': t('Model ID'), spellcheck: false, disabled: readonly });
   const modelHint = h('span', { class: 'muted small' });
   const fillCredentials = () => {
     const p = providers.find((x) => x.id === providerSel.value);
     const matching = credentials.filter((c) => !p || c.type === p.credentialType);
     credSel.replaceChildren(
-      h('option', { value: '' }, matching.length ? 'Credential wählen' : p ? `Kein Credential vom Typ ${p.credentialType}` : '-'),
+      h('option', { value: '' }, matching.length ? t('Choose credential') : p ? t('No credential of type {type}', { type: p.credentialType }) : '-'),
       ...matching.map((c) => h('option', { value: c.name, selected: s.model?.credential === c.name }, c.name)),
     );
     modelInput.placeholder = p?.example ?? '';
-    modelHint.textContent = p ? `Credential-Typ ${p.credentialType}. Legen Sie es unter "Credentials" an, falls es fehlt.` : '';
+    modelHint.textContent = p ? t('Credential type {type}. Create it under "Credentials" if it is missing.', { type: p.credentialType }) : '';
     for (const el of [credSel, modelInput]) el.disabled = readonly || !p;
   };
   providerSel.addEventListener('change', fillCredentials);
@@ -271,17 +272,17 @@ async function settingsTab(backend: SupervisorBackend): Promise<HTMLElement> {
     return holder;
   };
   let scope = s.dataScope;
-  const scopeBox = h('div', { class: 'segmented', role: 'group', 'aria-label': 'Datenumfang' });
+  const scopeBox = h('div', { class: 'segmented', role: 'group', 'aria-label': t('Data scope') });
   const renderScope = () =>
     scopeBox.replaceChildren(
-      ...([['structure', 'Aufbau und Fehler'], ['samples', 'Mit Beispieldaten']] as const).map(([value, text]) =>
+      ...([['structure', t('Structure and errors')], ['samples', t('With sample data')]] as const).map(([value, text]) =>
         h('button', { type: 'button', class: scope === value ? 'on' : '', 'aria-pressed': String(scope === value), disabled: readonly, onclick: () => ((scope = value), renderScope()) }, text),
       ),
     );
   renderScope();
-  const budget = h('input', { type: 'number', class: 'param-input mono', min: 0, step: 1000, value: String(s.dailyTokenBudget), 'aria-label': 'Tagesbudget', disabled: readonly });
-  const hour = h('select', { class: 'param-input', 'aria-label': 'Stunde des Tagesberichts', disabled: readonly }, ...Array.from({ length: 24 }, (_, i) => h('option', { value: String(i), selected: s.digest.hour === i }, `${String(i).padStart(2, '0')}:00 Uhr`)));
-  const interval = h('input', { type: 'number', class: 'param-input mono', min: 1, max: 1440, value: String(s.scanIntervalMinutes), 'aria-label': 'Prüfabstand', disabled: readonly });
+  const budget = h('input', { type: 'number', class: 'param-input mono', min: 0, step: 1000, value: String(s.dailyTokenBudget), 'aria-label': t('Daily budget'), disabled: readonly });
+  const hour = h('select', { class: 'param-input', 'aria-label': t('Hour of the daily report'), disabled: readonly }, ...Array.from({ length: 24 }, (_, i) => h('option', { value: String(i), selected: s.digest.hour === i }, t('{hour}:00', { hour: String(i).padStart(2, '0') }))));
+  const interval = h('input', { type: 'number', class: 'param-input mono', min: 1, max: 1440, value: String(s.scanIntervalMinutes), 'aria-label': t('Scan interval'), disabled: readonly });
   const excluded = new Set(s.excludedWorkflows);
   const excludeList = h(
     'div',
@@ -295,7 +296,7 @@ async function settingsTab(backend: SupervisorBackend): Promise<HTMLElement> {
             h('span', null, w.name),
           ),
         )
-      : h('span', { class: 'muted small' }, 'Keine Workflows.'),
+      : h('span', { class: 'muted small' }, t('No workflows.')),
   );
   const save = async () => {
     const model = providerSel.value ? { provider: providerSel.value, credential: credSel.value, model: modelInput.value.trim() } : null;
@@ -310,7 +311,7 @@ async function settingsTab(backend: SupervisorBackend): Promise<HTMLElement> {
         excludedWorkflows: [...excluded],
         model,
       });
-      toast('Einstellungen gespeichert', 'success');
+      toast(t('Settings saved'), 'success');
     } catch (error) {
       toast((error as Error).message, 'error');
     }
@@ -318,34 +319,34 @@ async function settingsTab(backend: SupervisorBackend): Promise<HTMLElement> {
   return h(
     'div',
     { class: 'form supervisor-settings' },
-    h('div', { class: 'field' }, toggle('enabled', 'Aufseher an'), h('span', { class: 'muted small' }, 'Prüft Workflows regelmäßig mit festen Regeln und erfasst fehlgeschlagene Ausführungen. Der Aufseher ändert nie selbst etwas.')),
-    h('h2', null, 'Modell'),
-    h('p', { class: 'muted', style: { margin: '0', maxWidth: '760px' } }, 'Das Modell erklärt Hinweise, erstellt Vorschläge und beantwortet Fragen im Editor. Es nutzt ein vorhandenes Credential; der Aufseher ruft es wie ein Chat-Model-Knoten auf.'),
-    field('Anbieter', providerSel),
-    field('Credential', credSel),
-    field('Modell-ID', modelInput, undefined),
+    h('div', { class: 'field' }, toggle('enabled', t('Supervisor on')), h('span', { class: 'muted small' }, t('Checks workflows regularly with fixed rules and records failed executions. The supervisor never changes anything itself.'))),
+    h('h2', null, t('Model')),
+    h('p', { class: 'muted', style: { margin: '0', maxWidth: '760px' } }, t('The model explains findings, creates proposals and answers questions in the editor. It uses an existing credential; the supervisor calls it like a chat model node.')),
+    field(t('Provider'), providerSel),
+    field(t('Credential'), credSel),
+    field(t('Model ID'), modelInput, undefined),
     modelHint,
-    h('div', { class: 'field' }, toggle('analyzeFailures', 'Fehlgeschlagene Ausführungen automatisch analysieren'), h('span', { class: 'muted small' }, 'Eine Analyse je Fehlerbild; gleiche Fehler werden nur gezählt.')),
+    h('div', { class: 'field' }, toggle('analyzeFailures', t('Analyze failed executions automatically')), h('span', { class: 'muted small' }, t('One analysis per error pattern; identical errors are only counted.'))),
     h(
       'div',
       { class: 'field' },
-      h('span', null, 'Datenumfang für das Modell'),
+      h('span', null, t('Data scope for the model')),
       h('div', null, scopeBox),
-      h('span', { class: 'muted small' }, 'Aufbau und Fehler: Knoten, Parameter und Fehlermeldungen. Mit Beispieldaten: zusätzlich gekürzte Daten des betroffenen Knotens. Geheimnisse und Credential-Werte werden immer maskiert.'),
+      h('span', { class: 'muted small' }, t('Structure and errors: nodes, parameters and error messages. With sample data: additionally truncated data of the affected node. Secrets and credential values are always masked.')),
     ),
-    field('Tagesbudget in Token', budget, 'Gilt für alle Modell-Aufrufe zusammen. 0 schaltet das Modell ab.'),
-    h('h2', null, 'Bericht und Prüfung'),
-    h('div', { class: 'field' }, toggle('digest', 'Tagesbericht erstellen')),
-    field('Stunde des Tagesberichts', hour),
-    field('Prüfabstand in Minuten', interval),
-    h('h2', null, 'Ausgenommene Workflows'),
-    h('p', { class: 'muted', style: { margin: '0' } }, 'Diese Workflows beobachtet der Aufseher nicht und gibt sie nie an das Modell.'),
+    field(t('Daily budget in tokens'), budget, t('Applies to all model calls combined. 0 switches the model off.')),
+    h('h2', null, t('Report and scan')),
+    h('div', { class: 'field' }, toggle('digest', t('Create daily report'))),
+    field(t('Hour of the daily report'), hour),
+    field(t('Scan interval in minutes'), interval),
+    h('h2', null, t('Excluded workflows')),
+    h('p', { class: 'muted', style: { margin: '0' } }, t('The supervisor does not watch these workflows and never passes them to the model.')),
     excludeList,
-    readonly ? h('p', { class: 'muted small' }, 'Nur Administratoren können die Einstellungen ändern.') : h('div', null, button('Speichern', { variant: 'primary', onclick: () => void save() })),
+    readonly ? h('p', { class: 'muted small' }, t('Only administrators can change the settings.')) : h('div', null, button(t('Save'), { variant: 'primary', onclick: () => void save() })),
   );
 }
 
-/** Ganze Seite; base ist der Hash-Pfad (z. B. #/supervisor) */
+/** Whole page; base is the hash path (e.g. #/supervisor) */
 export async function supervisorView(tab: string, query: URLSearchParams, backend: SupervisorBackend = standaloneSupervisorBackend, base = '#/supervisor', head?: HTMLElement, intro?: string): Promise<HTMLElement> {
   const st = await backend.status();
   const active = ['findings', 'proposals', 'reports', 'settings'].includes(tab) ? tab : 'findings';
@@ -357,8 +358,8 @@ export async function supervisorView(tab: string, query: URLSearchParams, backen
   return h(
     'section',
     { class: 'page' },
-    head ?? pageHead('Aufseher', 'Workflows im Blick', []),
-    h('p', { class: 'muted', style: { maxWidth: '760px', marginTop: '-8px' } }, intro ?? 'Der Aufseher beobachtet Workflows und Ausführungen, erklärt Probleme und schlägt Verbesserungen vor. Er ändert nichts selbst: Jeder Vorschlag wartet auf Ihre Entscheidung.'),
+    head ?? pageHead(t('Supervisor'), t('Keeping an eye on workflows'), []),
+    h('p', { class: 'muted', style: { maxWidth: '760px', marginTop: '-8px' } }, intro ?? t('The supervisor watches workflows and executions, explains problems and suggests improvements. It changes nothing itself: every proposal waits for your decision.')),
     tabs(base, active, backend),
     body,
   );

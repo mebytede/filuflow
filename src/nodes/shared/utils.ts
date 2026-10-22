@@ -1,4 +1,4 @@
-// Gemeinsame Hilfen für Nodes, nachgebaut nach n8n 1.123.0
+// Shared helpers for nodes, rebuilt after n8n 1.123.0
 //   packages/workflow/src/utils.ts (deepCopy, jsonParse)
 //   packages/workflow/src/type-validation.ts (validateFieldType)
 //   packages/nodes-base/utils/utilities.ts (getResolvables, sanitizeDataPathKey)
@@ -13,7 +13,7 @@ export class ApplicationError extends Error {
   }
 }
 
-/** n8n deepCopy: Objekte mit toJSON (Date, DateTime) werden zu ihrem JSON-Wert */
+/** n8n deepCopy: objects with toJSON (Date, DateTime) become their JSON value */
 export function deepCopy<T>(source: T, hash = new WeakMap<object, unknown>()): T {
   if (typeof source !== 'object' || source === null || typeof source === 'function') return source;
   const src = source as unknown as { toJSON?: () => unknown };
@@ -32,12 +32,12 @@ export function deepCopy<T>(source: T, hash = new WeakMap<object, unknown>()): T
   return clone as T;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- ESTree-Knoten aus acorn
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- ESTree nodes from acorn
 function syntaxNodeToValue(node: any): unknown {
   switch (node?.type) {
     case 'ObjectExpression':
       return Object.fromEntries(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- ESTree-Knoten
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- ESTree nodes
         node.properties.filter((p: any) => p.type === 'Property').map((p: any) => [syntaxNodeToValue(p.key), syntaxNodeToValue(p.value)]),
       );
     case 'Identifier':
@@ -74,14 +74,14 @@ export function jsonParse<T>(text: string, options: JsonParseOptions<T> = {}): T
       try {
         return parseJSObject(text) as T;
       } catch {
-        // weiter
+        // continue
       }
     }
     if (options.repairJSON) {
       try {
         return JSON.parse(jsonrepair(text)) as T;
       } catch {
-        // weiter
+        // continue
       }
     }
     if (options.fallbackValue !== undefined) return options.fallbackValue;
@@ -267,7 +267,7 @@ export function validateFieldType(
   }
 }
 
-/** n8n getResolvables: alle {{ … }}-Stellen */
+/** n8n getResolvables: all {{ … }} occurrences */
 export function getResolvables(expression: string): string[] {
   if (!expression) return [];
   const out: string[] = [];
@@ -287,7 +287,7 @@ export function sanitizeDataPathKey(item: Record<string, unknown>, key: string):
   return key;
 }
 
-/** Werte für die Ausgabe (JSON-kompatibel) wie sie n8n speichert */
+/** Values for output (JSON compatible) as n8n stores them */
 export function toJsonValue<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }

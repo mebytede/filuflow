@@ -1,7 +1,7 @@
-// Modell-Aufrufe des Aufsehers. Das Modell kommt aus dem passenden Chat-Model-Knoten (src/nodes/lmChat*.ts): Der
-// Aufseher baut einen internen Workflow aus einem Platzhalter und dem Modell-Knoten mit dem gewählten Credential und
-// holt sich das Modell wie ein AI Agent über den KI-Eingang. So gelten dieselben Credentials, Anbieter-Eigenheiten und
-// Fehlermeldungen wie in Workflows. Jeder Aufruf zählt gegen das Tagesbudget.
+// Model calls of the supervisor. The model comes from the matching chat model node (src/nodes/lmChat*.ts): the
+// supervisor builds an internal workflow from a placeholder and the model node with the selected credential and
+// fetches the model like an AI Agent via the AI input. So the same credentials, provider quirks and
+// error messages apply as in workflows. Every call counts against the daily budget.
 import type { Runner } from '../runner.js';
 import type { Workflow } from '../types.js';
 import type { ChatModel } from '../ai/models/base.js';
@@ -34,22 +34,22 @@ export interface ChatOutcome {
   text: string;
   model: string;
   tokens: number;
-  /** Aufgerufene Werkzeuge in Reihenfolge */
+  /** Called tools in order */
   toolCalls: Array<{ name: string; args: Record<string, unknown> }>;
 }
 
-const MODEL_NODE = 'Modell';
-const HOST_NODE = 'Aufseher';
+const MODEL_NODE = 'Model';
+const HOST_NODE = 'Supervisor';
 const TOOL_RESULT_CHARS = 20_000;
 
-/** Interner Workflow mit Platzhalter und Modell-Knoten */
+/** Internal workflow with placeholder and model node */
 export function modelWorkflow(settings: SupervisorSettings): Workflow {
   const m = settings.model;
   const p = provider(m?.provider);
-  if (!m || !p) throw new SupervisorModelError('Für den Aufseher ist kein Modell eingestellt (Aufseher, Einstellungen)');
+  if (!m || !p) throw new SupervisorModelError('No model is configured for the supervisor (Supervisor, Settings)');
   return {
     id: '__supervisor',
-    name: 'Aufseher',
+    name: 'Supervisor',
     settings: { executionOrder: 'v1' },
     nodes: [
       { id: 'host', name: HOST_NODE, type: 'n8n-nodes-base.noOp', typeVersion: 1, position: [0, 0], parameters: {} },
@@ -61,19 +61,19 @@ export function modelWorkflow(settings: SupervisorSettings): Workflow {
 
 function remainingBudget(deps: ModelDeps): number {
   const s = deps.settings();
-  if (s.dailyTokenBudget <= 0) throw new BudgetExceededError('Das Tagesbudget des Aufsehers ist 0: Modell-Aufrufe sind abgeschaltet');
+  if (s.dailyTokenBudget <= 0) throw new BudgetExceededError('The supervisor daily budget is 0: model calls are disabled');
   const used = deps.store.usage().tokens;
-  if (used >= s.dailyTokenBudget) throw new BudgetExceededError(`Tagesbudget des Aufsehers aufgebraucht (${used} von ${s.dailyTokenBudget} Token). Es gilt ab morgen wieder.`);
+  if (used >= s.dailyTokenBudget) throw new BudgetExceededError(`Supervisor daily budget used up (${used} of ${s.dailyTokenBudget} tokens). It resets tomorrow.`);
   return s.dailyTokenBudget - used;
 }
 
-/** Modell aus dem Knoten holen; Fehler des Knotens (z. B. fehlendes Credential) als klare Meldung */
+/** Fetch the model from the node; node errors (e.g. missing credential) as a clear message */
 async function loadModel(deps: ModelDeps, signal?: AbortSignal): Promise<ChatModel> {
   const workflow = modelWorkflow(deps.settings());
   const ctx = deps.runner.activationContext({ workflow, mode: 'integrated', signal }, HOST_NODE);
   try {
     const model = await ctx.getSubNodeInstance<ChatModel>('ai_languageModel');
-    if (!model) throw new SupervisorModelError('Modell konnte nicht geladen werden');
+    if (!model) throw new SupervisorModelError('Model could not be loaded');
     return model;
   } catch (error) {
     if (error instanceof NodeOperationError) throw new SupervisorModelError(String(error.description ?? error.message));
@@ -82,8 +82,8 @@ async function loadModel(deps: ModelDeps, signal?: AbortSignal): Promise<ChatMod
 }
 
 /**
- * Gespräch mit Werkzeugen: Das Modell darf Werkzeuge aufrufen, bis es antwortet oder maxSteps erreicht sind. Danach
- * wird einmal ohne Werkzeuge nach der Antwort gefragt.
+ * Conversation with tools: the model may call tools until it answers or maxSteps is reached. Afterwards
+ * it is asked once for the answer without tools.
  */
 export async function runChat(deps: ModelDeps, messages: ChatMessage[], tools: SupervisorTool[] = [], o: { maxSteps?: number; signal?: AbortSignal } = {}): Promise<ChatOutcome> {
   remainingBudget(deps);
@@ -96,7 +96,7 @@ export async function runChat(deps: ModelDeps, messages: ChatMessage[], tools: S
   for (let step = 0; ; step++) {
     remainingBudget(deps);
     const withTools = step < maxSteps && defs.length > 0;
-    if (!withTools && defs.length) conversation.push({ role: 'human', content: 'Bitte antworten Sie jetzt ohne weitere Werkzeuge.' });
+    if (!withTools && defs.length) conversation.push({ role: 'human', content: 'Please answer now without using any more tools.' });
     let result;
     try {
       result = await model.invoke(conversation, { ...(withTools ? { tools: defs } : {}), signal: o.signal });
@@ -114,7 +114,7 @@ export async function runChat(deps: ModelDeps, messages: ChatMessage[], tools: S
       const tool = tools.find((t) => t.name === call.name);
       let content: string;
       try {
-        if (!tool) throw new Error(`Unbekanntes Werkzeug: ${call.name}`);
+        if (!tool) throw new Error(`Unknown tool: ${call.name}`);
         const value = await tool.run(call.args ?? {});
         content = typeof value === 'string' ? value : JSON.stringify(value);
       } catch (error) {

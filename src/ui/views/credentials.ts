@@ -131,7 +131,7 @@ export function credentialTable(
               editable ? h('a', { class: 'cell-name', href: '#', onclick: (e: Event) => (e.preventDefault(), o.edit(c.name)) }, c.name) : h('span', { class: 'cell-name' }, c.name),
               c.oauth ? h('div', { class: `cell-sub ${c.oauth.connected ? 'status-success' : 'status-warning'}` }, c.oauth.connected ? t('Connected') : t('Not connected')) : null,
             ),
-            h('td', null, typeLabel(c.type), c.type && types.some((x) => x.name === c.type) ? h('span', { class: 'mono muted small' }, ` ${c.type}`) : null),
+            h('td', null, typeLabel(c.type), c.type && typeLabel(c.type) !== c.type ? h('span', { class: 'mono muted small' }, ` ${c.type}`) : null),
             h('td', { title: used.join(', ') }, used.length ? (used.length === 1 ? used[0] : t('{count} workflows', { count: used.length })) : h('span', { class: 'muted' }, t('not used'))),
             o.access ? h('td', { class: c.projects ? '' : 'muted' }, o.access.label(c.projects)) : null,
             h('td', { class: 'muted', title: c.shared ? t('Shared credential: change it under Administration, Shared credentials') : c.managed ? '' : o.fileHint }, c.shared ? t('Master (shared)') : c.managed ? t('Interface') : t('File')),
@@ -208,7 +208,7 @@ export async function credentialsView(): Promise<HTMLElement> {
           fileHint: t('Maintained in credentials.json, cannot be changed here'),
           connect: (n, v) => void connectOAuth(() => api.oauthConnect(n, v), () => void reload()),
           disconnect: async (n, v) => {
-            if (!(await confirmDialog(t('Disconnect'), t('The stored token of "{name}" will be deleted. Workflows can only use the credential again after reconnecting.', { name: n }), t('Disconnect action')))) return;
+            if (!(await confirmDialog(t('Disconnect account'), t('The stored token of "{name}" will be deleted. Workflows can only use the credential again after reconnecting.', { name: n }), t('Disconnect')))) return;
             await api.oauthDisconnect(n, v);
             await reload();
           },

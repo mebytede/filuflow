@@ -385,7 +385,7 @@ export class WorkflowExecutor {
       .map((a) => (typeof a === 'string' ? a : (() => { try { return JSON.stringify(a); } catch { return String(a); } })()))
       .join(' ');
     this.logs.push({ time: Date.now(), node, level, message });
-    this.logger.info({ node, level, consoleMessage: message }, 'Code-Node Ausgabe');
+    this.logger.info({ node, level, consoleMessage: message }, 'Code node output');
   }
 
   async getCredentials(node: WorkflowNode, type: string, itemIndex: number): Promise<Record<string, unknown>> {

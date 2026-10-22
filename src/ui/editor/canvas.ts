@@ -1,8 +1,9 @@
-// Zeichenfläche des Editors (SVG): Nodes, Ports, Verbindungen, Auswahl, Verschieben, Verbinden, Zoom.
-// Positionen wie in n8n: node.position = linke obere Ecke in Weltkoordinaten. Aussehen nach dem filuflow-Design:
-// Knoten 176 x 104 mit 3-px-Kopfleiste in der Kategoriefarbe, Status im Fuß, quadratische Ports, Kanten
-// rechtwinklig mit 8 px Eckenradius, kein Raster, keine Pfeilspitzen.
+// Editor drawing area (SVG): nodes, ports, connections, selection, moving, connecting, zoom.
+// Positions as in n8n: node.position = top left corner in world coordinates. Appearance per the filuflow design:
+// nodes 176 x 104 with a 3 px header bar in the category color, status in the footer, square ports, edges
+// orthogonal with 8 px corner radius, no grid, no arrowheads.
 import { s, clear } from '../dom.js';
+import { t, tl } from '../i18n.js';
 import type { NodePorts, NodeTypeInfo, TaskData, ValidationIssue, Workflow, WorkflowNode } from '../types.js';
 import { icon } from '../icons.js';
 import { duration } from '../shell.js';
@@ -23,7 +24,7 @@ export interface CanvasModel {
   ports: Record<string, NodePorts>;
   issues: ValidationIssue[];
   runData?: Record<string, TaskData[]>;
-  /** Ausführung läuft: Knoten ohne Ergebnis zeigen "Läuft" */
+  /** Execution running: nodes without a result show "Running" */
   running?: boolean;
   types: Map<string, NodeTypeInfo>;
   readonly: boolean;
@@ -34,14 +35,14 @@ export interface CanvasModel {
 export interface CanvasCallbacks {
   select(nodes: string[], additive: boolean): void;
   selectEdge(edge: Edge | undefined): void;
-  /** Vor einer Änderung durch Ziehen (für Rückgängig) */
+  /** Before a change by dragging (for undo) */
   beginChange(): void;
-  /** Nach einer Änderung durch Ziehen */
+  /** After a change by dragging */
   endChange(): void;
   connect(edge: Edge): void;
   open(name: string): void;
   dropType(type: string, at: [number, number]): void;
-  /** Zoomstufe geändert (für die Anzeige "100 %") */
+  /** Zoom level changed (for the "100 %" display) */
   zoomed?(k: number): void;
 }
 
@@ -50,7 +51,7 @@ interface Geom {
   y: number;
   w: number;
   h: number;
-  /** main: Knoten; wide: Eltern-Node mit Sub-Node-Eingängen unten; sub: KI-Sub-Node (Ausgang oben) */
+  /** main: node; wide: parent node with sub-node inputs at the bottom; sub: AI sub-node (output at the top) */
   kind: 'main' | 'wide' | 'sub' | 'sticky';
 }
 
@@ -80,13 +81,13 @@ function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, Math.max(1, max - 1))}…` : text;
 }
 
-/** Senkrechte Lage der Ports: einer mittig auf 52 px, mehrere im Abstand von 32 px um die Mitte (20/52/84) */
+/** Vertical position of ports: one centered at 52 px, several spaced 32 px apart around the center (20/52/84) */
 function portOffset(index: number, count: number, h: number): number {
   if (count <= 1) return h / 2;
   return h / 2 + (index - (count - 1) / 2) * PORT_STEP;
 }
 
-/** Rechtwinkliger Pfad durch die Punkte, Ecken mit Radius CORNER */
+/** Orthogonal path through the points, corners with radius CORNER */
 function orthogonal(points: Array<[number, number]>): string {
   const pts = points.filter((p, i) => i === 0 || p[0] !== points[i - 1][0] || p[1] !== points[i - 1][1]);
   let d = `M${pts[0][0]},${pts[0][1]}`;
@@ -112,18 +113,18 @@ export class Canvas {
   private view = { x: 80, y: 80, k: 1 };
   private drag?: Drag;
   private frame = 0;
-  /** Bis zur ersten Verschiebung oder Zoom von Hand: bei Größenänderung neu einpassen */
+  /** Until the first manual pan or zoom: fit again on resize */
   private autoFit = true;
 
   constructor(
     private readonly host: HTMLElement,
     private readonly cb: CanvasCallbacks,
   ) {
-    this.svg = s('svg', { class: 'canvas', tabindex: '0', role: 'application', 'aria-label': 'Workflow-Zeichenfläche' });
+    this.svg = s('svg', { class: 'canvas', tabindex: '0', role: 'application', 'aria-label': t('Workflow canvas') });
     this.world = s('g');
     this.svg.append(this.world);
     host.append(this.svg);
-    // Beim ersten Layout (Element hat eine Größe) einpassen
+    // Fit on the first layout (element has a size)
     let fitted = false;
     new ResizeObserver(() => {
       const r = this.svg.getBoundingClientRect();
@@ -159,13 +160,13 @@ export class Canvas {
     this.frame = requestAnimationFrame(() => this.draw());
   }
 
-  /** Bildschirm- in Weltkoordinaten */
+  /** Screen to world coordinates */
   toWorld(clientX: number, clientY: number): [number, number] {
     const r = this.svg.getBoundingClientRect();
     return [(clientX - r.left - this.view.x) / this.view.k, (clientY - r.top - this.view.y) / this.view.k];
   }
 
-  /** Mitte des sichtbaren Bereichs in Weltkoordinaten */
+  /** Center of the visible area in world coordinates */
   center(): [number, number] {
     const r = this.svg.getBoundingClientRect();
     return this.toWorld(r.left + r.width / 2, r.top + r.height / 2);
@@ -190,7 +191,7 @@ export class Canvas {
     this.applyView();
   }
 
-  /** Ansicht minimal verschieben, damit die Nodes sichtbar sind */
+  /** Move the view minimally so the nodes are visible */
   ensureVisible(names: string[]): void {
     const model = this.model;
     if (!model) return;
@@ -214,7 +215,7 @@ export class Canvas {
     this.applyView();
   }
 
-  /** Alle Nodes einpassen (höchstens 100 %) */
+  /** Fit all nodes (at most 100 %) */
   fit(): void {
     this.autoFit = true;
     const model = this.model;
@@ -267,7 +268,7 @@ export class Canvas {
     return { x, y, w: NODE_W, h, kind: 'main' };
   }
 
-  /** Position eines Ports in Weltkoordinaten (Mitte der Kante) */
+  /** Position of a port in world coordinates (middle of the edge) */
   private portPos(node: WorkflowNode, dir: PortRef['dir'], type: string, index: number): [number, number] {
     const g = this.geom(node);
     const ports = this.model?.ports[node.name];
@@ -290,11 +291,11 @@ export class Canvas {
       const [x1, y1] = this.portPos(from, 'out', 'main', e.output);
       const [x2, y2] = this.portPos(to, 'in', 'main', e.input);
       if (x2 >= x1 + 32) {
-        // Senkrechte Bahn kurz vor dem Ziel, mindestens 16 px hinter dem Ausgang
+        // Vertical lane just before the target, at least 16 px after the output
         const lane = Math.max(x1 + 16, x2 - 24);
         return [[x1, y1], [lane, y1], [lane, y2], [x2, y2]];
       }
-      // Rückwärtskante (Schleife): unter beiden Knoten herumführen
+      // Backward edge (loop): route below both nodes
       const gf = this.geom(from);
       const gt = this.geom(to);
       const low = Math.max(gf.y + gf.h, gt.y + gt.h) + 32;
@@ -335,7 +336,7 @@ export class Canvas {
     for (const i of model.issues) if (i.node) issuesByNode.set(i.node, [...(issuesByNode.get(i.node) ?? []), i]);
     const hasRun = !!model.runData && Object.keys(model.runData).length > 0;
 
-    // Notizen zuerst (liegen hinten)
+    // Sticky notes first (they lie behind)
     const stickies = s('g');
     const edges = s('g');
     const nodes = s('g');
@@ -368,7 +369,7 @@ export class Canvas {
       const selected = model.selectedEdge === key;
       const items = this.outputItems(e.from, e.type === 'main' ? e.output : 0, e.type);
       const done = !!items && !!model.runData?.[e.to];
-      const title = items !== undefined ? `${items} ${items === 1 ? 'Item' : 'Items'}` : undefined;
+      const title = items !== undefined ? (items === 1 ? t('1 item') : t('{count} items', { count: items })) : undefined;
       edges.append(
         s(
           'g',
@@ -408,7 +409,7 @@ export class Canvas {
       if (selected) el.append(s('rect', { class: 'node-focus', x: -3, y: -3, width: g.w + 6, height: g.h + 6 }));
       el.append(s('rect', { class: 'node-body', x: 0.5, y: 0.5, width: g.w - 1, height: g.h - 1 }), s('rect', { class: 'node-bar', width: g.w, height: 3 }));
 
-      // Zeile 1: Icon und Typ-Label, Zeile 2: Name
+      // Line 1: icon and type label, line 2: name
       const nodeIcon = icon(look.icon, 16, 'node-icon-svg');
       nodeIcon.setAttribute('x', '12');
       nodeIcon.setAttribute('y', '12');
@@ -425,37 +426,37 @@ export class Canvas {
         el.append(pin);
       }
 
-      // Fuß: Status-Wort und Dauer (Sub-Nodes ohne Fuß)
+      // Footer: status word and duration (sub-nodes have no footer)
       if (g.kind !== 'sub') {
         const footY = g.h - 36;
         el.append(s('line', { class: 'node-foot-line', x1: 0, y1: footY, x2: g.w, y2: footY }));
         let footText = `v${node.typeVersion}`;
         let footClass = '';
         if (run.status) {
-          footText = run.status === 'error' ? 'Fehler' : run.status === 'success' ? 'Erfolgreich' : run.status === 'running' ? 'Läuft' : run.status;
+          footText = run.status === 'error' ? t('Error') : run.status === 'success' ? t('Success') : run.status === 'running' ? t('Running') : run.status;
           footClass = run.status === 'error' ? 'st-error' : run.status === 'success' ? 'st-success' : '';
         } else if (model.running) {
-          footText = 'Läuft';
+          footText = t('Running');
         } else if (pinned) {
-          footText = 'Festgehalten';
+          footText = t('Pinned');
         } else if (skipped) {
-          footText = 'Nicht ausgeführt';
+          footText = t('Not executed');
         } else if (ports && !ports.known) {
-          footText = 'Unbekannter Typ';
+          footText = t('Unknown type');
           footClass = 'st-error';
         } else if (hasError) {
-          footText = 'Ungültig';
+          footText = t('Invalid');
           footClass = 'st-warning';
         } else if (issues.length) {
-          footText = 'Hinweis';
+          footText = t('Notice');
           footClass = 'st-warning';
         }
         el.append(s('text', { class: `node-foot ${footClass}`, x: 12, y: g.h - 13 }, footText));
         if (run.status) el.append(s('text', { class: 'node-foot', x: g.w - 12, y: g.h - 13, 'text-anchor': 'end' }, duration(run.ms)));
       }
-      el.append(s('title', null, `${node.name}\n${node.type} v${node.typeVersion}${node.disabled ? '\nDeaktiviert' : ''}${pinned ? '\nTestdaten festgehalten' : ''}${issues.map((i) => `\n${i.severity === 'error' ? 'Fehler' : 'Hinweis'}: ${i.message}`).join('')}`));
+      el.append(s('title', null, `${node.name}\n${node.type} v${node.typeVersion}${node.disabled ? `\n${t('Disabled')}` : ''}${pinned ? `\n${t('Test data pinned')}` : ''}${issues.map((i) => `\n${i.severity === 'error' ? t('Error') : t('Notice')}: ${i.message}`).join('')}`));
 
-      // Ports: Quadrate 8 x 8 mittig auf der Kante; durchlaufen gefüllt
+      // Ports: 8 x 8 squares centered on the edge; filled once data passed
       const port = (cx: number, cy: number, data: string, done: boolean, cls: string) => {
         el.append(
           s('rect', { class: 'port-hit', 'data-port': data, x: cx - 8, y: cy - 8, width: 16, height: 16 }),
@@ -476,17 +477,17 @@ export class Canvas {
           port(px - g.x + 1, py - g.y, `out|main|${i}`, done, 'port-out');
           const name = ports?.outputNames?.[i] ?? (outputs > 1 ? String(i) : undefined);
           if (name) {
-            // Ausgangsname direkt hinter dem Port, über der Kante (bei abwärts laufenden Kanten darunter)
+            // Output name right after the port, above the edge (below it for downward edges)
             const down = listEdges(wf).some((e) => e.type === 'main' && e.from === node.name && e.output === i && this.goesDown(e, wf));
-            el.append(s('text', { class: `port-label${done ? ' done' : ''}`, x: px - g.x + 8, y: py - g.y + (down ? 16 : -7) }, truncate(name.toUpperCase(), 14)));
+            el.append(s('text', { class: `port-label${done ? ' done' : ''}`, x: px - g.x + 8, y: py - g.y + (down ? 16 : -7) }, truncate(tl(name).toUpperCase(), 14)));
           }
         }
         for (const ai of ports?.aiInputs ?? []) {
           const [px, py] = this.portPos(node, 'ai-in', ai.type, ai.index);
           const done = listEdges(wf).some((e) => e.to === node.name && e.type === ai.type && !!this.outputItems(e.from, 0, ai.type));
           port(px - g.x, py - g.y + 1, `ai-in|${ai.type}|${ai.index}`, done, 'port-ai-in');
-          // Beschriftung rechts neben der senkrechten Kante
-          el.append(s('text', { class: `port-label${done ? ' done' : ''}`, x: px - g.x + 8, y: py - g.y + 18 }, truncate(ai.label.toUpperCase(), 10)));
+          // Label to the right of the vertical edge
+          el.append(s('text', { class: `port-label${done ? ' done' : ''}`, x: px - g.x + 8, y: py - g.y + 18 }, truncate(tl(ai.label).toUpperCase(), 10)));
         }
       } else if (ports?.aiOutput) {
         const [px, py] = this.portPos(node, 'ai-out', ports.aiOutput, 0);
@@ -495,7 +496,7 @@ export class Canvas {
       nodes.append(el);
     }
 
-    // Vorschau beim Verbinden und Rahmenauswahl
+    // Preview while connecting and rubber-band selection
     const d = this.drag;
     if (d?.kind === 'connect') {
       const node = wf.nodes.find((n) => n.name === d.fromPort.node);
@@ -635,7 +636,7 @@ export class Canvas {
     this.render(model);
   }
 
-  /** Verbindung aus Start- und Zielport (oder Ziel-Node) bilden, wenn die Typen passen */
+  /** Build a connection from start and target port (or target node) if the types match */
   private edgeFor(from: PortRef, to: PortRef | undefined, target: Element | null): Edge | undefined {
     const model = this.model!;
     const targetNode = to?.node ?? target?.closest('[data-node]')?.getAttribute('data-node') ?? undefined;
@@ -652,7 +653,7 @@ export class Canvas {
       return { from: from.node, type: from.type, output: 0, to: targetNode, input: input.index };
     }
     if (from.dir === 'ai-in') {
-      // Vom Eingang des Eltern-Nodes zum Sub-Node ziehen
+      // Dragging from the parent node's input to the sub-node
       if (ports?.aiOutput !== from.type) return undefined;
       return { from: targetNode, type: from.type, output: 0, to: from.node, input: from.index };
     }

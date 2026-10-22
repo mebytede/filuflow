@@ -1,9 +1,9 @@
-// Poll- und Trigger-Knoten aus n8n-Paketen (M31). Verhalten wie n8n 1.123.0 (n8n-core 1.122.0):
-//   active-workflows.ts activatePolling (pollTimes als Cron, erster Abruf beim Aktivieren, Abstand mindestens eine
-//   Minute), triggers-and-pollers.ts runTrigger/runPoll, workflow-execute.ts executePollNode/executeTriggerNode
-//   (manueller Lauf: einmal abrufen bzw. auf den ersten emit warten, danach closeFunction), poll-context.ts und
-//   trigger-context.ts (getActivationMode, __emit/emit, helpers mit createDeferredPromise und registerCron),
-//   nodes-loader/constants.ts commonPollingParameters und n8n-workflow cron.ts toCronExpression.
+// Poll and trigger nodes from n8n packages (M31). Behavior as in n8n 1.123.0 (n8n-core 1.122.0):
+//   active-workflows.ts activatePolling (pollTimes as cron, first poll on activation, interval at least one
+//   minute), triggers-and-pollers.ts runTrigger/runPoll, workflow-execute.ts executePollNode/executeTriggerNode
+//   (manual run: poll once or wait for the first emit, then closeFunction), poll-context.ts and
+//   trigger-context.ts (getActivationMode, __emit/emit, helpers with createDeferredPromise and registerCron),
+//   nodes-loader/constants.ts commonPollingParameters and n8n-workflow cron.ts toCronExpression.
 import { Cron } from 'croner';
 import type { Activation, ActivationHandle, ExecContext } from '../nodes/types.js';
 import type { Item, NodeOutput } from '../types.js';
@@ -13,14 +13,14 @@ import type { N8nNodeDescription, N8nProperty } from './n8nDescription.js';
 type Emit = (data: Item[][]) => void;
 type EmitError = (error: Error) => void;
 
-/** INodeType mit poll oder trigger (Ausschnitt) */
+/** INodeType with poll or trigger (excerpt) */
 export interface N8nTriggerImpl {
   description: N8nNodeDescription;
   poll?: (this: unknown) => Promise<Item[][] | null>;
   trigger?: (this: unknown) => Promise<{ closeFunction?: () => Promise<void> | void; manualTriggerFunction?: () => Promise<void> } | undefined>;
 }
 
-/** n8n-workflow cronNodeOptions (Zeitangaben der Einstellung "Poll Times") */
+/** n8n-workflow cronNodeOptions (time values of the "Poll Times" setting) */
 const TRIGGER_TIME_VALUES: N8nProperty[] = [
   {
     displayName: 'Mode',
@@ -71,7 +71,7 @@ const TRIGGER_TIME_VALUES: N8nProperty[] = [
   },
 ];
 
-/** commonPollingParameters: "Poll Times", Standard jede Minute */
+/** commonPollingParameters: "Poll Times", default every minute */
 export const POLL_TIMES: N8nProperty = {
   displayName: 'Poll Times',
   name: 'pollTimes',
@@ -82,7 +82,7 @@ export const POLL_TIMES: N8nProperty = {
   options: [{ displayName: 'Item', name: 'item', values: TRIGGER_TIME_VALUES }],
 };
 
-/** applySpecialNodeParameters: Poll-Knoten bekommen "Poll Times" vorne in die Parameter */
+/** applySpecialNodeParameters: poll nodes get "Poll Times" at the front of their parameters */
 export function withPollTimes(description: N8nNodeDescription): N8nNodeDescription {
   if (!description.polling || description.properties.some((p) => p.name === 'pollTimes')) return description;
   return { ...description, properties: [POLL_TIMES, ...description.properties] };
@@ -99,7 +99,7 @@ export interface TriggerTime {
   cronExpression?: string;
 }
 
-/** cron.ts toCronExpression (mit zufälliger Sekunde wie n8n, damit nicht alle Abrufe gleichzeitig starten) */
+/** cron.ts toCronExpression (with a random second like n8n, so that not all polls start at the same time) */
 export function toCronExpression(item: TriggerTime, random: (max: number) => number = (max) => Math.floor(Math.random() * max)): string {
   const second = random(60);
   if (item.mode === 'everyMinute') return `${second} * * * * *`;
@@ -115,7 +115,7 @@ export function toCronExpression(item: TriggerTime, random: (max: number) => num
   return String(item.cronExpression ?? '').trim();
 }
 
-/** createDeferredPromise aus n8n-workflow */
+/** createDeferredPromise from n8n-workflow */
 function createDeferredPromise<T>(): { promise: Promise<T>; resolve: (v: T) => void; reject: (e: unknown) => void } {
   let resolve!: (v: T) => void;
   let reject!: (e: unknown) => void;
@@ -126,7 +126,7 @@ function createDeferredPromise<T>(): { promise: Promise<T>; resolve: (v: T) => v
   return { promise, resolve, reject };
 }
 
-/** PollContext/TriggerContext: Kontext ohne Item-Index, mit emit-Funktionen und Aktivierungsmodus */
+/** PollContext/TriggerContext: context without item index, with emit functions and activation mode */
 function contextFunctions(
   ctx: ExecContext,
   description: N8nNodeDescription,
@@ -152,7 +152,7 @@ function contextFunctions(
   };
 }
 
-/** Aktivierung im Server */
+/** Activation in the server */
 export async function activateTrigger(impl: N8nTriggerImpl, a: Activation): Promise<ActivationHandle> {
   const description = withPollTimes(impl.description);
   if (impl.poll) {
@@ -168,7 +168,7 @@ export async function activateTrigger(impl: N8nTriggerImpl, a: Activation): Prom
         a.emitError(error as Error);
       }
     };
-    // Wie n8n: erster Abruf sofort, Fehler verhindern die Aktivierung
+    // Like n8n: first poll immediately, errors prevent the activation
     await executeTrigger(true);
     for (const expression of expressions) {
       if (expression.split(' ').at(0)?.includes('*')) throw new Error('The polling interval is too short. It has to be at least a minute.');
@@ -179,7 +179,7 @@ export async function activateTrigger(impl: N8nTriggerImpl, a: Activation): Prom
   const fns = contextFunctions(a.ctx, description, {
     activation: 'activate',
     emit: (d) => a.emit(d),
-    // getExecuteTriggerFunctions: Fehler eines Triggers deaktivieren ihn und starten ihn später neu
+    // getExecuteTriggerFunctions: errors of a trigger deactivate it and restart it later
     emitError: (e) => a.emitError(e, { fatal: true }),
     schedule: (e, r) => a.schedule(e, r),
   });
@@ -188,8 +188,8 @@ export async function activateTrigger(impl: N8nTriggerImpl, a: Activation): Prom
 }
 
 /**
- * Ausführung des Knotens: im manuellen Lauf (Editor, CLI ohne Eingabe) einmal abrufen bzw. auf den ersten emit warten,
- * sonst die Daten des Auslösers weitergeben
+ * Execution of the node: in a manual run (editor, CLI without input) poll once or wait for the first emit,
+ * otherwise pass on the data of the trigger
  */
 export async function executeTrigger(impl: N8nTriggerImpl, ctx: ExecContext): Promise<NodeOutput | null> {
   const manual = ctx.mode === 'manual' || (ctx.mode === 'cli' && ctx.triggerData === undefined);
@@ -203,7 +203,7 @@ export async function executeTrigger(impl: N8nTriggerImpl, ctx: ExecContext): Pr
     const fns = contextFunctions(ctx, description, {
       activation: 'manual',
       emit: () => {
-        throw new Error('Im manuellen Lauf liefert poll() die Daten direkt');
+        throw new Error('In a manual run poll() returns the data directly');
       },
       emitError: (e) => {
         throw e;
@@ -217,7 +217,7 @@ export async function executeTrigger(impl: N8nTriggerImpl, ctx: ExecContext): Pr
       for (const j of jobs) j.stop();
     }
   }
-  // runTrigger im Modus "manual": emit löst die Antwort auf, emitError lehnt sie ab
+  // runTrigger in mode "manual": emit resolves the response, emitError rejects it
   const deferred = createDeferredPromise<Item[][]>();
   const fns = contextFunctions(ctx, description, { activation: 'manual', emit: (d) => deferred.resolve(d), emitError: (e) => deferred.reject(e), schedule });
   const response = await impl.trigger!.call(fns);
