@@ -16,6 +16,26 @@ import { createCredential, credentialsView } from './views/credentials.js';
 import { variablesView } from './views/variables.js';
 import { packagesView } from './views/packages.js';
 import { supervisorView } from './views/supervisor.js';
+import type { SupervisorChatBackend } from './editor/supervisorDrawer.js';
+import type { SupervisorProposal } from './types.js';
+
+const supervisorChat: SupervisorChatBackend = {
+  chat: (body) => api.supervisorChat(body),
+  findings: (workflowId) => api.findings({ workflow: workflowId }),
+  proposalAction: (id, action) => api.proposalAction(id, action),
+  supervisorHref: '#/supervisor',
+};
+
+/** Nach dem Annehmen eines Vorschlags im Editor: geänderten Workflow neu laden, neuen öffnen */
+function afterAccepted(p: SupervisorProposal): void {
+  const id = p.result?.workflowId;
+  if (!id) return;
+  if (p.kind === 'new') {
+    location.hash = `#/workflow/${encodeURIComponent(id)}`;
+    return;
+  }
+  void openEditor(id, ++routeSeq);
+}
 
 const app = document.getElementById('app')!;
 let current: { editor?: Editor } = {};
@@ -117,7 +137,7 @@ function showLogin(message?: string): void {
   input.focus();
 }
 
-async function openEditor(id: string | undefined, seq: number): Promise<void> {
+async function openEditor(id: string | undefined, seq: number, openSupervisor = false): Promise<void> {
   const cat = await loadCatalog();
   // Credentials können sich auf der Credentials-Seite geändert haben
   cat.credentials = await api.credentials();
@@ -132,6 +152,8 @@ async function openEditor(id: string | undefined, seq: number): Promise<void> {
       createCredential,
       brandHref: '#/workflows',
       crumbs,
+      supervisor: { ...supervisorChat, onAccepted: afterAccepted },
+      openSupervisor,
       onCreated: (newId) => {
         skipNextRoute = true;
         location.hash = `#/workflow/${encodeURIComponent(newId)}`;
@@ -142,7 +164,7 @@ async function openEditor(id: string | undefined, seq: number): Promise<void> {
   }
   const [source, status] = await Promise.all([api.source(id), api.workflow(id)]);
   if (seq !== routeSeq) return;
-  const editor = new Editor({ id, workflow: source, status, types, credentials, createCredential, webhookBaseUrl, brandHref: '#/workflows', crumbs });
+  const editor = new Editor({ id, workflow: source, status, types, credentials, createCredential, webhookBaseUrl, brandHref: '#/workflows', crumbs, supervisor: { ...supervisorChat, onAccepted: afterAccepted } });
   setPage('workflows', editor.el, editor, seq);
 }
 
@@ -158,7 +180,7 @@ async function route(): Promise<void> {
   try {
     await loadCatalog();
     if (parts[0] === 'workflows' || !parts.length) setPage('workflows', await workflowsView(), undefined, seq);
-    else if (parts[0] === 'new') await openEditor(undefined, seq);
+    else if (parts[0] === 'new') await openEditor(undefined, seq, new URLSearchParams(query ?? '').get('aufseher') === '1');
     else if (parts[0] === 'workflow' && parts[1]) await openEditor(parts[1], seq);
     else if (parts[0] === 'executions') setPage('executions', await executionsView(new URLSearchParams(query ?? '')), undefined, seq);
     else if (parts[0] === 'execution' && parts[1]) {

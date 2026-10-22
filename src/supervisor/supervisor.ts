@@ -565,6 +565,55 @@ export class Supervisor {
     return updated;
   }
 
+  // Gespräch im Editor (M37)
+
+  /**
+   * Eine Antwort im Gespräch. Mit workflowId geht es um diesen Workflow (Fragen, Änderungen als Vorschlag), ohne um einen
+   * neuen Workflow. Neue Workflows und Änderungen entstehen nur als Vorschlag.
+   */
+  async chat(o: { messages: Array<{ role: string; content: string }>; workflowId?: string }): Promise<{ reply: string; proposals: Proposal[]; tokens: number }> {
+    this.needsProposals();
+    if (!Array.isArray(o.messages) || !o.messages.length) throw new ProposalError('Nachricht fehlt', 400);
+    const history = o.messages.slice(-30).map((m) => {
+      if ((m?.role !== 'user' && m?.role !== 'assistant') || typeof m.content !== 'string') throw new ProposalError('Nachrichten brauchen role (user oder assistant) und content', 400);
+      return { role: m.role === 'user' ? ('human' as const) : ('ai' as const), content: clip(m.content, 8000) };
+    });
+    if (history[history.length - 1].role !== 'human') throw new ProposalError('Die letzte Nachricht muss von der Person kommen', 400);
+    const s = this.settings();
+    const secrets = this.o.secrets();
+    let context = '';
+    if (o.workflowId) {
+      if (s.excludedWorkflows.includes(o.workflowId)) throw new ProposalError('Dieser Workflow ist vom Aufseher ausgenommen', 403);
+      const source = await this.o.workflowSource!(o.workflowId);
+      const observed = this.observed().find((w) => (w.workflow.id ?? w.workflow.name) === o.workflowId);
+      if (!source || !observed) throw new ProposalError('Workflow nicht gefunden', 404);
+      const findings = this.store.listFindings({ status: 'open', workflowId: o.workflowId, limit: 30 }).map((f) => ({ dringlichkeit: f.severity, titel: f.title, text: clip(f.detail, 400), ...(f.nodeName ? { knoten: f.nodeName } : {}) }));
+      context =
+        `\n\nAktueller Workflow (gespeicherter Stand, ID ${o.workflowId}, ${observed.active ? 'aktiv' : 'inaktiv'}):\n` +
+        clip(JSON.stringify(maskWorkflow(source, secrets, s.dataScope)), 30_000) +
+        (observed.issues.length ? `\nProbleme laut Prüfung: ${clip(JSON.stringify(observed.issues), 3000)}` : '') +
+        (findings.length ? `\nOffene Hinweise des Aufsehers: ${clip(JSON.stringify(findings), 6000)}` : '');
+    }
+    const guide = [
+      'Sie sprechen im Editor mit einer Person, die Workflows baut und betreut.',
+      o.workflowId
+        ? 'Beantworten Sie Fragen zum aktuellen Workflow. Wünscht die Person eine Änderung, reichen Sie sie mit propose_change ein; Vorschläge beziehen sich auf den gespeicherten Stand. Für einen ganz neuen Workflow nutzen Sie propose_workflow.'
+        : 'Es ist noch kein gespeicherter Workflow geöffnet. Wünscht die Person einen Workflow, bauen Sie ihn und reichen Sie ihn mit propose_workflow ein.',
+      'Neue Workflows bauen Sie mit setName, dann addNode und connect. Beginnen Sie mit einem Auslöser (z. B. n8n-nodes-base.manualTrigger, n8n-nodes-base.webhook, n8n-nodes-base.scheduleTrigger, n8n-nodes-base.formTrigger). Nehmen Sie die neueste Version eines Knotentyps und Parameter genau so, wie get_node_type sie beschreibt; Expressions schreiben Sie als "={{ ... }}".',
+      'Für Zugangsdaten nutzen Sie vorhandene Credentials (list_credentials) über credentials {typ: {name}}. Fehlt eines, nennen Sie Typ und Namen, die angelegt werden müssen.',
+      'Kommt beim Einreichen eine Fehlermeldung zurück, korrigieren Sie den Vorschlag. Sagen Sie am Ende in wenigen Sätzen, was der Vorschlag macht und dass er auf die Zustimmung der Person wartet. Fragen Sie nach, wenn der Wunsch unklar ist, statt zu raten.',
+    ].join('\n');
+    const created: Proposal[] = [];
+    const tools = [...this.readTools(), ...(o.workflowId ? [this.proposeTool({ kind: 'change', workflowId: o.workflowId }, created)] : []), this.proposeTool({ kind: 'new' }, created)];
+    const outcome = await runChat({ runner: this.o.runner, store: this.store, settings: () => this.settings() }, [{ role: 'system', content: `${SYSTEM_PROMPT}\n${guide}${context}` }, ...history], tools, { maxSteps: 12, signal: this.abort.signal });
+    // Je Ziel gilt der letzte Vorschlag; frühere Fassungen derselben Antwort sind ersetzt
+    const latest = new Map<string, Proposal>();
+    for (const p of created) latest.set(p.kind === 'new' ? 'new' : (p.workflowId ?? ''), p);
+    const keep = new Set([...latest.values()].map((p) => p.id));
+    for (const p of created) if (!keep.has(p.id)) this.store.saveProposal({ ...p, status: 'rejected', decidedAt: new Date().toISOString(), decidedBy: 'Aufseher (ersetzt)' });
+    return { reply: outcome.text, proposals: created.filter((p) => keep.has(p.id)), tokens: outcome.tokens };
+  }
+
   // Tagesbericht
 
   /** Bericht erstellen, wenn die eingestellte Stunde erreicht und heute noch keiner erstellt ist */

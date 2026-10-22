@@ -291,7 +291,8 @@ export function workflowDiff(before: Workflow | undefined, after: Workflow): Dif
   };
   for (const e of after2) if (!before2.has(e)) out.push({ kind: 'connection-added', text: `Neue Verbindung ${describe(e)}` });
   for (const e of before2) if (!after2.has(e)) out.push({ kind: 'connection-removed', text: `Verbindung ${describe(e)} entfällt` });
-  const sa = (old.settings ?? {}) as Record<string, unknown>;
+  // Neuer Workflow: Einstellungen sind Teil des Anlegens, kein Unterschied
+  const sa = (before ? (old.settings ?? {}) : (after.settings ?? {})) as Record<string, unknown>;
   const sb = (after.settings ?? {}) as Record<string, unknown>;
   for (const key of new Set([...Object.keys(sa), ...Object.keys(sb)])) {
     if (JSON.stringify(sa[key]) === JSON.stringify(sb[key])) continue;

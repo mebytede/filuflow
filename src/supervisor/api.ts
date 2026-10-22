@@ -166,6 +166,20 @@ export async function registerSupervisorApi(api: FastifyInstance, o: SupervisorA
     }
   });
 
+  // Gespräch im Editor (M37)
+  api.post(`${p}/chat`, async (request, reply) => {
+    const s = sup(reply);
+    if (!s) return reply;
+    if (!s.settings().model) return reply.code(400).send({ message: 'Für den Aufseher ist kein Modell eingestellt (Aufseher, Einstellungen)' });
+    const body = (request.body ?? {}) as { messages?: unknown; workflowId?: unknown };
+    try {
+      const result = await s.chat({ messages: body.messages as Array<{ role: string; content: string }>, ...(typeof body.workflowId === 'string' && body.workflowId ? { workflowId: body.workflowId } : {}) });
+      return { reply: result.reply, tokens: result.tokens, proposals: result.proposals.map(proposalSummary) };
+    } catch (error) {
+      return modelErrorReply(reply, error);
+    }
+  });
+
   api.post(`${p}/scan`, async (_request, reply) => {
     const s = sup(reply);
     if (!s) return reply;

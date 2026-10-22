@@ -553,3 +553,8 @@ a.cell-name:hover { color: var(--ff-text); text-decoration: underline; }
 .diff-mark { width: 12px; flex: none; color: var(--ff-text-secondary); }
 .diff-add .diff-mark { color: var(--ff-success); }
 .diff-remove .diff-mark { color: var(--ff-error); }
+.supervisor-drawer .chat-messages > .muted { margin: 0; }
+.supervisor-findings { border: 1px solid var(--ff-line-strong); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.supervisor-findings ul { margin: 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.supervisor-proposal { border: 1px solid var(--ff-accent); background: var(--ff-bg); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+.supervisor-proposal .diff-list { font-size: 12px; line-height: 18px; }

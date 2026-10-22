@@ -320,7 +320,8 @@ describe('Weboberfläche', () => {
     await page.waitForSelector(`.proposal[data-proposal="${proposal.id}"] .diff-list:has-text("notes auf vom Aufseher")`);
     await page.click(`.proposal[data-proposal="${proposal.id}"] button:has-text("Annehmen")`);
     await page.click('.modal .btn-primary');
-    await page.waitForSelector('.toast:has-text("gespeichert")');
+    // Nach dem Annehmen verschwindet der Vorschlag aus der Liste "Offen"
+    await page.waitForSelector(`.proposal[data-proposal="${proposal.id}"]`, { state: 'detached' });
     expect(server!.workflows.get(target.workflow.id!)!.workflow.nodes[0].notes).toBe('vom Aufseher');
 
     // Testdaten für "Quelle" eingeben und festhalten

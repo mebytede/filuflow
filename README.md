@@ -335,6 +335,10 @@ Der Aufseher behält die Workflows im Blick und meldet, was ihm auffällt. Er ä
   als Liste der Änderungen gezeigt (Knoten, Parameter, Verbindungen, Einstellungen). Sie nehmen ihn an (der Workflow wird
   gespeichert, die Aktivierung bleibt), verwerfen ihn oder starten vorher einen Probelauf. Hat sich der Workflow seit dem
   Vorschlag geändert, ist der Vorschlag veraltet und lässt sich nicht mehr annehmen.
+- **Im Editor fragen:** Der Knopf "Aufseher fragen" öffnet ein Gespräch über den geöffneten Workflow ("Warum ist der letzte
+  Lauf fehlgeschlagen?", "Wiederhole den HTTP Request bei Fehlern dreimal."). Gewünschte Änderungen kommen als Vorschlag
+  ins Fenster. Mit "Mit dem Aufseher entwerfen" auf der Workflow-Seite beschreiben Sie einen neuen Workflow; der Aufseher
+  baut ihn, prüft ihn und legt ihn nach Ihrer Zustimmung inaktiv an.
 
 Unter "Aufseher, Einstellungen" wählen Sie Anbieter, Credential und Modell-ID (Anthropic, OpenAI, Google Gemini, Ollama,
 Mistral, Groq, DeepSeek, OpenRouter, Azure OpenAI; dieselben Credentials wie für die KI-Knoten), den Datenumfang ("Aufbau

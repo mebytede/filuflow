@@ -462,3 +462,11 @@ statt fremde Änderungen zu überschreiben. Annehmen ändert die Aktivierung nie
 Ein Probelauf führt Knoten wirklich aus (Dienste, Nachrichten, Datenbanken). Er läuft deshalb nur auf ausdrücklichen
 Wunsch nach einer Rückfrage und nie automatisch; automatisch ist nur die Prüfung.
 
+## Gespräch mit dem Aufseher (M37)
+Das Gespräch läuft ohne Zustand auf dem Server: Die Oberfläche schickt den Verlauf (höchstens 30 Nachrichten) mit jeder
+Nachricht, der Server ergänzt den gespeicherten Stand des Workflows und die offenen Hinweise im System-Prompt. So gibt es
+keine Gesprächsdaten zu speichern oder aufzuräumen, und jede Antwort sieht den aktuellen Stand. Neue Workflows und
+Änderungen nutzen dieselben Operationen und Prüfungen wie Vorschläge zu Hinweisen (M36); neue Workflows werden aus einem
+leeren Workflow aufgebaut und inaktiv angelegt. Vorschläge beziehen sich immer auf den gespeicherten Stand, nicht auf
+ungespeicherte Änderungen im Editor; das Fenster sagt das, und Annehmen warnt, wenn im Editor etwas ungespeichert ist.
+
