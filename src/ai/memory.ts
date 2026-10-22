@@ -1,8 +1,8 @@
-// Simple Memory (Buffer Window) wie n8n 1.123.0:
+// Simple Memory (Buffer Window) as in n8n 1.123.0:
 //   packages/@n8n/nodes-langchain/nodes/memory/MemoryBufferWindow/MemoryBufferWindow.node.ts
-//   (MemoryChatBufferSingleton: Speicher im Prozess je "<Workflow-ID>__<Session-ID>", nach 1 h Leerlauf gelöscht)
-//   packages/@n8n/nodes-langchain/utils/logWrapper.ts (Läufe "loadMemoryVariables" und "saveContext")
-// LangChain BufferWindowMemory: liefert die letzten k Wortwechsel (2 * k Nachrichten).
+//   (MemoryChatBufferSingleton: in-process storage per "<workflow ID>__<session ID>", deleted after 1 h idle)
+//   packages/@n8n/nodes-langchain/utils/logWrapper.ts (runs "loadMemoryVariables" and "saveContext")
+// LangChain BufferWindowMemory: returns the last k exchanges (2 * k messages).
 import type { ExecContext } from '../nodes/types.js';
 import type { ChatMessage } from './messages.js';
 
@@ -27,7 +27,7 @@ function messageJson(m: ChatMessage): Record<string, unknown> {
   return { lc: 1, type: 'constructor', id: ['langchain_core', 'messages', type], kwargs: { content: m.content, additional_kwargs: {}, response_metadata: {} } };
 }
 
-/** Alle Nachrichten einer Sitzung als LangChain-JSON (Chat Trigger: loadPreviousSession "memory") */
+/** All messages of a session as LangChain JSON (Chat Trigger: loadPreviousSession "memory") */
 export function memoryMessages(key: string): Record<string, unknown>[] {
   return (store.get(key)?.messages ?? []).map(messageJson);
 }
@@ -50,7 +50,7 @@ export class BufferWindowMemory {
     return entry;
   }
 
-  /** loadMemoryVariables: chat_history als Nachrichten */
+  /** loadMemoryVariables: chat_history as messages */
   async load(): Promise<ChatMessage[]> {
     const { index } = this.ctx.addInputData('ai_memory', [[{ json: { action: 'loadMemoryVariables', values: {} } }]]);
     const messages = this.entry().messages;
@@ -60,14 +60,14 @@ export class BufferWindowMemory {
   }
 
   /**
-   * chatHistory.addAIMessage / addUserMessage (Respond to Chat). n8n ruft das über memory.chatHistory, das logWrapper
-   * nicht umhüllt; daher ohne eigenen Lauf im Protokoll.
+   * chatHistory.addAIMessage / addUserMessage (Respond to Chat). n8n calls this via memory.chatHistory, which logWrapper
+   * does not wrap; hence without its own run in the log.
    */
   addMessage(role: 'human' | 'ai', content: string): void {
     this.entry().messages.push({ role, content });
   }
 
-  /** saveContext: Eingabe und Antwort anhängen */
+  /** saveContext: append input and response */
   async save(input: string, output: string): Promise<void> {
     const { index } = this.ctx.addInputData('ai_memory', [[{ json: { action: 'saveContext', input: { input }, output: { output } } }]]);
     const entry = this.entry();

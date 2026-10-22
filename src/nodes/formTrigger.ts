@@ -1,8 +1,8 @@
 // n8n Form Trigger, n8n-nodes-base.formTrigger (typeVersion 1, 2, 2.1, 2.2, 2.3)
-// Nachgebaut nach n8n 1.123.0 packages/nodes-base/nodes/Form/FormTrigger.node.ts, v2/FormTriggerV2.node.ts und
-// utils/utils.ts formWebhook: Formular unter /form/<Pfad> (Pfad: path, options.path oder webhookId), GET zeigt die
-// Seite, POST startet den Workflow mit den Eingaben. Basic Auth ab v2. Die Verarbeitung liegt im Server
-// (src/server/webhooks.ts, src/nodes/shared/form.ts); hier reicht der Knoten die Daten durch.
+// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/Form/FormTrigger.node.ts, v2/FormTriggerV2.node.ts and
+// utils/utils.ts formWebhook: form under /form/<path> (path: path, options.path or webhookId), GET shows the
+// page, POST starts the workflow with the input. Basic Auth from v2. Processing happens in the server
+// (src/server/webhooks.ts, src/nodes/shared/form.ts); here the node passes the data through.
 import type { NodeIssue, NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
 import type { WorkflowNode } from '../types.js';
@@ -18,26 +18,26 @@ import {
   respondWithOptionsParam,
 } from './shared/formParams.js';
 
-/** Pfad wie die Webhook-Beschreibung: $parameter["path"] || $parameter["options"]?.path || $webhookId */
+/** Path like the webhook description: $parameter["path"] || $parameter["options"]?.path || $webhookId */
 export function formPath(node: WorkflowNode): string {
   const p = node.parameters as { path?: unknown; options?: { path?: unknown } };
   const raw = (typeof p.path === 'string' && p.path) || (typeof p.options?.path === 'string' && p.options.path) || node.webhookId || '';
   return String(raw).replace(/^\/+|\/+$/g, '');
 }
 
-// Parameter wie n8n v1/FormTriggerV1.node.ts (v1) und v2/FormTriggerV2.node.ts (v2 bis 2.3) mit den Beschreibungen aus
-// common.descriptions.ts (siehe shared/formParams.ts). V1 hat keine Authentifizierung und als Option nur formSubmittedText.
+// Parameters like n8n v1/FormTriggerV1.node.ts (v1) and v2/FormTriggerV2.node.ts (v2 to 2.3) with the descriptions from
+// common.descriptions.ts (see shared/formParams.ts). V1 has no authentication and only formSubmittedText as an option.
 const V1 = { '@version': [1] };
 const V2 = { '@version': [{ _cnd: { gte: 2 } }] };
 const parameters: ParamSchema[] = [
   {
     name: 'authentication',
-    label: 'Authentifizierung',
+    label: 'Authentication',
     type: 'options',
     default: 'none',
     options: [
       { value: 'basicAuth', label: 'Basic Auth' },
-      { value: 'none', label: 'Keine' },
+      { value: 'none', label: 'None' },
     ],
     show: V2,
   },
@@ -49,69 +49,69 @@ const parameters: ParamSchema[] = [
   { ...formRespondModeParam(false), show: { '@version': [{ _cnd: { gte: 2.2 } }] } },
   {
     name: 'formNotice',
-    label: "Im Knoten 'Respond to Webhook' mit JSON antworten: Schlüssel formSubmittedText zeigt einen Text, redirectURL leitet weiter.",
+    label: "In the 'Respond to Webhook' node, select 'Respond With JSON' and set the formSubmittedText key to display a custom response in the form, or the redirectURL key to redirect users to a URL",
     type: 'notice',
     default: '',
     show: { ...V2, responseMode: ['responseNode'] },
   },
   {
     name: 'addFormPage',
-    label: 'Mehrseitige Formulare entstehen mit Form-Knoten weiter hinten im Workflow.',
+    label: 'Build multi-step forms by adding a form page later in your workflow',
     type: 'notice',
     default: '',
     show: V2,
   },
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     show: V1,
     hide: { responseMode: ['responseNode'] },
     children: [
       {
         name: 'formSubmittedText',
-        label: 'Text nach dem Absenden',
+        label: 'Form Submitted Text',
         type: 'string',
         default: 'Your response has been recorded',
-        description: 'Text, den Nutzer nach dem Absenden sehen',
+        description: 'The text displayed to users after they filled the form',
       },
     ],
   },
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     show: V2,
     children: [
       appendAttributionParam,
-      { name: 'buttonLabel', label: 'Beschriftung des Knopfs', type: 'string', default: 'Submit', description: 'Text auf dem Absende-Knopf' },
+      { name: 'buttonLabel', label: 'Button Label', type: 'string', default: 'Submit', description: 'The label of the submit button in the form' },
       { ...formPathParam, required: false, show: { '@version': [{ _cnd: { gte: 2.2 } }] } },
       { ...respondWithOptionsParam, hide: { '/responseMode': ['responseNode'] } },
       {
         name: 'ignoreBots',
-        label: 'Bots ignorieren',
+        label: 'Ignore Bots',
         type: 'boolean',
         default: false,
-        description: 'Ob Anfragen von Bots wie Link-Vorschauen und Crawlern ignoriert werden',
+        description: 'Whether to ignore requests from bots like link previewers and web crawlers',
       },
       {
         name: 'useWorkflowTimezone',
-        label: 'Zeitzone des Workflows',
+        label: 'Use Workflow Timezone',
         type: 'boolean',
         default: false,
-        description: "Ob 'submittedAt' in der Zeitzone des Workflows statt UTC steht",
+        description: "Whether to use the workflow timezone in 'submittedAt' field or UTC",
         show: { '@version': [2] },
       },
       {
         name: 'useWorkflowTimezone',
-        label: 'Zeitzone des Workflows',
+        label: 'Use Workflow Timezone',
         type: 'boolean',
         default: true,
-        description: "Ob 'submittedAt' in der Zeitzone des Workflows statt UTC steht",
+        description: "Whether to use the workflow timezone in 'submittedAt' field or UTC",
         show: { '@version': [{ _cnd: { gt: 2 } }] },
       },
       { ...formCustomCssParam, show: { '@version': [{ _cnd: { gt: 2 } }] } },
@@ -130,10 +130,10 @@ export const formTriggerNode: NodeType = {
   credentialTypes: (node) => (node.typeVersion > 1 && node.parameters.authentication === 'basicAuth' ? ['httpBasicAuth'] : []),
   validate(node) {
     const issues: NodeIssue[] = [];
-    if (!formPath(node)) issues.push({ code: 'node.unsupportedParameter', message: 'Form Trigger braucht einen Pfad oder eine webhookId', path: 'parameters.path' });
+    if (!formPath(node)) issues.push({ code: 'node.unsupportedParameter', message: 'Form Trigger needs a path or a webhookId', path: 'parameters.path' });
     for (const key of ['path', 'responseMode']) {
       if (typeof node.parameters[key] === 'string' && (node.parameters[key] as string).startsWith('=')) {
-        issues.push({ code: 'webhook.expression', message: `Form Trigger: Expressions im Parameter "${key}" werden nicht unterstützt`, path: `parameters.${key}` });
+        issues.push({ code: 'webhook.expression', message: `Form Trigger: expressions in the parameter "${key}" are not supported`, path: `parameters.${key}` });
       }
     }
     return issues;

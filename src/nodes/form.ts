@@ -1,7 +1,7 @@
-// n8n Form, n8n-nodes-base.form (typeVersion 1, 2.3): weitere Formularseite oder Abschluss nach einem Form Trigger.
-// Nachgebaut nach n8n 1.123.0 packages/nodes-base/nodes/Form/Form.node.ts (execute: Form Trigger davor nötig, Abschluss
-// muss der letzte Form-Knoten sein, Execution wartet und leitet per 307 auf $execution.resumeFormUrl weiter) und
-// utils/formCompletionUtils.ts. Seiten und Auswertung: src/server/webhooks.ts mit src/nodes/shared/form.ts.
+// n8n Form, n8n-nodes-base.form (typeVersion 1, 2.3): another form page or completion after a Form Trigger.
+// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/Form/Form.node.ts (execute: Form Trigger required before it, completion
+// must be the last Form node, the execution waits and redirects via 307 to $execution.resumeFormUrl) and
+// utils/formCompletionUtils.ts. Pages and evaluation: src/server/webhooks.ts with src/nodes/shared/form.ts.
 import type { NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
 import { NodeOperationError } from '../errors.js';
@@ -11,132 +11,132 @@ import { WAIT_INDEFINITELY } from '../engine/executor.js';
 
 const UNIT_SECONDS: Record<string, number> = { seconds: 1, minutes: 60, hours: 3600, days: 86400 };
 
-// Parameter wie n8n Form.node.ts (properties mit pageProperties, completionProperties, waitTimeProperties) und
-// utils/sendAndWait/descriptions.ts (limitWaitTimeProperties); Formularfelder aus shared/formParams.ts.
-// updateDisplayOptions ergänzt dort show.operation; die Wartezeit-Parameter gelten für beide Seitentypen.
+// Parameters like n8n Form.node.ts (properties with pageProperties, completionProperties, waitTimeProperties) and
+// utils/sendAndWait/descriptions.ts (limitWaitTimeProperties); form fields from shared/formParams.ts.
+// updateDisplayOptions adds show.operation there; the wait time parameters apply to both page types.
 const PAGE = { operation: ['page'] };
 const COMPLETION = { operation: ['completion'] };
 const parameters: ParamSchema[] = [
-  { name: 'triggerNotice', label: 'Vor diesem Knoten muss ein n8n Form Trigger stehen.', type: 'notice', default: '' },
+  { name: 'triggerNotice', label: 'An n8n Form Trigger node must be set up before this node', type: 'notice', default: '' },
   {
     name: 'operation',
-    label: 'Seitentyp',
+    label: 'Page Type',
     type: 'options',
     default: 'page',
     noExpression: true,
     options: [
-      { value: 'page', label: 'Nächste Formularseite' },
-      { value: 'completion', label: 'Formularende' },
+      { value: 'page', label: 'Next Form Page' },
+      { value: 'completion', label: 'Form Ending' },
     ],
   },
   ...formFieldsDefinitionParams.map((p): ParamSchema => ({ ...p, show: { ...p.show, ...PAGE } })),
   {
     name: 'respondWith',
-    label: 'Nach dem Absenden',
+    label: 'On n8n Form Submission',
     type: 'options',
     default: 'text',
     show: COMPLETION,
     options: [
-      { value: 'text', label: 'Abschlussseite zeigen', description: 'Zeigt einen Antworttext an' },
-      { value: 'redirect', label: 'Auf URL weiterleiten', description: 'Leitet auf eine URL weiter' },
-      { value: 'showText', label: 'Text zeigen', description: 'Zeigt einfachen Text oder HTML an' },
-      { value: 'returnBinary', label: 'Binärdatei zurückgeben', description: 'Gibt die eingehende Binärdatei zurück' },
+      { value: 'text', label: 'Show Completion Screen', description: 'Show a response text to the user' },
+      { value: 'redirect', label: 'Redirect to URL', description: 'Redirect the user to a URL' },
+      { value: 'showText', label: 'Show Text', description: 'Display simple text or HTML' },
+      { value: 'returnBinary', label: 'Return Binary File', description: 'Return incoming binary file' },
     ],
   },
   { name: 'redirectUrl', label: 'URL', type: 'string', default: '', required: true, show: { ...COMPLETION, respondWith: ['redirect'] } },
-  { name: 'completionTitle', label: 'Abschlusstitel', type: 'string', default: '', required: true, show: { ...COMPLETION, respondWith: ['text', 'returnBinary'] } },
-  { name: 'completionMessage', label: 'Abschlusstext', type: 'string', default: '', rows: 2, show: { ...COMPLETION, respondWith: ['text', 'returnBinary'] } },
+  { name: 'completionTitle', label: 'Completion Title', type: 'string', default: '', required: true, show: { ...COMPLETION, respondWith: ['text', 'returnBinary'] } },
+  { name: 'completionMessage', label: 'Completion Message', type: 'string', default: '', rows: 2, show: { ...COMPLETION, respondWith: ['text', 'returnBinary'] } },
   {
     name: 'responseText',
     label: 'Text',
     type: 'string',
     default: '',
     rows: 2,
-    placeholder: 'z. B. Danke für das Ausfüllen',
-    description: 'Text der Seite; mit HTML lässt sich die Seite gestalten',
+    placeholder: 'e.g. Thanks for filling the form',
+    description: 'The text to display on the page; use HTML to style it',
     show: { ...COMPLETION, respondWith: ['showText'] },
   },
   {
     name: 'inputDataFieldName',
-    label: 'Feld mit den Binärdaten',
+    label: 'Input Data Field Name',
     type: 'string',
     default: 'data',
-    placeholder: 'z. B. data',
-    description: 'Name des Eingabefelds mit der zurückzugebenden Datei',
+    placeholder: 'e.g. data',
+    description: 'Find the name of input field containing the binary data to return',
     show: { ...COMPLETION, respondWith: ['returnBinary'] },
   },
   {
     name: 'limitWaitTime',
-    label: 'Wartezeit begrenzen',
+    label: 'Limit Wait Time',
     type: 'boolean',
     default: false,
-    description: 'Ob die Ausführung nach einer Höchstzeit ohne Antwort weiterläuft',
+    description: 'Whether to limit the time this node should wait for a user response before execution resumes',
   },
   {
     name: 'limitType',
-    label: 'Art der Begrenzung',
+    label: 'Limit Type',
     type: 'options',
     default: 'afterTimeInterval',
-    description: 'Ob nach einer Zeitspanne oder zu einem Zeitpunkt fortgesetzt wird',
+    description: 'Sets the condition for the execution to resume. Can be a specified date or after some time.',
     show: { limitWaitTime: [true] },
     options: [
-      { value: 'afterTimeInterval', label: 'Nach Zeitspanne', description: 'Wartet eine bestimmte Zeit' },
-      { value: 'atSpecifiedTime', label: 'Zu festem Zeitpunkt', description: 'Wartet bis zu Datum und Uhrzeit' },
+      { value: 'afterTimeInterval', label: 'After Time Interval', description: 'Waits for a certain amount of time' },
+      { value: 'atSpecifiedTime', label: 'At Specified Time', description: 'Waits until the set date and time to continue' },
     ],
   },
   {
     name: 'resumeAmount',
-    label: 'Dauer',
+    label: 'Amount',
     type: 'number',
     default: 1,
     min: 0,
     precision: 2,
-    description: 'Wie lange gewartet wird',
+    description: 'The time to wait',
     show: { limitWaitTime: [true], limitType: ['afterTimeInterval'] },
   },
   {
     name: 'resumeUnit',
-    label: 'Einheit',
+    label: 'Unit',
     type: 'options',
     default: 'hours',
-    description: 'Einheit der Dauer',
+    description: 'Unit of the interval value',
     show: { limitWaitTime: [true], limitType: ['afterTimeInterval'] },
     options: [
-      { value: 'minutes', label: 'Minuten' },
-      { value: 'hours', label: 'Stunden' },
-      { value: 'days', label: 'Tage' },
+      { value: 'minutes', label: 'Minutes' },
+      { value: 'hours', label: 'Hours' },
+      { value: 'days', label: 'Days' },
     ],
   },
   {
     name: 'maxDateAndTime',
-    label: 'Spätestens am',
+    label: 'Max Date and Time',
     type: 'dateTime',
     default: '',
-    description: 'Datum und Uhrzeit, ab der die Ausführung weiterläuft',
+    description: 'Continue execution after the specified date and time',
     show: { limitWaitTime: [true], limitType: ['atSpecifiedTime'] },
   },
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     show: PAGE,
     children: [
       { ...formTitleParam, required: false },
       formDescriptionParam,
-      { name: 'buttonLabel', label: 'Beschriftung des Knopfs', type: 'string', default: 'Submit' },
+      { name: 'buttonLabel', label: 'Button Label', type: 'string', default: 'Submit' },
       formCustomCssParam,
     ],
   },
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     show: { ...COMPLETION, respondWith: ['text', 'returnBinary', 'redirect'] },
-    children: [{ ...formTitleParam, required: false, label: 'Titel der Abschlussseite' }, formCustomCssParam],
+    children: [{ ...formTitleParam, required: false, label: 'Completion Page Title' }, formCustomCssParam],
   },
 ];
 
@@ -158,9 +158,9 @@ export const formNode: NodeType = {
       throw new NodeOperationError(node.name, 'Completion has to be the last Form node in the workflow');
     }
     if (!ctx.canWait) {
-      throw new NodeOperationError(node.name, 'Formularseiten brauchen den Server (filuflow serve): in der CLI und in Unter-Workflows kann eine Ausführung nicht warten');
+      throw new NodeOperationError(node.name, 'Form pages need the server (filuflow serve): in the CLI and in sub-workflows an execution cannot wait');
     }
-    // configureWaitTillDate: unbegrenzt oder limitWaitTime
+    // configureWaitTillDate: unlimited or limitWaitTime
     let waitTill = WAIT_INDEFINITELY;
     if (ctx.getParam<boolean>('limitWaitTime', 0, false) === true) {
       if (ctx.getParam<string>('limitType', 0, 'afterTimeInterval') === 'afterTimeInterval') {

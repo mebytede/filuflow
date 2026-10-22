@@ -1,6 +1,6 @@
-// Vektorspeicher im Arbeitsspeicher (M27) wie n8n 1.123.0 VectorStoreInMemory mit MemoryVectorStoreManager
-// (Speicher je memoryKey für den ganzen Prozess, "Clear Store" löscht vor dem Einfügen) und MemoryVectorStore aus
-// @langchain/classic 1.0.5 (Kosinus-Ähnlichkeit, Sortierung mit demselben Vergleich, die ersten k Treffer).
+// In-memory vector store (M27) as in n8n 1.123.0 VectorStoreInMemory with MemoryVectorStoreManager
+// (store per memoryKey for the whole process, "Clear Store" deletes before inserting) and MemoryVectorStore from
+// @langchain/classic 1.0.5 (cosine similarity, sorting with the same comparison, the first k hits).
 import type { Document } from './documents.js';
 import { makeDocument } from './documents.js';
 import type { Embeddings } from './embeddings.js';
@@ -41,7 +41,7 @@ export class MemoryVectorStore {
     return (
       candidates
         .map((v, index) => ({ similarity: cosine(query, v.embedding), index, metadata: v.metadata, content: v.content, id: v.id }))
-        // Vergleich wie MemoryVectorStore._queryVectors (liefert nie 1); Array.prototype.sort von V8 wie dort
+        // Comparison as in MemoryVectorStore._queryVectors (never returns 1); V8's Array.prototype.sort as there
         .sort((a, b) => (a.similarity > b.similarity ? -1 : 0))
         .slice(0, k)
         .map((s) => [makeDocument(s.content, s.metadata, s.id), s.similarity] as [Document, number])
@@ -51,7 +51,7 @@ export class MemoryVectorStore {
 
 const stores = new Map<string, MemoryVectorStore>();
 
-/** MemoryVectorStoreManager.getVectorStore: Speicher anlegen, falls es ihn noch nicht gibt */
+/** MemoryVectorStoreManager.getVectorStore: create the store if it does not exist yet */
 export function getMemoryVectorStore(key: string): MemoryVectorStore {
   let store = stores.get(key);
   if (!store) {
@@ -71,19 +71,19 @@ export function memoryVectorStoreKeys(): string[] {
   return [...stores.keys()];
 }
 
-/** Für Tests */
+/** For tests */
 export function clearMemoryVectorStores(): void {
   stores.clear();
 }
 
-/** Vektorspeicher, wie ihn der Modus "retrieve" an Retriever und Tools gibt */
+/** Vector store as the "retrieve" mode passes it to retrievers and tools */
 export interface VectorStoreHandle {
   embeddings: Embeddings;
   similaritySearch(query: string, k?: number): Promise<Document[]>;
   similaritySearchVectorWithScore(query: number[], k: number): Array<[Document, number]>;
 }
 
-/** VectorStore.similaritySearch, protokolliert am Vector-Store-Knoten (logWrapper: { query, k, filter } -> { response }) */
+/** VectorStore.similaritySearch, logged on the vector store node (logWrapper: { query, k, filter } -> { response }) */
 export function vectorStoreHandle(ctx: ExecContext, store: MemoryVectorStore, embeddings: Embeddings): VectorStoreHandle {
   return {
     embeddings,

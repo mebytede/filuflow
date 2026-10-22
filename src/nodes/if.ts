@@ -1,5 +1,5 @@
-// If, n8n-nodes-base.if (typeVersion 2 bis 2.3)
-// Nachgebaut nach n8n 1.123.0 packages/nodes-base/nodes/If/V2/IfV2.node.ts
+// If, n8n-nodes-base.if (typeVersion 2 to 2.3)
+// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/If/V2/IfV2.node.ts
 import type { NodeType } from './types.js';
 import type { Item } from '../types.js';
 import { NodeOperationError } from '../errors.js';
@@ -7,31 +7,31 @@ import { ENABLE_LESS_STRICT_TYPE_VALIDATION, executeFilter, type FilterValue } f
 import { looseTypeValidation, rethrowWithItem } from './shared/conditions.js';
 import type { ParamSchema } from './params.js';
 
-// Parameter wie packages/nodes-base/nodes/If/V2/IfV2.node.ts (looseTypeValidationProperty aus utils/descriptions.ts)
+// Parameters like packages/nodes-base/nodes/If/V2/IfV2.node.ts (looseTypeValidationProperty from utils/descriptions.ts)
 const parameters: ParamSchema[] = [
-  { name: 'conditions', label: 'Bedingungen', type: 'filter', default: {}, placeholder: 'Bedingung hinzufügen' },
+  { name: 'conditions', label: 'Conditions', type: 'filter', default: {}, placeholder: 'Add Condition' },
   {
     name: 'looseTypeValidation',
-    label: 'Typen bei Bedarf umwandeln',
+    label: 'Convert Types Where Required',
     type: 'boolean',
     default: false,
-    description: 'Passt der Typ eines Werts nicht zum Vergleich, wird er umgewandelt (z. B. "false" oder 0 zu false)',
+    description: 'If the type of an expression does not match the type of the comparison, n8n will try to cast the expression to the required type. E.g. for booleans "false" or 0 will be cast to false',
     show: { '@version': [{ _cnd: { gte: 2.1 } }] },
   },
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     children: [
-      { name: 'ignoreCase', label: 'Groß-/Kleinschreibung ignorieren', type: 'boolean', default: true, description: 'Ob die Groß-/Kleinschreibung beim Vergleich ignoriert wird' },
+      { name: 'ignoreCase', label: 'Ignore Case', type: 'boolean', default: true, description: 'Whether to ignore letter case when evaluating conditions' },
       {
         name: 'looseTypeValidation',
-        label: 'Typen bei Bedarf umwandeln',
+        label: 'Convert Types Where Required',
         type: 'boolean',
         default: true,
-        description: 'Passt der Typ eines Werts nicht zum Vergleich, wird er umgewandelt (z. B. "false" oder 0 zu false)',
+        description: 'If the type of an expression does not match the type of the comparison, n8n will try to cast the expression to the required type. E.g. for booleans "false" or 0 will be cast to false',
         show: { '@version': [{ _cnd: { lt: 2.1 } }] },
       },
     ],

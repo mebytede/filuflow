@@ -1,5 +1,5 @@
-// Basic LLM Chain: Prompt aufbauen und Modell aufrufen.
-// Nachgebaut nach n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/chains/ChainLLM/methods:
+// Basic LLM Chain: build the prompt and call the model.
+// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/chains/ChainLLM/methods:
 //   promptUtils.ts (buildQueryTemplate, processMessageTemplates, finalizePromptTemplate),
 //   chainExecutor.ts (executeChain, executeSimpleChain), imageUtils.ts (createImageMessage)
 import type { ExecContext } from '../nodes/types.js';
@@ -40,12 +40,12 @@ async function imageMessage(ctx: ExecContext, itemIndex: number, message: Messag
   }
   const data = await ctx.helpers.binary.getBuffer(ref);
   const uri = `data:${ref.mimeType};base64,${data.toString('base64')}`;
-  // Gemini bekommt die Data-URI direkt, andere Modelle { url, detail }
+  // Gemini gets the data URI directly, other models { url, detail }
   const imageUrl = model instanceof GeminiChatModel ? { url: uri } : { url: uri, ...(detail ? { detail } : {}) };
   return { role: 'human', content: [{ type: 'image_url', image_url: imageUrl }] };
 }
 
-/** createPromptTemplate + Formatierung mit { query } */
+/** createPromptTemplate + formatting with { query } */
 export async function buildChainMessages(
   ctx: ExecContext,
   itemIndex: number,
@@ -63,7 +63,7 @@ export async function buildChainMessages(
       parsed.push(await imageMessage(ctx, itemIndex, m, model));
       continue;
     }
-    // Klammern werden verdoppelt und beim Formatieren wieder einfach (Text bleibt unverändert)
+    // Braces are doubled and become single again on formatting (text stays unchanged)
     parsed.push({ role, content: formatTemplate(escapeTemplate(m.message || ''), {}) });
   }
   const last = parsed[parsed.length - 1];
@@ -85,7 +85,7 @@ export interface ChainParams {
   messages: MessageTemplate[];
 }
 
-/** executeChain: mit Parser { output } (bzw. das Parser-Ergebnis), sonst der Text */
+/** executeChain: with a parser { output } (or the parser result), otherwise the text */
 export async function executeChain(p: ChainParams): Promise<unknown[]> {
   const formatInstructions = p.outputParser?.getFormatInstructions();
   const invoke = async (model: ChatModel) => {
