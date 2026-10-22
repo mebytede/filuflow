@@ -1,5 +1,5 @@
-// Testfälle für das KI-Orakel (scripts/record-ai-oracle.sh): JSON-Beispiele, JSON-Schemas und
-// Modellantworten für den Structured Output Parser.
+// Test cases for the AI oracle (scripts/record-ai-oracle.sh): JSON examples, JSON schemas and
+// model responses for the Structured Output Parser.
 export const EXAMPLES = [
   '{"name":"Ada","alter":36}',
   '{"a":1.5,"b":true,"c":null,"d":[1,2],"e":[{"x":"y"}],"f":{"g":{"h":"i"}}}',

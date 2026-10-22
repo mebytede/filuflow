@@ -5,7 +5,7 @@ export default defineConfig({
     include: ['test/**/*.test.ts'],
     testTimeout: 20000,
     globalSetup: ['test/helpers/global-setup.ts'],
-    // Orakel und Golden-Tests wurden mit TZ=Europe/Berlin aufgezeichnet (JS-Date-Parsing nutzt die Prozess-Zeitzone)
+    // Oracles and golden tests were recorded with TZ=Europe/Berlin (JS date parsing uses the process time zone)
     env: { TZ: 'Europe/Berlin' },
   },
 });

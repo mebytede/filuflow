@@ -1,4 +1,4 @@
-# filuflow mit Volumes für Workflows, Datenbank und Credentials.
+# filuflow with volumes for workflows, database and credentials.
 #   FILUFLOW_API_KEY=... FILUFLOW_ENCRYPTION_KEY=... docker compose up -d
 services:
   filuflow:
@@ -8,14 +8,14 @@ services:
     ports:
       - "5678:5678"
     environment:
-      FILUFLOW_API_KEY: ${FILUFLOW_API_KEY:?FILUFLOW_API_KEY setzen}
+      FILUFLOW_API_KEY: ${FILUFLOW_API_KEY:?set FILUFLOW_API_KEY}
       FILUFLOW_ENCRYPTION_KEY: ${FILUFLOW_ENCRYPTION_KEY:-}
       FILUFLOW_WEBHOOK_URL: ${FILUFLOW_WEBHOOK_URL:-http://localhost:5678/}
       FILUFLOW_TIMEZONE: ${FILUFLOW_TIMEZONE:-Europe/Berlin}
       FILUFLOW_PRUNE_DAYS: ${FILUFLOW_PRUNE_DAYS:-14}
       FILUFLOW_CONCURRENCY: ${FILUFLOW_CONCURRENCY:-5}
     volumes:
-      # beschreibbar, damit der Editor der Weboberfläche speichern kann (":ro" = nur lesen)
+      # writable so the web editor can save (":ro" = read-only)
       - ./workflows:/data/workflows
       - ./credentials.json:/data/credentials.json:ro
       - filuflow-data:/data/state

@@ -1,4 +1,4 @@
-// Gemeinsame Umwandlung von n8n-resultData in das Vergleichsformat (wie src/snapshot.ts).
+// Shared conversion of n8n resultData into the comparison format (like src/snapshot.ts).
 export function cleanItem(item) {
   const out = { json: item.json };
   if (item.binary) {
@@ -31,7 +31,7 @@ export function resultDataToSnapshot(resultData) {
     status: resultData.error ? 'error' : 'success',
     lastNodeExecuted: resultData.lastNodeExecuted,
     ...(resultData.error ? { error: resultData.error.message } : {}),
-    // Reihenfolge der Ausführung (executionIndex)
+    // Execution order (executionIndex)
     order: Object.entries(runData)
       .flatMap(([name, runs]) => runs.map((r) => ({ name, i: r.executionIndex })))
       .sort((a, b) => a.i - b.i)
@@ -40,7 +40,7 @@ export function resultDataToSnapshot(resultData) {
   };
 }
 
-/** Eigene Umsetzung des flatted-Formats (n8n speichert Execution-Daten so) */
+/** Own implementation of the flatted format (n8n stores execution data this way) */
 export function flattedParse(text) {
   const input = JSON.parse(text, (_k, v) => (typeof v === 'string' ? new String(v) : v)).map((v) => (v instanceof String ? String(v) : v));
   const revive = (output, parsed) => {

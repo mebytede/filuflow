@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Orakel für die KI-Tools: führt n8n-Code im Container aus und speichert die Ergebnisse in test/oracle/ai-tools.json
-#   - Calculator-Tool (@langchain/community Calculator mit math-expression-evaluator)
-#   - $fromAI-Platzhalter (n8n-workflow extractFromAICalls) und das daraus erzeugte JSON Schema
-#     (generateZodSchema, z.object(...).required(), zod-to-json-schema wie bei den Tools)
+# Oracle for the AI tools: runs n8n code in the container and stores the results in test/oracle/ai-tools.json
+#   - Calculator tool (@langchain/community Calculator with math-expression-evaluator)
+#   - $fromAI placeholders (n8n-workflow extractFromAICalls) and the JSON schema generated from them
+#     (generateZodSchema, z.object(...).required(), zod-to-json-schema as in the tools)
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 N8N_IMAGE="${N8N_IMAGE:-n8nio/n8n:1.123.0}"
@@ -44,4 +44,4 @@ JS
 chmod -R 777 "$WORK"
 docker run --rm -v "$WORK:/data" --entrypoint node "$N8N_IMAGE" /data/run.mjs
 cp "$WORK/out.json" "$ROOT/test/oracle/ai-tools.json"
-echo "geschrieben: test/oracle/ai-tools.json"
+echo "written: test/oracle/ai-tools.json"

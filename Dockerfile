@@ -1,6 +1,6 @@
-# filuflow: Node 22 slim, läuft als Nicht-root-Benutzer "node"
-# Build-Stufe mit dem vollen Image: enthält python3, make und g++ für node-gyp, falls better-sqlite3 kein
-# passendes Prebuild findet (z. B. arm64, neue Node-Version). Gleiches Debian wie node:22-slim, daher kompatibel.
+# filuflow: Node 22 slim, runs as the non-root user "node"
+# Build stage with the full image: contains python3, make and g++ for node-gyp in case better-sqlite3 finds no
+# matching prebuild (e.g. arm64, new Node version). Same Debian as node:22-slim, therefore compatible.
 FROM node:22 AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
@@ -12,12 +12,12 @@ COPY scripts/copy-ui-assets.mjs ./scripts/
 RUN npm run build && npm prune --omit=dev
 
 FROM node:22-slim
-# Python (Native) im Code-Node braucht einen Python-Interpreter: docker build --build-arg WITH_PYTHON=true .
-# Python (Pyodide) läuft ohne, es steckt in node_modules.
+# Python (Native) in the Code node needs a Python interpreter: docker build --build-arg WITH_PYTHON=true .
+# Python (Pyodide) runs without one, it ships in node_modules.
 ARG WITH_PYTHON=false
 RUN if [ "$WITH_PYTHON" = "true" ]; then apt-get update && apt-get install -y --no-install-recommends python3 && rm -rf /var/lib/apt/lists/*; fi
-# credentials.json und vars.json sind optional und liegen im Arbeitsverzeichnis /data
-# (FILUFLOW_CREDENTIALS bzw. FILUFLOW_VARS würden die Datei verpflichtend machen)
+# credentials.json and vars.json are optional and live in the working directory /data
+# (FILUFLOW_CREDENTIALS or FILUFLOW_VARS would make the respective file mandatory)
 ENV NODE_ENV=production \
     FILUFLOW_DIR=/data/workflows \
     FILUFLOW_DB=/data/filuflow.db \

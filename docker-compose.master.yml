@@ -1,6 +1,6 @@
-# filuflow-Master: Benutzer, Projekte, Mandanten, Worker. Führt selbst keine Workflows aus.
+# filuflow master: users, projects, tenants, workers. Does not execute workflows itself.
 #   FILUFLOW_ENCRYPTION_KEY=... FILUFLOW_PUBLIC_URL=https://filuflow.example docker compose -f docker-compose.master.yml up -d
-# Beim ersten Start steht das Einrichtungs-Token im Log (docker compose logs), alternativ FILUFLOW_ADMIN_EMAIL/-PASSWORD setzen.
+# On first start the setup token is printed to the log (docker compose logs); alternatively set FILUFLOW_ADMIN_EMAIL/-PASSWORD.
 services:
   master:
     build: .
@@ -10,9 +10,9 @@ services:
       - "5679:5679"
     environment:
       FILUFLOW_PORT: "5679"
-      FILUFLOW_ENCRYPTION_KEY: ${FILUFLOW_ENCRYPTION_KEY:?FILUFLOW_ENCRYPTION_KEY setzen (mindestens 16 Zeichen, gut aufbewahren)}
+      FILUFLOW_ENCRYPTION_KEY: ${FILUFLOW_ENCRYPTION_KEY:?set FILUFLOW_ENCRYPTION_KEY (at least 16 characters, keep it safe)}
       FILUFLOW_PUBLIC_URL: ${FILUFLOW_PUBLIC_URL:-http://localhost:5679}
-      # hinter einem Reverse Proxy mit HTTPS:
+      # behind a reverse proxy with HTTPS:
       FILUFLOW_TRUST_PROXY: ${FILUFLOW_TRUST_PROXY:-false}
       FILUFLOW_ADMIN_EMAIL: ${FILUFLOW_ADMIN_EMAIL:-}
       FILUFLOW_ADMIN_PASSWORD: ${FILUFLOW_ADMIN_PASSWORD:-}

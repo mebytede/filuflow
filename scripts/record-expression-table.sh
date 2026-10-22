@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Erzeugt test/oracle/expression-table.json.gz: Ergebnisse von n8n Expression.getParameterValue
-# (n8n-workflow aus dem gepinnten Image) für alle Fälle aus scripts/oracle-cases.mjs (extensionCases).
+# Generates test/oracle/expression-table.json.gz: results of n8n Expression.getParameterValue
+# (n8n-workflow from the pinned image) for all cases from scripts/oracle-cases.mjs (extensionCases).
 set -euo pipefail
 N8N_IMAGE="${N8N_IMAGE:-n8nio/n8n:1.123.0}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -52,5 +52,5 @@ const fs=require('fs');
 const { cases, data } = JSON.parse(fs.readFileSync('$WORK/cases.json','utf8'));
 const results=JSON.parse(fs.readFileSync('$WORK/results.json','utf8'));
 fs.writeFileSync('$ROOT/test/oracle/expression-table.json.gz', require('zlib').gzipSync(JSON.stringify({ data, cases: cases.map((c,i)=>({ tpl: c, expected: results[i] })) }), { level: 9 }));
-console.log('Fälle:', cases.length);
+console.log('Cases:', cases.length);
 "

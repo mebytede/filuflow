@@ -48,16 +48,16 @@ Requirement: Node.js 22.
 ```bash
 npm install
 npm run build
-FILUFLOW_API_KEY=geheim npx filuflow serve --dir ./workflows
+FILUFLOW_API_KEY=secret npx filuflow serve --dir ./workflows
 ```
 
-Then open `http://localhost:5678/` and log in with the API key `geheim`. Workflows are stored as JSON files in `./workflows`;
+Then open `http://localhost:5678/` and log in with the API key `secret`. Workflows are stored as JSON files in `./workflows`;
 new workflows can be created in the editor or dropped in as a file (the server reloads changes automatically).
 
 With Docker:
 
 ```bash
-FILUFLOW_API_KEY=geheim docker compose up -d --build
+FILUFLOW_API_KEY=secret docker compose up -d --build
 ```
 
 ## Web interface
@@ -111,7 +111,7 @@ FILUFLOW_API_KEY=geheim docker compose up -d --build
 ## Server and API
 
 ```bash
-FILUFLOW_API_KEY=geheim filuflow serve --dir ./workflows --port 5678 --db ./filuflow.db
+FILUFLOW_API_KEY=secret filuflow serve --dir ./workflows --port 5678 --db ./filuflow.db
 ```
 
 - Loads all `*.json` from `--dir` and reloads on changes. Active workflows register webhooks (`/webhook/<path>`) and
@@ -150,13 +150,13 @@ FILUFLOW_API_KEY=geheim filuflow serve --dir ./workflows --port 5678 --db ./filu
 
 ```bash
 mkdir -p /tmp/fl/workflows && cp fixtures/08-webhook-respond/workflow.json /tmp/fl/workflows/
-cd /tmp/fl && FILUFLOW_API_KEY=geheim filuflow serve --port 5690 --dir workflows &
+cd /tmp/fl && FILUFLOW_API_KEY=secret filuflow serve --port 5690 --dir workflows &
 
 curl -i -X POST 'http://localhost:5690/webhook/fl-fixture-08?n=3' -H 'content-type: application/json' -d '{"name":"Ada"}'
 # HTTP/1.1 201 Created
 # {"gruss":"Hallo Ada","anzahl":6,"tags":null}
 
-curl -s -H 'X-API-Key: geheim' 'http://localhost:5690/api/executions?limit=5'
+curl -s -H 'X-API-Key: secret' 'http://localhost:5690/api/executions?limit=5'
 filuflow executions list --db /tmp/fl/filuflow.db
 ```
 
@@ -387,13 +387,13 @@ function:
 ```js
 export default (api) => ({
   nodes: [{
-    type: 'firma.begruessung', displayName: 'Begrüßung', versions: [1],
+    type: 'acme.greeting', displayName: 'Greeting', versions: [1],
     parameters: [{ name: 'name', label: 'Name', type: 'string', default: '' }],
     async execute(ctx) {
-      return [ctx.items.map((item, i) => ({ json: { ...item.json, gruss: `Hallo ${ctx.getParam('name', i, '')}` } }))];
+      return [ctx.items.map((item, i) => ({ json: { ...item.json, greeting: `Hello ${ctx.getParam('name', i, '')}` } }))];
     },
   }],
-  credentialTypes: [{ name: 'firmaApi', label: 'Firma', description: '', fields: [{ name: 'token', label: 'Token', kind: 'password' }] }],
+  credentialTypes: [{ name: 'acmeApi', label: 'Acme', description: '', fields: [{ name: 'token', label: 'Token', kind: 'password' }] }],
 });
 ```
 
@@ -447,7 +447,7 @@ remains unaffected.
 
 ```bash
 FILUFLOW_API_KEY=<long-random-value> FILUFLOW_ENCRYPTION_KEY=<key> \
-FILUFLOW_WEBHOOK_URL=https://flows.kunde.example/ filuflow worker --dir ./workflows --port 5678
+FILUFLOW_WEBHOOK_URL=https://flows.customer.example/ filuflow worker --dir ./workflows --port 5678
 ```
 
 - `FILUFLOW_API_KEY` (at least 16 characters) is the token that the master enters for the worker.
@@ -565,7 +565,7 @@ build it yourself:
 
 ```bash
 docker build -t filuflow .                                   # with Python (Native): --build-arg WITH_PYTHON=true
-docker run -p 5678:5678 -e FILUFLOW_API_KEY=geheim -v "$PWD/data:/data" filuflow
+docker run -p 5678:5678 -e FILUFLOW_API_KEY=secret -v "$PWD/data:/data" filuflow
 ```
 
 For operation on a network, put a reverse proxy with HTTPS in front. Workers should be reachable via HTTPS or a VPN.

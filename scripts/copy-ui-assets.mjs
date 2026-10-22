@@ -1,4 +1,4 @@
-// Kopiert die statischen Dateien der Weboberfläche (HTML, CSS, Icons) nach dist/ui.
+// Copies the static files of the web interface (HTML, CSS, icons) to dist/ui.
 import { cpSync, mkdirSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';

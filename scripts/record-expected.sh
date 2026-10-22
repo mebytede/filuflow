@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# Erzeugt fixtures/<name>/expected.json mit echtem n8n (Docker).
+# Generates fixtures/<name>/expected.json with real n8n (Docker).
 #
-#   scripts/record-expected.sh            # alle Fixtures ohne expected.json
-#   scripts/record-expected.sh --all      # alle Fixtures neu
+#   scripts/record-expected.sh            # all fixtures without expected.json
+#   scripts/record-expected.sh --all      # re-record all fixtures
 #   scripts/record-expected.sh 01-linear 05-loop
 #
-# Ablauf je Lauf: ein Container mit n8n (Version gepinnt), alle Workflows werden mit
-# `n8n import:workflow` importiert und mit `n8n execute --id=<id> --rawOutput` ausgeführt.
-# HTTP-Fixtures nutzen den Mock-Server (scripts/mock-server.mjs) auf 127.0.0.1:18089,
-# daher läuft der Container mit --network host.
-# Webhook-Fixtures (Datei webhook.json) werden über `n8n start` + HTTP-Request aufgezeichnet.
+# Per run: one container with n8n (pinned version); all workflows are imported with
+# `n8n import:workflow` and executed with `n8n execute --id=<id> --rawOutput`.
+# HTTP fixtures use the mock server (scripts/mock-server.mjs) on 127.0.0.1:18089,
+# so the container runs with --network host.
+# Webhook fixtures (file webhook.json) are recorded via `n8n start` + HTTP request.
 set -euo pipefail
 
-N8N_IMAGE="${N8N_IMAGE:-n8nio/n8n:1.123.0}"   # docker.n8n.io/n8nio/n8n:1.123.0 ist identisch
+N8N_IMAGE="${N8N_IMAGE:-n8nio/n8n:1.123.0}"   # docker.n8n.io/n8nio/n8n:1.123.0 is identical
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 FIXTURES="$ROOT/fixtures"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/filuflow-record.XXXXXX")"
@@ -20,7 +20,7 @@ chmod 777 "$WORK"
 trap 'rm -rf "$WORK"; [[ -n "${MOCK_PID:-}" ]] && kill "$MOCK_PID" 2>/dev/null || true' EXIT
 
 if ! command -v docker >/dev/null || ! docker info >/dev/null 2>&1; then
-  echo "Docker ist nicht verfügbar. expected.json bitte von Hand erzeugen (siehe docs/STATUS.md)." >&2
+  echo "Docker is not available. Please create expected.json by hand (see docs/STATUS.md)." >&2
   exit 2
 fi
 
@@ -37,9 +37,9 @@ if [[ ${#NAMES[@]} -eq 0 ]]; then
     if [[ $ALL -eq 1 || ! -f "$d/expected.json" ]]; then NAMES+=("$name"); fi
   done
 fi
-[[ ${#NAMES[@]} -eq 0 ]] && { echo "Nichts zu tun."; exit 0; }
+[[ ${#NAMES[@]} -eq 0 ]] && { echo "Nothing to do."; exit 0; }
 
-# Mock-Server für HTTP-Fixtures
+# Mock server for HTTP fixtures
 MOCK_LOG="$WORK/requests.jsonl" MOCK_UNMATCHED="$WORK/unmatched.jsonl" node "$ROOT/scripts/mock-server.mjs" "$FIXTURES" 18089 > "$WORK/mock.log" 2>&1 &
 MOCK_PID=$!
 sleep 1
@@ -55,7 +55,7 @@ for name in "${NAMES[@]}"; do
   if [[ -f "$FIXTURES/$name/webhook.json" ]]; then WEBHOOK+=("$name"); else BATCH+=("$name"); fi
 done
 
-prepare() { # name -> schreibt $WORK/<name>.json mit ID und versionId, gibt ID aus
+prepare() { # name -> writes $WORK/<name>.json with ID and versionId, prints the ID
   local name="$1"
   node -e '
     const fs = require("fs"); const crypto = require("crypto");
@@ -75,7 +75,7 @@ if [[ ${#BATCH[@]} -gt 0 ]]; then
   for name in "${BATCH[@]}"; do
     if [[ -f "$FIXTURES/$name/credentials.json" ]]; then
       node "$ROOT/scripts/credentials-to-n8n.mjs" "$FIXTURES/$name/credentials.json" "$WORK/$name.credentials.json"
-      echo "n8n import:credentials --input=/data/$name.credentials.json >/dev/null 2>&1 || echo 'Credential-Import fehlgeschlagen: $name'" >> "$SCRIPT"
+      echo "n8n import:credentials --input=/data/$name.credentials.json >/dev/null 2>&1 || echo 'Credential import failed: $name'" >> "$SCRIPT"
     fi
     if [[ -d "$FIXTURES/$name/sub" ]]; then
       for sub in "$FIXTURES/$name/sub"/*.json; do
@@ -86,19 +86,19 @@ if [[ ${#BATCH[@]} -gt 0 ]]; then
           wf.versionId = crypto.randomUUID(); wf.active = false;
           fs.writeFileSync(process.argv[2], JSON.stringify(wf));
         ' "$sub" "$WORK/$subname.json"
-        echo "n8n import:workflow --input=/data/$subname.json >/dev/null 2>&1 || echo 'Import fehlgeschlagen: $subname'" >> "$SCRIPT"
+        echo "n8n import:workflow --input=/data/$subname.json >/dev/null 2>&1 || echo 'Import failed: $subname'" >> "$SCRIPT"
       done
     fi
     id="$(prepare "$name")"
-    echo "n8n import:workflow --input=/data/$name.json >/dev/null 2>&1 || echo 'Import fehlgeschlagen: $name'" >> "$SCRIPT"
+    echo "n8n import:workflow --input=/data/$name.json >/dev/null 2>&1 || echo 'Import failed: $name'" >> "$SCRIPT"
     echo "n8n execute --id=$id --rawOutput > /data/$name.out 2>&1 || true" >> "$SCRIPT"
   done
-  echo "Führe ${#BATCH[@]} Workflow(s) in $N8N_IMAGE aus ..."
+  echo "Running ${#BATCH[@]} workflow(s) in $N8N_IMAGE ..."
   docker run --rm --network host -v "$WORK:/data" "${ENV_ARGS[@]}" --entrypoint sh "$N8N_IMAGE" /data/run.sh
   for name in "${BATCH[@]}"; do
     node "$ROOT/scripts/extract-expected.mjs" "$WORK/$name.out" "$FIXTURES/$name/expected.json" || {
-      echo "Fehler beim Auswerten von $name:"; tail -40 "$WORK/$name.out"; exit 1; }
-    # Mitgeschriebene Requests (Mocks mit "log": true) je Fixture
+      echo "Error while evaluating $name:"; tail -40 "$WORK/$name.out"; exit 1; }
+    # Recorded requests (mocks with "log": true) per fixture
     if [[ -f "$WORK/requests.jsonl" ]] && grep -q "\"fixture\":\"$name\"" "$WORK/requests.jsonl"; then
       node -e '
         const fs = require("fs"); const [file, name, out] = process.argv.slice(1);
@@ -111,7 +111,7 @@ if [[ ${#BATCH[@]} -gt 0 ]]; then
 fi
 
 if [[ -s "$WORK/unmatched.jsonl" ]]; then
-  echo "Anfragen ohne passenden Mock:" >&2
+  echo "Requests without a matching mock:" >&2
   cut -c1-3000 "$WORK/unmatched.jsonl" >&2
 fi
 

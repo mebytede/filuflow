@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Orakel für KI-Hilfsfunktionen: führt n8n-Code (n8n-nodes-langchain) im Container aus und speichert
-# die Ergebnisse in test/oracle/ai-table.json.gz (Schema aus Beispiel, Format-Anweisungen, Parser-Ergebnisse).
+# Oracle for AI helper functions: runs n8n code (n8n-nodes-langchain) in the container and stores
+# the results in test/oracle/ai-table.json.gz (schema from example, format instructions, parser results).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 N8N_IMAGE="${N8N_IMAGE:-n8nio/n8n:1.123.0}"
@@ -63,4 +63,4 @@ JS
 chmod -R 777 "$WORK"
 docker run --rm -v "$WORK:/data" --entrypoint node "$N8N_IMAGE" /data/run.js
 gzip -c "$WORK/out.json" > "$ROOT/test/oracle/ai-table.json.gz"
-echo "geschrieben: test/oracle/ai-table.json.gz"
+echo "written: test/oracle/ai-table.json.gz"
