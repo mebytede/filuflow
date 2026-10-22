@@ -1,6 +1,6 @@
-// Formulare (M17): Form Trigger unter /form/<Pfad> wie n8n (Felder field-N, Ausgabe nach Label, Zahlen, Auswahl,
-// Dateien, submittedAt, formMode, formQueryParameters), Antwortmodi, Basic Auth, mehrseitige Formulare mit Form-Knoten
-// und Abschlussseite, Wait "On Form Submitted", Bereinigung von HTML.
+// Forms (M17): Form Trigger under /form/<path> like n8n (fields field-N, output by label, numbers, choices,
+// files, submittedAt, formMode, formQueryParameters), response modes, Basic Auth, multi-page forms with Form nodes
+// and completion page, Wait "On Form Submitted", HTML sanitizing.
 import { afterEach, describe, expect, it } from 'vitest';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -21,20 +21,20 @@ afterEach(async () => {
 
 const fields = [
   { fieldLabel: 'Name', requiredField: true },
-  { fieldLabel: 'Alter', fieldType: 'number' },
-  { fieldLabel: 'Themen', fieldType: 'checkbox', fieldOptions: { values: [{ option: 'A' }, { option: 'B' }, { option: 'C' }] } },
-  { fieldLabel: 'Größe', fieldType: 'radio', fieldOptions: { values: [{ option: 'S' }, { option: 'M' }] } },
-  { fieldLabel: 'Land', fieldType: 'dropdown', fieldOptions: { values: [{ option: 'DE' }, { option: 'AT' }] } },
-  { fieldLabel: 'Anhang', fieldType: 'file', multipleFiles: false },
-  { fieldLabel: 'Leer' },
+  { fieldLabel: 'Age', fieldType: 'number' },
+  { fieldLabel: 'Topics', fieldType: 'checkbox', fieldOptions: { values: [{ option: 'A' }, { option: 'B' }, { option: 'C' }] } },
+  { fieldLabel: 'Size', fieldType: 'radio', fieldOptions: { values: [{ option: 'S' }, { option: 'M' }] } },
+  { fieldLabel: 'Country', fieldType: 'dropdown', fieldOptions: { values: [{ option: 'DE' }, { option: 'AT' }] } },
+  { fieldLabel: 'Attachment', fieldType: 'file', multipleFiles: false },
+  { fieldLabel: 'Empty' },
 ];
 
 function trigger(parameters: Record<string, unknown>, extra: Partial<WorkflowNode> = {}): WorkflowNode {
-  return { id: 't', name: 'Formular', type: 'n8n-nodes-base.formTrigger', typeVersion: 2.3, position: [0, 0], webhookId: 'f-1', parameters: { formTitle: 'Anmeldung', formFields: { values: fields }, options: {}, ...parameters }, ...extra };
+  return { id: 't', name: 'Form', type: 'n8n-nodes-base.formTrigger', typeVersion: 2.3, position: [0, 0], webhookId: 'f-1', parameters: { formTitle: 'Registration', formFields: { values: fields }, options: {}, ...parameters }, ...extra };
 }
 
 function workflow(nodes: WorkflowNode[], connections: Workflow['connections'] = {}): Workflow {
-  return { id: 'form', name: 'Formular-Workflow', active: true, settings: { executionOrder: 'v1', timezone: 'Europe/Berlin' }, nodes, connections };
+  return { id: 'form', name: 'Form workflow', active: true, settings: { executionOrder: 'v1', timezone: 'Europe/Berlin' }, nodes, connections };
 }
 
 async function start(wf: Workflow, credentials?: StaticCredentialProvider): Promise<FiluflowServer> {
@@ -63,62 +63,62 @@ async function submit(s: FiluflowServer, url: string, entries: Array<[string, st
 const until = async (check: () => boolean, ms = 3000) => {
   const end = Date.now() + ms;
   while (!check()) {
-    if (Date.now() > end) throw new Error('Zeitüberschreitung');
+    if (Date.now() > end) throw new Error('Timeout');
     await new Promise((r) => setTimeout(r, 20));
   }
 };
 
 describe('Form Trigger', () => {
-  it('zeigt das Formular und liefert die Eingaben wie n8n', async () => {
-    const s = await start(workflow([trigger({ formDescription: 'Bitte <b>alles</b> ausfüllen<script>alert(1)</script>' })]));
+  it('shows the form and returns the input like n8n', async () => {
+    const s = await start(workflow([trigger({ formDescription: 'Please fill in <b>everything</b><script>alert(1)</script>' })]));
     const page = await s.app.inject({ method: 'GET', url: '/form/f-1?Name=Ada' });
     expect(page.statusCode).toBe(200);
     expect(page.headers['content-security-policy']).toContain("script-src 'none'");
-    expect(page.body).toContain('<h1 class="form-title">Anmeldung</h1>');
-    expect(page.body).toContain('Bitte <b>alles</b> ausfüllen');
+    expect(page.body).toContain('<h1 class="form-title">Registration</h1>');
+    expect(page.body).toContain('Please fill in <b>everything</b>');
     expect(page.body).not.toContain('<script');
     expect(page.body).toContain('name="field-0" value="Ada"');
     expect(page.body).toContain('enctype="multipart/form-data"');
 
-    const res = await submit(s, '/form/f-1?quelle=web', [
+    const res = await submit(s, '/form/f-1?source=web', [
       ['field-0', '  Ada  '],
       ['field-1', '36'],
       ['field-2', 'A'],
       ['field-2', 'C'],
       ['field-3', 'M'],
       ['field-4', 'AT'],
-      ['field-5', new Blob(['hallo'], { type: 'text/plain' }), 'notiz.txt'],
+      ['field-5', new Blob(['hello'], { type: 'text/plain' }), 'note.txt'],
     ]);
     expect(res.statusCode).toBe(200);
     expect(res.body).toContain('Your response has been recorded');
     await until(() => s.store.list({ limit: 1 })[0]?.status === 'success');
     const e = s.store.get(s.store.list({ limit: 1 })[0].id)!;
-    const item = e.runData!.Formular[0].data.main![0]![0];
+    const item = e.runData!.Form[0].data.main![0]![0];
     expect(item.json).toMatchObject({
       Name: 'Ada',
-      Alter: 36,
-      Themen: ['A', 'C'],
-      Größe: 'M',
-      Land: 'AT',
-      Anhang: { filename: 'notiz.txt', mimetype: 'text/plain', size: 5 },
-      Leer: null,
+      Age: 36,
+      Topics: ['A', 'C'],
+      Size: 'M',
+      Country: 'AT',
+      Attachment: { filename: 'note.txt', mimetype: 'text/plain', size: 5 },
+      Empty: null,
       formMode: 'production',
-      formQueryParameters: { quelle: 'web' },
+      formQueryParameters: { source: 'web' },
     });
     expect(String(item.json.submittedAt)).toMatch(/\+0[12]:00$/);
-    expect(item.binary?.Anhang).toMatchObject({ fileName: 'notiz.txt', mimeType: 'text/plain' });
+    expect(item.binary?.Attachment).toMatchObject({ fileName: 'note.txt', mimeType: 'text/plain' });
   });
 
-  it('Antwort: eigener Text, Weiterleitung, nach dem Ende (lastNode)', async () => {
-    const text = await start(workflow([trigger({ options: { respondWithOptions: { values: { respondWith: 'text', formSubmittedText: 'Danke!' } } } })]));
-    expect((await submit(text, '/form/f-1', [['field-0', 'x']])).body).toContain('Danke!');
+  it('response: custom text, redirect, after the end (lastNode)', async () => {
+    const text = await start(workflow([trigger({ options: { respondWithOptions: { values: { respondWith: 'text', formSubmittedText: 'Thanks!' } } } })]));
+    expect((await submit(text, '/form/f-1', [['field-0', 'x']])).body).toContain('Thanks!');
     await text.close();
     rmSync(dir!, { recursive: true, force: true });
     server = undefined;
-    const redirect = await start(workflow([trigger({ options: { respondWithOptions: { values: { respondWith: 'redirect', redirectUrl: 'example.com/danke' } } } })]));
+    const redirect = await start(workflow([trigger({ options: { respondWithOptions: { values: { respondWith: 'redirect', redirectUrl: 'example.com/thanks' } } } })]));
     const r = await submit(redirect, '/form/f-1', [['field-0', 'x']]);
     expect(r.statusCode).toBe(303);
-    expect(r.headers.location).toBe('http://example.com/danke');
+    expect(r.headers.location).toBe('http://example.com/thanks');
     await redirect.close();
     rmSync(dir!, { recursive: true, force: true });
     server = undefined;
@@ -128,42 +128,42 @@ describe('Form Trigger', () => {
     expect(last.store.list({ limit: 1 })[0].status).toBe('success');
   });
 
-  it('Basic Auth, Pflicht-Checkboxen, Respond-Knoten ab v2.2 abgelehnt, Test-URL', async () => {
-    const credentials = new StaticCredentialProvider([{ name: 'Zugang', type: 'httpBasicAuth', data: { user: 'ada', password: 'geheim' } }]);
+  it('Basic Auth, required checkboxes, Respond node rejected from v2.2, test URL', async () => {
+    const credentials = new StaticCredentialProvider([{ name: 'Access', type: 'httpBasicAuth', data: { user: 'ada', password: 'secret' } }]);
     const s = await start(
-      workflow([trigger({ authentication: 'basicAuth', formFields: { values: [{ fieldLabel: 'Wahl', fieldType: 'checkbox', requiredField: true, fieldOptions: { values: [{ option: 'A' }] } }] } }, { credentials: { httpBasicAuth: { id: null, name: 'Zugang' } } })]),
+      workflow([trigger({ authentication: 'basicAuth', formFields: { values: [{ fieldLabel: 'Choice', fieldType: 'checkbox', requiredField: true, fieldOptions: { values: [{ option: 'A' }] } }] } }, { credentials: { httpBasicAuth: { id: null, name: 'Access' } } })]),
       credentials,
     );
     const denied = await s.app.inject({ method: 'GET', url: '/form/f-1' });
     expect(denied.statusCode).toBe(401);
     expect(denied.headers['www-authenticate']).toBe('Basic realm="Enter credentials"');
-    const auth = { authorization: `Basic ${Buffer.from('ada:geheim').toString('base64')}` };
-    expect((await s.app.inject({ method: 'GET', url: '/form-test/f-1', headers: auth })).body).toContain('Testmodus');
+    const auth = { authorization: `Basic ${Buffer.from('ada:secret').toString('base64')}` };
+    expect((await s.app.inject({ method: 'GET', url: '/form-test/f-1', headers: auth })).body).toContain('Test mode');
     const missing = await submit(s, '/form/f-1', [], auth);
     expect(missing.statusCode).toBe(400);
-    expect(missing.body).toContain('Pflichtfeld');
+    expect(missing.body).toContain('is a required field');
     await s.close();
     rmSync(dir!, { recursive: true, force: true });
     server = undefined;
     const respond = await start(
       workflow(
         [trigger({}), { id: 'r', name: 'Respond', type: 'n8n-nodes-base.respondToWebhook', typeVersion: 1.1, position: [200, 0], parameters: { options: {} } }],
-        { Formular: { main: [[{ node: 'Respond', type: 'main', index: 0 }]] } },
+        { Form: { main: [[{ node: 'Respond', type: 'main', index: 0 }]] } },
       ),
     );
     expect((await respond.app.inject({ method: 'GET', url: '/form/f-1' })).body).toContain('is not supported in workflows initiated by the');
   });
 });
 
-describe('Mehrseitige Formulare', () => {
-  it('Form Trigger, weitere Seite, Abschlussseite', async () => {
+describe('Multi-page forms', () => {
+  it('Form Trigger, further page, completion page', async () => {
     const wf = workflow(
       [
         trigger({ formFields: { values: [{ fieldLabel: 'Name' }] } }),
-        { id: 'p', name: 'Seite 2', type: 'n8n-nodes-base.form', typeVersion: 2.3, position: [200, 0], parameters: { operation: 'page', formFields: { values: [{ fieldLabel: 'Stadt' }] }, options: { formTitle: 'Wohnort' } } },
-        { id: 'c', name: 'Ende', type: 'n8n-nodes-base.form', typeVersion: 2.3, position: [400, 0], parameters: { operation: 'completion', completionTitle: 'Fertig', completionMessage: "={{ 'Danke ' + $('Formular').first().json.Name }}" } },
+        { id: 'p', name: 'Page 2', type: 'n8n-nodes-base.form', typeVersion: 2.3, position: [200, 0], parameters: { operation: 'page', formFields: { values: [{ fieldLabel: 'City' }] }, options: { formTitle: 'Residence' } } },
+        { id: 'c', name: 'End', type: 'n8n-nodes-base.form', typeVersion: 2.3, position: [400, 0], parameters: { operation: 'completion', completionTitle: 'Done', completionMessage: "={{ 'Thanks ' + $('Form').first().json.Name }}" } },
       ],
-      { Formular: { main: [[{ node: 'Seite 2', type: 'main', index: 0 }]] }, 'Seite 2': { main: [[{ node: 'Ende', type: 'main', index: 0 }]] } },
+      { Form: { main: [[{ node: 'Page 2', type: 'main', index: 0 }]] }, 'Page 2': { main: [[{ node: 'End', type: 'main', index: 0 }]] } },
     );
     const s = await start(wf);
     const first = await submit(s, '/form/f-1', [['field-0', 'Ada']]);
@@ -174,7 +174,7 @@ describe('Mehrseitige Formulare', () => {
     expect((await s.app.inject({ method: 'GET', url: `/form-waiting/${id}/n8n-execution-status` })).body).toBe('form-waiting');
 
     const second = await s.app.inject({ method: 'GET', url: `/form-waiting/${id}` });
-    expect(second.body).toContain('<h1 class="form-title">Wohnort</h1>');
+    expect(second.body).toContain('<h1 class="form-title">Residence</h1>');
     expect(second.body).toContain('name="field-0"');
     const posted = await submit(s, `/form-waiting/${id}`, [['field-0', 'Berlin']]);
     expect(posted.statusCode).toBe(303);
@@ -182,39 +182,39 @@ describe('Mehrseitige Formulare', () => {
     await until(() => s.store.get(id, false)?.status === 'waiting');
 
     const done = await s.app.inject({ method: 'GET', url: `/form-waiting/${id}` });
-    expect(done.body).toContain('Fertig');
+    expect(done.body).toContain('Done');
     await until(() => s.store.get(id, false)?.status === 'success');
     const e = s.store.get(id)!;
-    expect(e.runData!['Seite 2'][0].data.main![0]![0].json).toMatchObject({ Stadt: 'Berlin', formMode: 'production' });
-    // Nach dem Ende zeigt die Seite weiter den Abschluss
-    expect((await s.app.inject({ method: 'GET', url: `/form-waiting/${id}` })).body).toContain('Fertig');
+    expect(e.runData!['Page 2'][0].data.main![0]![0].json).toMatchObject({ City: 'Berlin', formMode: 'production' });
+    // After the end the page keeps showing the completion
+    expect((await s.app.inject({ method: 'GET', url: `/form-waiting/${id}` })).body).toContain('Done');
   });
 
-  it('Wait "On Form Submitted" nach dem Form Trigger', async () => {
+  it('Wait "On Form Submitted" after the Form Trigger', async () => {
     const wf = workflow(
       [
         trigger({ formFields: { values: [{ fieldLabel: 'Name' }] } }),
-        { id: 'w', name: 'Freigabe', type: 'n8n-nodes-base.wait', typeVersion: 1.1, position: [200, 0], webhookId: 'w-1', parameters: { resume: 'form', formTitle: 'Freigabe', formFields: { values: [{ fieldLabel: 'OK', fieldType: 'dropdown', fieldOptions: { values: [{ option: 'ja' }, { option: 'nein' }] } }] }, options: {} } },
+        { id: 'w', name: 'Approval', type: 'n8n-nodes-base.wait', typeVersion: 1.1, position: [200, 0], webhookId: 'w-1', parameters: { resume: 'form', formTitle: 'Approval', formFields: { values: [{ fieldLabel: 'OK', fieldType: 'dropdown', fieldOptions: { values: [{ option: 'yes' }, { option: 'no' }] } }] }, options: {} } },
       ],
-      { Formular: { main: [[{ node: 'Freigabe', type: 'main', index: 0 }]] } },
+      { Form: { main: [[{ node: 'Approval', type: 'main', index: 0 }]] } },
     );
     const s = await start(wf);
     const first = await submit(s, '/form/f-1', [['field-0', 'Ada']]);
     expect(first.statusCode).toBe(303);
     const id = s.store.list({ limit: 1 })[0].id;
     await until(() => s.store.get(id, false)?.status === 'waiting');
-    expect((await s.app.inject({ method: 'GET', url: `/form-waiting/${id}` })).body).toContain('<option value="ja">');
-    const posted = await submit(s, `/form-waiting/${id}`, [['field-0', 'ja']]);
+    expect((await s.app.inject({ method: 'GET', url: `/form-waiting/${id}` })).body).toContain('<option value="yes">');
+    const posted = await submit(s, `/form-waiting/${id}`, [['field-0', 'yes']]);
     expect(posted.statusCode).toBe(303);
     expect(posted.headers.location).toBe(`/form-waiting/${id}`);
     await until(() => s.store.get(id, false)?.status === 'success');
-    expect(s.store.get(id)!.runData!.Freigabe[0].data.main![0]![0].json).toMatchObject({ OK: 'ja' });
+    expect(s.store.get(id)!.runData!.Approval[0].data.main![0]![0].json).toMatchObject({ OK: 'yes' });
     expect((await s.app.inject({ method: 'GET', url: `/form-waiting/${id}` })).body).toContain('Your response has been recorded');
   });
 });
 
-describe('HTML-Bereinigung', () => {
-  it('lässt nur erlaubte Tags und http(s)-Links zu', () => {
+describe('HTML sanitizing', () => {
+  it('allows only permitted tags and http(s) links', () => {
     expect(sanitizeHtml('<p onclick="x()">Hi <a href="javascript:alert(1)">a</a> <a href="https://e.de" target="_blank">b</a></p><style>x{}</style><img src="data:x">'))
       .toBe('<p>Hi <a>a</a> <a href="https://e.de" target="_blank">b</a></p><img>');
     expect(sanitizeHtml('<iframe src="https://e.de/v"></iframe>')).toBe('<iframe src="https://e.de/v" sandbox="" referrerpolicy="strict-origin-when-cross-origin"></iframe>');

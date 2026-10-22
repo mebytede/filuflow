@@ -1,5 +1,5 @@
-// Credentials über die REST-API im Einzelbetrieb (M11): Anlegen, Einzelansicht ohne Geheimnisse, Bearbeiten mit
-// "keep", Umbenennen mit gleicher ID, geschützte Einträge aus credentials.json, Verwendung, Pflichtfelder, Löschen.
+// Credentials via the REST API in single mode (M11): create, detail view without secrets, edit with "keep", rename
+// with the same ID, protected entries from credentials.json, usage, required fields, delete.
 import { afterEach, describe, expect, it } from 'vitest';
 import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -10,7 +10,7 @@ import { LayeredCredentialProvider } from '../src/credentials/managed.js';
 import { credentialType, isFieldVisible, isSecretField, redactCredentialData } from '../src/credentials/types.js';
 import type { Workflow } from '../src/types.js';
 
-const KEY = 'credentials-api-schluessel';
+const KEY = 'credentials-api-key';
 let server: FiluflowServer | undefined;
 let dir: string | undefined;
 const savedKey = process.env.FILUFLOW_ENCRYPTION_KEY;
@@ -25,7 +25,7 @@ afterEach(async () => {
 
 const withCredential: Workflow = {
   id: 'hook',
-  name: 'Kunden-Hook',
+  name: 'Customer Hook',
   active: true,
   settings: { executionOrder: 'v1' },
   nodes: [
@@ -36,8 +36,8 @@ const withCredential: Workflow = {
       typeVersion: 2,
       position: [0, 0],
       webhookId: 'h1',
-      parameters: { path: 'kunde', httpMethod: 'POST', authentication: 'headerAuth', options: {} },
-      credentials: { httpHeaderAuth: { id: null, name: 'Kunden-API' } },
+      parameters: { path: 'customer', httpMethod: 'POST', authentication: 'headerAuth', options: {} },
+      credentials: { httpHeaderAuth: { id: null, name: 'Customer API' } },
     },
   ],
   connections: {},
@@ -46,7 +46,7 @@ const withCredential: Workflow = {
 async function start(layered = true): Promise<{ s: FiluflowServer; credentials: LayeredCredentialProvider | StaticCredentialProvider }> {
   dir = mkdtempSync(join(tmpdir(), 'filuflow-credapi-'));
   writeFileSync(join(dir, 'hook.json'), JSON.stringify(withCredential));
-  const base = new StaticCredentialProvider([{ name: 'Handgepflegt', type: 'httpBasicAuth', data: { user: 'max', password: 'datei-passwort' } }]);
+  const base = new StaticCredentialProvider([{ name: 'Handwritten', type: 'httpBasicAuth', data: { user: 'max', password: 'file-password' } }]);
   const credentials = layered ? await new LayeredCredentialProvider(base, join(dir, 'credentials.managed.json')).load() : base;
   server = await createServer({ dir, dbFile: ':memory:', apiKey: KEY, webhookBaseUrl: 'http://x/', watch: false, uiDir: false, credentials });
   return { s: server, credentials };
@@ -55,8 +55,8 @@ async function start(layered = true): Promise<{ s: FiluflowServer; credentials: 
 const call = (s: FiluflowServer, method: 'GET' | 'PUT' | 'DELETE', url: string, payload?: unknown) =>
   s.app.inject({ method, url, headers: { 'x-api-key': KEY }, ...(payload !== undefined ? { payload: payload as Record<string, unknown> } : {}) });
 
-describe('Credential-Typen', () => {
-  it('kennt geheime Felder nach Schema und nach Feldnamen', () => {
+describe('Credential types', () => {
+  it('knows secret fields by schema and by field name', () => {
     expect(isSecretField('httpHeaderAuth', 'name')).toBe(false);
     expect(isSecretField('httpHeaderAuth', 'value')).toBe(true);
     expect(isSecretField('httpCustomAuth', 'json')).toBe(true);
@@ -66,7 +66,7 @@ describe('Credential-Typen', () => {
     expect(isSecretField('slackApi', 'workspace')).toBe(false);
   });
 
-  it('wertet displayOptions.show mit Defaults aus', () => {
+  it('evaluates displayOptions.show with defaults', () => {
     const jwt = credentialType('jwtAuth')!;
     const field = (n: string) => jwt.fields.find((f) => f.name === n)!;
     expect(isFieldVisible(jwt, field('secret'), {})).toBe(true);
@@ -78,106 +78,106 @@ describe('Credential-Typen', () => {
     expect(isFieldVisible(oauth, extra, { grantType: 'clientCredentials', authentication: 'body' })).toBe(false);
   });
 
-  it('entfernt geheime Werte aus der Ansicht', () => {
+  it('removes secret values from the view', () => {
     expect(redactCredentialData('openAiApi', { apiKey: 'sk-1', url: 'https://x', headerValue: '' })).toEqual({ data: { url: 'https://x' }, secretsSet: ['apiKey'] });
   });
 });
 
-describe('Credentials-API im Einzelbetrieb', () => {
-  it('legt an, zeigt ohne Geheimnisse, bearbeitet mit keep, benennt um und löscht', async () => {
+describe('Credentials API in single mode', () => {
+  it('creates, shows without secrets, edits with keep, renames and deletes', async () => {
     const { s, credentials } = await start();
     const cred = credentials as LayeredCredentialProvider;
-    // Workflow braucht das Credential noch: ungültig
+    // Workflow still needs the credential: invalid
     expect(s.workflows.get('hook')?.active).toBe(false);
 
-    const created = await call(s, 'PUT', '/api/credentials/Kunden-API', { type: 'httpHeaderAuth', data: { name: 'X-Api-Key', value: 'geheim-wert-123' }, create: true });
+    const created = await call(s, 'PUT', '/api/credentials/Customer API', { type: 'httpHeaderAuth', data: { name: 'X-Api-Key', value: 'secret-value-123' }, create: true });
     expect(created.statusCode).toBe(200);
-    expect(created.json()).toMatchObject({ name: 'Kunden-API', type: 'httpHeaderAuth' });
+    expect(created.json()).toMatchObject({ name: 'Customer API', type: 'httpHeaderAuth' });
     const id = created.json().id as string;
     expect(id).toMatch(/^[A-Za-z0-9]{16}$/);
-    // Workflows werden neu geprüft und aktiviert
+    // Workflows are validated again and activated
     expect(s.workflows.get('hook')?.active).toBe(true);
-    // Anlegen mit vorhandenem Namen ersetzt nicht
-    expect((await call(s, 'PUT', '/api/credentials/Kunden-API', { type: 'httpHeaderAuth', data: { name: 'a', value: 'b' }, create: true })).statusCode).toBe(409);
+    // Creating with an existing name does not replace
+    expect((await call(s, 'PUT', '/api/credentials/Customer API', { type: 'httpHeaderAuth', data: { name: 'a', value: 'b' }, create: true })).statusCode).toBe(409);
 
     const list = (await call(s, 'GET', '/api/credentials')).json();
     expect(list).toMatchObject({ writable: true, encrypted: false });
     expect(list.data).toEqual([
-      { name: 'Handgepflegt', type: 'httpBasicAuth', managed: false, usedBy: [] },
-      { name: 'Kunden-API', id, type: 'httpHeaderAuth', managed: true, usedBy: ['Kunden-Hook'] },
+      { name: 'Handwritten', type: 'httpBasicAuth', managed: false, usedBy: [] },
+      { name: 'Customer API', id, type: 'httpHeaderAuth', managed: true, usedBy: ['Customer Hook'] },
     ]);
 
-    const detail = (await call(s, 'GET', '/api/credentials/Kunden-API')).json();
-    expect(detail).toMatchObject({ name: 'Kunden-API', id, managed: true, data: { name: 'X-Api-Key' }, secretsSet: ['value'] });
-    expect(JSON.stringify(detail)).not.toContain('geheim-wert-123');
-    const fileEntry = (await call(s, 'GET', '/api/credentials/Handgepflegt')).json();
+    const detail = (await call(s, 'GET', '/api/credentials/Customer API')).json();
+    expect(detail).toMatchObject({ name: 'Customer API', id, managed: true, data: { name: 'X-Api-Key' }, secretsSet: ['value'] });
+    expect(JSON.stringify(detail)).not.toContain('secret-value-123');
+    const fileEntry = (await call(s, 'GET', '/api/credentials/Handwritten')).json();
     expect(fileEntry).toMatchObject({ managed: false, data: { user: 'max' }, secretsSet: ['password'] });
-    expect(JSON.stringify(fileEntry)).not.toContain('datei-passwort');
+    expect(JSON.stringify(fileEntry)).not.toContain('file-password');
 
-    // Bearbeiten ohne Geheimnis: keep behält den Wert
-    expect((await call(s, 'PUT', '/api/credentials/Kunden-API', { type: 'httpHeaderAuth', data: { name: 'X-Key' }, keep: ['value'] })).statusCode).toBe(200);
-    expect(cred.find({ name: 'Kunden-API' })?.data).toEqual({ name: 'X-Key', value: 'geheim-wert-123' });
-    // Ohne keep wird ersetzt
-    await call(s, 'PUT', '/api/credentials/Kunden-API', { type: 'httpHeaderAuth', data: { name: 'X-Key', value: 'neu-456789' } });
-    expect(cred.find({ name: 'Kunden-API' })?.data.value).toBe('neu-456789');
-    // Typwechsel: keep greift nicht
-    await call(s, 'PUT', '/api/credentials/Kunden-API', { type: 'httpBearerAuth', data: { token: 't-1234567' }, keep: ['value'] });
-    expect(cred.find({ name: 'Kunden-API' })?.data).toEqual({ token: 't-1234567' });
-    await call(s, 'PUT', '/api/credentials/Kunden-API', { type: 'httpHeaderAuth', data: { name: 'X-Key', value: 'neu-456789' } });
+    // Editing without the secret: keep retains the value
+    expect((await call(s, 'PUT', '/api/credentials/Customer API', { type: 'httpHeaderAuth', data: { name: 'X-Key' }, keep: ['value'] })).statusCode).toBe(200);
+    expect(cred.find({ name: 'Customer API' })?.data).toEqual({ name: 'X-Key', value: 'secret-value-123' });
+    // Without keep the value is replaced
+    await call(s, 'PUT', '/api/credentials/Customer API', { type: 'httpHeaderAuth', data: { name: 'X-Key', value: 'new-456789' } });
+    expect(cred.find({ name: 'Customer API' })?.data.value).toBe('new-456789');
+    // Type change: keep does not apply
+    await call(s, 'PUT', '/api/credentials/Customer API', { type: 'httpBearerAuth', data: { token: 't-1234567' }, keep: ['value'] });
+    expect(cred.find({ name: 'Customer API' })?.data).toEqual({ token: 't-1234567' });
+    await call(s, 'PUT', '/api/credentials/Customer API', { type: 'httpHeaderAuth', data: { name: 'X-Key', value: 'new-456789' } });
 
-    // Umbenennen: ID bleibt, Workflow findet das Credential nicht mehr über den Namen (id ist null)
-    const renamed = await call(s, 'PUT', '/api/credentials/Kunden-API', { type: 'httpHeaderAuth', data: { name: 'X-Key' }, keep: ['value'], rename: 'Kunden-API neu' });
-    expect(renamed.json()).toMatchObject({ name: 'Kunden-API neu', id });
-    expect(cred.find({ name: 'Kunden-API neu' })?.data.value).toBe('neu-456789');
-    expect(cred.find({ name: 'Kunden-API' })).toBeUndefined();
+    // Rename: the ID stays, the workflow no longer finds the credential by name (id is null)
+    const renamed = await call(s, 'PUT', '/api/credentials/Customer API', { type: 'httpHeaderAuth', data: { name: 'X-Key' }, keep: ['value'], rename: 'Customer API new' });
+    expect(renamed.json()).toMatchObject({ name: 'Customer API new', id });
+    expect(cred.find({ name: 'Customer API new' })?.data.value).toBe('new-456789');
+    expect(cred.find({ name: 'Customer API' })).toBeUndefined();
     expect(s.workflows.get('hook')?.active).toBe(false);
-    // Workflows mit gespeicherter ID finden es weiter
-    expect(cred.find({ name: 'Alt', id })?.name).toBe('Kunden-API neu');
-    expect((await call(s, 'PUT', '/api/credentials/Kunden-API neu', { type: 'httpHeaderAuth', data: { name: 'a' }, keep: ['value'], rename: 'Handgepflegt' })).statusCode).toBe(409);
+    // Workflows with a stored ID still find it
+    expect(cred.find({ name: 'Old', id })?.name).toBe('Customer API new');
+    expect((await call(s, 'PUT', '/api/credentials/Customer API new', { type: 'httpHeaderAuth', data: { name: 'a' }, keep: ['value'], rename: 'Handwritten' })).statusCode).toBe(409);
 
-    // Geschützte Einträge aus der Datei
-    expect((await call(s, 'PUT', '/api/credentials/Handgepflegt', { type: 'httpBasicAuth', data: { user: 'x', password: 'y' } })).statusCode).toBe(409);
-    expect((await call(s, 'DELETE', '/api/credentials/Handgepflegt')).statusCode).toBe(404);
+    // Protected entries from the file
+    expect((await call(s, 'PUT', '/api/credentials/Handwritten', { type: 'httpBasicAuth', data: { user: 'x', password: 'y' } })).statusCode).toBe(409);
+    expect((await call(s, 'DELETE', '/api/credentials/Handwritten')).statusCode).toBe(404);
 
-    // Pflichtfelder bekannter Typen
-    const missing = await call(s, 'PUT', '/api/credentials/KI', { type: 'openAiApi', data: { url: 'https://api.openai.com/v1' } });
+    // Required fields of known types
+    const missing = await call(s, 'PUT', '/api/credentials/AI', { type: 'openAiApi', data: { url: 'https://api.openai.com/v1' } });
     expect(missing.statusCode).toBe(400);
-    expect(missing.json().message).toMatch(/API-Key/);
-    // Eigene Typen ohne Schema
+    expect(missing.json().message).toMatch(/Required fields missing: API Key/);
+    // Custom types without a schema
     expect((await call(s, 'PUT', '/api/credentials/Slack', { type: 'slackApi', data: { accessToken: 'xoxb-12345' } })).statusCode).toBe(200);
     expect((await call(s, 'GET', '/api/credentials/Slack')).json()).toMatchObject({ data: {}, secretsSet: ['accessToken'] });
 
-    // Datei: Rechte 0600, Werte unverschlüsselt ohne Schlüssel
+    // File: mode 0600, values unencrypted without a key
     const file = join(dir!, 'credentials.managed.json');
     if (process.platform !== 'win32') expect(statSync(file).mode & 0o777).toBe(0o600);
-    expect(readFileSync(file, 'utf8')).toContain('neu-456789');
+    expect(readFileSync(file, 'utf8')).toContain('new-456789');
 
-    expect((await call(s, 'DELETE', '/api/credentials/Kunden-API neu')).statusCode).toBe(204);
-    expect((await call(s, 'GET', '/api/credentials/Kunden-API neu')).statusCode).toBe(404);
+    expect((await call(s, 'DELETE', '/api/credentials/Customer API new')).statusCode).toBe(204);
+    expect((await call(s, 'GET', '/api/credentials/Customer API new')).statusCode).toBe(404);
     expect((await call(s, 'GET', '/api/credential-types')).json().data.find((t: { name: string }) => t.name === 'jwtAuth').fields.length).toBe(5);
   });
 
-  it('verschlüsselt mit FILUFLOW_ENCRYPTION_KEY und maskiert Werte im Execution-Log', async () => {
-    process.env.FILUFLOW_ENCRYPTION_KEY = 'einzelbetrieb-schluessel-1';
+  it('encrypts with FILUFLOW_ENCRYPTION_KEY and masks values in the execution log', async () => {
+    process.env.FILUFLOW_ENCRYPTION_KEY = 'single-mode-key-1';
     const { s, credentials } = await start();
-    await call(s, 'PUT', '/api/credentials/Kunden-API', { type: 'httpHeaderAuth', data: { name: 'X-Api-Key', value: 'geheim-wert-123' } });
+    await call(s, 'PUT', '/api/credentials/Customer API', { type: 'httpHeaderAuth', data: { name: 'X-Api-Key', value: 'secret-value-123' } });
     expect((await call(s, 'GET', '/api/credentials')).json().encrypted).toBe(true);
-    expect(readFileSync(join(dir!, 'credentials.managed.json'), 'utf8')).not.toContain('geheim-wert-123');
-    expect(credentials.secretValues?.()).toContain('geheim-wert-123');
-    // Neu laden aus der Datei
+    expect(readFileSync(join(dir!, 'credentials.managed.json'), 'utf8')).not.toContain('secret-value-123');
+    expect(credentials.secretValues?.()).toContain('secret-value-123');
+    // Reload from the file
     const again = await new LayeredCredentialProvider(new StaticCredentialProvider(), join(dir!, 'credentials.managed.json')).load();
-    expect(again.find({ name: 'Kunden-API' })?.data.value).toBe('geheim-wert-123');
+    expect(again.find({ name: 'Customer API' })?.data.value).toBe('secret-value-123');
   });
 
-  it('ohne verwaltete Datei: nur lesen', async () => {
+  it('without a managed file: read only', async () => {
     const { s } = await start(false);
     const list = (await call(s, 'GET', '/api/credentials')).json();
-    expect(list).toMatchObject({ writable: false, data: [{ name: 'Handgepflegt', managed: false }] });
+    expect(list).toMatchObject({ writable: false, data: [{ name: 'Handwritten', managed: false }] });
     expect((await call(s, 'PUT', '/api/credentials/X', { type: 'httpBearerAuth', data: { token: 'abcd' } })).statusCode).toBe(409);
-    expect((await call(s, 'GET', '/api/credentials/Handgepflegt')).json().secretsSet).toEqual(['password']);
+    expect((await call(s, 'GET', '/api/credentials/Handwritten')).json().secretsSet).toEqual(['password']);
   });
 
-  it('braucht den API-Key', async () => {
+  it('requires the API key', async () => {
     const { s } = await start();
     expect((await s.app.inject({ method: 'GET', url: '/api/credentials' })).statusCode).toBe(401);
     expect((await s.app.inject({ method: 'PUT', url: '/api/credentials/X', payload: { type: 'a', data: {} } })).statusCode).toBe(401);

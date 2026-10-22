@@ -1,5 +1,5 @@
-// Chat Trigger (M16): Webhooks unter <webhookId>/chat wie n8n, gehostete Seite, Nachrichten mit Antwort des letzten
-// Knotens oder des Respond-Knotens, nicht öffentlich = 404, Basic Auth, loadPreviousSession, Test-URL.
+// Chat Trigger (M16): webhooks under <webhookId>/chat like n8n, hosted page, messages answered by the last
+// node or by the Respond node, not public = 404, Basic Auth, loadPreviousSession, test URL.
 import { afterEach, describe, expect, it } from 'vitest';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -31,19 +31,19 @@ function chatWorkflow(trigger: Partial<WorkflowNode['parameters']>, extra: { res
     },
     {
       id: 'c',
-      name: 'Antwort',
+      name: 'Reply',
       type: 'n8n-nodes-base.code',
       typeVersion: 2,
       position: [200, 0],
-      parameters: { jsCode: "return [{ json: { output: 'Echo: ' + $json.chatInput, sitzung: $json.sessionId } }];" },
+      parameters: { jsCode: "return [{ json: { output: 'Echo: ' + $json.chatInput, session: $json.sessionId } }];" },
     },
   ];
-  const connections: Workflow['connections'] = { Chat: { main: [[{ node: 'Antwort', type: 'main', index: 0 }]] } };
+  const connections: Workflow['connections'] = { Chat: { main: [[{ node: 'Reply', type: 'main', index: 0 }]] } };
   if (extra.respond) {
-    nodes.push({ id: 'r', name: 'Respond', type: 'n8n-nodes-base.respondToWebhook', typeVersion: 1.1, position: [400, 0], parameters: { respondWith: 'json', responseBody: '={{ { text: "Antwort: " + $json.output } }}', options: {} } });
-    connections.Antwort = { main: [[{ node: 'Respond', type: 'main', index: 0 }]] };
+    nodes.push({ id: 'r', name: 'Respond', type: 'n8n-nodes-base.respondToWebhook', typeVersion: 1.1, position: [400, 0], parameters: { respondWith: 'json', responseBody: '={{ { text: "Reply: " + $json.output } }}', options: {} } });
+    connections.Reply = { main: [[{ node: 'Respond', type: 'main', index: 0 }]] };
   }
-  return { id: 'chat', name: 'Chat-Workflow', active: extra.active ?? true, settings: { executionOrder: 'v1' }, nodes, connections };
+  return { id: 'chat', name: 'Chat workflow', active: extra.active ?? true, settings: { executionOrder: 'v1' }, nodes, connections };
 }
 
 async function start(wf: Workflow, credentials?: StaticCredentialProvider): Promise<FiluflowServer> {
@@ -58,38 +58,38 @@ const send = (s: FiluflowServer, url: string, body: Record<string, unknown>, hea
   s.app.inject({ method: 'POST', url, payload: body, headers: { 'content-type': 'application/json', ...headers } });
 
 describe('Chat Trigger', () => {
-  it('beantwortet Nachrichten mit dem ersten Item des letzten Knotens', async () => {
+  it('answers messages with the first item of the last node', async () => {
     const s = await start(chatWorkflow({}));
-    const res = await send(s, '/webhook/chat-1/chat', { action: 'sendMessage', sessionId: 's-1', chatInput: 'Hallo' });
+    const res = await send(s, '/webhook/chat-1/chat', { action: 'sendMessage', sessionId: 's-1', chatInput: 'Hello' });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ output: 'Echo: Hallo', sitzung: 's-1' });
-    // Das Item des Triggers ist der Request-Body
+    expect(res.json()).toEqual({ output: 'Echo: Hello', session: 's-1' });
+    // The trigger item is the request body
     const [e] = s.store.list({ limit: 1 });
     const stored = s.store.get(e.id)!;
-    expect(stored.runData!.Chat[0].data.main![0]![0].json).toEqual({ action: 'sendMessage', sessionId: 's-1', chatInput: 'Hallo' });
+    expect(stored.runData!.Chat[0].data.main![0]![0].json).toEqual({ action: 'sendMessage', sessionId: 's-1', chatInput: 'Hello' });
     expect(stored.mode).toBe('webhook');
-    // Auslöser in der Übersicht
+    // Trigger in the overview
     const list = (await s.app.inject({ method: 'GET', url: '/api/workflows', headers: { 'x-api-key': 'k' } })).json();
-    expect(list.data[0].triggers).toEqual([{ kind: 'chat', label: 'Chat (öffentlich)' }]);
+    expect(list.data[0].triggers).toEqual([{ kind: 'chat', label: 'Chat (public)' }]);
   });
 
-  it('liefert die gehostete Chat-Seite mit Einstellungen und strenger CSP', async () => {
-    const s = await start(chatWorkflow({ initialMessages: 'Willkommen!', options: { title: 'Support', inputPlaceholder: 'Frage stellen', loadPreviousSession: 'memory' } }));
+  it('serves the hosted chat page with settings and a strict CSP', async () => {
+    const s = await start(chatWorkflow({ initialMessages: 'Welcome!', options: { title: 'Support', inputPlaceholder: 'Ask a question', loadPreviousSession: 'memory' } }));
     const page = await s.app.inject({ method: 'GET', url: '/webhook/chat-1/chat' });
     expect(page.statusCode).toBe(200);
     expect(page.headers['content-type']).toMatch(/text\/html/);
     expect(page.headers['content-security-policy']).toContain("script-src 'self'");
     expect(page.body).toContain('<title>Support</title>');
     const config = JSON.parse(/<script type="application\/json" id="chat-config">(.*?)<\/script>/s.exec(page.body)![1]);
-    expect(config).toMatchObject({ webhookUrl: 'http://x/webhook/chat-1/chat', mode: 'production', initialMessages: 'Willkommen!', title: 'Support', inputPlaceholder: 'Frage stellen', loadPreviousSession: 'memory' });
-    // Frühere Nachrichten: leer ohne gespeicherte Sitzung
-    expect((await send(s, '/webhook/chat-1/chat', { action: 'loadPreviousSession', sessionId: 'neu' })).json()).toEqual({ data: [] });
+    expect(config).toMatchObject({ webhookUrl: 'http://x/webhook/chat-1/chat', mode: 'production', initialMessages: 'Welcome!', title: 'Support', inputPlaceholder: 'Ask a question', loadPreviousSession: 'memory' });
+    // Previous messages: empty without a stored session
+    expect((await send(s, '/webhook/chat-1/chat', { action: 'loadPreviousSession', sessionId: 'new' })).json()).toEqual({ data: [] });
   });
 
-  it('Embedded Chat ohne Seite, nicht öffentlich = 404', async () => {
+  it('embedded chat without page, not public = 404', async () => {
     const embedded = await start(chatWorkflow({ mode: 'webhook' }));
     expect((await embedded.app.inject({ method: 'GET', url: '/webhook/chat-1/chat' })).statusCode).toBe(404);
-    expect((await send(embedded, '/webhook/chat-1/chat', { action: 'sendMessage', sessionId: 'a', chatInput: 'x' })).json()).toEqual({ output: 'Echo: x', sitzung: 'a' });
+    expect((await send(embedded, '/webhook/chat-1/chat', { action: 'sendMessage', sessionId: 'a', chatInput: 'x' })).json()).toEqual({ output: 'Echo: x', session: 'a' });
     await embedded.close();
     rmSync(dir!, { recursive: true, force: true });
     server = undefined;
@@ -98,8 +98,8 @@ describe('Chat Trigger', () => {
   });
 
   it('Basic Auth', async () => {
-    const credentials = new StaticCredentialProvider([{ name: 'Chat-Zugang', type: 'httpBasicAuth', data: { user: 'ada', password: 'lovelace' } }]);
-    const s = await start(chatWorkflow({ authentication: 'basicAuth' }, { credentials: { httpBasicAuth: { id: null, name: 'Chat-Zugang' } } }), credentials);
+    const credentials = new StaticCredentialProvider([{ name: 'Chat access', type: 'httpBasicAuth', data: { user: 'ada', password: 'lovelace' } }]);
+    const s = await start(chatWorkflow({ authentication: 'basicAuth' }, { credentials: { httpBasicAuth: { id: null, name: 'Chat access' } } }), credentials);
     const none = await send(s, '/webhook/chat-1/chat', { chatInput: 'x' });
     expect(none.statusCode).toBe(401);
     expect(none.headers['www-authenticate']).toBe('Basic realm="Webhook"');
@@ -107,11 +107,11 @@ describe('Chat Trigger', () => {
     expect(ok.statusCode).toBe(200);
   });
 
-  it('Antwort über den Respond-Knoten (responseNode), Test-URL für inaktive Workflows', async () => {
+  it('reply via the Respond node (responseNode), test URL for inactive workflows', async () => {
     const s = await start(chatWorkflow({ options: { responseMode: 'responseNode' } }, { respond: true, active: false }));
     expect((await send(s, '/webhook/chat-1/chat', { chatInput: 'x' })).statusCode).toBe(404);
     const res = await send(s, '/webhook-test/chat-1/chat', { action: 'sendMessage', sessionId: 'a', chatInput: 'Hi' });
-    expect(res.json()).toEqual({ text: 'Antwort: Echo: Hi' });
+    expect(res.json()).toEqual({ text: 'Reply: Echo: Hi' });
     expect(s.store.list({ limit: 1 })[0].mode).toBe('manual');
   });
 });

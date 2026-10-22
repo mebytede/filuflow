@@ -176,7 +176,7 @@ describe('Error handling', () => {
   it('stopWorkflow: execution error, abort', async () => {
     const { exec, order } = await run(failing({}), { triggerItems: items });
     expect(exec.status).toBe('error');
-    expect(exec.error?.message).toBe('kaputt 1');
+    expect(exec.error?.message).toBe('broken 1');
     expect(exec.runData.F[0].executionStatus).toBe('error');
     expect(order).toEqual(['Start', 'F']);
     expect(exec.lastNodeExecuted).toBe('F');
@@ -185,14 +185,14 @@ describe('Error handling', () => {
   it('continueRegularOutput: error items on the regular output', async () => {
     const { exec } = await run(failing({ onError: 'continueRegularOutput' }), { triggerItems: items });
     expect(exec.status).toBe('success');
-    expect(out(exec, 'Ok')).toEqual([{ id: 1, ok: true }, { error: 'kaputt 1' }]);
+    expect(out(exec, 'Ok')).toEqual([{ id: 1, ok: true }, { error: 'broken 1' }]);
   });
 
   it('continueErrorOutput: error items on the error output, enriched with input data', async () => {
     const { exec } = await run(failing({ onError: 'continueErrorOutput' }), { triggerItems: items });
     expect(out(exec, 'F', 0)).toEqual([{ id: 1, ok: true }]);
-    expect(out(exec, 'F', 1)).toEqual([{ id: 2, fail: true, error: 'kaputt 1' }]);
-    expect(out(exec, 'Err')).toEqual([{ id: 2, fail: true, error: 'kaputt 1' }]);
+    expect(out(exec, 'F', 1)).toEqual([{ id: 2, fail: true, error: 'broken 1' }]);
+    expect(out(exec, 'Err')).toEqual([{ id: 2, fail: true, error: 'broken 1' }]);
   });
 
   it('retryOnFail retries up to maxTries', async () => {

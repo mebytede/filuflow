@@ -1,6 +1,6 @@
-// M37 im Browser: Workflow mit dem Aufseher entwerfen (Vorschlag im Fenster, Annehmen öffnet den neuen Workflow) und
-// eine Änderung am geöffneten Workflow im Gespräch vorschlagen und übernehmen. Das Modell ist eine nachgebildete
-// OpenAI-API über den HTTP-Client des Servers.
+// M37 in the browser: draft a workflow with the supervisor (proposal in the drawer, accepting opens the new workflow) and
+// propose and apply a change to the open workflow in the chat. The model is a mocked OpenAI API via the server's
+// HTTP client.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -14,14 +14,14 @@ import type { HttpClient, HttpRequest, HttpResponse } from '../src/http.js';
 class FakeOpenAi implements HttpClient {
   script: Array<Record<string, unknown>> = [];
   async request(req: HttpRequest): Promise<HttpResponse> {
-    const message = this.script.shift() ?? { role: 'assistant', content: 'Fertig.' };
+    const message = this.script.shift() ?? { role: 'assistant', content: 'Done.' };
     const json = { id: 'c', model: 'gpt-test', choices: [{ index: 0, message, finish_reason: 'stop' }], usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 } };
     return { statusCode: 200, statusMessage: 'OK', headers: { 'content-type': 'application/json' }, body: Buffer.from(JSON.stringify(json)), url: req.url };
   }
 }
 const call = (id: string, name: string, args: unknown) => ({ role: 'assistant', content: null, tool_calls: [{ id, type: 'function', function: { name, arguments: JSON.stringify(args) } }] });
 
-const KEY = 'aufseher-e2e';
+const KEY = 'supervisor-e2e';
 let browser: Browser | undefined;
 let server: FiluflowServer | undefined;
 let root: string;
@@ -55,9 +55,9 @@ beforeAll(async () => {
       settings: { executionOrder: 'v1' },
       nodes: [
         { id: 't', name: 'Start', type: 'n8n-nodes-base.manualTrigger', typeVersion: 1, position: [0, 0], parameters: {} },
-        { id: 'h', name: 'Abfragen', type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position: [240, 0], parameters: { url: 'https://status.example.com' } },
+        { id: 'h', name: 'Query', type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position: [240, 0], parameters: { url: 'https://status.example.com' } },
       ],
-      connections: { Start: { main: [[{ node: 'Abfragen', type: 'main', index: 0 }]] } },
+      connections: { Start: { main: [[{ node: 'Query', type: 'main', index: 0 }]] } },
     }),
   );
   const credentials = new StaticCredentialProvider([{ name: 'OpenAI', type: 'openAiApi', data: { apiKey: 'sk-e2e-0123456789abcdef', url: 'http://llm.test/v1' } }]);
@@ -73,58 +73,58 @@ afterAll(async () => {
   if (root) rmSync(root, { recursive: true, force: true });
 });
 
-describe('Aufseher im Editor', () => {
-  it('entwirft einen Workflow, übernimmt ihn und schlägt eine Änderung vor', async (ctx) => {
+describe('Supervisor in the editor', () => {
+  it('drafts a workflow, accepts it and proposes a change', async (ctx) => {
     if (!browser) return ctx.skip();
     const page = await browser.newPage();
     await page.goto(base);
     await page.evaluate((k) => localStorage.setItem('filuflow.apiKey', k), KEY);
     await page.goto(`${base}/#/workflows`);
-    await page.click('a:has-text("Mit dem Aufseher entwerfen")');
-    await page.waitForSelector('.supervisor-drawer .chat-subtitle:has-text("Neuen Workflow entwerfen")');
+    await page.click('a:has-text("Draft with the supervisor")');
+    await page.waitForSelector('.supervisor-drawer .chat-subtitle:has-text("Draft a new workflow")');
 
     http.script = [
       call('a', 'propose_workflow', {
         title: 'Webhook-Echo',
-        summary: 'Nimmt einen Aufruf an und gibt den Body zurück.',
+        summary: 'Accepts a call and returns the body.',
         operations: [
           { op: 'setName', name: 'Echo' },
-          { op: 'addNode', node: { name: 'Aufruf', type: 'n8n-nodes-base.webhook', typeVersion: 2.1, parameters: { path: 'echo', httpMethod: 'POST' } } },
-          { op: 'addNode', node: { name: 'Antwort', type: 'n8n-nodes-base.noOp', typeVersion: 1, parameters: {} } },
-          { op: 'connect', from: 'Aufruf', to: 'Antwort' },
+          { op: 'addNode', node: { name: 'Call', type: 'n8n-nodes-base.webhook', typeVersion: 2.1, parameters: { path: 'echo', httpMethod: 'POST' } } },
+          { op: 'addNode', node: { name: 'Reply', type: 'n8n-nodes-base.noOp', typeVersion: 1, parameters: {} } },
+          { op: 'connect', from: 'Call', to: 'Reply' },
         ],
       }),
-      { role: 'assistant', content: 'Hier ist der Entwurf "Echo". Er wartet auf Ihre Zustimmung.' },
+      { role: 'assistant', content: 'Here is the draft "Echo". It is waiting for your approval.' },
     ];
-    await page.fill('.supervisor-drawer textarea', 'Ein Webhook, der den Body zurückgibt.');
+    await page.fill('.supervisor-drawer textarea', 'A webhook that returns the body.');
     await page.click('.supervisor-drawer .chat-send');
-    await page.waitForSelector('.supervisor-drawer .chat-bubble:has-text("wartet auf Ihre Zustimmung")');
-    await page.waitForSelector('.supervisor-proposal .diff-list:has-text("Neue Verbindung Aufruf -> Antwort")');
-    await page.click('.supervisor-proposal button:has-text("Annehmen")');
+    await page.waitForSelector('.supervisor-drawer .chat-bubble:has-text("waiting for your approval")');
+    await page.waitForSelector('.supervisor-proposal .diff-list:has-text("New connection Call -> Reply")');
+    await page.click('.supervisor-proposal button:has-text("Accept")');
     await page.click('.modal .btn-primary');
-    // Neuer Workflow ist angelegt (inaktiv) und offen
-    await page.waitForSelector('.node[data-node="Aufruf"]');
-    await page.waitForSelector('.node[data-node="Antwort"]');
+    // The new workflow is created (inactive) and open
+    await page.waitForSelector('.node[data-node="Call"]');
+    await page.waitForSelector('.node[data-node="Reply"]');
     const created = server!.workflows.list().find((m) => m.workflow.name === 'Echo')!;
     expect(created.active).toBe(false);
     expect(page.url()).toContain(`#/workflow/${created.workflow.id}`);
 
-    // Änderung am geöffneten Workflow
+    // Change to the open workflow
     await page.goto(`${base}/#/workflow/ping`);
-    await page.waitForSelector('.node[data-node="Abfragen"]');
-    await page.click('button[aria-label="Aufseher fragen"]');
-    await page.waitForSelector('.supervisor-findings:has-text("Offene Hinweise")');
+    await page.waitForSelector('.node[data-node="Query"]');
+    await page.click('button[aria-label="Ask the supervisor"]');
+    await page.waitForSelector('.supervisor-findings:has-text("Open findings")');
     http.script = [
-      call('b', 'propose_change', { title: 'Zeitlimit', summary: 'Abbruch nach 5 Sekunden.', operations: [{ op: 'setParameter', node: 'Abfragen', path: 'options.timeout', value: 5000 }] }),
-      { role: 'assistant', content: 'Ich schlage ein Zeitlimit von 5 Sekunden vor.' },
+      call('b', 'propose_change', { title: 'Timeout', summary: 'Abort after 5 seconds.', operations: [{ op: 'setParameter', node: 'Query', path: 'options.timeout', value: 5000 }] }),
+      { role: 'assistant', content: 'I propose a timeout of 5 seconds.' },
     ];
-    await page.fill('.supervisor-drawer textarea', 'Bitte ein Zeitlimit von 5 Sekunden.');
+    await page.fill('.supervisor-drawer textarea', 'Please add a timeout of 5 seconds.');
     await page.keyboard.press('Enter');
     await page.waitForSelector('.supervisor-proposal .diff-list:has-text("options.timeout = 5000")');
-    await page.click('.supervisor-proposal button:has-text("Annehmen")');
+    await page.click('.supervisor-proposal button:has-text("Accept")');
     await page.click('.modal .btn-primary');
-    await page.waitForSelector('.toast:has-text("Vorschlag übernommen")');
-    await page.waitForSelector('.node[data-node="Abfragen"]');
+    await page.waitForSelector('.toast:has-text("Proposal applied")');
+    await page.waitForSelector('.node[data-node="Query"]');
     expect((server!.workflows.get('ping')!.workflow.nodes[1].parameters.options as { timeout: number }).timeout).toBe(5000);
     await page.close();
   }, 120_000);

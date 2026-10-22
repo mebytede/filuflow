@@ -1,5 +1,5 @@
-// M25: HTTP Request mit "Vordefinierter Credential-Typ" (Authentifizierung je Typ wie n8n ICredentialType.authenticate,
-// OAuth2-Typen über das Token) und helpers im Code-Knoten wie n8n IExecuteFunctions.helpers.
+// M25: HTTP Request with "Predefined Credential Type" (authentication per type like n8n ICredentialType.authenticate,
+// OAuth2 types via the token) and helpers in the Code node like n8n IExecuteFunctions.helpers.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createServer as createHttpServer, type IncomingMessage, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -35,7 +35,7 @@ const credentials = new StaticCredentialProvider([
   { name: 'Gemini', type: 'googlePalmApi', data: { apiKey: 'gk-1' } },
   { name: 'Stripe', type: 'stripeApi', data: { secretKey: 'sk-1' } },
   { name: 'Sheets', type: 'googleSheetsOAuth2Api', data: { clientId: 'c', clientSecret: 's', oauthTokenData: { access_token: 'oa-1', token_type: 'Bearer' } } },
-  { name: 'Fremd', type: 'telegramApi', data: { accessToken: 'x' } },
+  { name: 'Foreign', type: 'telegramApi', data: { accessToken: 'x' } },
 ]);
 
 function http(type: string, name: string, parameters: Record<string, unknown> = {}): Workflow {
@@ -63,12 +63,12 @@ async function call(wf: Workflow): Promise<{ req: IncomingMessage; error?: strin
   return { req: requests.at(-1)!, ...(exec.runData.HTTP[0].error ? { error: exec.runData.HTTP[0].error.message } : {}) };
 }
 
-describe('HTTP Request mit vordefiniertem Credential-Typ', () => {
-  it('wendet die Authentifizierung des Typs an (generisch und als Funktion)', async () => {
+describe('HTTP Request with a predefined credential type', () => {
+  it('applies the authentication of the type (generic and as a function)', async () => {
     expect((await call(http('githubApi', 'GitHub'))).req.headers.authorization).toBe('token gh-1');
     const notion = (await call(http('notionApi', 'Notion'))).req;
-    expect([notion.headers.authorization, notion.headers['notion-version']]).toEqual(['Bearer no-1', '2022-02-22']); // Leerzeichen am Ende entfernt der HTTP-Parser
-    // Eigener Notion-Version-Header bleibt
+    expect([notion.headers.authorization, notion.headers['notion-version']]).toEqual(['Bearer no-1', '2022-02-22']); // the HTTP parser removes trailing whitespace
+    // An own Notion-Version header stays
     const own = (await call(http('notionApi', 'Notion', { sendHeaders: true, headerParameters: { parameters: [{ name: 'Notion-Version', value: '2025-09-03' }] } }))).req;
     expect(own.headers['notion-version']).toBe('2025-09-03');
     expect((await call(http('httpHeaderAuth', 'Header'))).req.headers['x-key']).toBe('hk-1');
@@ -76,16 +76,16 @@ describe('HTTP Request mit vordefiniertem Credential-Typ', () => {
     expect((await call(http('googlePalmApi', 'Gemini', { sendQuery: true, queryParameters: { parameters: [{ name: 'a', value: '1' }] } }))).req.url).toBe('/api?a=1&key=gk-1');
   });
 
-  it('OAuth2-Typen nutzen das verbundene Token; unbekannte Typen meldet die Prüfung', async () => {
+  it('OAuth2 types use the connected token; validation reports unknown types', async () => {
     expect((await call(http('googleSheetsOAuth2Api', 'Sheets'))).req.headers.authorization).toBe('Bearer oa-1');
-    const unknown = http('telegramApi', 'Fremd');
+    const unknown = http('telegramApi', 'Foreign');
     const result = validateWorkflow(unknown, { registry: getDefaultRegistry(), checkCredentials: false });
-    expect(result.issues.map((i) => i.message)).toContain('HTTP Request: für den Credential-Typ "telegramApi" kennt filuflow keine Authentifizierung');
+    expect(result.issues.map((i) => i.message)).toContain('HTTP Request: filuflow knows no authentication for the credential type "telegramApi"');
     expect(validateWorkflow(http('githubApi', 'GitHub'), { registry: getDefaultRegistry(), checkCredentials: false }).valid).toBe(true);
   });
 });
 
-describe('helpers im Code-Knoten', () => {
+describe('helpers in the Code node', () => {
   const code = (jsCode: string, extra: Partial<WorkflowNode> = {}): Workflow => ({
     name: 'Code',
     settings: { executionOrder: 'v1' },
@@ -101,34 +101,34 @@ describe('helpers im Code-Knoten', () => {
     return exec.runData.Code[0].data!.main![0]!.map((i) => ({ json: i.json, ...(i.pairedItem !== undefined ? { pairedItem: i.pairedItem } : {}) }));
   };
 
-  it('returnJsonArray, constructExecutionMetaData und copyInputItems wie n8n', async () => {
+  it('returnJsonArray, constructExecutionMetaData and copyInputItems like n8n', async () => {
     const result = await out(
       code(`
         const items = helpers.returnJsonArray([{ a: 1 }, { json: { b: 2 } }]);
-        const copied = helpers.copyInputItems([{ json: { x: { y: 1 }, z: 2 } }], ['x', 'fehlt']);
+        const copied = helpers.copyInputItems([{ json: { x: { y: 1 }, z: 2 } }], ['x', 'missing']);
         return helpers.constructExecutionMetaData([...items, { json: copied[0] }], { itemData: { item: 0 } });
       `),
     );
     expect(result).toEqual([
       { json: { a: 1 }, pairedItem: { item: 0 } },
       { json: { b: 2 }, pairedItem: { item: 0 } },
-      { json: { x: { y: 1 }, fehlt: null }, pairedItem: { item: 0 } },
+      { json: { x: { y: 1 }, missing: null }, pairedItem: { item: 0 } },
     ]);
   });
 
-  it('httpRequest und httpRequestWithAuthentication mit dem Credential am Knoten', async () => {
+  it('httpRequest and httpRequestWithAuthentication with the credential on the node', async () => {
     const result = await out(
       code(
         `
-        const plain = await helpers.httpRequest({ url: '${base}/eins', qs: { q: 'a b' } });
-        const authed = await helpers.httpRequestWithAuthentication('stripeApi', { url: '${base}/zwei', method: 'POST', body: { n: 1 } });
-        const full = await helpers.httpRequest({ url: '${base}/drei', returnFullResponse: true });
+        const plain = await helpers.httpRequest({ url: '${base}/one', qs: { q: 'a b' } });
+        const authed = await helpers.httpRequestWithAuthentication('stripeApi', { url: '${base}/two', method: 'POST', body: { n: 1 } });
+        const full = await helpers.httpRequest({ url: '${base}/three', returnFullResponse: true });
         return [{ json: { plain, authed, status: full.statusCode } }];
       `,
         { credentials: { stripeApi: { id: null, name: 'Stripe' } } },
       ),
     );
-    expect(result[0].json).toEqual({ plain: { path: '/eins?q=a%20b' }, authed: { path: '/zwei' }, status: 200 });
+    expect(result[0].json).toEqual({ plain: { path: '/one?q=a%20b' }, authed: { path: '/two' }, status: 200 });
     expect(requests.at(-2)!.headers.authorization).toBe('Bearer sk-1');
     expect(requests.at(-2)!.headers['content-type']).toBe('application/json');
   });
