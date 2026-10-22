@@ -358,7 +358,7 @@ export const de: Record<string, string> = {
   'Reset': 'Zurücksetzen',
   'Unlock': 'Sperre lösen',
   'unchanged': 'unverändert',
-  'On worker': 'Beim Worker',
+  'on worker': 'Beim Worker',
   'Sync': 'Abgleichen',
   'pending': 'ausstehend',
   'Overview': 'Übersicht',

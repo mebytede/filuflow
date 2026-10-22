@@ -567,7 +567,7 @@ function checkFormat(format: string, v: string): boolean {
   }
 }
 
-const NO_VALUE = Symbol('kein Wert');
+const NO_VALUE = Symbol('no value');
 type Result = unknown | typeof NO_VALUE;
 
 /** zod parse: returns the cleaned value or throws ZValidationError */

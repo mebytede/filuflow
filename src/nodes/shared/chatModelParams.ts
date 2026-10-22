@@ -1,5 +1,5 @@
 // Shared parameters of chat models with an OpenAI compatible interface (M26), names and defaults as in n8n 1.123.0
-// LmChatDeepSeek, LmChatOpenRouter und LmChatAzureOpenAi/properties.ts.
+// LmChatDeepSeek, LmChatOpenRouter and LmChatAzureOpenAi/properties.ts.
 import type { ParamSchema } from '../params.js';
 
 export const MODEL_NOTICE: ParamSchema = { name: 'notice', label: 'This node must be connected to an AI chain or AI agent.', type: 'notice', default: '' };

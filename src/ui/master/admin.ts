@@ -577,7 +577,7 @@ export async function workerPage(id: string): Promise<HTMLElement> {
     pkgBackend
       .list()
       .then(({ enabled, data }) => {
-        const actions = packageActions(pkgBackend, () => loadPackages(), t('On worker'));
+        const actions = packageActions(pkgBackend, () => loadPackages(), t('on worker'));
         pkgBox.replaceChildren(
           h('div', { class: 'page-head' }, h('h2', null, t('Packages on the worker')), h('div', { class: 'spacer' }), enabled ? action(t('Install package'), () => actions.install()) : null),
           h(
