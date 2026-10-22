@@ -1,0 +1,125 @@
+// REST-Endpunkte des Aufsehers (Einzelbetrieb und Worker; im API-Scope mit X-API-Key).
+// M35: Status, Einstellungen, Hinweise (verwerfen, wieder öffnen, analysieren), Prüfung, Berichte, Verbrauch.
+import type { FastifyInstance, FastifyReply } from 'fastify';
+import type { Supervisor } from './supervisor.js';
+import { PROVIDERS } from './settings.js';
+import { BudgetExceededError, SupervisorModelError } from './llm.js';
+import type { FindingStatus } from './types.js';
+
+export interface SupervisorApiOptions {
+  prefix: string;
+  supervisor: () => Supervisor | undefined;
+}
+
+const STATUSES = ['open', 'dismissed', 'resolved', 'all'];
+
+/** Fehler des Modells: Budget 429, sonst 502 (Anbieter) bzw. 400 (Einstellung) */
+export function modelErrorReply(reply: FastifyReply, error: unknown): FastifyReply {
+  if (error instanceof BudgetExceededError) return reply.code(429).send({ message: error.message });
+  if (error instanceof SupervisorModelError) return reply.code(502).send({ message: error.message });
+  return reply.code(500).send({ message: (error as Error).message });
+}
+
+export async function registerSupervisorApi(api: FastifyInstance, o: SupervisorApiOptions): Promise<void> {
+  const p = o.prefix;
+  const sup = (reply: FastifyReply): Supervisor | undefined => {
+    const s = o.supervisor();
+    if (!s) void reply.code(404).send({ message: 'Der Aufseher ist abgeschaltet (FILUFLOW_SUPERVISOR=false)' });
+    return s;
+  };
+
+  api.get(`${p}/status`, async (_request, reply) => {
+    const s = sup(reply);
+    if (!s) return reply;
+    return s.status();
+  });
+
+  api.get(`${p}/settings`, async (_request, reply) => {
+    const s = sup(reply);
+    if (!s) return reply;
+    return {
+      settings: s.settings(),
+      providers: PROVIDERS.map((x) => ({ id: x.id, label: x.label, credentialType: x.credentialType, example: x.example })),
+    };
+  });
+
+  api.put(`${p}/settings`, async (request, reply) => {
+    const s = sup(reply);
+    if (!s) return reply;
+    const result = s.saveSettings(request.body);
+    if (typeof result === 'string') return reply.code(400).send({ message: result });
+    return { settings: result };
+  });
+
+  api.get(`${p}/findings`, async (request, reply) => {
+    const s = sup(reply);
+    if (!s) return reply;
+    const q = request.query as { status?: string; workflow?: string; severity?: string; limit?: string };
+    if (q.status && !STATUSES.includes(q.status)) return reply.code(400).send({ message: `Unbekannter Status: ${q.status}` });
+    return {
+      data: s.store.listFindings({ status: (q.status as FindingStatus | 'all') ?? 'open', workflowId: q.workflow || undefined, severity: q.severity || undefined, limit: q.limit ? Number(q.limit) : undefined }),
+      counts: s.store.counts(),
+    };
+  });
+
+  api.get(`${p}/findings/:id`, async (request, reply) => {
+    const s = sup(reply);
+    if (!s) return reply;
+    const f = s.store.getFinding((request.params as { id: string }).id);
+    if (!f) return reply.code(404).send({ message: 'Hinweis nicht gefunden' });
+    return f;
+  });
+
+  for (const [action, status] of [
+    ['dismiss', 'dismissed'],
+    ['reopen', 'open'],
+  ] as const) {
+    api.post(`${p}/findings/:id/${action}`, async (request, reply) => {
+      const s = sup(reply);
+      if (!s) return reply;
+      const id = (request.params as { id: string }).id;
+      if (!s.store.getFinding(id)) return reply.code(404).send({ message: 'Hinweis nicht gefunden' });
+      return s.store.setFindingStatus(id, status);
+    });
+  }
+
+  api.post(`${p}/findings/:id/analyze`, async (request, reply) => {
+    const s = sup(reply);
+    if (!s) return reply;
+    const id = (request.params as { id: string }).id;
+    if (!s.store.getFinding(id)) return reply.code(404).send({ message: 'Hinweis nicht gefunden' });
+    if (!s.settings().model) return reply.code(400).send({ message: 'Für den Aufseher ist kein Modell eingestellt (Aufseher, Einstellungen)' });
+    try {
+      return await s.analyze(id);
+    } catch (error) {
+      return modelErrorReply(reply, error);
+    }
+  });
+
+  api.post(`${p}/scan`, async (_request, reply) => {
+    const s = sup(reply);
+    if (!s) return reply;
+    if (!s.settings().enabled) return reply.code(409).send({ message: 'Der Aufseher ist in den Einstellungen ausgeschaltet' });
+    s.scan();
+    return { counts: s.store.counts(), lastScan: s.lastScan };
+  });
+
+  api.get(`${p}/reports`, async (request, reply) => {
+    const s = sup(reply);
+    if (!s) return reply;
+    const limit = Number((request.query as { limit?: string }).limit) || 30;
+    return { data: s.store.listReports(limit) };
+  });
+
+  api.post(`${p}/reports`, async (_request, reply) => {
+    const s = sup(reply);
+    if (!s) return reply;
+    return reply.code(201).send(await s.digest());
+  });
+
+  api.get(`${p}/usage`, async (_request, reply) => {
+    const s = sup(reply);
+    if (!s) return reply;
+    return { budget: s.settings().dailyTokenBudget, data: s.store.usageHistory(30) };
+  });
+}

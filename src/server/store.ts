@@ -162,6 +162,11 @@ export class ExecutionStore {
     this.db.exec(`CREATE INDEX IF NOT EXISTS idx_executions_wait ON executions (status, wait_till)`);
   }
 
+  /** Verbindung für weitere Tabellen in derselben Datenbank (Aufseher) */
+  get database(): Database.Database {
+    return this.db;
+  }
+
   close(): void {
     this.db.close();
   }

@@ -33,6 +33,7 @@ und antworten. Jeder Lauf wird protokolliert und lässt sich Knoten für Knoten 
 | **Auslöser** | Webhooks mit Antwort-Knoten und Authentifizierung, Zeitpläne, Fehler-Workflows, Aufruf durch andere Workflows, REST-API |
 | **Knoten** | Daten setzen, filtern, sortieren, zusammenfassen, verzweigen (If, Switch), zusammenführen, Schleifen, Code (JavaScript und Python), HTTP (mit Pagination, Digest-Auth, Client-Zertifikaten), HTML, XML, Datum, Krypto |
 | **KI** | AI Agent mit Tools, LLM Chain, Extraktion, Klassifikation, Stimmungsanalyse; Modelle von OpenAI, Anthropic, Google Gemini, Azure, Mistral, Groq, DeepSeek, OpenRouter und Ollama; Embeddings, Vektorspeicher und Q&A Chain (RAG) |
+| **Aufseher** | ein Modell behält die Workflows im Blick: feste Regeln, Analyse fehlgeschlagener Läufe, Tagesbericht; Änderungen nur als Vorschlag, ein Mensch entscheidet |
 | **Credentials** | in der Oberfläche anlegen und bearbeiten (Formulare je Typ) oder als Datei pflegen, verschlüsselt mit AES-256-GCM, Werte aus Umgebungsvariablen; geheime Werte erscheinen nie in Logs oder der Oberfläche |
 | **Team und Mandanten** | Master mit Benutzern, Rechten und Projekten; Worker in der Umgebung jedes Mandanten; Anmeldung mit Passwort und TOTP oder SSO (OIDC) |
 | **Kommandozeile** | Workflows prüfen und ausführen, Ausführungen ansehen, Credentials verschlüsseln, Benutzer verwalten |
@@ -319,6 +320,25 @@ ebenfalls hinein.
 Chat-Seite und warten auf die Antwort der Person, etwa für Rückfragen oder Freigaben (Human in the Loop). Die Seite hält
 dafür einen Kanal zur laufenden Ausführung offen; die Ausführung wartet dauerhaft und übersteht auch einen Neustart.
 
+## Aufseher
+
+Der Aufseher behält die Workflows im Blick und meldet, was ihm auffällt. Er ändert nie selbst etwas.
+
+- **Feste Regeln** prüfen alle Workflows beim Start und alle 15 Minuten: ungültige Workflows, gescheiterte Aktivierungen,
+  gehäufte Fehler und hohe Fehlerquoten, abgebrochene Ausführungen, deutlich längere Laufzeiten, aktive Workflows ohne
+  Fehlerbehandlung, Passwörter oder Tokens im Klartext, deaktivierte Knoten, Knoten ohne Eingang, ältere Knotenversionen
+  und HTTP Requests ohne Wiederholung. Behobenes verschwindet von selbst, Verworfenes bleibt verworfen.
+- **Fehlgeschlagene Ausführungen** werden je Fehlerbild gesammelt und gezählt. Mit einem Modell erklärt der Aufseher
+  Ursache und Lösung, automatisch einmal je Fehlerbild oder auf Knopfdruck.
+- **Tagesbericht** zur eingestellten Stunde mit Zahlen und, mit Modell, einer kurzen Zusammenfassung.
+
+Unter "Aufseher, Einstellungen" wählen Sie Anbieter, Credential und Modell-ID (Anthropic, OpenAI, Google Gemini, Ollama,
+Mistral, Groq, DeepSeek, OpenRouter, Azure OpenAI; dieselben Credentials wie für die KI-Knoten), den Datenumfang ("Aufbau
+und Fehler" oder "Mit Beispieldaten"), ein Tagesbudget in Token und Workflows, die der Aufseher nicht ansieht.
+Credential-Werte und Parameter wie Passwörter oder API-Keys werden immer maskiert, bevor etwas an das Modell geht
+(Einzelheiten in `docs/SECURITY.md`). Ohne Modell arbeitet der Aufseher nur mit den festen Regeln. REST-API unter
+`/api/supervisor`, abschalten mit `FILUFLOW_SUPERVISOR=false`.
+
 ## Eigene Knoten (Plugins)
 
 filuflow lädt eigene Knoten beim Start aus `~/.filuflow/custom`, aus den Pfaden in `FILUFLOW_CUSTOM_EXTENSIONS` (mit `;`
@@ -515,6 +535,7 @@ entfernt es bei aufgehobener Zuordnung und holt Ausfälle beim nächsten Abgleic
 | `FILUFLOW_CUSTOM_EXTENSIONS` / `--nodes` | Pfade zu eigenen Knoten (mit `;` getrennt; auch `N8N_CUSTOM_EXTENSIONS`) | `~/.filuflow/custom` |
 | `FILUFLOW_NODES_DIR` | Ordner der über die Oberfläche installierten Community-Pakete | `~/.filuflow/nodes` |
 | `FILUFLOW_COMMUNITY_PACKAGES_ENABLED`, `FILUFLOW_COMMUNITY_PACKAGES_REGISTRY` | Installieren von Community-Paketen erlauben, npm-Registry (auch `N8N_…`) | `true`, `https://registry.npmjs.org` |
+| `FILUFLOW_SUPERVISOR` | Aufseher (Regeln, Analysen, Vorschläge) an oder aus | `true` |
 
 ### Docker
 

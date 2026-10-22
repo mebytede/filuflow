@@ -15,6 +15,7 @@ import { executionDetailView, executionsView } from './views/executions.js';
 import { createCredential, credentialsView } from './views/credentials.js';
 import { variablesView } from './views/variables.js';
 import { packagesView } from './views/packages.js';
+import { supervisorView } from './views/supervisor.js';
 
 const app = document.getElementById('app')!;
 let current: { editor?: Editor } = {};
@@ -38,6 +39,7 @@ const NAV: NavItem[] = [
   { key: 'credentials', label: 'Credentials', icon: 'asterisk', href: '#/credentials' },
   { key: 'variables', label: 'Variablen', icon: 'variable', href: '#/variables' },
   { key: 'packages', label: 'Pakete', icon: 'package', href: '#/packages' },
+  { key: 'supervisor', label: 'Aufseher', icon: 'scan-eye', href: '#/supervisor' },
 ];
 const NAV_BOTTOM: NavItem[] = [{ key: 'settings', label: 'Einstellungen', icon: 'settings', href: '#/settings' }];
 
@@ -167,6 +169,7 @@ async function route(): Promise<void> {
     else if (parts[0] === 'variables') setPage('variables', await variablesView(), undefined, seq);
     // Neue oder entfernte Knoten: Palette beim nächsten Öffnen des Editors neu laden
     else if (parts[0] === 'packages') setPage('packages', await packagesView(() => (catalog = undefined)), undefined, seq);
+    else if (parts[0] === 'supervisor') setPage('supervisor', await supervisorView(parts[1] ?? 'findings', new URLSearchParams(query ?? '')), undefined, seq);
     else if (parts[0] === 'settings') setPage('settings', settingsView(logout), undefined, seq);
     else setPage('workflows', h('section', { class: 'page' }, h('h1', null, 'Seite nicht gefunden'), h('a', { href: '#/workflows' }, 'Zu den Workflows')), undefined, seq);
   } catch (error) {

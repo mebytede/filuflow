@@ -531,3 +531,20 @@ a.cell-name:hover { color: var(--ff-text); text-decoration: underline; }
 .chat-drawer .chat-send { padding: 0 16px; border: 1px solid var(--ff-btn-primary-bg); background: var(--ff-btn-primary-bg); color: var(--ff-btn-primary-fg); font: 600 14px var(--ff-font-sans); cursor: pointer; }
 .chat-drawer .chat-send:disabled { opacity: 0.6; cursor: default; }
 .chat-drawer .chat-hint { padding: 0 16px 12px; color: var(--ff-text-secondary); font-size: 12px; }
+
+/* Aufseher (M35 bis M37) */
+.finding-toolbar { display: flex; align-items: center; gap: 16px; margin: 24px 0 16px; flex-wrap: wrap; }
+.finding-list { display: flex; flex-direction: column; gap: 12px; }
+.finding { padding: 16px 20px; display: flex; flex-direction: column; gap: 8px; }
+.finding-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.finding-meta { display: flex; gap: 16px; flex-wrap: wrap; }
+.finding-detail { margin: 0; white-space: pre-wrap; word-break: break-word; }
+.finding-analysis { border-left: 2px solid var(--ff-accent); padding: 4px 0 4px 12px; display: flex; flex-direction: column; gap: 4px; }
+.finding-analysis p { margin: 0; white-space: pre-wrap; word-break: break-word; }
+.finding-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.finding-actions:empty { display: none; }
+.report-text { font-size: 14px; }
+.supervisor-settings { max-width: 760px; }
+.supervisor-settings h2 { margin: 24px 0 0; font-size: 17px; }
+.check-list { display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow: auto; padding: 8px 0; }
+.check { display: flex; gap: 8px; align-items: center; }

@@ -87,6 +87,24 @@ Trotzdem gilt:
 - Die Seiten senden eine Content-Security-Policy (`script-src 'self'`, kein `eval`, keine fremden Quellen), `X-Content-Type-Options`
   und `frame-ancestors 'none'`. Statische Pfade außerhalb von `dist/ui` werden abgewiesen.
 
+## Aufseher (M35)
+Der Aufseher schickt Daten an das eingestellte Modell, also an den Anbieter dieses Modells. Was hinausgeht:
+- immer: Aufbau des Workflows (Knoten, Parameter, Verbindungen, Einstellungen), Fehlermeldungen, Status und Laufzeiten
+  der Ausführungen, Texte der Hinweise;
+- nur mit dem Datenumfang "Mit Beispieldaten": gekürzte Daten (höchstens zwei Items, etwa 1500 Zeichen) des Knotens, an dem
+  eine Ausführung scheiterte, und seines Vorgängers sowie gekürzte Testdaten (pinData).
+
+Was nie hinausgeht: Credential-Werte. Credentials erscheinen nur mit Namen; alle bekannten geheimen Werte werden in jedem
+Text ersetzt (wie im Execution-Log); Parameter, deren Name auf ein Geheimnis deutet (password, token, apiKey,
+authorization, secret …) oder deren Wert wie ein Schlüssel aussieht (sk-…, ghp_…, Bearer …), werden als `***` gesendet.
+Statische Daten des Workflows werden nicht gesendet. Workflows auf der Liste "Ausgenommene Workflows" sieht das Modell nie.
+Wer keine Daten an einen externen Anbieter geben will, nutzt Ollama auf einem eigenen Server oder kein Modell (nur feste
+Regeln).
+
+Der Aufseher ändert nichts selbst. Seine Werkzeuge lesen nur; Änderungen entstehen als Vorschlag, den ein Mensch annimmt.
+Antworten des Modells werden als Text angezeigt, nicht als HTML. Das Tagesbudget begrenzt die Kosten auch dann, wenn ein
+Fehler sehr oft auftritt.
+
 ## Simple Vector Store (M27)
 Der Simple Vector Store speichert Dokumente und Embeddings im Speicher des Prozesses, geteilt über alle Workflows dieses
 Prozesses mit demselben Schlüssel (ab v1.2 ohne Workflow-ID, wie n8n). Workflows eines Workers können also die Daten anderer

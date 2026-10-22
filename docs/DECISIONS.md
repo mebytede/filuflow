@@ -423,3 +423,27 @@ die Prüfung an jeder Route gleich (`allows(rolle, aktion)`), nur die Auflösung
 sehen gehört immer dazu. Projekt-Admins und globale Administratoren behalten unabhängig davon vollen Zugriff, auch wenn eine
 eigene Rolle `project.manage` enthält. Vergebene Rollen lassen sich nicht löschen, Änderungen wirken sofort. Ältere
 Datenbanken bekommen beim Start eine neue Fassung der Mitgliedertabellen, weil SQLite einen CHECK nicht ändern kann.
+
+## Aufseher (M35)
+Der Aufseher ist ein Teil des Servers, kein Workflow: Er braucht Zugriff auf alle Workflows, Ausführungen und den
+Validator, und seine Ergebnisse (Hinweise, Vorschläge, Berichte) sind Verwaltungsdaten. Er liegt unter `src/supervisor/`
+und speichert in derselben SQLite-Datenbank wie die Ausführungen (Tabellen `supervisor_*`), damit Server und Worker ohne
+weitere Einrichtung mitbringen, was er braucht.
+
+Für das Modell gibt es keinen eigenen Client. Der Aufseher baut einen internen Workflow aus einem Platzhalter und dem
+Chat-Model-Knoten des gewählten Anbieters mit dem gewählten Credential und holt das Modell wie ein AI Agent über den
+KI-Eingang (`Runner.activationContext`, `getSubNodeInstance`). So gelten dieselben Anbieter, Credentials, Header-Optionen
+und Fehlermeldungen wie in Workflows, und jeder neue Modell-Knoten steht dem Aufseher über eine Zeile in der Tabelle
+`PROVIDERS` zur Verfügung. Werkzeuge nutzt der Aufseher über die Tool-Aufrufe der Modelle; die Schleife ist eigen und
+kurz (höchstens vier Schritte bei Analysen), weil der Aufseher keine Ausgabe für ein runData braucht.
+
+Feste Regeln kommen vor dem Modell: Sie kosten nichts, sind nachvollziehbar und laufen auch ohne Modell. Das Modell wird
+nur für Erklärungen, Vorschläge und Berichte gefragt, fehlgeschlagene Ausführungen einmal je Fehlerbild (Schlüssel aus
+Workflow, Knoten und der Meldung ohne Zahlen und IDs), damit ein Fehler in einer Schleife nicht das Budget verbraucht.
+Das Tagesbudget gilt für alle Aufrufe zusammen; Tokenzahlen kommen aus den Antworten der Anbieter, sonst aus einer
+Schätzung (Zeichen durch vier).
+
+Befunde aus Regeln beschreiben einen Zustand: Treten sie bei der nächsten Prüfung nicht mehr auf, sind sie erledigt.
+Befunde aus Ausführungen sind Ereignisse: Sie zählen hoch und gelten als erledigt, wenn sie drei Tage nicht mehr
+auftraten und die letzte Ausführung gelang. Verworfene Hinweise bleiben verworfen, bis jemand sie wieder öffnet.
+

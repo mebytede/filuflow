@@ -62,6 +62,8 @@ export interface ExecutionManagerOptions {
   staticData(workflow: Workflow): Record<string, Record<string, unknown>>;
   /** Nach einer Execution: statische Daten speichern, wenn sie sich geändert haben */
   saveStaticData?(workflow: Workflow, mode: ExecutionMode): void;
+  /** Nach dem Speichern jeder Execution (Aufseher) */
+  onFinished?(execution: Execution, workflow: Workflow): void;
 }
 
 /** wait-tracker.ts: Abfrage alle 60 s, Vorlauf 70 s */
@@ -306,6 +308,11 @@ export class ExecutionManager {
       this.options.logger.error({ err: (error as Error).message, executionId: execution.id }, 'Execution konnte nicht gespeichert werden');
     }
     if (execution.status === 'error' && execution.mode !== 'manual') this.executeErrorWorkflow(workflow, execution);
+    try {
+      this.options.onFinished?.(execution, workflow);
+    } catch (error) {
+      this.options.logger.error({ err: (error as Error).message, executionId: execution.id }, 'Nachbearbeitung der Execution fehlgeschlagen');
+    }
   }
 
   /** execute-error-workflow.ts: externer Fehler-Workflow oder eigener Error Trigger */
