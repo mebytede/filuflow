@@ -423,3 +423,64 @@ die Prüfung an jeder Route gleich (`allows(rolle, aktion)`), nur die Auflösung
 sehen gehört immer dazu. Projekt-Admins und globale Administratoren behalten unabhängig davon vollen Zugriff, auch wenn eine
 eigene Rolle `project.manage` enthält. Vergebene Rollen lassen sich nicht löschen, Änderungen wirken sofort. Ältere
 Datenbanken bekommen beim Start eine neue Fassung der Mitgliedertabellen, weil SQLite einen CHECK nicht ändern kann.
+
+## Aufseher (M35)
+Der Aufseher ist ein Teil des Servers, kein Workflow: Er braucht Zugriff auf alle Workflows, Ausführungen und den
+Validator, und seine Ergebnisse (Hinweise, Vorschläge, Berichte) sind Verwaltungsdaten. Er liegt unter `src/supervisor/`
+und speichert in derselben SQLite-Datenbank wie die Ausführungen (Tabellen `supervisor_*`), damit Server und Worker ohne
+weitere Einrichtung mitbringen, was er braucht.
+
+Für das Modell gibt es keinen eigenen Client. Der Aufseher baut einen internen Workflow aus einem Platzhalter und dem
+Chat-Model-Knoten des gewählten Anbieters mit dem gewählten Credential und holt das Modell wie ein AI Agent über den
+KI-Eingang (`Runner.activationContext`, `getSubNodeInstance`). So gelten dieselben Anbieter, Credentials, Header-Optionen
+und Fehlermeldungen wie in Workflows, und jeder neue Modell-Knoten steht dem Aufseher über eine Zeile in der Tabelle
+`PROVIDERS` zur Verfügung. Werkzeuge nutzt der Aufseher über die Tool-Aufrufe der Modelle; die Schleife ist eigen und
+kurz (höchstens vier Schritte bei Analysen), weil der Aufseher keine Ausgabe für ein runData braucht.
+
+Feste Regeln kommen vor dem Modell: Sie kosten nichts, sind nachvollziehbar und laufen auch ohne Modell. Das Modell wird
+nur für Erklärungen, Vorschläge und Berichte gefragt, fehlgeschlagene Ausführungen einmal je Fehlerbild (Schlüssel aus
+Workflow, Knoten und der Meldung ohne Zahlen und IDs), damit ein Fehler in einer Schleife nicht das Budget verbraucht.
+Das Tagesbudget gilt für alle Aufrufe zusammen; Tokenzahlen kommen aus den Antworten der Anbieter, sonst aus einer
+Schätzung (Zeichen durch vier).
+
+Befunde aus Regeln beschreiben einen Zustand: Treten sie bei der nächsten Prüfung nicht mehr auf, sind sie erledigt.
+Befunde aus Ausführungen sind Ereignisse: Sie zählen hoch und gelten als erledigt, wenn sie drei Tage nicht mehr
+auftraten und die letzte Ausführung gelang. Verworfene Hinweise bleiben verworfen, bis jemand sie wieder öffnet.
+
+## Vorschläge des Aufsehers (M36)
+Das Modell schickt keine vollständigen Workflows, sondern Operationen (`src/supervisor/operations.ts`), die der Aufseher
+auf eine Kopie des gespeicherten Stands anwendet. Das hat drei Gründe: Das Modell sieht Geheimnisse nur maskiert und darf
+sie nie zurückschreiben (unveränderte Teile bleiben so exakt erhalten, `***` als Wert wird abgelehnt); jede Änderung ist
+einzeln sichtbar und im Diff nachvollziehbar; und Fehler lassen sich genau benennen ("Operation 2: Knoten X gibt es
+nicht"), sodass das Modell gezielt nachbessern kann. Der vorgeschlagene Stand wird mit dem Validator geprüft; neue Fehler
+verhindern den Vorschlag, außer fehlenden Credentials, die ein Mensch erst anlegen muss.
+
+Annehmen ist an den Ausgangsstand gebunden: Eine Prüfsumme über den gespeicherten Workflow (Schlüssel sortiert) wird beim
+Vorschlag gemerkt und beim Annehmen verglichen. Hat sich der Workflow inzwischen geändert, ist der Vorschlag veraltet,
+statt fremde Änderungen zu überschreiben. Annehmen ändert die Aktivierung nie; neue Workflows entstehen inaktiv.
+
+Ein Probelauf führt Knoten wirklich aus (Dienste, Nachrichten, Datenbanken). Er läuft deshalb nur auf ausdrücklichen
+Wunsch nach einer Rückfrage und nie automatisch; automatisch ist nur die Prüfung.
+
+## Gespräch mit dem Aufseher (M37)
+Das Gespräch läuft ohne Zustand auf dem Server: Die Oberfläche schickt den Verlauf (höchstens 30 Nachrichten) mit jeder
+Nachricht, der Server ergänzt den gespeicherten Stand des Workflows und die offenen Hinweise im System-Prompt. So gibt es
+keine Gesprächsdaten zu speichern oder aufzuräumen, und jede Antwort sieht den aktuellen Stand. Neue Workflows und
+Änderungen nutzen dieselben Operationen und Prüfungen wie Vorschläge zu Hinweisen (M36); neue Workflows werden aus einem
+leeren Workflow aufgebaut und inaktiv angelegt. Vorschläge beziehen sich immer auf den gespeicherten Stand, nicht auf
+ungespeicherte Änderungen im Editor; das Fenster sagt das, und Annehmen warnt, wenn im Editor etwas ungespeichert ist.
+
+## Aufseher im Master (M38)
+Der Aufseher läuft beim Worker, nicht im Master: Dort liegen die Ausführungen, die Credentials für das Modell und der
+Validator mit den installierten Paketen, und die Daten eines Mandanten verlassen seine Umgebung nur Richtung Modell, nicht
+Richtung Master (der Master bekommt Hinweise, Analysen und Vorschläge, aber keine Ausführungsdaten). Der Master sammelt
+Hinweise und Vorschläge bei den Workern ein und filtert sie nach den Rechten der Person; es gibt keine Kopie im Master, die
+veralten könnte.
+
+Angenommen wird im Master, weil dort die Quelle der Workflows ist: Ein beim Worker gespeicherter Stand würde beim nächsten
+Abgleich überschrieben. Der Vorschlag trägt die Master-Version, auf der er beruht (aus der Kennzeichnung des verteilten
+Workflows); nur wenn sie der aktuellen Version entspricht, wird der vorgeschlagene Stand ohne die Kennzeichnung als neue
+Version gespeichert und verteilt. Danach markiert der Worker den Vorschlag als angenommen. Für die Rechte gibt es zwei neue
+Aktionen: `supervisor.read` (Hinweise und Vorschläge sehen) und `supervisor.use` (Analysen, Vorschläge und Gespräche, die
+Token kosten); Annehmen verlangt zusätzlich `workflow.edit`, weil es den Workflow ändert.
+

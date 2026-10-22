@@ -13,6 +13,12 @@ import type {
   InstanceInfo,
   Overview,
   NodeTypeInfo,
+  SupervisorFinding,
+  SupervisorProposal,
+  SupervisorProvider,
+  SupervisorReport,
+  SupervisorSettings,
+  SupervisorStatus,
   ValidationIssue,
   VariableEntry,
   Workflow,
@@ -136,4 +142,29 @@ export const api = {
   },
   execution: (id: string) => request<Execution>('GET', `/api/executions/${encodeURIComponent(id)}`),
   cancel: (id: string) => request<Execution>('POST', `/api/executions/${encodeURIComponent(id)}/cancel`),
+  supervisorStatus: () => request<SupervisorStatus>('GET', '/api/supervisor/status'),
+  supervisorSettings: () => request<{ settings: SupervisorSettings; providers: SupervisorProvider[] }>('GET', '/api/supervisor/settings'),
+  saveSupervisorSettings: (settings: Omit<Partial<SupervisorSettings>, 'model'> & { model?: SupervisorSettings['model'] | null }) =>
+    request<{ settings: SupervisorSettings }>('PUT', '/api/supervisor/settings', settings).then((r) => r.settings),
+  findings: (filter: { status?: string; workflow?: string } = {}) => {
+    const q = new URLSearchParams();
+    if (filter.status) q.set('status', filter.status);
+    if (filter.workflow) q.set('workflow', filter.workflow);
+    return request<{ data: SupervisorFinding[] }>('GET', `/api/supervisor/findings?${q.toString()}`).then((r) => r.data);
+  },
+  findingAction: (id: string, action: 'dismiss' | 'reopen' | 'analyze') => request<SupervisorFinding>('POST', `/api/supervisor/findings/${encodeURIComponent(id)}/${action}`),
+  supervisorScan: () => request<{ counts: SupervisorStatus['counts'] }>('POST', '/api/supervisor/scan'),
+  reports: () => request<{ data: SupervisorReport[] }>('GET', '/api/supervisor/reports').then((r) => r.data),
+  createReport: () => request<SupervisorReport>('POST', '/api/supervisor/reports'),
+  proposals: (filter: { status?: string; workflow?: string } = {}) => {
+    const q = new URLSearchParams();
+    if (filter.status) q.set('status', filter.status);
+    if (filter.workflow) q.set('workflow', filter.workflow);
+    return request<{ data: SupervisorProposal[] }>('GET', `/api/supervisor/proposals?${q.toString()}`).then((r) => r.data);
+  },
+  proposal: (id: string) => request<SupervisorProposal>('GET', `/api/supervisor/proposals/${encodeURIComponent(id)}`),
+  propose: (findingId: string) => request<SupervisorProposal>('POST', `/api/supervisor/findings/${encodeURIComponent(findingId)}/propose`),
+  supervisorChat: (body: { messages: Array<{ role: 'user' | 'assistant'; content: string }>; workflowId?: string }) =>
+    request<{ reply: string; proposals: SupervisorProposal[] }>('POST', '/api/supervisor/chat', body),
+  proposalAction: (id: string, action: 'accept' | 'reject' | 'test') => request<SupervisorProposal>('POST', `/api/supervisor/proposals/${encodeURIComponent(id)}/${action}`),
 };

@@ -287,6 +287,43 @@ describe('Weboberfläche', () => {
     await page.waitForSelector('.page-head:has-text("Pakete")');
     await page.waitForSelector('.empty:has-text("Noch keine Pakete installiert.")');
 
+    // Aufseher: Hinweise aus den festen Regeln, Verwerfen, Einstellungen, Bericht
+    await page.click('a[href="#/supervisor"]');
+    await page.waitForSelector('.page-head:has-text("Workflows im Blick")');
+    await page.click('button:has-text("Jetzt prüfen")');
+    await page.waitForSelector('.finding');
+    const firstFinding = await page.getAttribute('.finding', 'data-finding');
+    await page.click(`.finding[data-finding="${firstFinding}"] button:has-text("Verwerfen")`);
+    await page.waitForSelector(`.finding[data-finding="${firstFinding}"]`, { state: 'detached' });
+    await page.click('.segmented button:has-text("Verworfen")');
+    await page.waitForSelector(`.finding[data-finding="${firstFinding}"]`);
+    await page.click('.tab:has-text("Einstellungen")');
+    await page.waitForSelector('select[aria-label="Anbieter"]');
+    await page.fill('input[aria-label="Tagesbudget"]', '5000');
+    await page.click('.supervisor-settings button:has-text("Speichern")');
+    await page.waitForSelector('.toast:has-text("Einstellungen gespeichert")');
+    expect(server!.supervisor!.settings().dailyTokenBudget).toBe(5000);
+    await page.click('.tab:has-text("Berichte")');
+    await page.click('button:has-text("Bericht jetzt erstellen")');
+    await page.waitForSelector('.report-text:has-text("Offene Hinweise")');
+    // Vorschlag (ohne Modell direkt angelegt): Diff ansehen und annehmen
+    const target = server!.workflows.list().find((m) => m.workflow.nodes.length >= 2)!;
+    const firstNode = target.workflow.nodes[0].name;
+    const proposal = await server!.supervisor!.createProposal({
+      kind: 'change',
+      workflowId: target.workflow.id!,
+      title: 'Notiz ergänzen',
+      summary: 'Der erste Knoten bekommt eine Notiz.',
+      operations: [{ op: 'setNodeProperty', node: firstNode, property: 'notes', value: 'vom Aufseher' }],
+    });
+    await page.click('.tab:has-text("Vorschläge")');
+    await page.waitForSelector(`.proposal[data-proposal="${proposal.id}"] .diff-list:has-text("notes auf vom Aufseher")`);
+    await page.click(`.proposal[data-proposal="${proposal.id}"] button:has-text("Annehmen")`);
+    await page.click('.modal .btn-primary');
+    // Nach dem Annehmen verschwindet der Vorschlag aus der Liste "Offen"
+    await page.waitForSelector(`.proposal[data-proposal="${proposal.id}"]`, { state: 'detached' });
+    expect(server!.workflows.get(target.workflow.id!)!.workflow.nodes[0].notes).toBe('vom Aufseher');
+
     // Testdaten für "Quelle" eingeben und festhalten
     await page.goto(`${base}/#/workflow/pinwf`);
     await page.waitForSelector('.node[data-node="Quelle"]');

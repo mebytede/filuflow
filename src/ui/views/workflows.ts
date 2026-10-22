@@ -50,6 +50,7 @@ export async function workflowsView(): Promise<HTMLElement> {
   };
   const head = pageHead('Workflows', 'Alle Workflows dieser Instanz', [
     button('n8n-Export importieren', { icon: 'upload', size: 'm', onclick: () => void importWorkflow() }),
+    button('Mit dem Aufseher entwerfen', { icon: 'scan-eye', size: 'm', href: '#/new?aufseher=1' }),
     button('Neuer Workflow', { icon: 'plus', size: 'm', variant: 'primary', href: '#/new' }),
   ]);
   root.append(head);

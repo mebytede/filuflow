@@ -318,6 +318,10 @@ Engine-Reihenfolge, Expressions (inkl. Rohwert vs. String), jeder Node, Filter-O
 | M32 | Webhook-Knoten aus Paketen | Pfade und Antwortmodi wie n8n, WebhookContext, Anmeldung beim Dienst (webhookMethods), Test-URL |
 | M33 | Gemeinsame Credentials | Ein Credential im Master, verteilt an mehrere Worker, mit Abgleich |
 | M34 | Eigene Rollen | Rollen mit frei gewählten Rechten für Projekte und einzelne Workflows |
+| M35 | Aufseher: Beobachten | Feste Regeln, Erfassen und Analysieren fehlgeschlagener Ausführungen, Seite "Aufseher" mit Hinweisen, Berichten und Einstellungen (Abschnitt 12) |
+| M36 | Aufseher: Verbessern | Vorschläge als Diff, geprüft vor der Anzeige, Probelauf auf Wunsch, Annehmen speichert, Verwerfen verwirft |
+| M37 | Aufseher: Erstellen | Aufseher-Chat im Editor, neuer Workflow aus einer Beschreibung mit Prüf- und Nachbesserungsschleife, inaktiv als Vorschlag |
+| M38 | Aufseher im Master | Aufseher je Worker über den Master, Vorschläge erzeugen Versionen im Master, Rechte "Aufseher sehen" und "Vorschläge annehmen" |
 
 Nach jedem Meilenstein: `docs/STATUS.md` aktualisieren (was geht, was fehlt) und einen Commit mit aussagekräftiger Nachricht.
 
@@ -348,3 +352,27 @@ gemeinsame Credentials für mehrere Worker: M33)
 ### 11.4 Oberfläche und Master
 (Testdaten per Klick, Variablen-Seite: M18; Chat-Ansicht: M16; Parameterformulare: M19; Rollen je Workflow und zentrale
 Ausführungssuche: M23; frei definierbare Rollen: M34)
+
+---
+
+## 12. Aufseher
+Ein Modell als Aufseher über die Workflows: Er beobachtet Workflows und Ausführungen, erklärt Probleme, schlägt
+Verbesserungen vor und entwirft auf Wunsch neue Workflows. **Der Aufseher ändert nie selbst etwas.** Jede Änderung ist ein
+Vorschlag, den ein Mensch annimmt oder verwirft; Annehmen aktiviert nichts.
+
+### 12.1 Grundsätze
+- Feste Regeln zuerst (günstig, ohne Modell), das Modell erklärt und schlägt vor.
+- Das Modell kommt aus den vorhandenen Chat-Model-Knoten mit einem vorhandenen Credential (alle Anbieter aus M7 und M26).
+- Datenumfang einstellbar: "Aufbau und Fehler" oder zusätzlich gekürzte Beispieldaten; Geheimnisse und Credential-Werte
+  werden immer maskiert, einzelne Workflows lassen sich ausnehmen.
+- Tagesbudget in Token für alle Modell-Aufrufe; Verbrauch je Tag sichtbar.
+- Ohne Modell arbeitet der Aufseher nur mit festen Regeln.
+
+### 12.2 Meilensteine
+| # | Inhalt |
+|---|---|
+| M35 | Beobachten: Regeln (ungültig, Aktivierung, gehäufte Fehler, Fehlerquote, Abstürze, Laufzeit, Fehlerbehandlung, Klartext-Geheimnisse, deaktivierte Knoten, Knoten ohne Eingang, ältere Knotenversionen, HTTP ohne Wiederholung), fehlgeschlagene Ausführungen als Hinweis je Fehlerbild mit Analyse durch das Modell, Tagesbericht, Seite "Aufseher" mit Hinweisen, Berichten und Einstellungen, REST-API `/api/supervisor` |
+| M36 | Verbessern: Vorschlag zu einem Hinweis als Folge von Operationen, angewendet auf eine Kopie, geprüft (Validator), mit Diff angezeigt; Probelauf nur auf ausdrücklichen Wunsch; Annehmen speichert, wenn der Workflow seit dem Vorschlag unverändert ist |
+| M37 | Erstellen: Chat mit dem Aufseher im Editor (Fragen zum Workflow, Änderungen, neue Workflows); neue Workflows entstehen inaktiv als Vorschlag |
+| M38 | Master: Aufseher der Worker über den Master, Vorschläge werden im Master als neue Version angenommen, Rechte als Aktionen der Rollen (M34) |
+

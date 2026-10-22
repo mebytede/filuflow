@@ -4,8 +4,9 @@ import { api, ApiError } from '../api.js';
 import { appendAll, dialog, h, toast } from '../dom.js';
 import { button, editorHeader, iconButton, statusWord, shortTime } from '../shell.js';
 import { RunPanel } from './runPanel.js';
+import { SupervisorDrawer, type SupervisorChatBackend } from './supervisorDrawer.js';
 import { ChatView, replyText } from '../chat/view.js';
-import type { CredentialInfo, Execution, InspectResult, NodePorts, NodeTypeInfo, ValidationIssue, Workflow, WorkflowNode, WorkflowStatus } from '../types.js';
+import type { CredentialInfo, Execution, InspectResult, NodePorts, NodeTypeInfo, SupervisorProposal, ValidationIssue, Workflow, WorkflowNode, WorkflowStatus } from '../types.js';
 import { Canvas, GRID, NODE_H, NODE_W, type CanvasModel } from './canvas.js';
 import { Panel } from './panel.js';
 import { palette } from './palette.js';
@@ -52,6 +53,10 @@ export const standaloneBackend: EditorBackend = {
 
 export interface EditorOptions {
   backend?: EditorBackend;
+  /** Aufseher im Editor (M37); ohne Option kein Knopf */
+  supervisor?: SupervisorChatBackend & { onAccepted(p: SupervisorProposal): void };
+  /** Aufseher-Fenster gleich öffnen (Workflow mit dem Aufseher entwerfen) */
+  openSupervisor?: boolean;
   /** Link zu den Ausführungen dieses Workflows (Default: Einzelbetrieb) */
   executionsHref?(id: string): string;
   /** Zusätzliche Knöpfe in der Werkzeugleiste */
@@ -109,6 +114,8 @@ export class Editor {
   private main!: HTMLElement;
   /** Chat-Fenster (Workflows mit Chat Trigger) */
   private chat?: { el: HTMLElement; view: ChatView; sessionId: string };
+  /** Aufseher-Fenster (M37) */
+  private supervisorDrawer?: SupervisorDrawer;
   /** Kopfzeile (56 px); die App setzt sie über die Icon-Leiste */
   readonly header: HTMLElement;
   private readonly issuesBar: HTMLElement;
@@ -245,6 +252,7 @@ export class Editor {
     this.renderToolbar();
     this.refresh();
     this.inspect();
+    if (opts.openSupervisor && opts.supervisor && !opts.readonly) this.toggleSupervisor();
   }
 
   destroy(): void {
@@ -667,7 +675,33 @@ export class Editor {
    * Chat-Fenster: jede Nachricht startet einen Testlauf ab dem Chat Trigger mit { sessionId, action, chatInput }
    * (wie der Chat im n8n-Editor); die Antwort ist das erste Item des zuletzt ausgeführten Knotens.
    */
+  /** Aufseher-Fenster öffnen oder schließen (ersetzt ein offenes Chat-Fenster) */
+  private toggleSupervisor(): void {
+    if (this.supervisorDrawer) {
+      this.supervisorDrawer.el.remove();
+      this.supervisorDrawer = undefined;
+      return;
+    }
+    const sup = this.opts.supervisor;
+    if (!sup) return;
+    if (this.chat) this.toggleChat();
+    this.supervisorDrawer = new SupervisorDrawer({
+      backend: sup,
+      ...(this.id ? { workflowId: this.id } : {}),
+      isDirty: () => this.dirty,
+      close: () => this.toggleSupervisor(),
+      onAccepted: (p) => {
+        // Gespeicherter Stand hat sich geändert: Editor ohne Rückfrage neu laden
+        this.dirty = false;
+        sup.onAccepted(p);
+      },
+    });
+    this.main.append(this.supervisorDrawer.el);
+    this.supervisorDrawer.focus();
+  }
+
   private toggleChat(): void {
+    if (!this.chat && this.supervisorDrawer) this.toggleSupervisor();
     if (this.chat) {
       this.chat.el.remove();
       this.chat = undefined;
@@ -875,6 +909,7 @@ export class Editor {
         ),
         ...extras,
         this.chatTrigger() ? iconButton('message-square', 'Chat mit dem Workflow testen', () => this.toggleChat()) : null,
+        this.opts.supervisor ? iconButton('scan-eye', 'Aufseher fragen', () => this.toggleSupervisor()) : null,
         this.listening
           ? button('Warten beenden', { icon: 'square', title: 'Nicht mehr auf einen Aufruf der Test-URL warten', onclick: () => void this.listen() })
           : button(this.running ? 'Läuft' : 'Testlauf', { icon: 'play', title: 'Workflow ausführen (Strg+Enter)', disabled: this.running, onclick: () => void this.run() }),

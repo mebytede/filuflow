@@ -3,7 +3,7 @@ import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest }
 import qs from 'qs';
 import { gunzipSync, inflateSync } from 'node:zlib';
 import { timingSafeEqual } from 'node:crypto';
-import type { Execution, Item } from '../types.js';
+import type { Execution, Item, Workflow } from '../types.js';
 import { Runner } from '../runner.js';
 import { getDefaultRegistry } from '../nodes/index.js';
 import type { NodeRegistry } from '../nodes/registry.js';
@@ -33,6 +33,9 @@ import { warmUpPython } from '../python/pyodide.js';
 import { OAUTH2_CALLBACK_PATH, setOAuth2TokenStore } from '../credentials/oauth2.js';
 import { OAUTH1_CALLBACK_PATH } from '../credentials/oauth1.js';
 import { UndiciHttpClient } from '../http.js';
+import { Supervisor } from '../supervisor/supervisor.js';
+import { registerSupervisorApi } from '../supervisor/api.js';
+import { validateWorkflow } from '../validator.js';
 
 export interface ServerOptions {
   dir: string;
@@ -58,6 +61,8 @@ export interface ServerOptions {
   communityPackages?: { dir: string; npmRegistry?: string; enabled?: boolean; env?: NodeJS.ProcessEnv } | CommunityPackages;
   /** Worker-Modus (M9): API für den Master; Credentials optional vom Master beschreibbar */
   worker?: { version: string; credentials?: LayeredCredentialProvider };
+  /** Aufseher (M35): Default an, abschaltbar mit false oder FILUFLOW_SUPERVISOR=false */
+  supervisor?: boolean;
 }
 
 export interface FiluflowServer {
@@ -67,6 +72,7 @@ export interface FiluflowServer {
   workflows: WorkflowManager;
   webhooks: WebhookService;
   scheduler: Scheduler;
+  supervisor?: Supervisor;
   close(): Promise<void>;
 }
 
@@ -173,6 +179,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
   let manager: ExecutionManager;
   // eslint-disable-next-line prefer-const
   let workflows: WorkflowManager | undefined;
+  let supervisor: Supervisor | undefined;
   const runner = new Runner({
     registry,
     credentials,
@@ -193,6 +200,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
     baseUrl: options.webhookBaseUrl,
     staticData: staticFor,
     saveStaticData,
+    onFinished: (execution, workflow) => supervisor?.onExecutionFinished(execution, workflow),
   });
   const webhooks = new WebhookService({ manager, credentials, binary, logger, webhookBaseUrl: options.webhookBaseUrl, store, vars: variables.vars, registry, saveStaticData });
   const scheduler = new Scheduler(manager, logger, staticFor);
@@ -216,6 +224,43 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
     warmUpPython().catch((error: unknown) => logger.warn({ err: (error as Error).message }, 'Python (Pyodide) konnte nicht vorgeladen werden'));
   }
   if (options.watch !== false) workflows.watch();
+
+  // Aufseher: beobachtet Workflows und Ausführungen, schlägt nur vor
+  if (options.supervisor ?? process.env.FILUFLOW_SUPERVISOR !== 'false') {
+    supervisor = new Supervisor({
+      db: store.database,
+      runner,
+      registry,
+      executions: store,
+      logger,
+      kv: kvStore,
+      secrets,
+      credentialType: (name) => {
+        const entry = credentials.find({ name });
+        return entry ? (entry.type ?? '') : undefined;
+      },
+      workflows: () =>
+        workflows!.list().map((m) => ({ workflow: m.workflow, active: m.active, issues: m.issues, ...(m.activationError ? { activationError: m.activationError } : {}) })),
+      credentialList: () => (credentials.list?.() ?? []).map((c) => ({ name: c.name, ...(c.type ? { type: c.type } : {}) })),
+      validate: (wf) => validateWorkflow(wf, { registry, credentials, checkCredentials: true }),
+      workflowSource: async (id) => {
+        try {
+          return (await workflows!.source(id)) as Workflow | undefined;
+        } catch {
+          return undefined;
+        }
+      },
+      saveWorkflow: async (wf, id) => ({ id: (await workflows!.save(wf, id)).workflow.id as string }),
+      acceptInMaster: !!options.worker,
+      testRun: async (wf) => {
+        runner.checkStart(wf);
+        const entry = manager.start({ workflow: wf, mode: 'manual', usePinData: true });
+        const execution = await entry.promise;
+        return { executionId: execution.id, status: execution.status };
+      },
+    });
+    supervisor.start();
+  }
 
   const pruneDays = options.pruneDays ?? 14;
   const prune = () => {
@@ -425,6 +470,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
     if (options.worker) await registerVariablesApi(api, { prefix: '/api/worker/variables', variables, logger });
     await registerPackagesApi(api, { prefix: '/api/community-packages', packages, enabled: packagesEnabled, logger });
     if (options.worker) await registerPackagesApi(api, { prefix: '/api/worker/community-packages', packages, enabled: packagesEnabled, logger });
+    await registerSupervisorApi(api, { prefix: '/api/supervisor', supervisor: () => supervisor });
     await registerEditorApi(api, { registry, credentials, runner, manager, store, workflows: () => workflows!, webhookBaseUrl: options.webhookBaseUrl, webhooks });
     if (options.worker) {
       await registerWorkerApi(api, {
@@ -492,8 +538,10 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
     workflows,
     webhooks,
     scheduler,
+    supervisor,
     async close() {
       clearInterval(pruneTimer);
+      await supervisor?.close();
       chatSessions.closeAll();
       manager.stopWaitTracker();
       setOAuth2TokenStore(undefined);

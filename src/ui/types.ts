@@ -330,3 +330,113 @@ export interface CommunityPackageList {
   enabled: boolean;
   data: CommunityPackage[];
 }
+
+// Aufseher (M35 bis M38)
+export type SupervisorSeverity = 'error' | 'warning' | 'info';
+
+export interface SupervisorFinding {
+  id: string;
+  workflowId: string;
+  workflowName: string;
+  rule: string;
+  severity: SupervisorSeverity;
+  title: string;
+  detail: string;
+  nodeName?: string;
+  executionId?: string;
+  count: number;
+  status: 'open' | 'dismissed' | 'resolved';
+  analysis?: { text: string; model: string; at: string; error?: string };
+  proposalId?: string;
+  firstSeen: string;
+  lastSeen: string;
+  /** Master: Worker, auf dem der Hinweis entstand */
+  workerId?: string;
+  workerName?: string;
+  projectId?: string;
+  /** Master: darf die Person analysieren, Vorschläge erstellen, verwerfen? */
+  canUse?: boolean;
+}
+
+export interface SupervisorSettings {
+  enabled: boolean;
+  model?: { provider: string; credential: string; model: string };
+  analyzeFailures: boolean;
+  dataScope: 'structure' | 'samples';
+  dailyTokenBudget: number;
+  digest: { enabled: boolean; hour: number };
+  excludedWorkflows: string[];
+  scanIntervalMinutes: number;
+}
+
+export interface SupervisorProvider {
+  id: string;
+  label: string;
+  credentialType: string;
+  example: string;
+}
+
+export interface SupervisorStatus {
+  enabled: boolean;
+  modelReady: boolean;
+  model?: { provider: string; model: string };
+  usage: { today: number; calls: number; budget: number };
+  counts: { error: number; warning: number; info: number };
+  proposals: number;
+  lastScan?: string;
+  lastReport?: string;
+  /** Master: Worker insgesamt und mit Modell, nicht erreichbare Worker */
+  workers?: { total: number; withModel: number };
+  errors?: string[];
+}
+
+export interface SupervisorReport {
+  id: string;
+  createdAt: string;
+  from: string;
+  to: string;
+  text: string;
+  model?: string;
+  counts: { error: number; warning: number; info: number; failedRuns: number; runs: number };
+}
+
+export interface SupervisorDiffEntry {
+  kind: string;
+  node?: string;
+  path?: string;
+  before?: unknown;
+  after?: unknown;
+  text: string;
+}
+
+export interface SupervisorProposal {
+  id: string;
+  kind: 'change' | 'new';
+  workflowId?: string;
+  workflowName: string;
+  findingId?: string;
+  title: string;
+  summary: string;
+  workflow: Workflow;
+  diff: SupervisorDiffEntry[];
+  validation: { valid: boolean; issues: Array<{ severity: string; message: string; node?: string }> };
+  status: 'open' | 'accepted' | 'rejected' | 'stale';
+  testRun?: { executionId: string; status: string; at: string };
+  createdAt: string;
+  decidedAt?: string;
+  decidedBy?: string;
+  result?: { workflowId: string; version?: number };
+  workerId?: string;
+  workerName?: string;
+  projectId?: string;
+  /** Master: Rechte der Person für diesen Vorschlag */
+  canAccept?: boolean;
+  canUse?: boolean;
+}
+
+export interface SupervisorChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  /** Vorschlag, den der Aufseher in dieser Antwort erstellt hat */
+  proposalId?: string;
+}

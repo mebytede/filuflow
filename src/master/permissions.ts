@@ -18,13 +18,17 @@ export type ProjectAction =
   | 'workflow.share'
   | 'execution.read'
   | 'execution.cancel'
-  | 'credentials.read';
+  | 'credentials.read'
+  | 'supervisor.read'
+  | 'supervisor.use';
 
 /** Rolle im Projekt aus Sicht des Benutzers; 'guest': nur über einzelne Workflows */
 export type AccessRole = ProjectRole | 'guest';
 
-const VIEWER: ProjectAction[] = ['project.read', 'workflow.read', 'execution.read', 'credentials.read'];
-const EDITOR: ProjectAction[] = [...VIEWER, 'workflow.edit', 'workflow.run', 'workflow.activate', 'workflow.delete', 'execution.cancel'];
+// Aufseher (M38): Hinweise und Vorschläge sehen (lesen), analysieren, Vorschläge erstellen und fragen (nutzen, kostet Token).
+// Vorschläge annehmen braucht zusätzlich workflow.edit.
+const VIEWER: ProjectAction[] = ['project.read', 'workflow.read', 'execution.read', 'credentials.read', 'supervisor.read'];
+const EDITOR: ProjectAction[] = [...VIEWER, 'workflow.edit', 'workflow.run', 'workflow.activate', 'workflow.delete', 'execution.cancel', 'supervisor.use'];
 const ADMIN: ProjectAction[] = [...EDITOR, 'workflow.share', 'project.manage'];
 
 const BY_ROLE: Record<'guest' | 'viewer' | 'editor' | 'admin', Set<ProjectAction>> = {
@@ -64,7 +68,7 @@ function actionsOf(role: AccessRole): Set<ProjectAction> {
 }
 
 /** Aktionen, die sich auf einen Workflow beziehen (Rechte in der Workflow-Ansicht) */
-const WORKFLOW_ACTIONS = new Set<ProjectAction>(['workflow.read', 'workflow.edit', 'workflow.run', 'workflow.activate', 'workflow.delete', 'workflow.share', 'execution.read', 'execution.cancel', 'credentials.read']);
+const WORKFLOW_ACTIONS = new Set<ProjectAction>(['workflow.read', 'workflow.edit', 'workflow.run', 'workflow.activate', 'workflow.delete', 'workflow.share', 'execution.read', 'execution.cancel', 'credentials.read', 'supervisor.read', 'supervisor.use']);
 
 /** Effektive Projektrolle: globale Admins sind in jedem Projekt Projekt-Admin */
 export function effectiveRole(globalRole: GlobalRole, memberRole: ProjectRole | undefined): ProjectRole | undefined {
