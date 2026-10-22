@@ -1,0 +1,66 @@
+# Prüfung bei jedem Pull Request und Push auf main: Lint und Typen, Tests (inklusive Browser-Tests mit Chromium),
+# Golden-Tests gegen fixtures/ und ein Probe-Build des Docker-Images. Auf main wird das Image zusätzlich in die
+# GitHub Container Registry geschoben (ghcr.io/<owner>/filuflow, Tags main und Commit-SHA).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint und Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Chromium für die Browser-Tests (ohne Browser würden sie übersprungen)
+      - run: node node_modules/playwright-core/cli.js install --with-deps chromium
+      - run: npm run lint
+      - run: npm test
+      - run: npm run test:compat
+      - run: npm run build
+
+  docker:
+    name: Docker-Image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: test
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Image bauen
+        run: docker build -t filuflow:ci .
+      - name: Image starten und Healthcheck prüfen
+        run: |
+          docker run -d --name filuflow-ci -p 5678:5678 -e FILUFLOW_API_KEY=ci-schluessel filuflow:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:5678/healthz; then echo; docker rm -f filuflow-ci; exit 0; fi
+            sleep 2
+          done
+          docker logs filuflow-ci
+          exit 1
+      - name: In die GitHub Container Registry schieben
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          IMAGE=ghcr.io/$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')/filuflow
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker tag filuflow:ci "$IMAGE:main"
+          docker tag filuflow:ci "$IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:main"
+          docker push "$IMAGE:${{ github.sha }}"

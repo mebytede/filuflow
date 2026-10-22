@@ -56,4 +56,5 @@ Referenzversion: n8n **1.123.0** (Docker-Image `n8nio/n8n:1.123.0`, Quellcode-Ta
 - `fixtures/real/` fehlt noch: Es liegen keine echten Workflow-Exporte vor. Sobald welche vorhanden sind, mit `scripts/record-expected.sh` aufnehmen.
 - Orakel neu aufnehmen: `scripts/record-filter-table.sh`, `scripts/record-expression-table.sh`, `scripts/record-ai-oracle.sh`, `scripts/record-ai-tools-oracle.sh` (brauchen Docker).
 - Nächste Schritte stehen als Ausbau in `docs/SPEC.md` (Abschnitt 11) und für den Aufseher in Abschnitt 12.
-- Docker-Image mit Oberfläche: Der Build-Ablauf (`npm run build` inklusive `build:ui`) ist lokal geprüft; der letzte `docker build` scheiterte an Docker Hub (429 Too Many Requests) und ist nachzuholen.
+- Docker-Image mit Oberfläche: `docker build` mit dem aktuellen Stand geprüft (Start, Oberfläche, `/healthz`, Aufseher); in dieser Umgebung nur mit Proxy-CA in einer temporären Kopie des Dockerfiles, weil der Build-Container sonst kein Internet hat.
+- CI auf GitHub (`.github/workflows/ci.yml`): Lint, Tests mit Chromium, Golden-Tests, Build, Docker-Image bauen und starten; auf `main` Veröffentlichung nach `ghcr.io/<owner>/filuflow`.

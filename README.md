@@ -556,6 +556,9 @@ entfernt es bei aufgehobener Zuordnung und holt Ausfälle beim nächsten Abgleic
 Worker. Das Image basiert auf `node:22-slim` und läuft als Benutzer `node` mit dem Arbeitsverzeichnis `/data` (Workflows unter
 `/data/workflows`, optional `/data/credentials.json` und `/data/vars.json`).
 
+Fertig gebaut liegt das Image in der GitHub Container Registry (`ghcr.io/mebytede/filuflow:main`, siehe Entwicklung); zum
+selbst Bauen:
+
 ```bash
 docker build -t filuflow .                                   # mit Python (Native): --build-arg WITH_PYTHON=true
 docker run -p 5678:5678 -e FILUFLOW_API_KEY=geheim -v "$PWD/data:/data" filuflow
@@ -580,6 +583,10 @@ npm run build        # CLI, Server und Oberfläche nach dist/
 
 TypeScript (strict, ESM) auf Node.js 22, fastify, SQLite (better-sqlite3), luxon und croner. Die Oberfläche kommt ohne Framework
 aus und wird mit `tsc` gebaut.
+
+Die CI auf GitHub (`.github/workflows/ci.yml`) prüft jeden Pull Request und jeden Push auf `main`: Lint, Tests mit Chromium,
+Golden-Tests, Build und das Docker-Image (bauen, starten, `/healthz`). Nach einem Push auf `main` liegt das Image unter
+`ghcr.io/mebytede/filuflow:main` und `ghcr.io/mebytede/filuflow:<commit>`.
 
 ## Dokumentation
 
