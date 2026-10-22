@@ -1,6 +1,6 @@
-// Structured Output Parser wie n8n 1.123.0:
-//   packages/@n8n/nodes-langchain/utils/output_parsers/N8nStructuredOutputParser.ts (Hülle "output", parse)
-//   @langchain/core StructuredOutputParser.getFormatInstructions (Text der Format-Anweisung)
+// Structured Output Parser as in n8n 1.123.0:
+//   packages/@n8n/nodes-langchain/utils/output_parsers/N8nStructuredOutputParser.ts (wrapper "output", parse)
+//   @langchain/core StructuredOutputParser.getFormatInstructions (text of the format instruction)
 import { NodeOperationError } from '../errors.js';
 import { jsonSchemaToZod, zodParse, zodToJsonSchema, ZValidationError, type JsonSchema, type ZType } from './schema.js';
 
@@ -8,7 +8,7 @@ const KEY = '__structured__output';
 const OBJECT_KEY = '__structured__output__object';
 const ARRAY_KEY = '__structured__output__array';
 
-/** Text von LangChain StructuredOutputParser.getFormatInstructions (Klammern bleiben verdoppelt wie in LangChain) */
+/** Text of LangChain StructuredOutputParser.getFormatInstructions (braces stay doubled as in LangChain) */
 const FORMAT_INSTRUCTIONS_PREFIX =
   'You must format your output as a JSON value that adheres to a given "JSON Schema" instance.\n\n' +
   '"JSON Schema" is a declarative language that allows you to annotate and validate JSON documents.\n\n' +
@@ -22,7 +22,7 @@ export function formatInstructionsFor(schema: ZType): string {
   return `${FORMAT_INSTRUCTIONS_PREFIX}${JSON.stringify(zodToJsonSchema(schema))}\n\`\`\`\n`;
 }
 
-/** N8nStructuredOutputParser.fromZodJsonSchema: Hülle je Node-Version */
+/** N8nStructuredOutputParser.fromZodJsonSchema: wrapper per node version */
 export function wrapSchema(inner: ZType, nodeVersion: number): ZType {
   if (nodeVersion === 1) {
     const wrapper: ZType = {
@@ -78,7 +78,7 @@ export class StructuredOutputParser {
     return formatInstructionsFor(this.schema);
   }
 
-  /** Liefert das Ergebnis oder wirft NodeOperationError mit Grund (n8n: context.outputParserFailReason) */
+  /** Returns the result or throws NodeOperationError with a reason (n8n: context.outputParserFailReason) */
   parse(text: string): unknown {
     try {
       const jsonString = text.includes('```') ? text.split(/```(?:json)?/)[1] : text;

@@ -1,6 +1,6 @@
-// Vorschläge des Aufsehers (M36) als Operationen auf einer Kopie des Workflows, dazu der Diff für die Anzeige und eine
-// Prüfsumme des Ausgangsstands. Operationen statt eines vollständigen Workflows vom Modell: Unveränderte Teile bleiben
-// genau erhalten (auch Werte, die das Modell nur maskiert gesehen hat), und jede Änderung ist einzeln nachvollziehbar.
+// Supervisor proposals (M36) as operations on a copy of the workflow, plus the diff for display and a
+// checksum of the base version. Operations instead of a complete workflow from the model: unchanged parts are kept
+// exactly (including values the model only saw masked), and every change can be traced individually.
 import { createHash, randomUUID } from 'node:crypto';
 import type { Workflow, WorkflowNode } from '../types.js';
 import type { NodeRegistry } from '../nodes/registry.js';
@@ -9,14 +9,14 @@ import type { DiffEntry, ProposalOperation } from './types.js';
 
 type Connections = Record<string, Record<string, Array<Array<{ node: string; type: string; index: number }> | null>>>;
 
-/** Knoteneigenschaften, die ein Vorschlag setzen darf (Parameter über setParameter) */
+/** Node properties a proposal may set (parameters via setParameter) */
 const NODE_PROPERTIES = ['typeVersion', 'disabled', 'retryOnFail', 'maxTries', 'waitBetweenTries', 'onError', 'alwaysOutputData', 'executeOnce', 'notes', 'credentials', 'position'];
-/** Knoten, die eine webhookId brauchen */
+/** Nodes that need a webhookId */
 const WEBHOOK_TYPES = ['n8n-nodes-base.webhook', 'n8n-nodes-base.formTrigger', 'n8n-nodes-base.form', 'n8n-nodes-base.wait', '@n8n/n8n-nodes-langchain.chatTrigger', '@n8n/n8n-nodes-langchain.chat'];
 
 export class OperationError extends Error {}
 
-/** Kanonisches JSON (Schlüssel sortiert) für Prüfsummen */
+/** Canonical JSON (sorted keys) for checksums */
 function canonical(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonical);
   if (value && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort().map((k) => [k, canonical((value as Record<string, unknown>)[k])]));
@@ -29,8 +29,8 @@ export function workflowHash(workflow: unknown): string {
 
 function parsePath(path: string): string[] {
   const parts = path.match(/[^.[\]]+/g) ?? [];
-  if (!parts.length) throw new OperationError(`Ungültiger Pfad: "${path}"`);
-  for (const p of parts) if (p === '__proto__' || p === 'constructor' || p === 'prototype') throw new OperationError(`Ungültiger Pfad: "${path}"`);
+  if (!parts.length) throw new OperationError(`Invalid path: "${path}"`);
+  for (const p of parts) if (p === '__proto__' || p === 'constructor' || p === 'prototype') throw new OperationError(`Invalid path: "${path}"`);
   return parts;
 }
 
@@ -74,7 +74,7 @@ function removeAt(target: Record<string, unknown>, path: string): boolean {
   return true;
 }
 
-/** Verweise in Expressions auf einen umbenannten Knoten anpassen ($('Name'), $node["Name"]) */
+/** Update references in expressions to a renamed node ($('Name'), $node["Name"]) */
 function renameReferences(value: unknown, from: string, to: string): unknown {
   if (typeof value === 'string') {
     if (!value.includes(from)) return value;
@@ -89,8 +89,8 @@ function renameReferences(value: unknown, from: string, to: string): unknown {
 }
 
 /**
- * Operationen der Reihe nach auf eine Kopie anwenden. Jede fehlerhafte Operation bricht mit einer klaren Meldung ab
- * (Nummer und Grund), damit das Modell nachbessern kann.
+ * Apply operations in order to a copy. Every faulty operation aborts with a clear message
+ * (number and reason) so that the model can correct it.
  */
 export function applyOperations(base: Workflow, operations: ProposalOperation[], registry: NodeRegistry): Workflow {
   const wf = JSON.parse(JSON.stringify(base)) as Workflow & { pinData?: Record<string, unknown> };
@@ -99,28 +99,28 @@ export function applyOperations(base: Workflow, operations: ProposalOperation[],
   const connections = wf.connections as Connections;
   const node = (name: unknown, i: number): WorkflowNode => {
     const n = wf.nodes.find((x) => x.name === name);
-    if (!n) throw new OperationError(`Operation ${i + 1}: Knoten "${String(name)}" gibt es nicht`);
+    if (!n) throw new OperationError(`Operation ${i + 1}: node "${String(name)}" does not exist`);
     return n;
   };
-  if (!Array.isArray(operations) || !operations.length) throw new OperationError('Keine Operationen');
-  if (operations.length > 200) throw new OperationError('Zu viele Operationen (höchstens 200)');
+  if (!Array.isArray(operations) || !operations.length) throw new OperationError('No operations');
+  if (operations.length > 200) throw new OperationError('Too many operations (at most 200)');
   operations.forEach((op, i) => {
-    if (!op || typeof op !== 'object' || typeof (op as { op?: unknown }).op !== 'string') throw new OperationError(`Operation ${i + 1}: "op" fehlt`);
-    if (containsMask(op)) throw new OperationError(`Operation ${i + 1}: Der Wert enthält "${MASK}". Maskierte Werte dürfen nicht gesetzt werden; lassen Sie solche Parameter unverändert oder nutzen Sie ein Credential.`);
+    if (!op || typeof op !== 'object' || typeof (op as { op?: unknown }).op !== 'string') throw new OperationError(`Operation ${i + 1}: "op" is missing`);
+    if (containsMask(op)) throw new OperationError(`Operation ${i + 1}: the value contains "${MASK}". Masked values must not be set; leave such parameters unchanged or use a credential.`);
     switch (op.op) {
       case 'setParameter':
         node(op.node, i).parameters ??= {};
         setAt(node(op.node, i).parameters, String(op.path), op.value);
         break;
       case 'removeParameter':
-        if (!removeAt(node(op.node, i).parameters ?? {}, String(op.path))) throw new OperationError(`Operation ${i + 1}: Parameter "${op.path}" gibt es nicht`);
+        if (!removeAt(node(op.node, i).parameters ?? {}, String(op.path))) throw new OperationError(`Operation ${i + 1}: parameter "${op.path}" does not exist`);
         break;
       case 'setNodeProperty': {
         const n = node(op.node, i);
-        if (!NODE_PROPERTIES.includes(op.property)) throw new OperationError(`Operation ${i + 1}: Eigenschaft "${op.property}" ist nicht erlaubt (erlaubt: ${NODE_PROPERTIES.join(', ')})`);
+        if (!NODE_PROPERTIES.includes(op.property)) throw new OperationError(`Operation ${i + 1}: property "${op.property}" is not allowed (allowed: ${NODE_PROPERTIES.join(', ')})`);
         if (op.property === 'typeVersion') {
           const t = registry.get(n.type);
-          if (!t?.versions.includes(Number(op.value))) throw new OperationError(`Operation ${i + 1}: Version ${String(op.value)} gibt es für ${n.type} nicht (${t?.versions.join(', ') ?? 'unbekannter Typ'})`);
+          if (!t?.versions.includes(Number(op.value))) throw new OperationError(`Operation ${i + 1}: version ${String(op.value)} does not exist for ${n.type} (${t?.versions.join(', ') ?? 'unknown type'})`);
         }
         if (op.value === null || op.value === undefined) delete (n as unknown as Record<string, unknown>)[op.property];
         else (n as unknown as Record<string, unknown>)[op.property] = op.property === 'typeVersion' ? Number(op.value) : op.value;
@@ -128,12 +128,12 @@ export function applyOperations(base: Workflow, operations: ProposalOperation[],
       }
       case 'addNode': {
         const spec = op.node;
-        if (!spec || typeof spec.name !== 'string' || !spec.name.trim()) throw new OperationError(`Operation ${i + 1}: Knotenname fehlt`);
-        if (wf.nodes.some((x) => x.name === spec.name)) throw new OperationError(`Operation ${i + 1}: Einen Knoten "${spec.name}" gibt es schon`);
+        if (!spec || typeof spec.name !== 'string' || !spec.name.trim()) throw new OperationError(`Operation ${i + 1}: node name is missing`);
+        if (wf.nodes.some((x) => x.name === spec.name)) throw new OperationError(`Operation ${i + 1}: a node "${spec.name}" already exists`);
         const t = registry.get(spec.type);
-        if (!t) throw new OperationError(`Operation ${i + 1}: Unbekannter Knotentyp "${spec.type}"`);
+        if (!t) throw new OperationError(`Operation ${i + 1}: unknown node type "${spec.type}"`);
         const version = spec.typeVersion ?? Math.max(...t.versions);
-        if (!t.versions.includes(version)) throw new OperationError(`Operation ${i + 1}: Version ${version} gibt es für ${spec.type} nicht (${t.versions.join(', ')})`);
+        if (!t.versions.includes(version)) throw new OperationError(`Operation ${i + 1}: version ${version} does not exist for ${spec.type} (${t.versions.join(', ')})`);
         const last = wf.nodes[wf.nodes.length - 1];
         const position: [number, number] = Array.isArray(spec.position) && spec.position.length === 2 ? [Number(spec.position[0]), Number(spec.position[1])] : last ? [last.position[0] + 220, last.position[1]] : [0, 0];
         const created: WorkflowNode = { id: randomUUID(), name: spec.name, type: spec.type, typeVersion: version, position, parameters: spec.parameters ?? {} };
@@ -159,8 +159,8 @@ export function applyOperations(base: Workflow, operations: ProposalOperation[],
       case 'renameNode': {
         const n = node(op.node, i);
         const to = String(op.newName ?? '').trim();
-        if (!to) throw new OperationError(`Operation ${i + 1}: Neuer Name fehlt`);
-        if (wf.nodes.some((x) => x.name === to)) throw new OperationError(`Operation ${i + 1}: Einen Knoten "${to}" gibt es schon`);
+        if (!to) throw new OperationError(`Operation ${i + 1}: new name is missing`);
+        if (wf.nodes.some((x) => x.name === to)) throw new OperationError(`Operation ${i + 1}: a node "${to}" already exists`);
         const from = n.name;
         n.name = to;
         if (connections[from]) {
@@ -190,29 +190,29 @@ export function applyOperations(base: Workflow, operations: ProposalOperation[],
         if (op.op === 'connect') {
           if (at === -1) list.push({ node: op.to, type, index: input });
         } else {
-          if (at === -1) throw new OperationError(`Operation ${i + 1}: Verbindung ${op.from} -> ${op.to} gibt es nicht`);
+          if (at === -1) throw new OperationError(`Operation ${i + 1}: connection ${op.from} -> ${op.to} does not exist`);
           list.splice(at, 1);
         }
         break;
       }
       case 'setWorkflowSetting':
-        if (typeof op.key !== 'string' || !op.key || op.key === '__proto__') throw new OperationError(`Operation ${i + 1}: Schlüssel fehlt`);
+        if (typeof op.key !== 'string' || !op.key || op.key === '__proto__') throw new OperationError(`Operation ${i + 1}: key is missing`);
         wf.settings = { ...(wf.settings ?? {}) };
         if (op.value === null || op.value === undefined) delete wf.settings[op.key];
         else wf.settings[op.key] = op.value;
         break;
       case 'setName':
-        if (typeof op.name !== 'string' || !op.name.trim()) throw new OperationError(`Operation ${i + 1}: Name fehlt`);
+        if (typeof op.name !== 'string' || !op.name.trim()) throw new OperationError(`Operation ${i + 1}: name is missing`);
         wf.name = op.name.trim();
         break;
       default:
-        throw new OperationError(`Operation ${i + 1}: Unbekannte Operation "${(op as { op: string }).op}"`);
+        throw new OperationError(`Operation ${i + 1}: unknown operation "${(op as { op: string }).op}"`);
     }
   });
   return wf;
 }
 
-/** Blätter eines Werts mit Pfad (Arrays mit Index) */
+/** Leaves of a value with path (arrays with index) */
 function leaves(value: unknown, prefix = '', out = new Map<string, unknown>()): Map<string, unknown> {
   if (Array.isArray(value)) {
     if (!value.length) out.set(prefix, []);
@@ -244,14 +244,14 @@ function edges(wf: Workflow, nameOf: (name: string) => string): Set<string> {
   return out;
 }
 
-/** Unterschiede zwischen zwei Ständen, lesbar beschrieben */
+/** Differences between two versions, described in readable form */
 export function workflowDiff(before: Workflow | undefined, after: Workflow): DiffEntry[] {
   const out: DiffEntry[] = [];
   const old = before ?? ({ name: '', nodes: [], connections: {} } as unknown as Workflow);
-  if (before && old.name !== after.name) out.push({ kind: 'name', before: old.name, after: after.name, text: `Name: "${old.name}" wird zu "${after.name}"` });
+  if (before && old.name !== after.name) out.push({ kind: 'name', before: old.name, after: after.name, text: `Name: "${old.name}" becomes "${after.name}"` });
   const oldById = new Map((old.nodes ?? []).map((n) => [n.id, n]));
   const newById = new Map((after.nodes ?? []).map((n) => [n.id, n]));
-  // Alte Namen auf neue abbilden (Umbenennungen), damit Verbindungen nicht doppelt erscheinen
+  // Map old names to new ones (renames) so that connections do not appear twice
   const renamed = new Map<string, string>();
   for (const n of after.nodes ?? []) {
     const o = oldById.get(n.id);
@@ -260,63 +260,63 @@ export function workflowDiff(before: Workflow | undefined, after: Workflow): Dif
   for (const n of after.nodes ?? []) {
     const o = oldById.get(n.id);
     if (!o) {
-      out.push({ kind: 'node-added', node: n.name, after: { type: n.type, typeVersion: n.typeVersion, parameters: n.parameters }, text: `Neuer Knoten "${n.name}" (${n.type}, Version ${n.typeVersion})` });
+      out.push({ kind: 'node-added', node: n.name, after: { type: n.type, typeVersion: n.typeVersion, parameters: n.parameters }, text: `New node "${n.name}" (${n.type}, version ${n.typeVersion})` });
       continue;
     }
-    if (o.name !== n.name) out.push({ kind: 'node-renamed', node: n.name, before: o.name, after: n.name, text: `Knoten "${o.name}" heißt jetzt "${n.name}"` });
+    if (o.name !== n.name) out.push({ kind: 'node-renamed', node: n.name, before: o.name, after: n.name, text: `Node "${o.name}" is now called "${n.name}"` });
     const a = leaves(o.parameters ?? {});
     const b = leaves(n.parameters ?? {});
     for (const path of new Set([...a.keys(), ...b.keys()])) {
       const x = a.get(path);
       const y = b.get(path);
       if (JSON.stringify(x) === JSON.stringify(y)) continue;
-      const text = !a.has(path) ? `${n.name}: Parameter ${path} = ${show(y)}` : !b.has(path) ? `${n.name}: Parameter ${path} entfernt` : `${n.name}: Parameter ${path} von ${show(x)} auf ${show(y)}`;
+      const text = !a.has(path) ? `${n.name}: parameter ${path} = ${show(y)}` : !b.has(path) ? `${n.name}: parameter ${path} removed` : `${n.name}: parameter ${path} from ${show(x)} to ${show(y)}`;
       out.push({ kind: 'parameter', node: n.name, path, ...(a.has(path) ? { before: x } : {}), ...(b.has(path) ? { after: y } : {}), text });
     }
     for (const prop of NODE_PROPERTIES.filter((p) => p !== 'position')) {
       const x = (o as unknown as Record<string, unknown>)[prop];
       const y = (n as unknown as Record<string, unknown>)[prop];
       if (JSON.stringify(x) === JSON.stringify(y)) continue;
-      out.push({ kind: 'property', node: n.name, path: prop, before: x, after: y, text: `${n.name}: ${prop} ${x === undefined ? '' : `von ${show(x)} `}auf ${y === undefined ? '(entfernt)' : show(y)}` });
+      out.push({ kind: 'property', node: n.name, path: prop, before: x, after: y, text: `${n.name}: ${prop} ${x === undefined ? '' : `from ${show(x)} `}to ${y === undefined ? '(removed)' : show(y)}` });
     }
   }
   for (const o of old.nodes ?? []) {
-    if (!newById.has(o.id)) out.push({ kind: 'node-removed', node: o.name, before: { type: o.type }, text: `Knoten "${o.name}" wird entfernt` });
+    if (!newById.has(o.id)) out.push({ kind: 'node-removed', node: o.name, before: { type: o.type }, text: `Node "${o.name}" is removed` });
   }
   const before2 = edges(old, (name) => renamed.get(name) ?? name);
   const after2 = edges(after, (name) => name);
   const describe = (e: string) => {
     const [from, type, output, to, input] = e.split('\u0001');
-    return `${from}${output !== '0' ? ` (Ausgang ${Number(output) + 1})` : ''} -> ${to}${input !== '0' ? ` (Eingang ${Number(input) + 1})` : ''}${type !== 'main' ? ` [${type}]` : ''}`;
+    return `${from}${output !== '0' ? ` (output ${Number(output) + 1})` : ''} -> ${to}${input !== '0' ? ` (input ${Number(input) + 1})` : ''}${type !== 'main' ? ` [${type}]` : ''}`;
   };
-  for (const e of after2) if (!before2.has(e)) out.push({ kind: 'connection-added', text: `Neue Verbindung ${describe(e)}` });
-  for (const e of before2) if (!after2.has(e)) out.push({ kind: 'connection-removed', text: `Verbindung ${describe(e)} entfällt` });
-  // Neuer Workflow: Einstellungen sind Teil des Anlegens, kein Unterschied
+  for (const e of after2) if (!before2.has(e)) out.push({ kind: 'connection-added', text: `New connection ${describe(e)}` });
+  for (const e of before2) if (!after2.has(e)) out.push({ kind: 'connection-removed', text: `Connection ${describe(e)} is removed` });
+  // New workflow: settings are part of the creation, not a difference
   const sa = (before ? (old.settings ?? {}) : (after.settings ?? {})) as Record<string, unknown>;
   const sb = (after.settings ?? {}) as Record<string, unknown>;
   for (const key of new Set([...Object.keys(sa), ...Object.keys(sb)])) {
     if (JSON.stringify(sa[key]) === JSON.stringify(sb[key])) continue;
-    out.push({ kind: 'setting', path: key, before: sa[key], after: sb[key], text: `Einstellung ${key}: ${sa[key] === undefined ? '' : `von ${show(sa[key])} `}auf ${sb[key] === undefined ? '(entfernt)' : show(sb[key])}` });
+    out.push({ kind: 'setting', path: key, before: sa[key], after: sb[key], text: `Setting ${key}: ${sa[key] === undefined ? '' : `from ${show(sa[key])} `}to ${sb[key] === undefined ? '(removed)' : show(sb[key])}` });
   }
   return out;
 }
 
-/** JSON-Schema der Operationen für das Werkzeug propose_change */
+/** JSON schema of the operations for the propose_change tool */
 export const OPERATIONS_SCHEMA = {
   type: 'array',
   description:
-    'Änderungen der Reihe nach. op ist eine von: setParameter {node, path, value}, removeParameter {node, path}, setNodeProperty {node, property, value} ' +
+    'Changes in order. op is one of: setParameter {node, path, value}, removeParameter {node, path}, setNodeProperty {node, property, value} ' +
     `(property: ${NODE_PROPERTIES.join(', ')}), addNode {node: {name, type, typeVersion, parameters, credentials}}, removeNode {node}, renameNode {node, newName}, ` +
     'connect {from, to, type, output, input}, disconnect {from, to, type, output, input}, setWorkflowSetting {key, value}, setName {name}. ' +
-    'Pfade in Punkt-Schreibweise mit Index, z. B. options.timeout oder headerParameters.parameters[0].name. type ist "main" oder ein KI-Eingang wie ai_languageModel.',
+    'Paths in dot notation with index, e.g. options.timeout or headerParameters.parameters[0].name. type is "main" or an AI input such as ai_languageModel.',
   items: {
     type: 'object',
     properties: {
       op: { type: 'string', enum: ['setParameter', 'removeParameter', 'setNodeProperty', 'addNode', 'removeNode', 'renameNode', 'connect', 'disconnect', 'setWorkflowSetting', 'setName'] },
-      node: { description: 'Knotenname; bei addNode ein Objekt {name, type, typeVersion, parameters, credentials}' },
+      node: { description: 'Node name; for addNode an object {name, type, typeVersion, parameters, credentials}' },
       path: { type: 'string' },
       property: { type: 'string' },
-      value: { description: 'Neuer Wert (beliebiger JSON-Wert)' },
+      value: { description: 'New value (any JSON value)' },
       newName: { type: 'string' },
       from: { type: 'string' },
       to: { type: 'string' },

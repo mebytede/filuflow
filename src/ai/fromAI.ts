@@ -1,7 +1,7 @@
-// $fromAI-Platzhalter in Node-Parametern finden und daraus das Argument-Schema eines Tools bauen.
-// Nachgebaut nach n8n 1.123.0 packages/workflow/src/from-ai-parse-utils.ts
+// Find $fromAI placeholders in node parameters and build the argument schema of a tool from them.
+// Rebuilt after n8n 1.123.0 packages/workflow/src/from-ai-parse-utils.ts
 // (extractFromAICalls, parseArguments, parseDefaultValue, generateZodSchema, traverseNodeParameters)
-// und packages/@n8n/nodes-langchain/utils/fromAIToolFactory.ts (extractFromAIParameters, createZodSchemaFromArgs).
+// and packages/@n8n/nodes-langchain/utils/fromAIToolFactory.ts (extractFromAIParameters, createZodSchemaFromArgs).
 import type { ZType } from './schema.js';
 
 export type FromAIArgumentType = 'string' | 'number' | 'boolean' | 'json';
@@ -79,7 +79,7 @@ function parseArguments(argsString: string): FromAIArgument {
   return { key: clean[0] || '', description: clean[1], type, defaultValue: parseDefaultValue(clean[3], type) };
 }
 
-/** Alle $fromAI-Aufrufe in einem Text */
+/** All $fromAI calls in a text */
 export function extractFromAICalls(str: string): FromAIArgument[] {
   const out: FromAIArgument[] = [];
   const pattern = /\$fromAI\s*\(\s*/gi;
@@ -130,7 +130,7 @@ export function traverseNodeParameters(payload: unknown, collected: FromAIArgume
   else if (typeof payload === 'object' && payload !== null) Object.values(payload).forEach((v) => traverseNodeParameters(v, collected));
 }
 
-/** Eindeutige Argumente (gleicher Schlüssel: letzte Definition gilt, Position der ersten) */
+/** Unique arguments (same key: the last definition wins, at the position of the first) */
 export function extractFromAIParameters(parameters: unknown): FromAIArgument[] {
   const collected: FromAIArgument[] = [];
   traverseNodeParameters(parameters, collected);
@@ -150,7 +150,7 @@ function argumentSchema(arg: FromAIArgument): ZType {
       schema = { kind: 'boolean' };
       break;
     case 'json':
-      // z.custom: nicht leeres Objekt oder Array
+      // z.custom: non-empty object or array
       schema = {
         kind: 'refine',
         inner: { kind: 'any' },

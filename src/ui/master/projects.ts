@@ -346,7 +346,7 @@ export async function workflowAccessDialog(w: { id: string; name: string }): Pro
 function deploymentText(w: MasterWorkflow): string {
   const d = w.deployment;
   if (d.error) return d.error;
-  if (d.upToDate) return d.at ? t('Version {version} on the worker, deployed {date}', { version: d.version, date: formatDate(d.at) }) : t('Version {version} on the worker', { version: d.version });
+  if (d.upToDate) return d.at ? t('Version {version} on the worker, deployed {date}', { version: String(d.version), date: formatDate(d.at) }) : t('Version {version} on the worker', { version: String(d.version) });
   return d.version ? t('Version {version} on the worker, version {pending} pending', { version: d.version, pending: w.version }) : t('Not deployed');
 }
 
