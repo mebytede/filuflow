@@ -141,7 +141,7 @@ describe('Form Trigger', () => {
     expect((await s.app.inject({ method: 'GET', url: '/form-test/f-1', headers: auth })).body).toContain('Test mode');
     const missing = await submit(s, '/form/f-1', [], auth);
     expect(missing.statusCode).toBe(400);
-    expect(missing.body).toContain('is a required field');
+    expect(missing.body).toContain('&quot;Choice&quot; is a required field');
     await s.close();
     rmSync(dir!, { recursive: true, force: true });
     server = undefined;
