@@ -108,6 +108,9 @@ const STATUS_WORDS: Record<string, [string, string]> = {
   warning: [t('Warning'), 'warning'],
   none: [t('Not run yet'), 'muted'],
   skipped: [t('Not executed'), 'muted'],
+  // Worker status or version not known (older servers send the German 'unbekannt')
+  unknown: [t('unknown'), 'muted'],
+  unbekannt: [t('unknown'), 'muted'],
 };
 
 /** Status always as a word, colored only in signal colors */

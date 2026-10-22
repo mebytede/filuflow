@@ -38,6 +38,7 @@ export const de: Record<string, string> = {
   'Warning': 'Hinweis',
   'Not run yet': 'Noch nicht gelaufen',
   'Not executed': 'Nicht ausgeführt',
+  'unknown': 'unbekannt',
   'today {time}': 'heute {time}',
   'yesterday {time}': 'gestern {time}',
   'Actions': 'Aktionen',
