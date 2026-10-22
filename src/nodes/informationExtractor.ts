@@ -1,5 +1,5 @@
-// Information Extractor, @n8n/n8n-nodes-langchain.informationExtractor (typeVersion 1 bis 1.2)
-// Nachgebaut nach n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/chains/InformationExtractor
+// Information Extractor, @n8n/n8n-nodes-langchain.informationExtractor (typeVersion 1 to 1.2)
+// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/chains/InformationExtractor
 //   (InformationExtractor.node.ts, processItem.ts, helpers.ts makeZodSchemaFromAttributes, constants.ts)
 import type { NodeType } from './types.js';
 import type { Item } from '../types.js';
@@ -24,16 +24,16 @@ export const SYSTEM_PROMPT_TEMPLATE = `You are an expert extraction algorithm.
 Only extract relevant information from the text.
 If you do not know the value of an attribute asked to extract, you may omit the attribute's value.`;
 
-// Parameter wie chains/InformationExtractor/InformationExtractor.node.ts (properties), gemeinsame Felder aus
-// utils/descriptions.ts und utils/sharedFields.ts
+// Parameters like chains/InformationExtractor/InformationExtractor.node.ts (properties), shared fields from
+// utils/descriptions.ts and utils/sharedFields.ts
 const parameters: ParamSchema[] = [
-  { name: 'text', label: 'Text', type: 'string', default: '', rows: 2, description: 'Text, aus dem Informationen gelesen werden' },
+  { name: 'text', label: 'Text', type: 'string', default: '', rows: 2, description: 'The text to extract information from' },
   {
     ...schemaTypeParam,
     default: 'fromAttributes',
-    description: 'Wie das Schema der gewünschten Ausgabe angegeben wird',
+    description: 'How you want to specify the schema for the desired output',
     options: [
-      { value: 'fromAttributes', label: 'Aus Attributbeschreibungen', description: 'Bestimmte Attribute anhand von Typ und Beschreibung lesen' },
+      { value: 'fromAttributes', label: 'From Attribute Descriptions', description: 'Extract specific attributes from the text based on types and descriptions' },
       ...schemaTypeOptions,
     ],
   },
@@ -46,56 +46,56 @@ const parameters: ParamSchema[] = [
     type: 'fixedCollection',
     default: {},
     multiple: true,
-    addLabel: 'Attribut hinzufügen',
+    addLabel: 'Add Attribute',
     show: { schemaType: ['fromAttributes'] },
     groups: [
       {
         name: 'attributes',
-        label: 'Attributliste',
+        label: 'Attributes List',
         children: [
-          { name: 'name', label: 'Name', type: 'string', default: '', required: true, placeholder: 'z. B. company_name', description: 'Zu lesendes Attribut' },
+          { name: 'name', label: 'Name', type: 'string', default: '', required: true, placeholder: 'e.g. company_name', description: 'Attribute to extract' },
           {
             name: 'type',
-            label: 'Typ',
+            label: 'Type',
             type: 'options',
             default: 'string',
             required: true,
-            description: 'Datentyp des Attributs',
+            description: 'Data type of the attribute',
             options: [
               { value: 'boolean', label: 'Boolean' },
-              { value: 'date', label: 'Datum' },
-              { value: 'number', label: 'Zahl' },
+              { value: 'date', label: 'Date' },
+              { value: 'number', label: 'Number' },
               { value: 'string', label: 'String' },
             ],
           },
           {
             name: 'description',
-            label: 'Beschreibung',
+            label: 'Description',
             type: 'string',
             default: '',
             required: true,
-            placeholder: 'Beschreibung des Attributs',
-            description: 'Beschreibt das Attribut',
+            placeholder: 'Description of the attribute',
+            description: 'Describe your attribute',
           },
-          { name: 'required', label: 'Pflicht', type: 'boolean', default: false, required: true, description: 'Ob das Attribut Pflicht ist' },
+          { name: 'required', label: 'Required', type: 'boolean', default: false, required: true, description: 'Whether attribute is required' },
         ],
       },
     ],
   },
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     children: [
       {
         name: 'systemPromptTemplate',
-        label: 'Vorlage für den System-Prompt',
+        label: 'System Prompt Template',
         type: 'string',
         default: SYSTEM_PROMPT_TEMPLATE,
         rows: 6,
-        description: 'Wird direkt als Vorlage für den System-Prompt genutzt',
+        description: 'String to use directly as the system prompt template',
       },
       batchingParam({ '@version': [{ _cnd: { gte: 1.1 } }] }),
     ],
@@ -146,7 +146,7 @@ export const informationExtractorNode: NodeType = {
     } else {
       schema = jsonSchemaToZod(JSON.parse(ctx.getParam<string>('inputSchema', 0, '')) as Record<string, unknown>);
     }
-    // n8n nutzt hier immer den OutputFixingParser
+    // n8n always uses the OutputFixingParser here
     const parser = new LangChainStructuredParser(schema);
 
     const processItem = async (itemIndex: number) => {

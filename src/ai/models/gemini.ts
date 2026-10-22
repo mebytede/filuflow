@@ -1,7 +1,7 @@
-// Google Gemini (generateContent) wie n8n 1.123.0 mit @langchain/google-genai 2.0 und @google/generative-ai 0.24:
+// Google Gemini (generateContent) as in n8n 1.123.0 with @langchain/google-genai 2.0 and @google/generative-ai 0.24:
 //   chat_models.js (_generate: systemInstruction, generationConfig), utils/common.js
 //   (convertBaseMessagesToContent, mapGenerateContentResultToChatResult), utils/tools.js (functionDeclarations),
-//   @google/generative-ai index.mjs (URL, Header, Reihenfolge der Felder im Body)
+//   @google/generative-ai index.mjs (URL, headers, order of the fields in the body)
 import { randomUUID } from 'node:crypto';
 import type { ExecContext } from '../../nodes/types.js';
 import type { ChatMessage, ContentPart, ToolCall } from '../messages.js';
@@ -116,7 +116,7 @@ export class GeminiChatModel extends ChatModel {
       topP: this.opts.topP,
       topK: this.opts.topK,
     };
-    // Reihenfolge wie @google/generative-ai generateContent (Felder des Modells, dann die Anfrage)
+    // Order as in @google/generative-ai generateContent (fields of the model, then the request)
     const body: Record<string, unknown> = {
       generationConfig,
       safetySettings: this.opts.safetySettings ?? [],
@@ -128,7 +128,7 @@ export class GeminiChatModel extends ChatModel {
     const host = this.opts.host || 'https://generativelanguage.googleapis.com';
     const headers = { 'Content-Type': 'application/json', 'x-goog-api-client': 'genai-js/0.24.1', 'x-goog-api-key': this.opts.apiKey };
     if (options.onToken) {
-      // generateContentStream: streamGenerateContent?alt=sse, Teile werden zu einer Antwort zusammengeführt
+      // generateContentStream: streamGenerateContent?alt=sse, chunks are merged into one response
       return this.mapResult(await this.streamContent(`${host}/v1beta/models/${this.model}:streamGenerateContent?alt=sse`, headers, body, options.signal, options.onToken));
     }
     const url = `${host}/v1beta/models/${this.model}:generateContent`;
@@ -142,12 +142,12 @@ export class GeminiChatModel extends ChatModel {
       const parsed = JSON.parse(body) as { error?: { message?: string } };
       if (parsed.error?.message) message = parsed.error.message;
     } catch {
-      // Rohtext
+      // raw text
     }
     return `[GoogleGenerativeAI Error]: Error fetching from ${url}: [${status} ${statusText}] ${message}`;
   }
 
-  /** Gestreamte Antworten zusammenführen (aufeinanderfolgende Text-Teile verbunden, Funktionsaufrufe einzeln) */
+  /** Merge streamed responses (consecutive text chunks joined, function calls separately) */
   private async streamContent(url: string, headers: Record<string, string>, body: Record<string, unknown>, signal: AbortSignal | undefined, onToken: (text: string) => void): Promise<Record<string, unknown>> {
     const parts: Array<Record<string, unknown>> = [];
     let last: Record<string, unknown> = {};
@@ -201,7 +201,7 @@ export class GeminiChatModel extends ChatModel {
       parts.length === 1 && typeof parts[0].text === 'string' && parts[0].text
         ? parts[0].text
         : ((parts.find((p) => typeof p.text === 'string')?.text as string | undefined) ?? '');
-    // LangChain-Inhalt: ein Text als String, sonst Blöcke mit type
+    // LangChain content: a single text as string, otherwise blocks with type
     const lcContent: unknown =
       parts.length === 1 && parts[0].text
         ? parts[0].text
@@ -235,7 +235,7 @@ export class GeminiChatModel extends ChatModel {
         tokenUsage: { promptTokens: usageMetadata?.input_tokens, completionTokens: usageMetadata?.output_tokens, totalTokens: usageMetadata?.total_tokens },
         ...generationInfo,
       },
-      // LangChain vergibt die ID über den Callback-Manager (zufällig)
+      // LangChain assigns the ID via the callback manager (random)
       id: `run-${randomUUID()}`,
     };
     return {

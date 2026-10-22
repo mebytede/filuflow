@@ -1,7 +1,7 @@
 // Azure OpenAI Chat Model, @n8n/n8n-nodes-langchain.lmChatAzureOpenAi (typeVersion 1)
-// Nachgebaut nach n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/llms/LmChatAzureOpenAi (LmChatAzureOpenAi.node.ts,
-// properties.ts, credentials/api-key.ts und oauth2.ts): Deployment = Modellname, API-Key (azureOpenAiApi) oder
-// Entra ID (azureEntraCognitiveServicesOAuth2Api) mit Bearer-Token.
+// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/llms/LmChatAzureOpenAi (LmChatAzureOpenAi.node.ts,
+// properties.ts, credentials/api-key.ts and oauth2.ts): deployment = model name, API key (azureOpenAiApi) or
+// Entra ID (azureEntraCognitiveServicesOAuth2Api) with a bearer token.
 import type { NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
 import { AzureOpenAiChatModel } from '../ai/models/compatible.js';
@@ -12,16 +12,16 @@ import { compatibleOptions, MODEL_NOTICE } from './shared/chatModelParams.js';
 const parameters: ParamSchema[] = [
   {
     name: 'authentication',
-    label: 'Authentifizierung',
+    label: 'Authentication',
     type: 'options',
     default: 'azureOpenAiApi',
     options: [
-      { value: 'azureOpenAiApi', label: 'API-Key' },
+      { value: 'azureOpenAiApi', label: 'API Key' },
       { value: 'azureEntraCognitiveServicesOAuth2Api', label: 'Azure Entra ID (OAuth2)' },
     ],
   },
   MODEL_NOTICE,
-  { name: 'model', label: 'Modell (Deployment)', type: 'string', default: '', required: true, description: 'Name des Deployments in Azure' },
+  { name: 'model', label: 'Model (Deployment) Name', type: 'string', default: '', required: true, description: 'The name of the model (deployment) to use in Azure' },
   compatibleOptions({ temperatureMax: 2, timeout: 60000 }),
 ];
 

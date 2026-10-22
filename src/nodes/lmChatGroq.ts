@@ -1,6 +1,6 @@
 // Groq Chat Model, @n8n/n8n-nodes-langchain.lmChatGroq (typeVersion 1)
-// Nachgebaut nach n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/llms/LmChatGroq/LmChatGroq.node.ts:
-// ChatGroq mit maxTokens = options.maxTokensToSample und temperature; Anfrage siehe src/ai/models/compatible.ts.
+// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/llms/LmChatGroq/LmChatGroq.node.ts:
+// ChatGroq with maxTokens = options.maxTokensToSample and temperature; request see src/ai/models/compatible.ts.
 import type { NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
 import { GroqChatModel } from '../ai/models/compatible.js';
@@ -11,13 +11,13 @@ const parameters: ParamSchema[] = [
   modelParam('llama3-8b-8192'),
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     children: [
-      { name: 'maxTokensToSample', label: 'Höchstzahl Token', type: 'number', default: 4096 },
-      { name: 'temperature', label: 'Temperatur', type: 'number', default: 0.7, min: 0, max: 1, precision: 1 },
+      { name: 'maxTokensToSample', label: 'Maximum Number of Tokens', type: 'number', default: 4096 },
+      { name: 'temperature', label: 'Sampling Temperature', type: 'number', default: 0.7, min: 0, max: 1, precision: 1 },
     ],
   },
 ];

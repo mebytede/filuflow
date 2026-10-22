@@ -1,8 +1,8 @@
-// Mistral Cloud Chat Model wie n8n 1.123.0 LmChatMistralCloud mit ChatMistralAI aus @langchain/mistralai 1.0.1
+// Mistral Cloud Chat Model as in n8n 1.123.0 LmChatMistralCloud with ChatMistralAI from @langchain/mistralai 1.0.1
 // (dist/chat_models.js: convertMessagesToMistralMessages, invocationParams, _generate, _convertDeltaToMessageChunk;
-// dist/utils.js: _convertToolCallIdToMistralCompatible). Eigene Umsetzung des beobachtbaren Verhaltens.
-// ChatMistralAI streamt, sobald ein AbortSignal übergeben wird (shouldStream = options.signal ?? !!options.timeout); n8n
-// übergibt immer eines, daher wird hier immer gestreamt. Die Felder schreibt das Mistral-SDK in snake_case.
+// dist/utils.js: _convertToolCallIdToMistralCompatible). Own implementation of the observable behavior.
+// ChatMistralAI streams as soon as an AbortSignal is passed (shouldStream = options.signal ?? !!options.timeout); n8n
+// always passes one, so this always streams. The Mistral SDK writes the fields in snake_case.
 import type { ExecContext } from '../../nodes/types.js';
 import type { ChatMessage, ToolCall } from '../messages.js';
 import { ChatModel, type ChatResult, type ModelCallOptions } from './base.js';
@@ -10,7 +10,7 @@ import { ChatModel, type ChatResult, type ModelCallOptions } from './base.js';
 export interface MistralOptions {
   apiKey: string;
   model: string;
-  /** Standard https://api.mistral.ai */
+  /** Default https://api.mistral.ai */
   serverURL?: string;
   temperature?: number;
   topP?: number;
@@ -19,7 +19,7 @@ export interface MistralOptions {
   safePrompt?: boolean;
 }
 
-/** utils.js _convertToolCallIdToMistralCompatible: 9 Zeichen [a-zA-Z0-9], sonst Hash in Base62 */
+/** utils.js _convertToolCallIdToMistralCompatible: 9 characters [a-zA-Z0-9], otherwise hash in Base62 */
 export function mistralToolCallId(id: string): string {
   if (/^[a-zA-Z0-9]{9}$/.test(id)) return id;
   let hash = 0;
@@ -102,7 +102,7 @@ export class MistralChatModel extends ChatModel {
       if (!choice?.delta) return;
       if (choice.finish_reason) finishReason = choice.finish_reason;
       const delta = choice.delta;
-      // Wie ChatMistralAI: bei Blöcken nur der erste Textblock
+      // Like ChatMistralAI: with blocks only the first text block
       const piece = Array.isArray(delta.content) ? (delta.content[0]?.type === 'text' ? (delta.content[0].text ?? '') : '') : (delta.content ?? '');
       if (piece) {
         text += piece;
@@ -121,7 +121,7 @@ export class MistralChatModel extends ChatModel {
       try {
         args = JSON.parse(c.arguments || '{}') as Record<string, unknown>;
       } catch {
-        // ungültige Argumente: leer wie invalid_tool_calls
+        // invalid arguments: empty like invalid_tool_calls
       }
       return { id: c.id || crypto.randomUUID().replace(/-/g, ''), name: c.name, args };
     });

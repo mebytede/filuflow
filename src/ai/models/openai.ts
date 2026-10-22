@@ -1,7 +1,7 @@
-// OpenAI Chat Completions wie n8n 1.123.0 mit @langchain/openai 1.1 (ChatOpenAI):
-//   chat_models/completions.js (invocationParams: Feldreihenfolge, max_tokens bzw. max_completion_tokens)
+// OpenAI Chat Completions as in n8n 1.123.0 with @langchain/openai 1.1 (ChatOpenAI):
+//   chat_models/completions.js (invocationParams: field order, max_tokens or max_completion_tokens)
 //   converters/completions.js (convertMessagesToCompletionsMessageParams)
-// Die Responses API steht in openaiResponses.ts; Groq und Azure erweitern diese Klasse (compatible.ts).
+// The Responses API is in openaiResponses.ts; Groq and Azure extend this class (compatible.ts).
 import type { ExecContext } from '../../nodes/types.js';
 import type { ChatMessage, ToolCall } from '../messages.js';
 import { ChatModel, type ChatResult, type ModelCallOptions } from './base.js';
@@ -54,8 +54,8 @@ export class OpenAiChatModel extends ChatModel {
   }
 
   /**
-   * Chat Completions mit stream: true (ChatOpenAI streaming mit streamUsage: stream_options.include_usage) und aus den
-   * Teilen eine Antwort wie ohne Streaming zusammensetzen
+   * Chat Completions with stream: true (ChatOpenAI streaming with streamUsage: stream_options.include_usage) and assemble
+   * one response from the chunks as without streaming
    */
   protected async streamCompletion(url: string, headers: Record<string, string>, body: Record<string, unknown>, signal: AbortSignal | undefined, onToken: (text: string) => void): Promise<Record<string, unknown>> {
     let id: unknown;
@@ -95,7 +95,7 @@ export class OpenAiChatModel extends ChatModel {
     return { id, model, choices: [{ index: 0, message, finish_reason: finishReason }], usage };
   }
 
-  /** Endpunkt der Chat Completions (Azure: Deployment und api-version) */
+  /** Endpoint of the Chat Completions (Azure: deployment and api-version) */
   protected requestUrl(): string {
     return `${(this.opts.baseURL || 'https://api.openai.com/v1').replace(/\/+$/, '')}/chat/completions`;
   }
@@ -104,12 +104,12 @@ export class OpenAiChatModel extends ChatModel {
     return { Authorization: `Bearer ${this.opts.apiKey}`, 'Content-Type': 'application/json', ...(this.opts.headers ?? {}) };
   }
 
-  /** Nachrichten im Format der Chat Completions */
+  /** Messages in the format of the Chat Completions */
   protected completionMessages(messages: ChatMessage[]): unknown[] {
     return this.toMessages(messages);
   }
 
-  /** Body wie ChatOpenAI invocationParams (Groq: eigene Reihenfolge und Felder) */
+  /** Body like ChatOpenAI invocationParams (Groq: own order and fields) */
   protected requestBody(messages: ChatMessage[], options: ModelCallOptions): Record<string, unknown> {
     const o = this.opts;
     const body: Record<string, unknown> = {
@@ -150,7 +150,7 @@ export class OpenAiChatModel extends ChatModel {
     const text = message.content ?? '';
     const usage = res.usage as { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | undefined;
     const { message: _m, ...generationInfo } = choice;
-    // @langchain/openai 1.1 converters/completions.js (convertCompletionsMessageToBaseMessage, Nutzungsdaten)
+    // @langchain/openai 1.1 converters/completions.js (convertCompletionsMessageToBaseMessage, usage data)
     const promptDetails = (usage as { prompt_tokens_details?: { audio_tokens?: number; cached_tokens?: number } } | undefined)?.prompt_tokens_details;
     const completionDetails = (usage as { completion_tokens_details?: { audio_tokens?: number; reasoning_tokens?: number } } | undefined)
       ?.completion_tokens_details;
