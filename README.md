@@ -63,8 +63,8 @@ FILUFLOW_API_KEY=secret docker compose up -d --build
 ## Web interface
 
 <p>
-  <img src="docs/assets/uebersicht.png" alt="Overview of all workflows" width="49%">
-  <img src="docs/assets/editor-hell.png" alt="Editor in the light color scheme" width="49%">
+  <img src="docs/assets/overview.png" alt="Overview of all workflows" width="49%">
+  <img src="docs/assets/editor-light.png" alt="Editor in the light color scheme" width="49%">
 </p>
 
 - **Workflows:** metrics (active workflows, executions and errors of the last 14 days, utilization), search and filters
