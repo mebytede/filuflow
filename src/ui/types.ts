@@ -363,6 +363,7 @@ export interface SupervisorSettings {
   model?: { provider: string; credential: string; model: string };
   analyzeFailures: boolean;
   dataScope: 'structure' | 'samples';
+  language?: 'en' | 'de';
   dailyTokenBudget: number;
   digest: { enabled: boolean; hour: number };
   excludedWorkflows: string[];

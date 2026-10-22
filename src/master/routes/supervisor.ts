@@ -304,7 +304,7 @@ export function registerSupervisorRoutes(api: FastifyInstance, ctx: MasterContex
   // Chat in the editor: with workflowId about this workflow, otherwise a new workflow in the project
   api.post('/api/supervisor/chat', async (request, reply) => {
     const u = user(request);
-    const body = (request.body ?? {}) as { projectId?: unknown; workflowId?: unknown; messages?: unknown };
+    const body = (request.body ?? {}) as { projectId?: unknown; workflowId?: unknown; messages?: unknown; language?: unknown };
     let worker: WorkerRow | undefined;
     let workflowId: string | undefined;
     if (typeof body.workflowId === 'string' && body.workflowId) {
@@ -323,7 +323,7 @@ export function registerSupervisorRoutes(api: FastifyInstance, ctx: MasterContex
     }
     if (!worker) return reply.code(409).send({ message: 'The project has no worker' });
     try {
-      const result = await hub.call<{ reply: string; proposals: RemoteProposal[]; tokens: number }>(worker, 'POST', '/api/supervisor/chat', { messages: body.messages, ...(workflowId ? { workflowId } : {}) }, 600_000);
+      const result = await hub.call<{ reply: string; proposals: RemoteProposal[]; tokens: number }>(worker, 'POST', '/api/supervisor/chat', { messages: body.messages, ...(workflowId ? { workflowId } : {}), ...(body.language === 'en' || body.language === 'de' ? { language: body.language } : {}) }, 600_000);
       return { ...result, proposals: result.proposals.map((p) => ({ ...p, ...tag(worker!) })) };
     } catch (error) {
       return workerError(reply, error);

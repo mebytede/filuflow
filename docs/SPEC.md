@@ -322,6 +322,7 @@ Engine order, expressions (including raw value vs. string), every node, filter o
 | M36 | Supervisor: Improve | Proposals as a diff, validated before display, test run on request, accepting saves, dismissing discards |
 | M37 | Supervisor: Create | Supervisor chat in the editor, new workflow from a description with a validate-and-fix loop, inactive as a proposal |
 | M38 | Supervisor in the master | Supervisor per worker via the master, proposals create versions in the master, permissions "View Supervisor" and "Accept proposals" |
+| M39 | English by default, German selectable | Code, docs, server, CLI and API messages in English; web interface in English with German as a per-browser option, including node and credential labels; Supervisor language setting |
 
 After each milestone: update `docs/STATUS.md` (what works, what is missing) and make a commit with a meaningful message.
 

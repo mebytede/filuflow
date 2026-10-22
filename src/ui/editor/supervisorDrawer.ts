@@ -2,14 +2,14 @@
 // changes and new workflows as a proposal with a diff that the person accepts or rejects here. The supervisor never
 // saves on its own; proposals refer to the saved state.
 import { confirmDialog, h, toast } from '../dom.js';
-import { t } from '../i18n.js';
+import { getLocale, t } from '../i18n.js';
 import { button, iconButton } from '../shell.js';
 import type { SupervisorChatMessage, SupervisorFinding, SupervisorProposal } from '../types.js';
 import { diffList } from '../views/supervisorProposals.js';
 import { severityWord } from '../views/supervisor.js';
 
 export interface SupervisorChatBackend {
-  chat(body: { messages: Array<{ role: 'user' | 'assistant'; content: string }>; workflowId?: string }): Promise<{ reply: string; proposals: SupervisorProposal[] }>;
+  chat(body: { messages: Array<{ role: 'user' | 'assistant'; content: string }>; workflowId?: string; language?: 'en' | 'de' }): Promise<{ reply: string; proposals: SupervisorProposal[] }>;
   findings(workflowId: string): Promise<SupervisorFinding[]>;
   proposalAction(p: SupervisorProposal, action: 'accept' | 'reject'): Promise<SupervisorProposal>;
   /** Link to the "Supervisor" page */
@@ -184,7 +184,7 @@ export class SupervisorDrawer {
     this.busy = true;
     this.render();
     try {
-      const res = await this.o.backend.chat({ messages: this.messages.map((m) => ({ role: m.role, content: m.content })), ...(this.o.workflowId ? { workflowId: this.o.workflowId } : {}) });
+      const res = await this.o.backend.chat({ messages: this.messages.map((m) => ({ role: m.role, content: m.content })), ...(this.o.workflowId ? { workflowId: this.o.workflowId } : {}), language: getLocale() });
       for (const p of res.proposals) this.proposals.set(p.id, p);
       const [first, ...rest] = res.proposals;
       this.messages.push({ role: 'assistant', content: res.reply || (first ? t('I have created a proposal.') : t('No answer.')), ...(first ? { proposalId: first.id } : {}) });

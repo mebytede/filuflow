@@ -1,21 +1,21 @@
-/* filuflow Design Tokens (aus dem Design-Handoff). Dunkel ist Standard, hell über data-theme="light" am Wurzelelement. */
+/* filuflow design tokens (from the design handoff). Dark is the default, light via data-theme="light" on the root element. */
 :root{
-  /* Rampe */
+  /* Ramp */
   --ff-cyan-050:#EBFAFF; --ff-cyan-100:#C9F3FF; --ff-cyan-200:#9AEFFF; --ff-cyan-300:#5DE5FD;
   --ff-cyan-400:#3FB2F5; --ff-cyan-500:#1B8CD1; --ff-cyan-600:#0D6BA8;
   --ff-marine-700:#0B4C77; --ff-marine-800:#0A3555; --ff-marine-900:#071F33;
-  /* Typografie */
+  /* Typography */
   --ff-font-sans:'IBM Plex Sans',system-ui,sans-serif;
   --ff-font-mono:'IBM Plex Mono',ui-monospace,monospace;
-  /* Abstände (8-px-Raster) und Kanten */
+  /* Spacing (8 px grid) and edges */
   --ff-space-1:8px; --ff-space-2:16px; --ff-space-3:24px; --ff-space-4:32px; --ff-space-5:40px; --ff-space-6:48px;
   --ff-radius:0; --ff-radius-field:4px; --ff-radius-brand:12px;
   --ff-control-h:44px; --ff-control-h-s:36px;
-  /* Bewegung */
+  /* Motion */
   --ff-duration-fast:120ms; --ff-duration:180ms; --ff-duration-slow:280ms; --ff-ease:cubic-bezier(0.2,0,0.3,1);
   --ff-gradient:linear-gradient(95deg,#9AEFFF 0%,#5DE5FD 45%,#3FB2F5 100%);
 
-  /* Rollen: dunkel */
+  /* Roles: dark */
   --ff-bg:#0B1219; --ff-surface:#101A24; --ff-surface-raised:#16222E;
   --ff-line:#1E2B38; --ff-line-strong:#2A3A4A;
   --ff-text:#E8F1F6; --ff-text-secondary:#8FA3B4;
@@ -26,7 +26,7 @@
   --ff-btn-primary-bg:var(--ff-cyan-300); --ff-btn-primary-fg:var(--ff-marine-900); --ff-btn-primary-bg-hover:var(--ff-cyan-200);
   --ff-btn-secondary-fg:#E8F1F6; --ff-btn-secondary-line:#2A3A4A; --ff-btn-secondary-bg-hover:#16222E;
   --ff-field-bg:#101A24; --ff-field-line:#2A3A4A; --ff-field-placeholder:#8FA3B4;
-  /* Knotenkategorien (3-px-Kopfleiste) */
+  /* Node categories (3 px header bar) */
   --ff-cat-trigger:var(--ff-cyan-300); --ff-cat-logic:var(--ff-cyan-400);
   --ff-cat-data:var(--ff-cyan-500); --ff-cat-service:var(--ff-cyan-600);
 }

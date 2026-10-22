@@ -280,6 +280,12 @@ async function settingsTab(backend: SupervisorBackend): Promise<HTMLElement> {
       ),
     );
   renderScope();
+  const languageSel = h(
+    'select',
+    { class: 'param-input', 'aria-label': t('Language of analyses and reports'), disabled: readonly },
+    h('option', { value: 'en', selected: (s.language ?? 'en') === 'en' }, 'English'),
+    h('option', { value: 'de', selected: s.language === 'de' }, 'Deutsch'),
+  );
   const budget = h('input', { type: 'number', class: 'param-input mono', min: 0, step: 1000, value: String(s.dailyTokenBudget), 'aria-label': t('Daily budget'), disabled: readonly });
   const hour = h('select', { class: 'param-input', 'aria-label': t('Hour of the daily report'), disabled: readonly }, ...Array.from({ length: 24 }, (_, i) => h('option', { value: String(i), selected: s.digest.hour === i }, t('{hour}:00', { hour: String(i).padStart(2, '0') }))));
   const interval = h('input', { type: 'number', class: 'param-input mono', min: 1, max: 1440, value: String(s.scanIntervalMinutes), 'aria-label': t('Scan interval'), disabled: readonly });
@@ -305,6 +311,7 @@ async function settingsTab(backend: SupervisorBackend): Promise<HTMLElement> {
         enabled: toggles.enabled,
         analyzeFailures: toggles.analyzeFailures,
         dataScope: scope,
+        language: languageSel.value as 'en' | 'de',
         dailyTokenBudget: Number(budget.value),
         digest: { enabled: toggles.digest, hour: Number(hour.value) },
         scanIntervalMinutes: Number(interval.value),
@@ -334,6 +341,7 @@ async function settingsTab(backend: SupervisorBackend): Promise<HTMLElement> {
       h('div', null, scopeBox),
       h('span', { class: 'muted small' }, t('Structure and errors: nodes, parameters and error messages. With sample data: additionally truncated data of the affected node. Secrets and credential values are always masked.')),
     ),
+    field(t('Language of analyses and reports'), languageSel, t('Conversations in the editor follow the interface language.')),
     field(t('Daily budget in tokens'), budget, t('Applies to all model calls combined. 0 switches the model off.')),
     h('h2', null, t('Report and scan')),
     h('div', { class: 'field' }, toggle('digest', t('Create daily report'))),

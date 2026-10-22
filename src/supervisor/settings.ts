@@ -41,6 +41,7 @@ export const DEFAULT_SETTINGS: SupervisorSettings = {
   digest: { enabled: true, hour: 7 },
   excludedWorkflows: [],
   scanIntervalMinutes: 15,
+  language: 'en',
 };
 
 export const SETTINGS_KEY = 'supervisor.settings';
@@ -62,6 +63,10 @@ export function normalizeSettings(raw: unknown, base: SupervisorSettings = DEFAU
   if (r.dataScope !== undefined) {
     if (r.dataScope !== 'structure' && r.dataScope !== 'samples') return 'dataScope must be "structure" or "samples"';
     out.dataScope = r.dataScope;
+  }
+  if (r.language !== undefined) {
+    if (r.language !== 'en' && r.language !== 'de') return 'language must be "en" or "de"';
+    out.language = r.language;
   }
   if (r.dailyTokenBudget !== undefined) {
     const n = Number(r.dailyTokenBudget);

@@ -483,3 +483,23 @@ workflow); only if it matches the current version is the proposed state saved wi
 version and distributed. Afterwards the worker marks the proposal as accepted. There are two new
 actions for permissions: `supervisor.read` (view findings and proposals) and `supervisor.use` (analyses, proposals and conversations that
 cost tokens); accepting additionally requires `workflow.edit`, because it changes the workflow.
+
+## Languages (M39)
+English is the default language of the product and the repository. Server, CLI, validator, logs and API messages are
+English only: they end up in logs, scripts and tickets, where one language is easier to search, and n8n's own messages
+are English as well. Only the web interface can be switched to German.
+
+The interface uses the English text itself as the key (`t('Saved {time}', { time })`), with German catalogs as plain
+objects in `src/ui/locales/de/`. Missing entries fall back to English, so an untranslated text never breaks the page,
+and no key names have to be invented or kept in sync. There is no library: placeholders are the only feature needed;
+plural forms are written as separate texts. The catalogs are bundled with the interface (a few hundred kilobytes
+unminified), which avoids an extra request and a loading state.
+
+Node parameter and credential labels are defined in English next to the implementation (as in n8n) and translated in
+the browser with the same catalogs, so the server stays language neutral and a German interface still sends and stores
+the same workflow JSON. The language is stored per browser, not per user, because the single-instance interface has no
+users; switching reloads the page so that no view keeps texts in the old language.
+
+The Supervisor writes analyses, proposals and reports in the language from its settings (one per installation or
+worker, since several people read them); the conversation in the editor uses the language of the person's interface.
+

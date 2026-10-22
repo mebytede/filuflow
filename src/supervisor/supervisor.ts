@@ -15,7 +15,7 @@ import { checkWorkflow, normalizeError, type ObservedWorkflow } from './rules.js
 import { DEFAULT_SETTINGS, normalizeSettings, provider, SETTINGS_KEY } from './settings.js';
 import { BudgetExceededError, runChat, SupervisorModelError, type SupervisorTool } from './llm.js';
 import { clip, executionExcerpt, maskWorkflow } from './redact.js';
-import type { Finding, Proposal, ProposalOperation, Report, SupervisorSettings } from './types.js';
+import type { Finding, Proposal, ProposalOperation, Report, SupervisorLanguage, SupervisorSettings } from './types.js';
 import { applyOperations, OPERATIONS_SCHEMA, OperationError, workflowDiff, workflowHash } from './operations.js';
 
 export interface ValidationOutcome {
@@ -82,12 +82,22 @@ function masterVersionOf(workflow: Workflow | undefined): number | undefined {
   return typeof marker?.version === 'number' ? marker.version : undefined;
 }
 
-export const SYSTEM_PROMPT = [
-  'You are the supervisor of filuflow, a workflow platform. Workflows use the n8n workflow format (nodes, connections, typeVersion, expressions in {{ }}).',
-  'You observe workflows and executions and help the people who maintain them. You never change anything yourself: you explain and propose; a human decides.',
-  'Answer in English. Be brief and concrete. Do not use em dashes.',
-  'Secret values are masked as ***. Never ask for passwords or keys and never suggest writing secrets into parameters; that is what credentials are for.',
-].join('\n');
+const ANSWER_IN: Record<SupervisorLanguage, string> = {
+  en: 'Answer in English.',
+  de: 'Answer in German and address the person formally ("Sie").',
+};
+
+/** System prompt; the language decides in which language the model answers */
+export function systemPrompt(language: SupervisorLanguage = 'en'): string {
+  return [
+    'You are the supervisor of filuflow, a workflow platform. Workflows use the n8n workflow format (nodes, connections, typeVersion, expressions in {{ }}).',
+    'You observe workflows and executions and help the people who maintain them. You never change anything yourself: you explain and propose; a human decides.',
+    `${ANSWER_IN[language]} Be brief and concrete. Do not use em dashes.`,
+    'Secret values are masked as ***. Never ask for passwords or keys and never suggest writing secrets into parameters; that is what credentials are for.',
+  ].join('\n');
+}
+
+export const SYSTEM_PROMPT = systemPrompt('en');
 
 export class Supervisor {
   readonly store: SupervisorStore;
@@ -339,12 +349,14 @@ export class Supervisor {
       ...(execution ? { execution: executionExcerpt(execution, secrets, s.dataScope) } : {}),
     };
     const messages: ChatMessage[] = [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: systemPrompt(s.language) },
       {
         role: 'human',
         content:
-          'Analyze the following finding about a workflow. Answer in two sections starting with "Cause:" and "Solution:". ' +
-          'Under "Solution", give concrete steps with node names and parameters. Use the tools if you are missing information.\n\n' +
+          (s.language === 'de'
+            ? 'Analyze the following finding about a workflow. Answer in two sections starting with "Ursache:" and "Lösung:". Under "Lösung", give concrete steps with node names and parameters. '
+            : 'Analyze the following finding about a workflow. Answer in two sections starting with "Cause:" and "Solution:". Under "Solution", give concrete steps with node names and parameters. ') +
+          'Use the tools if you are missing information.\n\n' +
           clip(JSON.stringify(context, null, 1), 30_000),
       },
     ];
@@ -474,7 +486,7 @@ export class Supervisor {
     const outcome = await runChat(
       { runner: this.o.runner, store: this.store, settings: () => this.settings() },
       [
-        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system', content: systemPrompt(s.language) },
         {
           role: 'human',
           content:
@@ -593,7 +605,7 @@ export class Supervisor {
    * One reply in the conversation. With workflowId it is about this workflow (questions, changes as proposals), without it
    * about a new workflow. New workflows and changes are only created as proposals.
    */
-  async chat(o: { messages: Array<{ role: string; content: string }>; workflowId?: string }): Promise<{ reply: string; proposals: Proposal[]; tokens: number }> {
+  async chat(o: { messages: Array<{ role: string; content: string }>; workflowId?: string; language?: SupervisorLanguage }): Promise<{ reply: string; proposals: Proposal[]; tokens: number }> {
     this.needsProposals();
     if (!Array.isArray(o.messages) || !o.messages.length) throw new ProposalError('Message is missing', 400);
     const history = o.messages.slice(-30).map((m) => {
@@ -627,7 +639,7 @@ export class Supervisor {
     ].join('\n');
     const created: Proposal[] = [];
     const tools = [...this.readTools(), ...(o.workflowId ? [this.proposeTool({ kind: 'change', workflowId: o.workflowId }, created)] : []), this.proposeTool({ kind: 'new' }, created)];
-    const outcome = await runChat({ runner: this.o.runner, store: this.store, settings: () => this.settings() }, [{ role: 'system', content: `${SYSTEM_PROMPT}\n${guide}${context}` }, ...history], tools, { maxSteps: 12, signal: this.abort.signal });
+    const outcome = await runChat({ runner: this.o.runner, store: this.store, settings: () => this.settings() }, [{ role: 'system', content: `${systemPrompt(o.language ?? s.language)}\n${guide}${context}` }, ...history], tools, { maxSteps: 12, signal: this.abort.signal });
     // Per target the last proposal counts; earlier versions of the same reply are replaced
     const latest = new Map<string, Proposal>();
     for (const p of created) latest.set(p.kind === 'new' ? 'new' : (p.workflowId ?? ''), p);
@@ -668,7 +680,7 @@ export class Supervisor {
     if (this.modelReady() && open.length) {
       try {
         const outcome = await runChat({ runner: this.o.runner, store: this.store, settings: () => this.settings() }, [
-          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'system', content: systemPrompt(this.settings().language) },
           {
             role: 'human',
             content:

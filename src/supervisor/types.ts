@@ -70,6 +70,9 @@ export interface SupervisorModelSettings {
  */
 export type DataScope = 'structure' | 'samples';
 
+/** Language of model texts (analyses, proposals, reports); the editor chat follows the interface language */
+export type SupervisorLanguage = 'en' | 'de';
+
 export interface SupervisorSettings {
   /** Supervisor on: fixed rules check regularly, errors are recorded */
   enabled: boolean;
@@ -86,6 +89,7 @@ export interface SupervisorSettings {
   excludedWorkflows: string[];
   /** Interval of the rule check in minutes */
   scanIntervalMinutes: number;
+  language: SupervisorLanguage;
 }
 
 export type ProposalStatus = 'open' | 'accepted' | 'rejected' | 'stale';

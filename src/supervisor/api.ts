@@ -185,9 +185,9 @@ export async function registerSupervisorApi(api: FastifyInstance, o: SupervisorA
     const s = sup(reply);
     if (!s) return reply;
     if (!s.settings().model) return reply.code(400).send({ message: 'No model is configured for the supervisor (Supervisor, Settings)' });
-    const body = (request.body ?? {}) as { messages?: unknown; workflowId?: unknown };
+    const body = (request.body ?? {}) as { messages?: unknown; workflowId?: unknown; language?: unknown };
     try {
-      const result = await s.chat({ messages: body.messages as Array<{ role: string; content: string }>, ...(typeof body.workflowId === 'string' && body.workflowId ? { workflowId: body.workflowId } : {}) });
+      const result = await s.chat({ messages: body.messages as Array<{ role: string; content: string }>, ...(typeof body.workflowId === 'string' && body.workflowId ? { workflowId: body.workflowId } : {}), ...(body.language === 'en' || body.language === 'de' ? { language: body.language } : {}) });
       return { reply: result.reply, tokens: result.tokens, proposals: result.proposals.map(proposalSummary) };
     } catch (error) {
       return modelErrorReply(reply, error);

@@ -164,7 +164,7 @@ export const api = {
   },
   proposal: (id: string) => request<SupervisorProposal>('GET', `/api/supervisor/proposals/${encodeURIComponent(id)}`),
   propose: (findingId: string) => request<SupervisorProposal>('POST', `/api/supervisor/findings/${encodeURIComponent(findingId)}/propose`),
-  supervisorChat: (body: { messages: Array<{ role: 'user' | 'assistant'; content: string }>; workflowId?: string }) =>
+  supervisorChat: (body: { messages: Array<{ role: 'user' | 'assistant'; content: string }>; workflowId?: string; language?: 'en' | 'de' }) =>
     request<{ reply: string; proposals: SupervisorProposal[] }>('POST', '/api/supervisor/chat', body),
   proposalAction: (id: string, action: 'accept' | 'reject' | 'test') => request<SupervisorProposal>('POST', `/api/supervisor/proposals/${encodeURIComponent(id)}/${action}`),
 };
