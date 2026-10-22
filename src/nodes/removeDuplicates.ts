@@ -1,6 +1,6 @@
 // Remove Duplicates, n8n-nodes-base.removeDuplicates (typeVersion 1, 1.1, 2)
-// Nachgebaut nach n8n 1.123.0 packages/nodes-base/nodes/Transform/RemoveDuplicates (utils.ts, v1, v2)
-// v2: nur Operation "removeDuplicateInputItems"; Deduplizierung über frühere Executions wird nicht unterstützt.
+// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/Transform/RemoveDuplicates (utils.ts, v1, v2)
+// v2: only operation "removeDuplicateInputItems"; deduplication across previous executions is not supported.
 import lodash from 'lodash';
 import type { ExecContext, NodeType } from './types.js';
 import type { DisplayRule, ParamSchema } from './params.js';
@@ -73,54 +73,54 @@ export function removeDuplicateInputItems(ctx: ExecContext, items: Item[]): Item
   return [updated];
 }
 
-// Parameter wie v1/RemoveDuplicatesV1.node.ts (typeVersion 1, 1.1) und v2/RemoveDuplicatesV2.description.ts
-// (typeVersion 2). Von v2 fehlen bewusst die Operationen "removeItemsSeenInPreviousExecutions" und
-// "clearDeduplicationHistory" samt ihrer Parameter (logic, dedupeValue, incrementalDedupeValue, dateDedupeValue, mode,
-// options.scope, options.historySize), weil validate() sie als nicht unterstützt meldet.
+// Parameters as in v1/RemoveDuplicatesV1.node.ts (typeVersion 1, 1.1) and v2/RemoveDuplicatesV2.description.ts
+// (typeVersion 2). From v2 the operations "removeItemsSeenInPreviousExecutions" and "clearDeduplicationHistory"
+// are deliberately missing along with their parameters (logic, dedupeValue, incrementalDedupeValue, dateDedupeValue, mode,
+// options.scope, options.historySize), because validate() reports them as unsupported.
 const V1: DisplayRule = { '@version': [1, 1.1] };
 const V2 = { _cnd: { gte: 2 } };
 
 const compareOptions: ParamSchema['options'] = [
-  { value: 'allFields', label: 'Alle Felder' },
-  { value: 'allFieldsExcept', label: 'Alle Felder außer' },
-  { value: 'selectedFields', label: 'Ausgewählte Felder' },
+  { value: 'allFields', label: 'All Fields' },
+  { value: 'allFieldsExcept', label: 'All Fields Except' },
+  { value: 'selectedFields', label: 'Selected Fields' },
 ];
 
 const fieldParams: ParamSchema[] = [
   {
     name: 'fieldsToExclude',
-    label: 'Auszuschließende Felder',
+    label: 'Fields To Exclude',
     type: 'string',
     default: '',
-    placeholder: 'z. B. email, name',
-    description: 'Felder der Eingabe, die nicht verglichen werden',
+    placeholder: 'e.g. email, name',
+    description: 'Fields in the input to exclude from the comparison',
     show: { compare: ['allFieldsExcept'] },
   },
   {
     name: 'fieldsToCompare',
-    label: 'Zu vergleichende Felder',
+    label: 'Fields To Compare',
     type: 'string',
     default: '',
-    placeholder: 'z. B. email, name',
-    description: 'Felder der Eingabe, die verglichen werden',
+    placeholder: 'e.g. email, name',
+    description: 'Fields in the input to add to the comparison',
     show: { compare: ['selectedFields'] },
   },
 ];
 
 const disableDotNotation: ParamSchema = {
   name: 'disableDotNotation',
-  label: 'Punktnotation deaktivieren',
+  label: 'Disable Dot Notation',
   type: 'boolean',
   default: false,
-  description: 'Ob Unterfelder per "parent.child" nicht angesprochen werden können',
+  description: 'Whether to disallow referencing child fields using "parent.child" in the field name',
 };
 
 const removeOtherFields: ParamSchema = {
   name: 'removeOtherFields',
-  label: 'Andere Felder entfernen',
+  label: 'Remove Other Fields',
   type: 'boolean',
   default: false,
-  description: 'Ob nicht verglichene Felder entfallen, sonst bleiben die Werte des ersten Duplikats',
+  description: 'Whether to remove any fields that are not being compared. If disabled, will keep the values from the first of the duplicates.',
 };
 
 const parameters: ParamSchema[] = [
@@ -134,45 +134,45 @@ const parameters: ParamSchema[] = [
     options: [
       {
         value: 'removeDuplicateInputItems',
-        label: 'In der aktuellen Eingabe wiederholte Items entfernen',
-        description: 'Duplikate aus den eingehenden Items entfernen',
+        label: 'Remove Items Repeated Within Current Input',
+        description: 'Remove duplicates from incoming items',
       },
     ],
   },
   {
     name: 'compare',
-    label: 'Vergleichen',
+    label: 'Compare',
     type: 'options',
     default: 'allFields',
-    description: 'Welche Felder der Eingabe-Items verglichen werden',
+    description: 'The fields of the input items to compare to see if they are the same',
     show: V1,
     options: compareOptions,
   },
   {
     name: 'compare',
-    label: 'Vergleichen',
+    label: 'Compare',
     type: 'options',
     default: 'allFields',
-    description: 'Welche Felder der Eingabe-Items verglichen werden',
+    description: 'The fields of the input items to compare to see if they are the same',
     show: { '@version': [V2], operation: ['removeDuplicateInputItems'] },
     options: compareOptions,
   },
   ...fieldParams,
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     show: { ...V1, compare: ['allFieldsExcept', 'selectedFields'] },
     children: [disableDotNotation, removeOtherFields],
   },
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     show: { '@version': [V2], operation: ['removeDuplicateInputItems'] },
     children: [
       { ...disableDotNotation, show: { '/operation': ['removeDuplicateInputItems'] }, hide: { '/compare': ['allFields'] } },
@@ -190,7 +190,7 @@ export const removeDuplicatesNode: NodeType = {
   validate(node) {
     const op = node.parameters.operation ?? 'removeDuplicateInputItems';
     if (node.typeVersion >= 2 && op !== 'removeDuplicateInputItems') {
-      return [{ code: 'node.unsupportedParameter', message: `Remove Duplicates: Operation "${String(op)}" wird nicht unterstützt`, path: 'parameters.operation' }];
+      return [{ code: 'node.unsupportedParameter', message: `Remove Duplicates: Operation "${String(op)}" is not supported`, path: 'parameters.operation' }];
     }
     return [];
   },
@@ -198,7 +198,7 @@ export const removeDuplicatesNode: NodeType = {
     if (ctx.items.length === 0) return [[]];
     if (ctx.node.typeVersion >= 2) {
       const op = ctx.getParam<string>('operation', 0, 'removeDuplicateInputItems');
-      if (op !== 'removeDuplicateInputItems') throw new NodeOperationError(ctx.node.name, `Operation "${op}" wird nicht unterstützt`);
+      if (op !== 'removeDuplicateInputItems') throw new NodeOperationError(ctx.node.name, `Operation "${op}" is not supported`);
     }
     return removeDuplicateInputItems(ctx, ctx.items);
   },

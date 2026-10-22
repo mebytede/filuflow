@@ -1,9 +1,9 @@
 // Schedule Trigger, n8n-nodes-base.scheduleTrigger (typeVersion 1, 1.1, 1.2, 1.3)
-// Nachgebaut nach n8n 1.123.0 packages/nodes-base/nodes/Schedule (ScheduleTrigger.node.ts,
+// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/Schedule (ScheduleTrigger.node.ts,
 // GenericFunctions.ts: toCronExpression, intervalToRecurrence, recurrenceCheck, validateInterval).
-// n8n nutzt moment-timezone und das Paket "cron"; hier luxon und croner (gleiche 6-Felder-Syntax).
-// Der Server registriert die Cron-Ausdrücke; in der Execution reicht der Node die Zeitdaten durch.
-// Ohne Server-Daten (z. B. filuflow run) erzeugt er die Daten für "jetzt" wie n8n im manuellen Modus.
+// n8n uses moment-timezone and the "cron" package; here luxon and croner (same 6-field syntax).
+// The server registers the cron expressions; during execution the node passes the time data through.
+// Without server data (e.g. filuflow run) it creates the data for "now" like n8n in manual mode.
 import { randomInt } from 'node:crypto';
 import { DateTime } from 'luxon';
 import { Cron } from 'croner';
@@ -31,7 +31,7 @@ export interface ScheduleRule {
   recurrence: RecurrenceRule;
 }
 
-/** Defaults der angezeigten Unterfelder (n8n füllt sie über getNodeParameters auf) */
+/** Defaults of the displayed sub-fields (n8n fills them in via getNodeParameters) */
 function withDefaults(raw: Record<string, unknown>): ScheduleInterval {
   const field = (raw.field as string | undefined) ?? 'days';
   const d = (key: string, value: unknown) => (raw[key] === undefined ? value : raw[key]);
@@ -75,7 +75,7 @@ export function getIntervals(node: WorkflowNode): ScheduleInterval[] {
   return (rule.interval ?? []).map(withDefaults);
 }
 
-/** validateInterval (ab v1.3) */
+/** validateInterval (from v1.3) */
 export function validateInterval(nodeName: string, itemIndex: number, interval: ScheduleInterval): void {
   let message = '';
   if (interval.field === 'seconds' && (interval.secondsInterval > 59 || interval.secondsInterval < 1)) message = 'Seconds must be in range 1-59';
@@ -86,7 +86,7 @@ export function validateInterval(nodeName: string, itemIndex: number, interval: 
   if (message) throw new NodeOperationError(nodeName, 'Invalid interval', { itemIndex, description: message });
 }
 
-/** toCronExpression: zufällige Sekunde wie n8n, damit nicht alle Workflows gleichzeitig starten */
+/** toCronExpression: random second as in n8n, so that not all workflows start at the same time */
 export function toCronExpression(interval: ScheduleInterval): string {
   if (interval.field === 'cronExpression') return interval.expression;
   if (interval.field === 'seconds') return `*/${interval.secondsInterval} * * * * *`;
@@ -114,7 +114,7 @@ export function intervalToRecurrence(interval: ScheduleInterval, index: number):
   return { activated: false };
 }
 
-/** recurrenceCheck: filtert Cron-Treffer für "alle N Stunden/Tage/Wochen/Monate" */
+/** recurrenceCheck: filters cron hits for "every N hours/days/weeks/months" */
 export function recurrenceCheck(recurrence: RecurrenceRule, recurrenceRules: number[], timezone: string, now: DateTime<boolean> = DateTime.now()): boolean {
   if (!recurrence.activated) return true;
   const { intervalSize, index, typeInterval } = recurrence;
@@ -134,7 +134,7 @@ export function recurrenceCheck(recurrence: RecurrenceRule, recurrenceRules: num
       return true;
     }
   } else if (typeInterval === 'weeks') {
-    // moment().week(): lokalisierte Woche (en: Sonntag, Woche mit dem 1. Januar = 1)
+    // moment().week(): localized week (en: Sunday, the week containing January 1 = 1)
     const week = t.localWeekNumber;
     if (last === undefined || week === (intervalSize + last) % 52 || week === last) {
       recurrenceRules[index] = week;
@@ -174,13 +174,13 @@ function ordinal(n: number): string {
   return `${n}${suffix}`;
 }
 
-/** Ausgabe-Item von executeTrigger (moment-Formate nachgebaut, Locale en) */
+/** Output item of executeTrigger (moment formats rebuilt, locale en) */
 export function scheduleItemJson(timezone: string, now: DateTime<boolean> = DateTime.now()): Record<string, unknown> {
   const t = now.setZone(timezone).setLocale('en-US');
   const meridiem = t.hour < 12 ? 'am' : 'pm';
   const time = `${t.toFormat('h:mm:ss')} ${meridiem}`;
   return {
-    // moment toISOString(true): immer mit Offset, auch bei UTC (+00:00 statt Z)
+    // moment toISOString(true): always with offset, even for UTC (+00:00 instead of Z)
     timestamp: t.toFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZZ"),
     'Readable date': `${t.toFormat('MMMM')} ${ordinal(t.day)} ${t.toFormat('yyyy')}, ${time}`,
     'Readable time': time,
@@ -195,93 +195,93 @@ export function scheduleItemJson(timezone: string, now: DateTime<boolean> = Date
   };
 }
 
-// Parameter wie n8n ScheduleTrigger.node.ts (properties, in allen Versionen gleich)
-const HOURS = Array.from({ length: 24 }, (_v, h) => ({ value: h, label: h === 0 ? 'Mitternacht' : h === 12 ? 'Mittag' : `${h} Uhr` }));
+// Parameters as in n8n ScheduleTrigger.node.ts (properties, identical in all versions)
+const HOURS = Array.from({ length: 24 }, (_v, h) => ({ value: h, label: h === 0 ? 'Midnight' : h === 12 ? 'Noon' : h < 12 ? `${h}am` : `${h - 12}pm` }));
 const parameters: ParamSchema[] = [
   {
     name: 'notice',
-    label: 'Der Workflow läuft nach diesem Zeitplan, sobald er aktiviert ist; zum Testen lässt er sich auch manuell starten.',
+    label: 'This workflow will run on the schedule you define here once you activate it. For testing, you can also trigger it manually.',
     type: 'notice',
     default: '',
   },
   {
     name: 'rule',
-    label: 'Regeln',
+    label: 'Trigger Rules',
     type: 'fixedCollection',
     default: { interval: [{ field: 'days' }] },
     multiple: true,
-    addLabel: 'Regel hinzufügen',
+    addLabel: 'Add Rule',
     groups: [
       {
         name: 'interval',
-        label: 'Intervall',
+        label: 'Trigger Interval',
         children: [
           {
             name: 'field',
-            label: 'Intervall',
+            label: 'Trigger Interval',
             type: 'options',
             default: 'days',
             options: [
-              { value: 'seconds', label: 'Sekunden' },
-              { value: 'minutes', label: 'Minuten' },
-              { value: 'hours', label: 'Stunden' },
-              { value: 'days', label: 'Tage' },
-              { value: 'weeks', label: 'Wochen' },
-              { value: 'months', label: 'Monate' },
-              { value: 'cronExpression', label: 'Eigener Ausdruck (Cron)' },
+              { value: 'seconds', label: 'Seconds' },
+              { value: 'minutes', label: 'Minutes' },
+              { value: 'hours', label: 'Hours' },
+              { value: 'days', label: 'Days' },
+              { value: 'weeks', label: 'Weeks' },
+              { value: 'months', label: 'Months' },
+              { value: 'cronExpression', label: 'Custom (Cron)' },
             ],
           },
-          { name: 'secondsInterval', label: 'Sekunden zwischen den Starts', type: 'number', default: 30, description: 'Abstand in Sekunden, 1 bis 59', show: { field: ['seconds'] } },
-          { name: 'minutesInterval', label: 'Minuten zwischen den Starts', type: 'number', default: 5, description: 'Abstand in Minuten, 1 bis 59', show: { field: ['minutes'] } },
-          { name: 'hoursInterval', label: 'Stunden zwischen den Starts', type: 'number', default: 1, description: 'Abstand in Stunden, 1 bis 23', show: { field: ['hours'] } },
-          { name: 'daysInterval', label: 'Tage zwischen den Starts', type: 'number', default: 1, description: 'Abstand in Tagen, 1 bis 31', show: { field: ['days'] } },
-          { name: 'weeksInterval', label: 'Wochen zwischen den Starts', type: 'number', default: 1, description: 'Ohne Angabe jede Woche', show: { field: ['weeks'] } },
-          { name: 'monthsInterval', label: 'Monate zwischen den Starts', type: 'number', default: 1, description: 'Ohne Angabe jeden Monat', show: { field: ['months'] } },
+          { name: 'secondsInterval', label: 'Seconds Between Triggers', type: 'number', default: 30, description: 'Number of seconds between each workflow trigger, 1 to 59', show: { field: ['seconds'] } },
+          { name: 'minutesInterval', label: 'Minutes Between Triggers', type: 'number', default: 5, description: 'Number of minutes between each workflow trigger, 1 to 59', show: { field: ['minutes'] } },
+          { name: 'hoursInterval', label: 'Hours Between Triggers', type: 'number', default: 1, description: 'Number of hours between each workflow trigger, 1 to 23', show: { field: ['hours'] } },
+          { name: 'daysInterval', label: 'Days Between Triggers', type: 'number', default: 1, description: 'Number of days between each workflow trigger, 1 to 31', show: { field: ['days'] } },
+          { name: 'weeksInterval', label: 'Weeks Between Triggers', type: 'number', default: 1, description: 'Would run every week unless specified otherwise', show: { field: ['weeks'] } },
+          { name: 'monthsInterval', label: 'Months Between Triggers', type: 'number', default: 1, description: 'Would run every month unless specified otherwise', show: { field: ['months'] } },
           {
             name: 'triggerAtDayOfMonth',
-            label: 'Tag im Monat',
+            label: 'Trigger at Day of Month',
             type: 'number',
             default: 1,
             min: 1,
             max: 31,
-            description: 'Fehlt der Tag in einem Monat, startet der Workflow dort nicht',
+            description: 'The day of the month to trigger. If a month does not have this day, the workflow will not run in that month.',
             show: { field: ['months'] },
           },
           {
             name: 'triggerAtDay',
-            label: 'Wochentage',
+            label: 'Trigger on Weekdays',
             type: 'multiOptions',
             default: [0],
             show: { field: ['weeks'] },
             options: [
-              { value: 1, label: 'Montag' },
-              { value: 2, label: 'Dienstag' },
-              { value: 3, label: 'Mittwoch' },
-              { value: 4, label: 'Donnerstag' },
-              { value: 5, label: 'Freitag' },
-              { value: 6, label: 'Samstag' },
-              { value: 0, label: 'Sonntag' },
+              { value: 1, label: 'Monday' },
+              { value: 2, label: 'Tuesday' },
+              { value: 3, label: 'Wednesday' },
+              { value: 4, label: 'Thursday' },
+              { value: 5, label: 'Friday' },
+              { value: 6, label: 'Saturday' },
+              { value: 0, label: 'Sunday' },
             ],
           },
-          { name: 'triggerAtHour', label: 'Stunde', type: 'options', default: 0, options: HOURS, description: 'Stunde des Tages für den Start', show: { field: ['days', 'weeks', 'months'] } },
+          { name: 'triggerAtHour', label: 'Trigger at Hour', type: 'options', default: 0, options: HOURS, description: 'The hour of the day to trigger', show: { field: ['days', 'weeks', 'months'] } },
           {
             name: 'triggerAtMinute',
-            label: 'Minute',
+            label: 'Trigger at Minute',
             type: 'number',
             default: 0,
             min: 0,
             max: 59,
-            description: 'Minute nach der vollen Stunde, 0 bis 59',
+            description: 'The minute past the hour to trigger, 0 to 59',
             show: { field: ['hours', 'days', 'weeks', 'months'] },
           },
-          { name: 'notice', label: 'Hilfe zu Cron-Ausdrücken gibt es z. B. auf crontab.guru.', type: 'notice', default: '', show: { field: ['cronExpression'] } },
+          { name: 'notice', label: 'You can find help with cron expressions on crontab.guru, for example.', type: 'notice', default: '', show: { field: ['cronExpression'] } },
           {
             name: 'expression',
-            label: 'Ausdruck',
+            label: 'Expression',
             type: 'string',
             default: '',
-            placeholder: 'z. B. 0 15 * 1 sun',
-            description: 'Format: [Sekunde] [Minute] [Stunde] [Tag im Monat] [Monat] [Wochentag]',
+            placeholder: 'e.g. 0 15 * 1 sun',
+            description: 'Format: [Second] [Minute] [Hour] [Day of Month] [Month] [Day of Week]',
             show: { field: ['cronExpression'] },
           },
         ],
@@ -309,7 +309,7 @@ export const scheduleTriggerNode: NodeType = {
   },
   async execute(ctx) {
     if (ctx.triggerData !== undefined) return [ctx.inputs[0] ?? []];
-    // manueller Start: erste Regel prüfen, Daten für jetzt
+    // manual start: check the rules, data for now
     scheduleRules(ctx.node);
     return [[{ json: scheduleItemJson(ctx.timezone) }]];
   },

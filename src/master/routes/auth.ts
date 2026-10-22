@@ -1,4 +1,4 @@
-// Anmeldung, Einrichtung des ersten Admins, eigenes Profil (Passwort, TOTP, API-Tokens).
+// Login, setup of the first admin, own profile (password, TOTP, API tokens).
 import type { FastifyInstance } from 'fastify';
 import { credentialTypeCatalog } from '../../credentials/types.js';
 import { OAUTH2_CALLBACK_PATH } from '../../credentials/oauth2.js';
@@ -60,16 +60,16 @@ export function registerAuthRoutes(api: FastifyInstance, ctx: MasterContext): vo
     };
   });
 
-  // Erster Admin: nur solange es keine Benutzer gibt und mit dem Einrichtungs-Token aus dem Server-Log
+  // First admin: only while there are no users and with the setup token from the server log
   api.post('/api/auth/setup', async (request, reply) => {
     const body = (request.body ?? {}) as Record<string, unknown>;
     const token = ctx.getSetupToken();
-    if (!token || db.countUsers() > 0) return reply.code(409).send({ message: 'Einrichtung ist bereits abgeschlossen' });
-    if (!safeEqual(str(body.setupToken), token)) return reply.code(403).send({ message: 'Einrichtungs-Token ist falsch (steht im Server-Log)' });
+    if (!token || db.countUsers() > 0) return reply.code(409).send({ message: 'Setup is already complete' });
+    if (!safeEqual(str(body.setupToken), token)) return reply.code(403).send({ message: 'Setup token is wrong (see the server log)' });
     const email = str(body.email).trim();
     const name = str(body.name).trim() || email;
     const password = str(body.password, 2000);
-    if (!/^[^\s@]+@[^\s@]+$/.test(email)) return reply.code(400).send({ message: 'Ungültige E-Mail-Adresse' });
+    if (!/^[^\s@]+@[^\s@]+$/.test(email)) return reply.code(400).send({ message: 'Invalid email address' });
     const policy = checkPasswordPolicy(password);
     if (policy) return reply.code(400).send({ message: policy });
     const user = db.createUser({ email, name, passwordHash: await hashPassword(password), role: 'admin' });
@@ -84,22 +84,22 @@ export function registerAuthRoutes(api: FastifyInstance, ctx: MasterContext): vo
     const email = str(body.email).trim();
     const password = str(body.password, 2000);
     if (!ctx.loginLimiter.hit(`ip:${request.ip}`) || !ctx.loginLimiter.hit(`mail:${email.toLowerCase()}`)) {
-      return reply.code(429).send({ message: 'Zu viele Anmeldeversuche, bitte später erneut versuchen' });
+      return reply.code(429).send({ message: 'Too many login attempts, please try again later' });
     }
     const user = email ? db.getUserByEmail(email) : undefined;
     if (!user || !user.password_hash) {
       await burnPasswordCheck(password);
       db.audit({ userId: null, email: email || null, action: 'login.failed', details: { ip: request.ip } });
-      return reply.code(401).send({ message: 'E-Mail oder Passwort falsch' });
+      return reply.code(401).send({ message: 'Wrong email or password' });
     }
     if (user.locked_until && user.locked_until > new Date().toISOString()) {
-      return reply.code(429).send({ message: 'Konto ist nach zu vielen Fehlversuchen vorübergehend gesperrt' });
+      return reply.code(429).send({ message: 'Account is temporarily locked after too many failed attempts' });
     }
     if (!(await verifyPassword(password, user.password_hash)) || user.disabled) {
       const failed = user.failed_logins + 1;
       db.updateUser(user.id, failed >= LOCK_AFTER ? { failed_logins: 0, locked_until: new Date(Date.now() + LOCK_MINUTES * 60_000).toISOString() } : { failed_logins: failed });
       db.audit({ userId: user.id, email: user.email, action: 'login.failed', details: { ip: request.ip } });
-      return reply.code(401).send({ message: 'E-Mail oder Passwort falsch' });
+      return reply.code(401).send({ message: 'Wrong email or password' });
     }
     db.updateUser(user.id, { failed_logins: 0, locked_until: null, ...(user.totp_enabled ? {} : { last_login_at: new Date().toISOString() }) });
     sessions.start(reply, request, user, user.totp_enabled === 1);
@@ -109,13 +109,13 @@ export function registerAuthRoutes(api: FastifyInstance, ctx: MasterContext): vo
 
   api.post('/api/auth/totp', async (request, reply) => {
     const auth = sessions.authenticate(request, true);
-    if (!auth || !('mfaPending' in auth)) return reply.code(401).send({ message: 'Keine Anmeldung offen' });
-    if (!totpLimiter.hit(auth.sessionHash)) return reply.code(429).send({ message: 'Zu viele Versuche' });
+    if (!auth || !('mfaPending' in auth)) return reply.code(401).send({ message: 'No pending login' });
+    if (!totpLimiter.hit(auth.sessionHash)) return reply.code(429).send({ message: 'Too many attempts' });
     const user = auth.user;
     const counter = user.totp_secret ? verifyTotp(ctx.secrets.open(user.totp_secret), str((request.body as Record<string, unknown> | null)?.code), user.totp_last_counter) : undefined;
     if (counter === undefined) {
       db.audit({ userId: user.id, email: user.email, action: 'login.totp_failed', details: { ip: request.ip } });
-      return reply.code(401).send({ message: 'Code ist falsch oder abgelaufen' });
+      return reply.code(401).send({ message: 'Code is wrong or expired' });
     }
     db.updateUser(user.id, { totp_last_counter: counter, last_login_at: new Date().toISOString() });
     db.completeMfa(auth.sessionHash);
@@ -130,15 +130,15 @@ export function registerAuthRoutes(api: FastifyInstance, ctx: MasterContext): vo
   });
 
   // ---------------------------------------------------------------------------------------------
-  // Eigenes Profil
+  // Own profile
 
   api.get('/api/me', async (request) => ({ user: userView(request.auth!.user) }));
-  // Beschreibung der Credential-Typen für das Formular (keine Werte)
+  // Description of the credential types for the form (no values)
   api.get('/api/credential-types', async () => ({ data: credentialTypeCatalog(), oauthCallbackUrl: `${ctx.publicUrl}/${OAUTH2_CALLBACK_PATH}`, oauth1CallbackUrl: `${ctx.publicUrl}/${OAUTH1_CALLBACK_PATH}` }));
 
   api.put('/api/me', async (request, reply) => {
     const name = str((request.body as Record<string, unknown> | null)?.name).trim();
-    if (!name) return reply.code(400).send({ message: 'Name fehlt' });
+    if (!name) return reply.code(400).send({ message: 'Name is missing' });
     db.updateUser(request.auth!.user.id, { name });
     return { user: userView(db.getUser(request.auth!.user.id)!) };
   });
@@ -147,7 +147,7 @@ export function registerAuthRoutes(api: FastifyInstance, ctx: MasterContext): vo
     const body = (request.body ?? {}) as Record<string, unknown>;
     const user = request.auth!.user;
     if (user.password_hash && !(await verifyPassword(str(body.current, 2000), user.password_hash))) {
-      return reply.code(403).send({ message: 'Aktuelles Passwort ist falsch' });
+      return reply.code(403).send({ message: 'Current password is wrong' });
     }
     const policy = checkPasswordPolicy(str(body.password, 2000));
     if (policy) return reply.code(400).send({ message: policy });
@@ -157,10 +157,10 @@ export function registerAuthRoutes(api: FastifyInstance, ctx: MasterContext): vo
     return { ok: true };
   });
 
-  // TOTP einrichten: Schlüssel erzeugen (noch nicht aktiv), mit einem Code bestätigen
+  // Set up TOTP: generate a key (not active yet), confirm with a code
   api.post('/api/me/totp/setup', async (request, reply) => {
     const user = request.auth!.user;
-    if (user.totp_enabled) return reply.code(409).send({ message: 'Zwei-Faktor-Anmeldung ist bereits aktiv' });
+    if (user.totp_enabled) return reply.code(409).send({ message: 'Two-factor authentication is already active' });
     const secret = newTotpSecret();
     db.updateUser(user.id, { totp_secret: ctx.secrets.seal(secret), totp_last_counter: null });
     return { secret, uri: totpUri(secret, user.email) };
@@ -168,9 +168,9 @@ export function registerAuthRoutes(api: FastifyInstance, ctx: MasterContext): vo
 
   api.post('/api/me/totp/enable', async (request, reply) => {
     const user = db.getUser(request.auth!.user.id)!;
-    if (!user.totp_secret) return reply.code(400).send({ message: 'Erst einen Schlüssel erzeugen' });
+    if (!user.totp_secret) return reply.code(400).send({ message: 'Generate a key first' });
     const counter = verifyTotp(ctx.secrets.open(user.totp_secret), str((request.body as Record<string, unknown> | null)?.code), null);
-    if (counter === undefined) return reply.code(400).send({ message: 'Code ist falsch, bitte Uhrzeit des Geräts prüfen' });
+    if (counter === undefined) return reply.code(400).send({ message: 'Code is wrong, please check the device clock' });
     db.updateUser(user.id, { totp_enabled: 1, totp_last_counter: counter });
     ctx.audit(request, 'user.totp_enabled', user.id);
     return { user: userView(db.getUser(user.id)!) };
@@ -180,9 +180,9 @@ export function registerAuthRoutes(api: FastifyInstance, ctx: MasterContext): vo
     const user = request.auth!.user;
     const body = (request.body ?? {}) as Record<string, unknown>;
     if (user.password_hash && !(await verifyPassword(str(body.password, 2000), user.password_hash))) {
-      return reply.code(403).send({ message: 'Passwort ist falsch' });
+      return reply.code(403).send({ message: 'Password is wrong' });
     }
-    if (db.getSetting('requireTotp') === 'true' && user.password_hash) return reply.code(409).send({ message: 'Zwei-Faktor-Anmeldung ist Pflicht' });
+    if (db.getSetting('requireTotp') === 'true' && user.password_hash) return reply.code(409).send({ message: 'Two-factor authentication is mandatory' });
     db.updateUser(user.id, { totp_enabled: 0, totp_secret: null, totp_last_counter: null });
     ctx.audit(request, 'user.totp_disabled', user.id);
     return { user: userView(db.getUser(user.id)!) };
@@ -193,10 +193,10 @@ export function registerAuthRoutes(api: FastifyInstance, ctx: MasterContext): vo
   }));
 
   api.post('/api/me/tokens', async (request, reply) => {
-    if (request.auth!.via !== 'session') return reply.code(403).send({ message: 'API-Tokens nur in einer angemeldeten Sitzung anlegen' });
+    if (request.auth!.via !== 'session') return reply.code(403).send({ message: 'API tokens can only be created in a logged-in session' });
     const body = (request.body ?? {}) as Record<string, unknown>;
     const name = str(body.name, 100).trim();
-    if (!name) return reply.code(400).send({ message: 'Name fehlt' });
+    if (!name) return reply.code(400).send({ message: 'Name is missing' });
     const days = Number(body.expiresInDays ?? 0);
     const token = randomToken(API_TOKEN_PREFIX);
     const row = db.createApiToken({
@@ -206,13 +206,13 @@ export function registerAuthRoutes(api: FastifyInstance, ctx: MasterContext): vo
       expiresAt: days > 0 ? new Date(Date.now() + days * 86400_000).toISOString() : null,
     });
     ctx.audit(request, 'token.created', row.id, { name });
-    // Der Token wird nur jetzt einmal angezeigt
+    // The token is shown only this once
     return reply.code(201).send({ id: row.id, name: row.name, token, expiresAt: row.expires_at });
   });
 
   api.delete('/api/me/tokens/:id', async (request, reply) => {
     const ok = db.deleteApiToken((request.params as { id: string }).id, request.auth!.user.id);
-    if (!ok) return reply.code(404).send({ message: 'Token nicht gefunden' });
+    if (!ok) return reply.code(404).send({ message: 'Token not found' });
     ctx.audit(request, 'token.deleted', (request.params as { id: string }).id);
     return reply.code(204).send();
   });

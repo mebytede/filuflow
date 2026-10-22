@@ -1,6 +1,6 @@
 // Text Classifier, @n8n/n8n-nodes-langchain.textClassifier (typeVersion 1, 1.1)
-// Nachgebaut nach n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/chains/TextClassifier
-//   (TextClassifier.node.ts, processItem.ts, constants.ts). Der Prompt enthält wie in n8n Tabulatoren.
+// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/chains/TextClassifier
+//   (TextClassifier.node.ts, processItem.ts, constants.ts). As in n8n, the prompt contains tabs.
 import type { NodeType } from './types.js';
 import type { Item, WorkflowNode } from '../types.js';
 import { NodeOperationError } from '../errors.js';
@@ -14,68 +14,68 @@ import { batchingParam } from './shared/aiParams.js';
 export const SYSTEM_PROMPT_TEMPLATE =
   "Please classify the text provided by the user into one of the following categories: {categories}, and use the provided formatting instructions below. Don't explain, and only output the json.";
 
-// Parameter wie chains/TextClassifier/TextClassifier.node.ts (properties), Batching aus utils/sharedFields.ts
+// Parameters as in chains/TextClassifier/TextClassifier.node.ts (properties), batching from utils/sharedFields.ts
 const parameters: ParamSchema[] = [
   {
     name: 'inputText',
-    label: 'Zu klassifizierender Text',
+    label: 'Text to Classify',
     type: 'string',
     required: true,
     default: '',
     rows: 2,
-    description: 'Expression auf Daten vorheriger Knoten oder fester Text',
+    description: 'Use an expression to reference data in previous nodes or enter static text',
   },
   {
     name: 'categories',
-    label: 'Kategorien',
+    label: 'Categories',
     type: 'fixedCollection',
     default: {},
     multiple: true,
-    addLabel: 'Kategorie hinzufügen',
+    addLabel: 'Add Category',
     groups: [
       {
         name: 'categories',
-        label: 'Kategorien',
+        label: 'Categories',
         children: [
-          { name: 'category', label: 'Kategorie', type: 'string', default: '', required: true, description: 'Hinzuzufügende Kategorie' },
-          { name: 'description', label: 'Beschreibung', type: 'string', default: '', description: 'Beschreibung, falls die Kategorie nicht eindeutig ist' },
+          { name: 'category', label: 'Category', type: 'string', default: '', required: true, description: 'Category to add' },
+          { name: 'description', label: 'Description', type: 'string', default: '', description: 'Describe your category if it\'s not obvious' },
         ],
       },
     ],
   },
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     children: [
-      { name: 'multiClass', label: 'Mehrere Kategorien erlauben', type: 'boolean', default: false },
+      { name: 'multiClass', label: 'Allow Multiple Classes To Be True', type: 'boolean', default: false },
       {
         name: 'fallback',
-        label: 'Ohne klare Zuordnung',
+        label: 'When No Clear Match',
         type: 'options',
         default: 'discard',
-        description: 'Was mit Items ohne passende Kategorie geschieht',
+        description: 'What to do with items that don’t match the categories exactly',
         options: [
-          { value: 'discard', label: 'Item verwerfen', description: 'Item wird nicht ausgegeben' },
-          { value: 'other', label: "Auf zusätzlichem Zweig 'Other' ausgeben", description: "Eigener Ausgang mit dem Namen 'Other'" },
+          { value: 'discard', label: 'Discard Item', description: 'Ignore the item and drop it from the output' },
+          { value: 'other', label: "Output on Extra, 'Other' Branch", description: "Create a separate output branch called 'Other'" },
         ],
       },
       {
         name: 'systemPromptTemplate',
-        label: 'Vorlage für den System-Prompt',
+        label: 'System Prompt Template',
         type: 'string',
         default: SYSTEM_PROMPT_TEMPLATE,
         rows: 6,
-        description: 'Wird direkt als Vorlage für den System-Prompt genutzt',
+        description: 'String to use directly as the system prompt template',
       },
       {
         name: 'enableAutoFixing',
-        label: 'Automatische Korrektur',
+        label: 'Enable Auto-Fixing',
         type: 'boolean',
         default: true,
-        description: 'Ob fehlerhafte Ausgaben korrigiert werden, ggf. mit einem weiteren LLM-Aufruf',
+        description: 'Whether to enable auto-fixing (may trigger an additional LLM call if output is broken)',
       },
       batchingParam({ '@version': [{ _cnd: { gte: 1.1 } }] }),
     ],

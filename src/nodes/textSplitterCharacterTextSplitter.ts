@@ -1,11 +1,11 @@
 // Character Text Splitter, @n8n/n8n-nodes-langchain.textSplitterCharacterTextSplitter (typeVersion 1)
-// Nachgebaut nach n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/text_splitters/TextSplitterCharacterTextSplitter.
-// Protokoll wie logWrapper (splitText: { textSplitter } -> { response }).
+// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/text_splitters/TextSplitterCharacterTextSplitter.
+// Logging as in logWrapper (splitText: { textSplitter } -> { response }).
 import type { ExecContext, NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
 import { CharacterTextSplitter, type TextSplitter } from '../ai/documents.js';
 
-/** Jedes splitText im runData des Splitter-Knotens (ai_textSplitter) */
+/** Every splitText in the runData of the splitter node (ai_textSplitter) */
 export function loggedSplitter<T extends TextSplitter>(ctx: ExecContext, splitter: T): T {
   splitter.onSplit = (text, split) => {
     const { index } = ctx.addInputData('ai_textSplitter', [[{ json: { textSplitter: text } }]]);
@@ -17,10 +17,10 @@ export function loggedSplitter<T extends TextSplitter>(ctx: ExecContext, splitte
 }
 
 const parameters: ParamSchema[] = [
-  { name: 'notice', label: 'Dieser Node muss mit einem Document Loader verbunden werden.', type: 'notice', default: '' },
-  { name: 'separator', label: 'Trenner', type: 'string', default: '' },
-  { name: 'chunkSize', label: 'Stückgröße', type: 'number', default: 1000, description: 'Höchstzahl Zeichen je Stück' },
-  { name: 'chunkOverlap', label: 'Überlappung', type: 'number', default: 0, description: 'Zeichen, die sich aufeinanderfolgende Stücke teilen' },
+  { name: 'notice', label: 'This node must be connected to a document loader.', type: 'notice', default: '' },
+  { name: 'separator', label: 'Separator', type: 'string', default: '' },
+  { name: 'chunkSize', label: 'Chunk Size', type: 'number', default: 1000, description: 'Maximum number of characters per chunk' },
+  { name: 'chunkOverlap', label: 'Chunk Overlap', type: 'number', default: 0, description: 'Number of characters shared between consecutive chunks' },
 ];
 
 export const textSplitterCharacterTextSplitterNode: NodeType = {

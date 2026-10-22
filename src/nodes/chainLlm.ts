@@ -1,6 +1,6 @@
-// Basic LLM Chain, @n8n/n8n-nodes-langchain.chainLlm (typeVersion 1 bis 1.7)
-// Nachgebaut nach n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/chains/ChainLLM
-//   (ChainLlm.node.ts execute, methods/processItem.ts, methods/config.ts Parameter-Defaults)
+// Basic LLM Chain, @n8n/n8n-nodes-langchain.chainLlm (typeVersion 1 to 1.7)
+// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/chains/ChainLLM
+//   (ChainLlm.node.ts execute, methods/processItem.ts, methods/config.ts parameter defaults)
 import type { ExecContext, NodeType } from './types.js';
 import type { Item } from '../types.js';
 import { NodeOperationError } from '../errors.js';
@@ -21,8 +21,8 @@ import {
 
 const PROMPT_DEFAULTS: Record<string, string> = { '1': '={{ $json.input }}', '1.1': '={{ $json.chat_input }}', '1.2': '={{ $json.chat_input }}', '1.3': '={{ $json.chatInput }}' };
 
-// Parameter wie chains/ChainLLM/methods/config.ts (nodeProperties); der Vorlagen-Hinweis (getTemplateNoticeField) fehlt.
-// Die Werte von "type" in den Chat-Nachrichten sind die lc_name() der LangChain-Klassen.
+// Parameters like chains/ChainLLM/methods/config.ts (nodeProperties); the template notice (getTemplateNoticeField) is missing.
+// The values of "type" in the chat messages are the lc_name() of the LangChain classes.
 const parameters: ParamSchema[] = [
   { name: 'prompt', label: 'Prompt', type: 'string', required: true, default: '={{ $json.input }}', show: { '@version': [1] } },
   { name: 'prompt', label: 'Prompt', type: 'string', required: true, default: '={{ $json.chat_input }}', show: { '@version': [1.1, 1.2] } },
@@ -33,7 +33,7 @@ const parameters: ParamSchema[] = [
   { ...textInputParam, show: { promptType: ['define'] } },
   {
     name: 'hasOutputParser',
-    label: 'Bestimmtes Ausgabeformat verlangen',
+    label: 'Require Specific Output Format',
     type: 'boolean',
     default: false,
     noExpression: true,
@@ -41,7 +41,7 @@ const parameters: ParamSchema[] = [
   },
   {
     name: 'needsFallback',
-    label: 'Fallback-Modell aktivieren',
+    label: 'Enable Fallback Model',
     type: 'boolean',
     default: false,
     noExpression: true,
@@ -49,11 +49,11 @@ const parameters: ParamSchema[] = [
   },
   {
     name: 'messages',
-    label: 'Chat-Nachrichten (bei einem Chat Model)',
+    label: 'Chat Messages (if Using a Chat Model)',
     type: 'fixedCollection',
     default: {},
     multiple: true,
-    addLabel: 'Prompt hinzufügen',
+    addLabel: 'Add Prompt',
     groups: [
       {
         name: 'messageValues',
@@ -61,7 +61,7 @@ const parameters: ParamSchema[] = [
         children: [
           {
             name: 'type',
-            label: 'Typ',
+            label: 'Type',
             type: 'options',
             default: 'SystemMessagePromptTemplate',
             options: [
@@ -72,50 +72,50 @@ const parameters: ParamSchema[] = [
           },
           {
             name: 'messageType',
-            label: 'Nachrichtenart',
+            label: 'Message Type',
             type: 'options',
             default: 'text',
             show: { type: ['HumanMessagePromptTemplate'] },
             options: [
-              { value: 'text', label: 'Text', description: 'Einfache Textnachricht' },
-              { value: 'imageBinary', label: 'Bild (binär)', description: 'Binärdaten aus dem vorherigen Knoten' },
-              { value: 'imageUrl', label: 'Bild (URL)', description: 'Bild von der angegebenen URL' },
+              { value: 'text', label: 'Text', description: 'Simple text message' },
+              { value: 'imageBinary', label: 'Image (Binary)', description: 'Process the binary input from the previous node' },
+              { value: 'imageUrl', label: 'Image (URL)', description: 'Process the image from the specified URL' },
             ],
           },
           {
             name: 'binaryImageDataKey',
-            label: 'Feld mit den Bilddaten',
+            label: 'Image Data Field Name',
             type: 'string',
             default: 'data',
             required: true,
-            description: 'Binärfeld der Eingabe mit dem Bild',
+            description: 'The name of the field in the chain’s input that contains the binary image file to be processed',
             show: { messageType: ['imageBinary'] },
           },
           {
             name: 'imageUrl',
-            label: 'Bild-URL',
+            label: 'Image URL',
             type: 'string',
             default: '',
             required: true,
-            description: 'URL des Bildes',
+            description: 'URL to the image to be processed',
             show: { messageType: ['imageUrl'] },
           },
           {
             name: 'imageDetail',
-            label: 'Bilddetails',
+            label: 'Image Details',
             type: 'options',
             default: 'auto',
-            description: 'Wie genau das Modell das Bild verarbeitet',
+            description: 'Control how the model processes the image and generates its textual understanding',
             show: { type: ['HumanMessagePromptTemplate'], messageType: ['imageBinary', 'imageUrl'] },
             options: [
-              { value: 'auto', label: 'Auto', description: 'Das Modell wählt je nach Bildgröße niedrig oder hoch' },
-              { value: 'low', label: 'Niedrig', description: 'Verkleinertes Bild mit 512 x 512 px, schneller und günstiger' },
-              { value: 'high', label: 'Hoch', description: 'Zusätzlich detaillierte Ausschnitte, mehr Tokens' },
+              { value: 'auto', label: 'Auto', description: 'Model will use the auto setting which will look at the image input size and decide if it should use the low or high setting' },
+              { value: 'low', label: 'Low', description: 'The model will receive a low-res 512px x 512px version of the image; faster and cheaper' },
+              { value: 'high', label: 'High', description: 'Allows the model to see the low res image and then creates detailed crops; uses more tokens' },
             ],
           },
           {
             name: 'message',
-            label: 'Nachricht',
+            label: 'Message',
             type: 'string',
             default: '',
             required: true,
@@ -130,7 +130,7 @@ const parameters: ParamSchema[] = [
   fallbackNoticeParam,
 ];
 
-/** getOptionalOutputParser: hasOutputParser ist in v1, 1.1 und 1.3 ausgeblendet (dann true) */
+/** getOptionalOutputParser: hasOutputParser is hidden in v1, 1.1 and 1.3 (then true) */
 export async function optionalOutputParser(ctx: ExecContext, itemIndex = 0): Promise<StructuredOutputParserInstance | undefined> {
   const v = ctx.node.typeVersion;
   const has = [1, 1.1, 1.3].includes(v) ? true : ctx.getParam<boolean>('hasOutputParser', 0, false);

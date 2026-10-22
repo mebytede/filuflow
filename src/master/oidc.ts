@@ -1,6 +1,6 @@
-// Anmeldung über OpenID Connect (Authorization Code Flow mit PKCE), ohne zusätzliche Bibliothek.
-// Discovery (/.well-known/openid-configuration), Token-Abruf, Prüfung des ID-Tokens (Signatur über JWKS,
-// iss, aud, exp, nonce) mit node:crypto.
+// Login via OpenID Connect (authorization code flow with PKCE), without an additional library.
+// Discovery (/.well-known/openid-configuration), token retrieval, verification of the ID token (signature via JWKS,
+// iss, aud, exp, nonce) with node:crypto.
 import { createHash, createPublicKey, randomBytes, verify as cryptoVerify, type KeyObject } from 'node:crypto';
 import { Agent, EnvHttpProxyAgent, request as undiciRequest, type Dispatcher } from 'undici';
 
@@ -8,17 +8,17 @@ export interface OidcConfig {
   issuer: string;
   clientId: string;
   clientSecret?: string;
-  /** z. B. https://filuflow.example/api/auth/oidc/callback */
+  /** e.g. https://filuflow.example/api/auth/oidc/callback */
   redirectUrl: string;
   scopes?: string;
-  /** Text auf dem Anmeldeknopf */
+  /** Text on the login button */
   label?: string;
-  /** Unbekannte Benutzer automatisch anlegen (Rolle member) */
+  /** Create unknown users automatically (role member) */
   autoCreate?: boolean;
-  /** Mitglieder dieser Gruppe werden Admin (Claim groupsClaim, Default "groups") */
+  /** Members of this group become admin (claim groupsClaim, default "groups") */
   adminGroup?: string;
   groupsClaim?: string;
-  /** Nur E-Mail-Adressen dieser Domains (leer = alle) */
+  /** Only email addresses of these domains (empty = all) */
   allowedDomains?: string[];
 }
 
@@ -77,7 +77,7 @@ export class OidcClient {
   }
 
   get label(): string {
-    return this.config.label ?? 'Mit SSO anmelden';
+    return this.config.label ?? 'Sign in with SSO';
   }
 
   private async getJson<T>(url: string, init: { method?: string; body?: string; headers?: Record<string, string> } = {}): Promise<T> {
@@ -93,7 +93,7 @@ export class OidcClient {
     try {
       data = JSON.parse(text);
     } catch {
-      throw new OidcError(`Ungültige Antwort von ${url} (HTTP ${res.statusCode})`);
+      throw new OidcError(`Invalid response from ${url} (HTTP ${res.statusCode})`);
     }
     if (res.statusCode >= 400) {
       const d = data as { error?: string; error_description?: string };
@@ -106,10 +106,10 @@ export class OidcClient {
     if (this.discovery && Date.now() - this.discovery.at < 3600_000) return this.discovery.value;
     const url = `${this.config.issuer.replace(/\/+$/, '')}/.well-known/openid-configuration`;
     const value = await this.getJson<Discovery>(url);
-    if (!value.authorization_endpoint || !value.token_endpoint || !value.jwks_uri) throw new OidcError('Discovery-Dokument ist unvollständig');
-    // OpenID Connect Discovery 1.0, Abschnitt 4.3: issuer muss der konfigurierten Adresse entsprechen
+    if (!value.authorization_endpoint || !value.token_endpoint || !value.jwks_uri) throw new OidcError('Discovery document is incomplete');
+    // OpenID Connect Discovery 1.0, section 4.3: issuer must match the configured address
     if (String(value.issuer ?? '').replace(/\/+$/, '') !== this.config.issuer.replace(/\/+$/, '')) {
-      throw new OidcError(`Aussteller im Discovery-Dokument (${value.issuer}) passt nicht zu FILUFLOW_OIDC_ISSUER`);
+      throw new OidcError(`Issuer in the discovery document (${value.issuer}) does not match FILUFLOW_OIDC_ISSUER`);
     }
     this.discovery = { value, at: Date.now() };
     return value;
@@ -141,12 +141,12 @@ export class OidcClient {
     });
     const headers: Record<string, string> = { 'content-type': 'application/x-www-form-urlencoded' };
     if (this.config.clientSecret) {
-      // client_secret_basic (RFC 6749 2.3.1: Werte form-kodiert)
+      // client_secret_basic (RFC 6749 2.3.1: values form-encoded)
       const enc = (v: string) => encodeURIComponent(v).replace(/%20/g, '+');
       headers.authorization = `Basic ${Buffer.from(`${enc(this.config.clientId)}:${enc(this.config.clientSecret)}`).toString('base64')}`;
     }
     const tokens = await this.getJson<{ id_token?: string }>(d.token_endpoint, { method: 'POST', body: body.toString(), headers });
-    if (!tokens.id_token) throw new OidcError('Token-Antwort enthält kein id_token');
+    if (!tokens.id_token) throw new OidcError('Token response contains no id_token');
     return { id_token: tokens.id_token };
   }
 
@@ -163,20 +163,20 @@ export class OidcClient {
         list.push(key);
         if (typeof jwk.kid === 'string') keys.set(jwk.kid, key);
       } catch {
-        // Unbekannter Schlüsseltyp: überspringen
+        // Unknown key type: skip
       }
     }
     this.jwks = { keys, list, at: Date.now() };
     return this.jwks;
   }
 
-  /** ID-Token prüfen: Signatur, Aussteller, Empfänger, Ablauf, nonce */
+  /** Verify the ID token: signature, issuer, audience, expiry, nonce */
   async verifyIdToken(token: string, nonce: string, now = Date.now()): Promise<IdTokenClaims> {
     const parts = token.split('.');
-    if (parts.length !== 3) throw new OidcError('ID-Token hat kein JWT-Format');
+    if (parts.length !== 3) throw new OidcError('ID token is not in JWT format');
     const header = JSON.parse(Buffer.from(parts[0], 'base64url').toString('utf8')) as { alg?: string; kid?: string };
     const alg = ALGS[header.alg ?? ''];
-    if (!alg) throw new OidcError(`Signaturverfahren ${header.alg} wird nicht unterstützt`);
+    if (!alg) throw new OidcError(`Signature algorithm ${header.alg} is not supported`);
     const data = Buffer.from(`${parts[0]}.${parts[1]}`);
     const signature = Buffer.from(parts[2], 'base64url');
     const check = (key: KeyObject) =>
@@ -187,16 +187,16 @@ export class OidcClient {
       jwks = await this.keys(true);
       candidates = header.kid ? [jwks.keys.get(header.kid)].filter((k): k is KeyObject => !!k) : jwks.list;
     }
-    if (!candidates.some((k) => { try { return check(k); } catch { return false; } })) throw new OidcError('Signatur des ID-Tokens ist ungültig');
+    if (!candidates.some((k) => { try { return check(k); } catch { return false; } })) throw new OidcError('ID token signature is invalid');
     const claims = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8')) as IdTokenClaims;
     const d = await this.getDiscovery();
-    if (claims.iss !== d.issuer) throw new OidcError('Aussteller des ID-Tokens passt nicht');
+    if (claims.iss !== d.issuer) throw new OidcError('ID token issuer does not match');
     const aud = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
-    if (!aud.includes(this.config.clientId)) throw new OidcError('ID-Token ist nicht für diesen Client ausgestellt');
+    if (!aud.includes(this.config.clientId)) throw new OidcError('ID token was not issued for this client');
     const skew = 60;
-    if (typeof claims.exp !== 'number' || claims.exp + skew < now / 1000) throw new OidcError('ID-Token ist abgelaufen');
-    if (typeof claims.iat === 'number' && claims.iat - skew > now / 1000) throw new OidcError('ID-Token ist aus der Zukunft');
-    if (claims.nonce !== nonce) throw new OidcError('nonce des ID-Tokens passt nicht');
+    if (typeof claims.exp !== 'number' || claims.exp + skew < now / 1000) throw new OidcError('ID token has expired');
+    if (typeof claims.iat === 'number' && claims.iat - skew > now / 1000) throw new OidcError('ID token is from the future');
+    if (claims.nonce !== nonce) throw new OidcError('ID token nonce does not match');
     return claims;
   }
 

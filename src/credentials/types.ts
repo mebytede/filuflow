@@ -290,7 +290,7 @@ export const CREDENTIAL_TYPES: CredentialTypeSchema[] = [
     ],
   },
   // AI providers (M26), fields as in n8n 1.123.0 packages/@n8n/nodes-langchain/credentials/GroqApi, MistralCloudApi,
-  // OllamaApi, DeepSeekApi, OpenRouterApi und AzureOpenAiApi
+  // OllamaApi, DeepSeekApi, OpenRouterApi and AzureOpenAiApi
   {
     name: 'groqApi',
     label: 'Groq',

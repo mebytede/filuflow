@@ -1,12 +1,12 @@
-// Ersatz für das Paket "n8n-workflow", gegen das n8n-Community-Knoten kompiliert sind (M24). Knoten importieren daraus
-// vor allem Fehlerklassen, Verbindungstypen und kleine Hilfsfunktionen; Typen verschwinden beim Kompilieren. Eigene
-// Umsetzung nach dem Verhalten in n8n 1.123.0 packages/workflow/src (errors/node-operation.error.ts,
+// Replacement for the package "n8n-workflow" that n8n community nodes are compiled against (M24). Nodes import from it
+// mainly error classes, connection types and small helper functions; types disappear on compilation. Own
+// implementation after the behavior in n8n 1.123.0 packages/workflow/src (errors/node-operation.error.ts,
 // errors/node-api.error.ts, interfaces.ts NodeConnectionTypes, utils.ts jsonParse/deepCopy/updateDisplayOptions).
-// Ist "n8n-workflow" beim Plugin selbst installiert, nutzt der Knoten jenes Paket (siehe installN8nWorkflowShim).
+// If "n8n-workflow" is installed with the plugin itself, the node uses that package (see installN8nWorkflowShim).
 import { createRequire } from 'node:module';
 import { NodeApiError as BaseNodeApiError, NodeOperationError as BaseNodeOperationError, FiluflowError } from '../errors.js';
 
-/** INode oder Name */
+/** INode or name */
 type NodeLike = { name?: string } | string | undefined;
 const nodeName = (node: NodeLike) => (typeof node === 'string' ? node : (node?.name ?? ''));
 
@@ -29,8 +29,8 @@ export class NodeOperationError extends BaseNodeOperationError {
 }
 
 /**
- * new NodeApiError(node, errorResponse, options). n8n leitet die Meldung aus vielen möglichen Feldern der Antwort ab und
- * übersetzt Statuscodes in Standardtexte; hier vereinfacht: options.message, message, error.message, sonst ein Standardtext.
+ * new NodeApiError(node, errorResponse, options). n8n derives the message from many possible fields of the response and
+ * translates status codes into standard texts; simplified here: options.message, message, error.message, otherwise a standard text.
  */
 export class NodeApiError extends BaseNodeApiError {
   constructor(node: NodeLike, errorResponse: Record<string, unknown> | Error, options: ErrorOptions = {}) {
@@ -54,7 +54,7 @@ export class ApplicationError extends FiluflowError {
 export class UserError extends ApplicationError {}
 export class OperationalError extends ApplicationError {}
 
-/** interfaces.ts NodeConnectionTypes (frühere Versionen: enum NodeConnectionType) */
+/** interfaces.ts NodeConnectionTypes (earlier versions: enum NodeConnectionType) */
 export const NodeConnectionTypes = {
   AiAgent: 'ai_agent',
   AiChain: 'ai_chain',
@@ -109,7 +109,7 @@ export function randomString(length: number): string {
   return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
 }
 
-/** utils.ts updateDisplayOptions: displayOptions in jede Eigenschaft einmischen (je show/hide-Schlüssel ersetzt) */
+/** utils.ts updateDisplayOptions: merge displayOptions into every property (replaced per show/hide key) */
 export function updateDisplayOptions<T extends { displayOptions?: { show?: Record<string, unknown>; hide?: Record<string, unknown> } }>(
   displayOptions: { show?: Record<string, unknown>; hide?: Record<string, unknown> },
   properties: T[],
@@ -124,7 +124,7 @@ export function updateDisplayOptions<T extends { displayOptions?: { show?: Recor
   }));
 }
 
-/** LoggerProxy: Knoten loggen darüber; ohne Logger der Anwendung stumm */
+/** LoggerProxy: nodes log through it; silent without an application logger */
 export const LoggerProxy = {
   error: () => undefined,
   warn: () => undefined,
@@ -137,14 +137,14 @@ const SHIM_ID = '/__filuflow__/n8n-workflow.cjs';
 let installed = false;
 
 /**
- * require('n8n-workflow') für Plugins auflösbar machen: Ist das Paket beim Plugin installiert, gilt dieses; sonst liefert
- * die Auflösung diesen Ersatz. n8n-Knoten sind CommonJS, daher über Module._resolveFilename und den require-Cache.
+ * Make require('n8n-workflow') resolvable for plugins: if the package is installed with the plugin, that one applies; otherwise
+ * resolution returns this replacement. n8n nodes are CommonJS, hence via Module._resolveFilename and the require cache.
  */
 export function installN8nWorkflowShim(): void {
   if (installed) return;
   installed = true;
   const require = createRequire(import.meta.url);
-  // Interne Node.js-API ohne Typen (Module._resolveFilename, Module._cache); stabil seit vielen Versionen
+  // Internal Node.js API without types (Module._resolveFilename, Module._cache); stable for many versions
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const Module = require('node:module') as any;
   const shim = new Module(SHIM_ID);

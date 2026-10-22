@@ -1,7 +1,7 @@
-// Code Tool, @n8n/n8n-nodes-langchain.toolCode (typeVersion 1 bis 1.3)
-// Nachgebaut nach n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/tools/ToolCode/ToolCode.node.ts
-// JavaScript oder Python (Pyodide, wie n8n über PythonSandbox.runCode); die Variable `query` enthält die Eingabe.
-// Ergebnis muss Text oder Zahl sein.
+// Code Tool, @n8n/n8n-nodes-langchain.toolCode (typeVersion 1 to 1.3)
+// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/tools/ToolCode/ToolCode.node.ts
+// JavaScript or Python (Pyodide, like n8n via PythonSandbox.runCode); the variable `query` holds the input.
+// The result must be a string or a number.
 import type { ExecContext, NodeIssue, NodeType } from './types.js';
 import type { Item } from '../types.js';
 import { NodeOperationError } from '../errors.js';
@@ -53,44 +53,44 @@ function getTool(ctx: ExecContext, itemIndex: number, log: boolean): ToolInstanc
   return createTool(ctx, { name, description, schema, func: run, ...(log ? { log: { ctx, inputKey: 'query' as const } } : {}) });
 }
 
-// Parameter wie ToolCode.node.ts (properties) und utils/descriptions.ts (schemaTypeField, buildJsonSchemaExampleField,
-// buildJsonSchemaExampleNotice, buildInputSchemaField), n8n 1.123.0. Der Hinweis auf eine n8n-Vorlage
-// (noticeTemplateExample) entfällt, weil es die Vorlagen in filuflow nicht gibt.
-const CODE_HINT = 'Die Eingabe steht in der Variable "query"; zurückgegeben wird ein einzelner Text.';
+// Parameters as in ToolCode.node.ts (properties) and utils/descriptions.ts (schemaTypeField, buildJsonSchemaExampleField,
+// buildJsonSchemaExampleNotice, buildInputSchemaField), n8n 1.123.0. The notice pointing to an n8n template
+// (noticeTemplateExample) is omitted because filuflow has no templates.
+const CODE_HINT = 'The input is available in the "query" variable; return a single string.';
 const SHOW_SCHEMA = { specifyInputSchema: [true] };
 
 const parameters: ParamSchema[] = [
-  { name: 'notice', label: 'Dieser Node muss mit einem AI Agent verbunden werden.', type: 'notice', default: '' },
+  { name: 'notice', label: 'This node must be connected to an AI agent.', type: 'notice', default: '' },
   { name: 'name', label: 'Name', type: 'string', default: '', placeholder: 'My_Tool', show: { '@version': [1] } },
   {
     name: 'name',
     label: 'Name',
     type: 'string',
     default: '',
-    placeholder: 'z. B. My_Tool',
-    description: 'Name der aufgerufenen Funktion: nur Buchstaben, Ziffern und Unterstriche',
+    placeholder: 'e.g. My_Tool',
+    description: 'The name of the function to be called, could contain letters, numbers, and underscores only',
     show: { '@version': [1.1] },
   },
   {
-    // Nicht in n8n: ab v1.2 blendet n8n "name" aus, exportierte Workflows enthalten ihn aber oft noch.
-    // Nur sichtbar, wenn gesetzt, damit der Wert nicht unbemerkt bleibt.
+    // Not in n8n: from v1.2 n8n hides "name", but exported workflows often still contain it.
+    // Only visible when set, so the value does not go unnoticed.
     name: 'name',
-    label: 'Name (nicht verwendet)',
+    label: 'Name (not used)',
     type: 'string',
-    description: 'Ab Version 1.2 ist der Node-Name der Tool-Name; dieser Wert wird ignoriert.',
+    description: 'From version 1.2 the node name is the tool name; this value is ignored.',
     show: { '@version': [{ _cnd: { gte: 1.2 } }], name: [{ _cnd: { exists: true } }] },
   },
   {
     name: 'description',
-    label: 'Beschreibung',
+    label: 'Description',
     type: 'string',
     default: '',
     rows: 3,
-    placeholder: 'Rufe dieses Tool auf, um eine zufällige Farbe zu erhalten. Die Eingabe ist eine kommagetrennte Liste auszuschließender Farben.',
+    placeholder: 'Call this tool to get a random color. The input should be a string with comma separated names of colors to exclude.',
   },
   {
     name: 'language',
-    label: 'Sprache',
+    label: 'Language',
     type: 'options',
     default: 'javaScript',
     noExpression: true,
@@ -121,50 +121,50 @@ const parameters: ParamSchema[] = [
   },
   {
     name: 'specifyInputSchema',
-    label: 'Eingabeschema festlegen',
+    label: 'Specify Input Schema',
     type: 'boolean',
     default: false,
     noExpression: true,
-    description: 'Ob das LLM die Eingabe in einem Schema liefern muss, gegen das geprüft wird',
+    description: 'Whether to specify the schema for the function. This would require the LLM to provide the input in the correct format and would validate it against the schema.',
   },
   {
     name: 'schemaType',
-    label: 'Schema-Typ',
+    label: 'Schema Type',
     type: 'options',
     default: 'fromJson',
     noExpression: true,
-    description: 'Wie das Schema der Funktion angegeben wird',
+    description: 'How to specify the schema for the function',
     options: [
-      { value: 'fromJson', label: 'Aus JSON-Beispiel erzeugen', description: 'Schema aus einem JSON-Beispiel ableiten' },
-      { value: 'manual', label: 'Mit JSON Schema festlegen', description: 'JSON Schema von Hand angeben' },
+      { value: 'fromJson', label: 'Generate From JSON Example', description: 'Generate a schema from an example JSON object' },
+      { value: 'manual', label: 'Define using JSON Schema', description: 'Define the JSON schema manually' },
     ],
     show: SHOW_SCHEMA,
   },
   {
     name: 'jsonSchemaExample',
-    label: 'JSON-Beispiel',
+    label: 'JSON Example',
     type: 'json',
     default: '{\n\t"some_input": "some_value"\n}',
     noExpression: true,
     rows: 10,
-    description: 'Beispielobjekt, aus dem das Schema erzeugt wird',
+    description: 'Example JSON object to use to generate the schema',
     show: { ...SHOW_SCHEMA, schemaType: ['fromJson'] },
   },
   {
     name: 'notice',
-    label: "Alle Eigenschaften sind Pflicht. Für optionale Eigenschaften den Schema-Typ 'JSON Schema' wählen.",
+    label: "All properties will be required. To make them optional, use the 'JSON Schema' schema type instead.",
     type: 'notice',
     default: '',
     show: { ...SHOW_SCHEMA, '@version': [{ _cnd: { gte: 1.3 } }], schemaType: ['fromJson'] },
   },
   {
     name: 'inputSchema',
-    label: 'Eingabeschema',
+    label: 'Input Schema',
     type: 'json',
     default:
       '{\n"type": "object",\n"properties": {\n\t"some_input": {\n\t\t"type": "string",\n\t\t"description": "Some input to the function"\n\t\t}\n\t}\n}',
     rows: 10,
-    description: 'JSON Schema der Funktion ($ref wird nicht unterstützt)',
+    description: 'Schema to use for the function ($ref is not supported)',
     show: { ...SHOW_SCHEMA, schemaType: ['manual'] },
   },
 ];
@@ -182,7 +182,7 @@ export const toolCodeNode: NodeType = {
     const issues: NodeIssue[] = [];
     const language = node.parameters.language;
     if (language !== undefined && language !== 'javaScript' && language !== 'python') {
-      issues.push({ code: 'node.unsupportedParameter', message: `Code Tool: Sprache "${String(language)}" wird nicht unterstützt`, path: 'parameters.language' });
+      issues.push({ code: 'node.unsupportedParameter', message: `Code Tool: language "${String(language)}" is not supported`, path: 'parameters.language' });
     }
     return issues;
   },

@@ -1,6 +1,6 @@
-// REST-Endpunkte für die Weboberfläche (M8): Node-Typen, Credentials (ohne Werte), Prüfen und Ausführen
-// ungespeicherter Workflows, Speichern und Löschen von Workflow-Dateien.
-// Alle Routen liegen im API-Scope und brauchen den X-API-Key.
+// REST endpoints for the web interface (M8): node types, credentials (without values), checking and running
+// unsaved workflows, saving and deleting workflow files.
+// All routes are in the API scope and require the X-API-Key.
 import { hostname } from 'node:os';
 import type { FastifyInstance } from 'fastify';
 import type { Item, Workflow, WorkflowNode } from '../types.js';
@@ -23,13 +23,13 @@ export interface EditorApiOptions {
   manager: ExecutionManager;
   store: ExecutionStore;
   workflows: () => WorkflowManager;
-  /** Basis-URL der Webhooks (FILUFLOW_WEBHOOK_URL), für die Anzeige im Editor */
+  /** Base URL of the webhooks (FILUFLOW_WEBHOOK_URL), for display in the editor */
   webhookBaseUrl: string;
-  /** Für "Auf Test-Aufruf warten" */
+  /** For "Wait for test call" */
   webhooks?: WebhookService;
 }
 
-/** Ein- und Ausgänge eines Nodes für das Zeichnen im Editor */
+/** Inputs and outputs of a node for drawing in the editor */
 export interface NodePorts {
   known: boolean;
   inputs: number;
@@ -39,11 +39,11 @@ export interface NodePorts {
   isSubNode: boolean;
   aiOutput?: string;
   aiInputs: AiInput[];
-  /** Credential-Typen, die der Node mit den aktuellen Parametern braucht */
+  /** Credential types the node needs with its current parameters */
   credentialTypes: string[];
 }
 
-/** Ports aller Nodes; unbekannte Typen bekommen einen Ein- und Ausgang */
+/** Ports of all nodes; unknown types get one input and one output */
 export function describeNodes(workflow: Workflow, registry: NodeRegistry): Record<string, NodePorts> {
   const out: Record<string, NodePorts> = {};
   for (const node of Array.isArray(workflow.nodes) ? workflow.nodes : []) {
@@ -78,15 +78,15 @@ export function describeNodes(workflow: Workflow, registry: NodeRegistry): Recor
   return out;
 }
 
-/** Grobe Gruppe für die Node-Palette */
+/** Rough group for the node palette */
 function group(type: string, isTrigger: boolean, isSubNode: boolean): string {
   if (isTrigger) return 'Trigger';
-  if (isSubNode) return 'KI: Sub-Nodes';
-  if (type.startsWith('@n8n/n8n-nodes-langchain.')) return 'KI';
-  return 'Kern';
+  if (isSubNode) return 'AI: Sub-nodes';
+  if (type.startsWith('@n8n/n8n-nodes-langchain.')) return 'AI';
+  return 'Core';
 }
 
-/** Node-Typen für Palette und Editor */
+/** Node types for palette and editor */
 export function nodeTypeList(registry: NodeRegistry) {
   return registry
     .list()
@@ -98,7 +98,7 @@ export function nodeTypeList(registry: NodeRegistry) {
       try {
         outputs = t.outputs(probe);
       } catch {
-        // Ausgänge hängen von Parametern ab
+        // Outputs depend on parameters
       }
       return {
         type: t.type,
@@ -109,17 +109,17 @@ export function nodeTypeList(registry: NodeRegistry) {
         ...(t.aiOutput ? { aiOutput: t.aiOutput } : {}),
         outputs,
         ...(t.parameters ? { parameters: t.parameters } : {}),
-        group: t.group ?? (t.type === STICKY_NOTE_TYPE ? 'Sonstiges' : group(t.type, !!t.isTrigger, !!t.isSubNode)),
+        group: t.group ?? (t.type === STICKY_NOTE_TYPE ? 'Other' : group(t.type, !!t.isTrigger, !!t.isSubNode)),
       };
     });
 }
 
 export function asWorkflow(body: unknown): Workflow | string {
   const raw = (body as { workflow?: unknown } | null)?.workflow ?? body;
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return 'Workflow fehlt oder ist kein Objekt';
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return 'Workflow is missing or is not an object';
   const wf = raw as Workflow;
-  if (!Array.isArray(wf.nodes)) return '"nodes" fehlt oder ist kein Array';
-  if (!wf.connections || typeof wf.connections !== 'object' || Array.isArray(wf.connections)) return '"connections" fehlt oder ist kein Objekt';
+  if (!Array.isArray(wf.nodes)) return '"nodes" is missing or is not an array';
+  if (!wf.connections || typeof wf.connections !== 'object' || Array.isArray(wf.connections)) return '"connections" is missing or is not an object';
   return wf;
 }
 
@@ -130,7 +130,7 @@ export async function registerEditorApi(api: FastifyInstance, o: EditorApiOption
 
   api.get('/api/editor/node-types', async () => ({ data: nodeTypeList(o.registry) }));
 
-  // Nur Name, ID und Typ; Werte verlassen den Server nie
+  // Only name, ID and type; values never leave the server
   api.get('/api/editor/credentials', async () => ({
     data: (o.credentials.list?.() ?? []).map((c) => ({ name: c.name, ...(c.id ? { id: c.id } : {}), ...(c.type ? { type: c.type } : {}) })),
   }));
@@ -142,37 +142,37 @@ export async function registerEditorApi(api: FastifyInstance, o: EditorApiOption
     return { valid: result.valid, issues: result.issues, nodes: describeNodes(wf, o.registry) };
   });
 
-  // Ungespeicherten Workflow manuell ausführen (Modus "manual", mit pinData); wartet auf das Ende
+  // Run an unsaved workflow manually (mode "manual", with pinData); waits for the end
   api.post('/api/editor/run', async (request, reply) => {
     const body = (request.body ?? {}) as { workflow?: unknown; trigger?: string; input?: unknown; destination?: unknown };
     const wf = asWorkflow(body);
     if (typeof wf === 'string') return reply.code(400).send({ message: wf });
     const result = validate(wf);
-    if (!result.valid) return reply.code(400).send({ message: 'Workflow ist ungültig', issues: result.issues });
+    if (!result.valid) return reply.code(400).send({ message: 'Workflow is invalid', issues: result.issues });
     let triggerItems: Item[] | undefined;
     try {
-      if (body.input !== undefined && body.input !== null && body.input !== '') triggerItems = toItems(body.input, 'Eingabe');
+      if (body.input !== undefined && body.input !== null && body.input !== '') triggerItems = toItems(body.input, 'Input');
       o.runner.checkStart(wf, body.trigger || undefined);
     } catch (error) {
       return reply.code(400).send({ message: (error as Error).message });
     }
     wf.id ??= 'editor';
     const destination = typeof body.destination === 'string' && body.destination ? body.destination : undefined;
-    if (destination && !wf.nodes.some((n) => n.name === destination)) return reply.code(400).send({ message: `Zielknoten "${destination}" existiert nicht` });
+    if (destination && !wf.nodes.some((n) => n.name === destination)) return reply.code(400).send({ message: `Destination node "${destination}" does not exist` });
     const entry = o.manager.start({ workflow: wf, mode: 'manual', startNodeName: body.trigger || undefined, triggerItems, usePinData: true, destinationNode: destination });
     const execution = await entry.promise;
     return o.store.get(execution.id);
   });
 
-  // Auf den nächsten Aufruf einer Test-URL warten und dabei den übergebenen Stand ausführen (Long Polling).
-  // 204, wenn in der Wartezeit kein Aufruf kam oder der Editor die Anfrage abbricht.
+  // Wait for the next call to a test URL and run the submitted version for it (long polling).
+  // 204 if no call arrived within the wait time or the editor cancels the request.
   api.post('/api/editor/listen', async (request, reply) => {
-    if (!o.webhooks) return reply.code(404).send({ message: 'Nicht verfügbar' });
+    if (!o.webhooks) return reply.code(404).send({ message: 'Not available' });
     const body = (request.body ?? {}) as { workflow?: unknown; timeout?: unknown };
     const wf = asWorkflow(body);
     if (typeof wf === 'string') return reply.code(400).send({ message: wf });
     const result = validate(wf);
-    if (!result.valid) return reply.code(400).send({ message: 'Workflow ist ungültig', issues: result.issues });
+    if (!result.valid) return reply.code(400).send({ message: 'Workflow is invalid', issues: result.issues });
     wf.id ??= 'editor';
     const seconds = Math.min(Math.max(Number(body.timeout) || 120, 1), 300);
     let listening: ReturnType<WebhookService['listen']>;
@@ -182,7 +182,7 @@ export async function registerEditorApi(api: FastifyInstance, o: EditorApiOption
       return reply.code(400).send({ message: (error as Error).message });
     }
     const cancel = () => listening.cancel();
-    // ServerResponse: 'close' kommt, wenn der Editor die Verbindung trennt (IncomingMessage meldet 'close' schon nach dem Body)
+    // ServerResponse: 'close' fires when the editor drops the connection (IncomingMessage already reports 'close' after the body)
     reply.raw.on('close', cancel);
     const entry = await listening.promise;
     reply.raw.off('close', cancel);
@@ -194,10 +194,10 @@ export async function registerEditorApi(api: FastifyInstance, o: EditorApiOption
   api.get('/api/workflows/:id/source', async (request, reply) => {
     try {
       const source = await o.workflows().source((request.params as { id: string }).id);
-      if (source === undefined) return reply.code(404).send({ message: 'Workflow nicht gefunden' });
+      if (source === undefined) return reply.code(404).send({ message: 'Workflow not found' });
       return source;
     } catch (error) {
-      return reply.code(500).send({ message: `Workflow-Datei kann nicht gelesen werden: ${(error as Error).message}` });
+      return reply.code(500).send({ message: `Workflow file cannot be read: ${(error as Error).message}` });
     }
   });
 
@@ -216,7 +216,7 @@ export async function registerEditorApi(api: FastifyInstance, o: EditorApiOption
     if (error instanceof WorkflowConflictError) return { code: 409, message: error.message };
     const code = (error as NodeJS.ErrnoException).code;
     if (code === 'EACCES' || code === 'EROFS' || code === 'EPERM') {
-      return { code: 403, message: 'Workflow-Verzeichnis ist nicht beschreibbar' };
+      return { code: 403, message: 'Workflow directory is not writable' };
     }
     return { code: 500, message: (error as Error).message };
   };
@@ -254,7 +254,7 @@ export async function registerEditorApi(api: FastifyInstance, o: EditorApiOption
   });
 }
 
-/** Angaben für den Fuß der Seitenleiste: Name der Instanz, Impressum und Datenschutz (nur wenn gesetzt) */
+/** Details for the sidebar footer: instance name, imprint and privacy policy (only if set) */
 export function instanceInfo(): { instance: string; imprintUrl?: string; privacyUrl?: string } {
   const env = process.env;
   return {

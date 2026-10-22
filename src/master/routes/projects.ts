@@ -1,5 +1,5 @@
-// Projekte, Mitglieder, Workflows (versioniert), Prüfen, Ausführen, Ausführungen und Credentials-Namen.
-// Ausführen, Ausführungen und Credentials kommen live vom Worker des Projekts.
+// Projects, members, workflows (versioned), validation, running, executions and credential names.
+// Running, executions and credentials come live from the project's worker.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { MasterContext } from '../app.js';
 import type { ProjectRow, ProjectRole, UserRow, WorkflowRole, WorkflowRow } from '../db.js';
@@ -39,7 +39,7 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
   const { db, hub } = ctx;
   const registry = getDefaultRegistry();
 
-  /** Rolle im Projekt: Mitgliedschaft (globale Admins: admin) oder Gast über einzelne Workflows */
+  /** Role in the project: membership (global admins: admin) or guest through single workflows */
   const projectRoleOf = (user: UserRow, projectId: string): AccessRole | undefined => {
     const role = effectiveRole(user.role, db.getMemberRole(projectId, user.id));
     if (role) return role;
@@ -47,7 +47,7 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     return undefined;
   };
 
-  /** Workflows des Projekts, für die der Benutzer die Aktion ausführen darf, mit effektiver Rolle */
+  /** Workflows of the project for which the user may perform the action, with effective role */
   const workflowsWith = (user: UserRow, projectId: string, role: AccessRole, action: ProjectAction): Array<{ row: WorkflowRow; role: ProjectRole }> => {
     const own = role === 'admin' ? new Map<string, WorkflowRole>() : db.workflowRolesForUser(user.id, projectId);
     const out: Array<{ row: WorkflowRow; role: ProjectRole }> = [];
@@ -59,8 +59,8 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
   };
 
   /**
-   * Projekt mit Rolle des Benutzers; sendet 404 (unsichtbar) bzw. 403 (Recht fehlt). Mit anyWorkflow reicht es, wenn
-   * der Benutzer die Aktion für mindestens einen Workflow des Projekts darf (Editor, Prüfen, Credentials, Ausführungen).
+   * Project with the user's role; sends 404 (invisible) or 403 (permission missing). With anyWorkflow it is enough if
+   * the user may perform the action for at least one workflow of the project (editor, validation, credentials, executions).
    */
   const access = (
     request: FastifyRequest,
@@ -73,28 +73,28 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     const project = db.getProject(projectId);
     const role = project ? projectRoleOf(user, project.id) : undefined;
     if (!project || !role) {
-      void reply.code(404).send({ message: 'Projekt nicht gefunden' });
+      void reply.code(404).send({ message: 'Project not found' });
       return undefined;
     }
     if (!allows(role, action) && !(anyWorkflow && workflowsWith(user, project.id, role, action).length)) {
-      void reply.code(403).send({ message: 'Keine Berechtigung für diese Aktion' });
+      void reply.code(403).send({ message: 'No permission for this action' });
       return undefined;
     }
     return { project, role };
   };
 
-  /** Workflow mit effektiver Rolle; unsichtbare Workflows (Rolle 'none', kein Zugriff) melden 404 */
+  /** Workflow with effective role; invisible workflows (role 'none', no access) report 404 */
   const workflowAccess = (request: FastifyRequest, reply: FastifyReply, id: string, action: ProjectAction) => {
     const user = request.auth!.user;
     const row = db.getWorkflow(id);
     const projectRole = row ? projectRoleOf(user, row.project_id) : undefined;
     const role = row ? effectiveWorkflowRole(projectRole, db.getWorkflowRole(row.id, user.id)) : undefined;
     if (!row || !role) {
-      void reply.code(404).send({ message: 'Workflow nicht gefunden' });
+      void reply.code(404).send({ message: 'Workflow not found' });
       return undefined;
     }
     if (!allows(role, action)) {
-      void reply.code(403).send({ message: 'Keine Berechtigung für diese Aktion' });
+      void reply.code(403).send({ message: 'No permission for this action' });
       return undefined;
     }
     return { project: db.getProject(row.project_id)!, projectRole: projectRole!, role, row };
@@ -152,7 +152,7 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
   };
 
   // ---------------------------------------------------------------------------------------------
-  // Projekte
+  // Projects
 
   api.get('/api/projects', async (request) => {
     const user = request.auth!.user;
@@ -169,10 +169,10 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     if (!ctx.requireAdmin(request, reply)) return;
     const body = (request.body ?? {}) as Record<string, unknown>;
     const name = str(body.name, 200).trim();
-    if (!name) return reply.code(400).send({ message: 'Name fehlt' });
-    if (db.listProjects().some((p) => p.name.toLowerCase() === name.toLowerCase())) return reply.code(409).send({ message: 'Es gibt bereits ein Projekt mit diesem Namen' });
+    if (!name) return reply.code(400).send({ message: 'Name is missing' });
+    if (db.listProjects().some((p) => p.name.toLowerCase() === name.toLowerCase())) return reply.code(409).send({ message: 'A project with this name already exists' });
     const workerId = str(body.workerId) || null;
-    if (workerId && !db.getWorker(workerId)) return reply.code(400).send({ message: 'Worker nicht gefunden' });
+    if (workerId && !db.getWorker(workerId)) return reply.code(400).send({ message: 'Worker not found' });
     const project = db.createProject({ name, description: str(body.description, 2000), workerId });
     ctx.audit(request, 'project.created', project.id, { name, workerId });
     return reply.code(201).send(projectView(project, 'admin', request.auth!.user));
@@ -191,27 +191,27 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     const changes: Partial<Pick<ProjectRow, 'name' | 'description' | 'worker_id'>> = {};
     if (typeof body.name === 'string' && body.name.trim()) {
       const name = body.name.trim().slice(0, 200);
-      if (db.listProjects().some((p) => p.id !== a.project.id && p.name.toLowerCase() === name.toLowerCase())) return reply.code(409).send({ message: 'Es gibt bereits ein Projekt mit diesem Namen' });
+      if (db.listProjects().some((p) => p.id !== a.project.id && p.name.toLowerCase() === name.toLowerCase())) return reply.code(409).send({ message: 'A project with this name already exists' });
       changes.name = name;
     }
     if (typeof body.description === 'string') changes.description = body.description.slice(0, 2000);
     if (body.workerId !== undefined) {
-      // Worker (und damit Mandant) zuordnen: nur globale Admins
-      if (request.auth!.user.role !== 'admin') return reply.code(403).send({ message: 'Nur Administratoren ordnen Worker zu' });
+      // Assign worker (and thus tenant): global admins only
+      if (request.auth!.user.role !== 'admin') return reply.code(403).send({ message: 'Only administrators assign workers' });
       const workerId = str(body.workerId) || null;
-      if (workerId && !db.getWorker(workerId)) return reply.code(400).send({ message: 'Worker nicht gefunden' });
+      if (workerId && !db.getWorker(workerId)) return reply.code(400).send({ message: 'Worker not found' });
       changes.worker_id = workerId;
     }
     db.updateProject(a.project.id, changes);
     ctx.audit(request, 'project.updated', a.project.id, changes);
-    // Neuer Worker: alle Workflows dorthin verteilen (beim alten entfernen)
+    // New worker: distribute all workflows there (remove from the old one)
     if (changes.worker_id !== undefined && changes.worker_id !== a.project.worker_id) {
       for (const row of db.listWorkflows(a.project.id)) {
         if (changes.worker_id) await hub.deploy(row);
         else if (row.deployed_worker_id) {
           const old = db.getWorker(row.deployed_worker_id);
           if (old) await hub.undeploy(row.id, old).catch(() => undefined);
-          db.setDeployment(row.id, { version: null, workerId: null, error: 'Projekt hat keinen Worker' });
+          db.setDeployment(row.id, { version: null, workerId: null, error: 'Project has no worker' });
         }
       }
     }
@@ -221,8 +221,8 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
   api.delete('/api/projects/:pid', async (request, reply) => {
     if (!ctx.requireAdmin(request, reply)) return;
     const project = db.getProject((request.params as { pid: string }).pid);
-    if (!project) return reply.code(404).send({ message: 'Projekt nicht gefunden' });
-    if (db.listWorkflows(project.id).length) return reply.code(409).send({ message: 'Projekt enthält noch Workflows' });
+    if (!project) return reply.code(404).send({ message: 'Project not found' });
+    if (db.listWorkflows(project.id).length) return reply.code(409).send({ message: 'Project still contains workflows' });
     db.deleteProject(project.id);
     ctx.audit(request, 'project.deleted', project.id, { name: project.name });
     return reply.code(204).send();
@@ -239,9 +239,9 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     const a = access(request, reply, pid, 'project.manage');
     if (!a) return;
     const role = str((request.body as Record<string, unknown> | null)?.role) as ProjectRole;
-    if (!isProjectRole(role)) return reply.code(400).send({ message: 'Rolle muss admin, editor, viewer oder eine eigene Rolle sein' });
+    if (!isProjectRole(role)) return reply.code(400).send({ message: 'Role must be admin, editor, viewer or a custom role' });
     const user = db.getUser(uid);
-    if (!user) return reply.code(404).send({ message: 'Benutzer nicht gefunden' });
+    if (!user) return reply.code(404).send({ message: 'User not found' });
     db.setMember(pid, uid, role);
     ctx.audit(request, 'project.member_set', pid, { userId: uid, email: user.email, role });
     return { userId: uid, email: user.email, name: user.name, role };
@@ -259,7 +259,7 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
   // ---------------------------------------------------------------------------------------------
   // Workflows
 
-  /** Credentials, die der Workflow nutzt, die für das Projekt beim Worker aber nicht freigegeben sind */
+  /** Credentials the workflow uses that are not shared with the project on the worker */
   const blockedCredentials = (projectId: string, wf: Workflow): Array<{ node: string; name: string }> => {
     const workerId = db.getProject(projectId)?.worker_id;
     if (!workerId) return [];
@@ -274,7 +274,7 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     return out;
   };
   const blockedMessage = (blocked: Array<{ name: string }>) =>
-    `Credential${blocked.length > 1 ? 's' : ''} ${[...new Set(blocked.map((b) => `"${b.name}"`))].join(', ')} ${blocked.length > 1 ? 'sind' : 'ist'} für dieses Projekt nicht freigegeben`;
+    `Credential${blocked.length > 1 ? 's' : ''} ${[...new Set(blocked.map((b) => `"${b.name}"`))].join(', ')} ${blocked.length > 1 ? 'are' : 'is'} not shared with this project`;
 
   api.get('/api/projects/:pid/workflows', async (request, reply) => {
     const a = access(request, reply, (request.params as { pid: string }).pid, 'project.read');
@@ -294,11 +294,11 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
       wf = parsed;
       wf.settings = { ...(wf.settings ?? {}), executionOrder: wf.settings?.executionOrder ?? 'v1' };
     } else {
-      wf = emptyWorkflow(str(body.name, 200).trim() || 'Neuer Workflow');
+      wf = emptyWorkflow(str(body.name, 200).trim() || 'New workflow');
     }
     const blockedNew = blockedCredentials(a.project.id, wf);
     if (blockedNew.length) return reply.code(403).send({ message: blockedMessage(blockedNew) });
-    // Import: IDs aus n8n nicht übernehmen (könnten kollidieren), nie aktiv starten
+    // Import: do not take over IDs from n8n (could collide), never start active
     delete wf.id;
     wf.active = false;
     const row = db.saveWorkflow(a.project.id, wf, request.auth!.user.id);
@@ -319,16 +319,16 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     const body = (request.body ?? {}) as { workflow?: unknown; baseVersion?: number };
     const parsed = asWorkflow(body.workflow);
     if (typeof parsed === 'string') return reply.code(400).send({ message: parsed });
-    // Gleichzeitige Bearbeitung: nur auf Basis der aktuellen Version speichern
+    // Concurrent editing: only save based on the current version
     if (typeof body.baseVersion === 'number' && body.baseVersion !== a.row.version) {
       const by = a.row.updated_by ? db.getUser(a.row.updated_by) : undefined;
       return reply.code(409).send({
-        message: `Der Workflow wurde inzwischen${by ? ` von ${by.name || by.email}` : ''} geändert (Version ${a.row.version}). Bitte neu laden oder Änderungen übernehmen.`,
+        message: `The workflow has been changed in the meantime${by ? ` by ${by.name || by.email}` : ''} (version ${a.row.version}). Please reload or merge the changes.`,
         currentVersion: a.row.version,
       });
     }
     const wasActive = a.row.active === 1;
-    if ((parsed.active === true) !== wasActive && !allows(a.role, 'workflow.activate')) return reply.code(403).send({ message: 'Keine Berechtigung zum Aktivieren' });
+    if ((parsed.active === true) !== wasActive && !allows(a.role, 'workflow.activate')) return reply.code(403).send({ message: 'No permission to activate' });
     const blocked = blockedCredentials(a.project.id, parsed);
     if (blocked.length) return reply.code(403).send({ message: blockedMessage(blocked) });
     parsed.id = a.row.id;
@@ -347,7 +347,7 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
         try {
           await hub.undeploy(a.row.id, worker);
         } catch {
-          // Worker nicht erreichbar: der nächste Abgleich entfernt die Datei
+          // Worker unreachable: the next sync removes the file
         }
       }
     }
@@ -377,12 +377,12 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     const a = workflowAccess(request, reply, id, 'workflow.read');
     if (!a) return;
     const data = db.getVersion(a.row.id, Number(version));
-    if (!data) return reply.code(404).send({ message: 'Version nicht gefunden' });
+    if (!data) return reply.code(404).send({ message: 'Version not found' });
     return { version: Number(version), workflow: JSON.parse(data) as Workflow };
   });
 
   // ---------------------------------------------------------------------------------------------
-  // Rollen je Workflow (M23): eigene Rolle überschreibt die Projektrolle, 'none' sperrt
+  // Per-workflow roles (M23): own role overrides the project role, 'none' locks
 
   api.get('/api/workflows/:id/members', async (request, reply) => {
     const a = workflowAccess(request, reply, (request.params as { id: string }).id, 'workflow.read');
@@ -397,7 +397,7 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
       }),
       ...[...own.values()].filter((o) => !project.some((m) => m.user_id === o.user_id)).map((o) => ({ userId: o.user_id, email: o.email, name: o.name, projectRole: null, workflowRole: o.role, role: o.role })),
     ].sort((x, y) => x.email.localeCompare(y.email));
-    // Globale Admins haben immer vollen Zugriff; die Oberfläche bietet sie nicht zur Freigabe an
+    // Global admins always have full access; the web interface does not offer them for sharing
     const admins = db.listUsers().filter((u) => u.role === 'admin').map((u) => u.id);
     return { data, canShare: allows(a.role, 'workflow.share'), admins };
   });
@@ -407,11 +407,11 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     const a = workflowAccess(request, reply, id, 'workflow.share');
     if (!a) return;
     const role = str((request.body as Record<string, unknown> | null)?.role) as WorkflowRole;
-    if (!isWorkflowRole(role)) return reply.code(400).send({ message: 'Rolle muss admin, editor, viewer, none oder eine eigene Rolle sein' });
+    if (!isWorkflowRole(role)) return reply.code(400).send({ message: 'Role must be admin, editor, viewer, none or a custom role' });
     const user = db.getUser(uid);
-    if (!user) return reply.code(404).send({ message: 'Benutzer nicht gefunden' });
+    if (!user) return reply.code(404).send({ message: 'User not found' });
     if (user.role === 'admin' || db.getMemberRole(a.project.id, uid) === 'admin') {
-      return reply.code(400).send({ message: 'Administratoren des Projekts haben immer vollen Zugriff' });
+      return reply.code(400).send({ message: 'Project administrators always have full access' });
     }
     db.setWorkflowMember(a.row.id, uid, role);
     ctx.audit(request, 'workflow.member_set', a.row.id, { userId: uid, email: user.email, role });
@@ -428,7 +428,7 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
   });
 
   // ---------------------------------------------------------------------------------------------
-  // Editor: Node-Typen, Prüfen, Ausführen, Credentials
+  // Editor: node types, validation, running, credentials
 
   api.get('/api/editor/node-types', async () => ({ data: nodeTypeList(registry) }));
 
@@ -438,15 +438,15 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     const wf = asWorkflow(request.body);
     if (typeof wf === 'string') return reply.code(400).send({ message: wf });
     const worker = hub.workerForProject(a.project.id);
-    // Nicht freigegebene Credentials als Fehler im Editor
-    const shareIssues = blockedCredentials(a.project.id, wf).map((b) => ({ severity: 'error', code: 'credentials.notShared', node: b.node, message: `Credential "${b.name}" ist für dieses Projekt nicht freigegeben` }));
+    // Unshared credentials as errors in the editor
+    const shareIssues = blockedCredentials(a.project.id, wf).map((b) => ({ severity: 'error', code: 'credentials.notShared', node: b.node, message: `Credential "${b.name}" is not shared with this project` }));
     if (worker) {
       try {
         const inspected = await hub.call<{ valid?: boolean; issues?: unknown[] }>(worker, 'POST', '/api/editor/inspect', { workflow: wf }, 15_000);
         if (shareIssues.length) return { ...inspected, valid: false, issues: [...(inspected.issues ?? []), ...shareIssues], worker: 'online' };
         return { ...inspected, worker: 'online' };
       } catch {
-        // Worker nicht erreichbar: lokal prüfen (ohne Credentials, die liegen beim Worker)
+        // Worker unreachable: validate locally (without credentials, they are on the worker)
       }
     }
     const result = validateWorkflow(wf, { registry, checkCredentials: false });
@@ -457,7 +457,7 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     const a = workflowAccess(request, reply, (request.params as { id: string }).id, 'workflow.run');
     if (!a) return;
     const worker = hub.workerForProject(a.project.id);
-    if (!worker) return reply.code(409).send({ message: 'Projekt hat keinen Worker' });
+    if (!worker) return reply.code(409).send({ message: 'Project has no worker' });
     const body = (request.body ?? {}) as { workflow?: unknown; trigger?: string; input?: unknown; destination?: unknown };
     const wf = body.workflow !== undefined ? asWorkflow(body.workflow) : (JSON.parse(a.row.data) as Workflow);
     if (typeof wf === 'string') return reply.code(400).send({ message: wf });
@@ -484,7 +484,7 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     const worker = hub.workerForProject(a.project.id);
     if (!worker) return { data: [] };
     try {
-      // Nur Credentials, die für das Projekt freigegeben sind (ohne Freigabe-Einträge: alle)
+      // Only credentials shared with the project (without sharing entries: all)
       const list = await hub.call<{ data: Array<{ name: string }> }>(worker, 'GET', '/api/editor/credentials', undefined, 10_000);
       const access = db.credentialAccess(worker.id);
       return { ...list, data: list.data.filter((c) => !access.get(c.name) || access.get(c.name)!.includes(a.project.id)) };
@@ -494,7 +494,7 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
   });
 
   // ---------------------------------------------------------------------------------------------
-  // Ausführungen (beim Worker)
+  // Executions (on the worker)
 
   api.get('/api/projects/:pid/executions', async (request, reply) => {
     const a = access(request, reply, (request.params as { pid: string }).pid, 'execution.read', true);
@@ -514,8 +514,8 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     }
   });
 
-  // Zentrale Ausführungssuche (M23): alle Projekte, die der Benutzer sieht, über alle Worker. Je Worker eine Anfrage mit
-  // den lesbaren Workflow-IDs, Ergebnis zusammengeführt und nach Beginn sortiert; nicht erreichbare Worker stehen in errors.
+  // Central execution search (M23): all projects the user can see, across all workers. One request per worker with
+  // the readable workflow IDs, results merged and sorted by start; unreachable workers are listed in errors.
   api.get('/api/executions', async (request) => {
     const user = request.auth!.user;
     const q = request.query as Record<string, string | undefined>;
@@ -524,7 +524,7 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
       user.role === 'admin'
         ? db.listProjects().map((p) => ({ p, role: 'admin' }))
         : [...db.listProjectsForUser(user.id).map((p) => ({ p, role: p.member_role as AccessRole })), ...db.projectsSharedWithUser(user.id).map((p) => ({ p, role: 'guest' as AccessRole }))];
-    // Workflow-ID -> Projekt; je Worker die Workflow-IDs
+    // Workflow ID -> project; workflow IDs per worker
     const byWorkflow = new Map<string, { project: ProjectRow; name: string }>();
     const byWorker = new Map<string, string[]>();
     for (const { p, role } of projects) {
@@ -564,7 +564,7 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     return { data, errors, workers: byWorker.size, hasMore: results.some((r) => r.length >= limit) || data.length >= limit };
   });
 
-  // Kennzahlen und letzte Ausführung je Workflow vom Worker (nur Workflows des Projekts)
+  // Metrics and last execution per workflow from the worker (only workflows of the project)
   api.get('/api/projects/:pid/overview', async (request, reply) => {
     const a = access(request, reply, (request.params as { pid: string }).pid, 'execution.read', true);
     if (!a) return;
@@ -584,10 +584,10 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     if (!a) return undefined;
     const worker = hub.workerForProject(a.project.id);
     if (!worker) {
-      void reply.code(404).send({ message: 'Ausführung nicht gefunden' });
+      void reply.code(404).send({ message: 'Execution not found' });
       return undefined;
     }
-    /** Gehört die Ausführung zu einem Workflow des Projekts, für den der Benutzer die Aktion darf? */
+    /** Does the execution belong to a workflow of the project for which the user may perform the action? */
     const allowed = (workflowId: string | undefined) => {
       const row = workflowId ? db.getWorkflow(workflowId) : undefined;
       if (!row || row.project_id !== a.project.id) return false;
@@ -601,8 +601,8 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     if (!r) return;
     try {
       const execution = await hub.call<{ workflowId?: string }>(r.worker, 'GET', `/api/executions/${encodeURIComponent(r.eid)}`, undefined, 30_000);
-      // Nur Ausführungen von Workflows dieses Projekts, die der Benutzer sehen darf
-      if (!r.allowed(execution.workflowId)) return reply.code(404).send({ message: 'Ausführung nicht gefunden' });
+      // Only executions of workflows of this project that the user may see
+      if (!r.allowed(execution.workflowId)) return reply.code(404).send({ message: 'Execution not found' });
       return execution;
     } catch (error) {
       return workerError(reply, error);
@@ -614,7 +614,7 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     if (!r) return;
     try {
       const execution = await hub.call<{ workflowId?: string }>(r.worker, 'GET', `/api/executions/${encodeURIComponent(r.eid)}?data=false`, undefined, 15_000);
-      if (!r.allowed(execution.workflowId)) return reply.code(404).send({ message: 'Ausführung nicht gefunden' });
+      if (!r.allowed(execution.workflowId)) return reply.code(404).send({ message: 'Execution not found' });
       ctx.audit(request, 'execution.cancel', r.eid);
       return await hub.call(r.worker, 'POST', `/api/executions/${encodeURIComponent(r.eid)}/cancel`, undefined, 60_000);
     } catch (error) {

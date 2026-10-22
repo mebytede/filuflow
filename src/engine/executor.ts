@@ -1,10 +1,10 @@
-// Ausführung eines Workflows in v1-Reihenfolge.
+// Execution of a workflow in v1 order.
 //
-// Nachgebaut nach n8n 1.123.0 packages/core/src/execution-engine/workflow-execute.ts:
-//   processRunExecutionData (Hauptschleife), addNodeToBeExecuted (Stack/Warten),
+// Rebuilt after n8n 1.123.0 packages/core/src/execution-engine/workflow-execute.ts:
+//   processRunExecutionData (main loop), addNodeToBeExecuted (stack/waiting),
 //   runNode, handleNodeErrorOutput, assignPairedItems.
-// v1: Kinder werden per unshift auf den Stack gelegt, nach Position sortiert
-// (oben vor unten, dann links vor rechts). Ein Zweig läuft zu Ende, bevor der nächste startet.
+// v1: children are put on the stack via unshift, sorted by position
+// (top before bottom, then left before right). One branch runs to completion before the next one starts.
 import { randomUUID } from 'node:crypto';
 import type {
   Execution,
@@ -59,17 +59,17 @@ export interface ExecutionLogEntry {
 export interface RunHooks {
   nodeExecuteBefore?(nodeName: string): void;
   nodeExecuteAfter?(nodeName: string, taskData: TaskData): void;
-  /** responseMode=responseNode: Antwort sofort senden */
+  /** responseMode=responseNode: send the response immediately */
   sendResponse?(response: WebhookResponse): void;
   /**
-   * Streaming (n8n Hook sendChunk): nur gesetzt, wenn die Antwort gestreamt wird (Webhook oder Chat Trigger mit
+   * Streaming (n8n hook sendChunk): only set when the response is streamed (Webhook or Chat Trigger with
    * responseMode "streaming")
    */
   sendChunk?(chunk: StructuredChunk): void;
 }
 
 export type ChunkType = 'begin' | 'item' | 'end' | 'error';
-/** n8n StructuredChunk (packages/workflow/src/interfaces.ts), als JSON-Zeile in die Antwort geschrieben */
+/** n8n StructuredChunk (packages/workflow/src/interfaces.ts), written into the response as a JSON line */
 export interface StructuredChunk {
   type: ChunkType;
   content?: string;
@@ -85,13 +85,13 @@ export interface ExecutorOptions {
   registry: NodeRegistry;
   mode?: ExecutionMode;
   executionId?: string;
-  /** Start-Node (Trigger); sonst der einzige Trigger */
+  /** Start node (trigger); otherwise the only trigger */
   startNodeName?: string;
-  /** Daten für den Start-Node (CLI-Input, Webhook-Request …) */
+  /** Data for the start node (CLI input, webhook request …) */
   triggerItems?: Item[];
-  /** Daten je Ausgang des Start-Nodes (Webhook mit mehreren HTTP-Methoden); hat Vorrang vor triggerItems */
+  /** Data per output of the start node (webhook with multiple HTTP methods); takes precedence over triggerItems */
   triggerOutputs?: Array<Item[] | null>;
-  /** pinData des Workflows nutzen (Default: true) */
+  /** Use the workflow's pinData (default: true) */
   usePinData?: boolean;
   credentials?: CredentialProvider;
   vars?: Record<string, unknown>;
@@ -104,22 +104,22 @@ export interface ExecutorOptions {
   timezone?: string;
   staticData?: Record<string, Record<string, unknown>>;
   expressionTimeout?: number;
-  /** Basis-URL für $execution.resumeUrl */
+  /** Base URL for $execution.resumeUrl */
   webhookWaitingBaseUrl?: string;
-  /** Wartezeit-Funktion (Tests) */
+  /** Sleep function (tests) */
   sleep?: (ms: number) => Promise<void>;
-  /** Execution darf dauerhaft warten (Server); sonst warten Wait-Nodes im Prozess oder melden einen Fehler */
+  /** Execution may wait persistently (server); otherwise Wait nodes wait in-process or report an error */
   canWait?: boolean;
-  /** Fortsetzen einer wartenden Execution (n8n WorkflowExecute mit runExecutionData) */
+  /** Resuming a waiting execution (n8n WorkflowExecute with runExecutionData) */
   resume?: ResumeData;
   /**
-   * Nur bis zu diesem Knoten ausführen (Editor "Bis hier ausführen", n8n destinationNode): es laufen nur der Knoten und
-   * seine Vorgänger, Kinder außerhalb davon werden nicht eingeplant.
+   * Only execute up to this node (editor "Execute up to here", n8n destinationNode): only the node and its
+   * predecessors run, children outside of that are not scheduled.
    */
   destinationNode?: string;
 }
 
-/** Gespeicherter Zustand einer wartenden Execution (n8n runExecutionData.executionData, JSON-fähig) */
+/** Saved state of a waiting execution (n8n runExecutionData.executionData, JSON-serializable) */
 export interface ExecutorState {
   version: 1;
   startedAt: string;
@@ -134,11 +134,11 @@ export interface ExecutorState {
 export interface ResumeData {
   state: ExecutorState;
   runData: RunData;
-  /** Daten für den wartenden Node (Webhook-Request); ohne gibt der Node seine Eingangsdaten weiter */
+  /** Data for the waiting node (webhook request); without it, the node passes on its input data */
   webhookData?: Array<Item[] | null>;
   /**
-   * Antwort aus dem Chat (n8n chat-execution-manager.ts runNode): der wartende Node bildet daraus mit onMessage seine
-   * Ausgabe, ohne onMessage ist das Item selbst die Ausgabe
+   * Response from the chat (n8n chat-execution-manager.ts runNode): the waiting node builds its output from it with
+   * onMessage; without onMessage the item itself is the output
    */
   chatMessage?: Item;
 }
@@ -146,11 +146,11 @@ export interface ResumeData {
 /** n8n WAIT_INDEFINITELY */
 export const WAIT_INDEFINITELY = new Date('3000-01-01T00:00:00.000Z');
 
-/** n8n ITaskMetadata (nur die Felder für Engine-Requests) */
+/** n8n ITaskMetadata (only the fields for engine requests) */
 interface StackMetadata {
-  /** Tool-Ausführung für einen Agent: sourceOverwrite der pairedItems behalten */
+  /** Tool execution for an agent: keep sourceOverwrite of the pairedItems */
   preserveSourceOverwrite?: boolean;
-  /** Agent wird nach seinen Tool-Aufrufen fortgesetzt */
+  /** Agent is resumed after its tool calls */
   nodeWasResumed?: boolean;
   subNodeExecutionData?: {
     actions: Array<{ action: EngineRequest['actions'][number]; nodeName: string; runIndex: number }>;
@@ -171,25 +171,25 @@ type WaitingSource = { main: Array<SourceData | null> };
 
 const defaultSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-/** Wählt den Start-Node: explizit, sonst einziger Trigger, sonst Fehler (SPEC 2.1) */
+/** Selects the start node: explicit, otherwise the only trigger, otherwise an error (SPEC 2.1) */
 export function findStartNode(graph: WorkflowGraph, registry: NodeRegistry, explicit?: string): WorkflowNode {
   if (explicit) {
     const node = graph.getNode(explicit);
-    if (!node) throw new WorkflowValidationError(`Start-Node "${explicit}" existiert nicht`, [
-      { severity: 'error', code: 'trigger.unknown', message: `Start-Node "${explicit}" existiert nicht` },
+    if (!node) throw new WorkflowValidationError(`Start node "${explicit}" does not exist`, [
+      { severity: 'error', code: 'trigger.unknown', message: `Start node "${explicit}" does not exist` },
     ]);
     return node;
   }
   const triggers = graph.workflow.nodes.filter((n) => !n.disabled && registry.get(n.type)?.isTrigger);
   if (triggers.length === 1) return triggers[0];
   if (triggers.length === 0) {
-    throw new WorkflowValidationError('Workflow hat keinen Trigger-Node', [
-      { severity: 'error', code: 'trigger.none', message: 'Kein Trigger-Node gefunden' },
+    throw new WorkflowValidationError('Workflow has no trigger node', [
+      { severity: 'error', code: 'trigger.none', message: 'No trigger node found' },
     ]);
   }
   throw new WorkflowValidationError(
-    `Workflow hat mehrere Trigger (${triggers.map((t) => `"${t.name}"`).join(', ')}); bitte mit --trigger einen wählen`,
-    [{ severity: 'error', code: 'trigger.ambiguous', message: 'Mehrere Trigger' }],
+    `Workflow has multiple triggers (${triggers.map((t) => `"${t.name}"`).join(', ')}); please choose one with --trigger`,
+    [{ severity: 'error', code: 'trigger.ambiguous', message: 'Multiple triggers' }],
   );
 }
 
@@ -213,11 +213,11 @@ export class WorkflowExecutor {
   private readonly abort = new AbortController();
   private nodeContexts: Record<string, Record<string, unknown>> = {};
   private waitTill?: Date;
-  /** destinationNode: der Zielknoten und seine Vorgänger */
+  /** destinationNode: the destination node and its predecessors */
   private readonly allowedNodes?: Set<string>;
   /**
-   * Execution-Order v0 (n8n isLegacyExecutionOrder: alles außer "v1"): Breitensuche statt Tiefensuche, fehlende
-   * Vorgänger von Knoten mit mehreren Eingängen werden mit ausgeführt, Eingangsdaten nur aus Eingang 1.
+   * Execution order v0 (n8n isLegacyExecutionOrder: everything except "v1"): breadth-first instead of depth-first, missing
+   * predecessors of nodes with multiple inputs are executed as well, input data only from input 1.
    */
   private readonly legacyOrder: boolean;
   private lastExecutionTry = '';
@@ -234,7 +234,7 @@ export class WorkflowExecutor {
   private stoppedAt?: Date;
   private error?: SerializedError;
   private webhookResponseSent = false;
-  /** n8n node.rewireOutputLogTo: Ausgabe von Tool-Nodes wird unter diesem Verbindungstyp gespeichert */
+  /** n8n node.rewireOutputLogTo: output of tool nodes is stored under this connection type */
   private readonly rewireOutputLogTo = new Map<string, string>();
 
   constructor(options: ExecutorOptions) {
@@ -257,8 +257,8 @@ export class WorkflowExecutor {
     this.legacyOrder = options.workflow.settings?.executionOrder !== 'v1';
     if (options.destinationNode) {
       if (!this.graph.getNode(options.destinationNode)) {
-        throw new WorkflowValidationError(`Zielknoten "${options.destinationNode}" existiert nicht`, [
-          { severity: 'error', code: 'trigger.unknown', message: `Zielknoten "${options.destinationNode}" existiert nicht` },
+        throw new WorkflowValidationError(`Destination node "${options.destinationNode}" does not exist`, [
+          { severity: 'error', code: 'trigger.unknown', message: `Destination node "${options.destinationNode}" does not exist` },
         ]);
       }
       this.allowedNodes = new Set([options.destinationNode, ...this.graph.getParentNodes(options.destinationNode)]);
@@ -300,11 +300,11 @@ export class WorkflowExecutor {
   }
 
   putExecutionToWait(waitTill: Date): void {
-    if (!this.canWait) throw new FiluflowError('Diese Ausführung kann nicht warten (nur im Server, nicht in Unter-Workflows oder der CLI)');
+    if (!this.canWait) throw new FiluflowError('This execution cannot wait (only in the server, not in sub-workflows or the CLI)');
     this.waitTill = waitTill;
   }
 
-  /** Zustand zum Speichern einer wartenden Execution */
+  /** State for saving a waiting execution */
   getState(): ExecutorState {
     return {
       version: 1,
@@ -326,9 +326,9 @@ export class WorkflowExecutor {
   }
 
   /**
-   * Zustand übernehmen und den wartenden Node fortsetzen (n8n handleWaitingState und WaitingWebhooks):
-   * Der Node oben auf dem Stack wird deaktiviert (gibt seine Eingangsdaten weiter, bei einem Webhook dessen Daten),
-   * sein letzter Lauf wird entfernt, damit er nicht doppelt erscheint.
+   * Restore the state and resume the waiting node (n8n handleWaitingState and WaitingWebhooks):
+   * the node on top of the stack is disabled (passes on its input data, or the webhook's data for a webhook),
+   * its last run is removed so that it does not appear twice.
    */
   private restore(resume: ResumeData): void {
     const { state } = resume;
@@ -341,17 +341,17 @@ export class WorkflowExecutor {
     this.nodeContexts = state.nodeContexts ?? {};
     this.stack = state.stack.map((s) => {
       const node = this.graph.getNode(s.node);
-      if (!node) throw new FiluflowError(`Node "${s.node}" der wartenden Ausführung fehlt im Workflow`);
+      if (!node) throw new FiluflowError(`Node "${s.node}" of the waiting execution is missing from the workflow`);
       return { node: s.disabled ? { ...node, disabled: true } : node, data: s.data, source: s.source, runIndex: s.runIndex, metadata: s.metadata };
     });
-    if (!this.stack.length) throw new FiluflowError('Wartende Ausführung ohne fortzusetzenden Node');
+    if (!this.stack.length) throw new FiluflowError('Waiting execution without a node to resume');
     this.stack[0] = { ...this.stack[0], node: { ...this.stack[0].node, disabled: true } };
     if (resume.webhookData) this.stack[0].data = { main: resume.webhookData };
     const last = this.lastNodeExecuted;
     if (last && this.runData[last]?.length) this.runData[last].pop();
   }
 
-  /** Ausgabe des wartenden Nodes aus einer Chat-Antwort (onMessage mit Kontext des Nodes) */
+  /** Output of the waiting node from a chat response (onMessage with the node's context) */
   private async applyChatMessage(message: Item): Promise<void> {
     const top = this.stack[0];
     const original = this.graph.getNode(top.node.name)!;
@@ -398,16 +398,16 @@ export class WorkflowExecutor {
     if (!provider || !entry) {
       throw new NodeOperationError(node.name, `Credentials "${ref.name}" for type "${type}" not found`, { itemIndex });
     }
-    // Defaults des Typs (auch geerbte und versteckte Felder) wie n8n getDecrypted mit applyDefaultsAndOverwrites
+    // Defaults of the type (including inherited and hidden fields) like n8n getDecrypted with applyDefaultsAndOverwrites
     const data = applySchemaDefaults(type, provider.resolve(entry));
-    // Identität für dauerhaft gespeicherte OAuth2-Tokens (nicht aufzählbar, erscheint nicht in Daten oder Logs)
+    // Identity for persistently stored OAuth2 tokens (not enumerable, does not appear in data or logs)
     Object.defineProperty(data, CREDENTIAL_REF, { value: { name: entry.name, ...(entry.id ? { id: entry.id } : {}), type }, enumerable: false });
     return data;
   }
 
   async executeSubWorkflow(node: WorkflowNode, request: ExecuteWorkflowRequest): Promise<ExecuteWorkflowResult> {
     if (!this.options.runSubWorkflow) {
-      throw new NodeOperationError(node.name, 'Unter-Workflows sind in diesem Kontext nicht verfügbar');
+      throw new NodeOperationError(node.name, 'Sub-workflows are not available in this context');
     }
     return this.options.runSubWorkflow({
       ...request,
@@ -417,7 +417,7 @@ export class WorkflowExecutor {
     });
   }
 
-  /** n8n ExecuteContext.isStreaming: Hook vorhanden und Modus erlaubt Streaming */
+  /** n8n ExecuteContext.isStreaming: hook present and mode allows streaming */
   isStreaming(): boolean {
     return !!this.options.hooks?.sendChunk && ['manual', 'webhook', 'integrated'].includes(this.mode);
   }
@@ -433,13 +433,13 @@ export class WorkflowExecutor {
   }
 
   /**
-   * Sub-Node anfordern (n8n get-input-connection-data.ts): supplyData des Sub-Nodes aufrufen.
-   * Fehler werden am Sub-Node angezeigt; der Eltern-Node bekommt "Error in sub-node <Name>".
+   * Request a sub-node (n8n get-input-connection-data.ts): call the sub-node's supplyData.
+   * Errors are shown on the sub-node; the parent node gets "Error in sub-node <Name>".
    */
   async supplySubNode(node: WorkflowNode, parent: NodeExecutionContext, connectionType: string, itemIndex: number): Promise<unknown> {
     const nodeType = this.registry.getVersioned(node.type, node.typeVersion);
     if (!nodeType?.supplyData) {
-      throw new NodeOperationError(parent.node.name, `Sub-Node "${node.name}" (${node.type}) wird nicht unterstützt`);
+      throw new NodeOperationError(parent.node.name, `Sub-node "${node.name}" (${node.type}) is not supported`);
     }
     const ctx = parent.forSubNode(node);
     try {
@@ -458,7 +458,7 @@ export class WorkflowExecutor {
     }
   }
 
-  /** n8n SupplyDataContext.addExecutionDataFunctions: Lauf eines Sub-Nodes im runData */
+  /** n8n SupplyDataContext.addExecutionDataFunctions: run of a sub-node in runData */
   recordSubNodeTask(
     type: 'input' | 'output',
     node: WorkflowNode,
@@ -503,7 +503,7 @@ export class WorkflowExecutor {
 
   private nodeType(node: WorkflowNode): NodeType {
     const t = this.registry.getVersioned(node.type, node.typeVersion);
-    if (!t) throw new NodeOperationError(node.name, `Node-Typ "${node.type}" v${node.typeVersion} wird nicht unterstützt`);
+    if (!t) throw new NodeOperationError(node.name, `Node type "${node.type}" v${node.typeVersion} is not supported`);
     return t;
   }
 
@@ -513,27 +513,27 @@ export class WorkflowExecutor {
     return node.onError === 'continueErrorOutput' ? n + 1 : n;
   }
 
-  /** Prüft vor dem Start, ob alle Node-Typen/Versionen unterstützt werden */
+  /** Checks before the start whether all node types/versions are supported */
   private checkSupported(): void {
     const problems: string[] = [];
     for (const node of this.graph.workflow.nodes) {
       if (node.type === STICKY_NOTE_TYPE || node.disabled) continue;
       const t = this.registry.get(node.type);
-      if (!t) problems.push(`"${node.name}": Typ ${node.type} wird nicht unterstützt`);
+      if (!t) problems.push(`"${node.name}": type ${node.type} is not supported`);
       else if (!t.versions.includes(node.typeVersion)) {
-        problems.push(`"${node.name}": ${node.type} typeVersion ${node.typeVersion} wird nicht unterstützt (unterstützt: ${t.versions.join(', ')})`);
+        problems.push(`"${node.name}": ${node.type} typeVersion ${node.typeVersion} is not supported (supported: ${t.versions.join(', ')})`);
       }
     }
     if (problems.length) {
       throw new WorkflowValidationError(
-        `Workflow enthält nicht unterstützte Nodes:\n  ${problems.join('\n  ')}`,
+        `Workflow contains unsupported nodes:\n  ${problems.join('\n  ')}`,
         problems.map((message) => ({ severity: 'error' as const, code: 'node.unsupported', message })),
       );
     }
     const order = this.graph.workflow.settings?.executionOrder;
     if (order !== undefined && order !== 'v1' && order !== 'v0') {
-      throw new WorkflowValidationError(`executionOrder "${String(order)}" ist unbekannt (erlaubt: "v1", "v0")`, [
-        { severity: 'error', code: 'settings.executionOrder', message: 'nur v1 oder v0' },
+      throw new WorkflowValidationError(`executionOrder "${String(order)}" is unknown (allowed: "v1", "v0")`, [
+        { severity: 'error', code: 'settings.executionOrder', message: 'only v1 or v0' },
       ]);
     }
   }
@@ -594,7 +594,7 @@ export class WorkflowExecutor {
     };
   }
 
-  /** Hauptschleife (n8n processRunExecutionData) */
+  /** Main loop (n8n processRunExecutionData) */
   private async processStack(): Promise<SerializedError | undefined> {
     let executionError: SerializedError | undefined;
 
@@ -609,7 +609,7 @@ export class WorkflowExecutor {
       const taskExecutionIndex = this.executionIndex++;
       const taskSource = executionData.source ? executionData.source.main : [];
 
-      // Paired-Item-Information der Eingänge setzen; Tool-Ausführungen behalten sourceOverwrite
+      // Set paired item information of the inputs; tool executions keep sourceOverwrite
       const isToolExecution = !!executionData.metadata?.preserveSourceOverwrite;
       executionData.data = {
         main: executionData.data.main.map((input, inputIndex) =>
@@ -630,7 +630,7 @@ export class WorkflowExecutor {
       if (executionData.runIndex !== undefined) runIndex = executionData.runIndex;
       else if (Object.hasOwn(this.runData, node.name)) runIndex = this.runData[node.name].length;
 
-      // Endlosschleife: derselbe Knoten kommt ohne Fortschritt erneut dran (n8n currentExecutionTry)
+      // Endless loop: the same node comes up again without progress (n8n currentExecutionTry)
       const currentExecutionTry = `${node.name}:${runIndex}`;
       if (currentExecutionTry === this.lastExecutionTry) {
         throw new FiluflowError('Stopped execution because it seems to be in an endless loop');
@@ -640,7 +640,7 @@ export class WorkflowExecutor {
         continue executionLoop;
       }
 
-      // Fortgesetzte Agents lösen den Hook nicht erneut aus (n8n AI-1414)
+      // Resumed agents do not trigger the hook again (n8n AI-1414)
       if (!executionData.metadata?.nodeWasResumed) this.options.hooks?.nodeExecuteBefore?.(node.name);
 
       let maxTries = 1;
@@ -669,7 +669,7 @@ export class WorkflowExecutor {
               tryIndex++;
             }
             if (isEngineRequest(runNodeData)) {
-              // Kein runData-Eintrag für diesen Versuch; angefragte Nodes und der Node selbst kommen auf den Stack
+              // No runData entry for this attempt; requested nodes and the node itself are put on the stack
               this.handleEngineRequest(node, runNodeData, runIndex, executionData);
               continue executionLoop;
             }
@@ -695,7 +695,7 @@ export class WorkflowExecutor {
           }
 
           if (nodeSuccessData === null && !this.waitTill) {
-            // Node lief, lieferte aber nichts: Zweig endet, kein runData-Eintrag (wie n8n)
+            // Node ran but returned nothing: branch ends, no runData entry (like n8n)
             continue executionLoop;
           }
           break;
@@ -707,7 +707,7 @@ export class WorkflowExecutor {
             if (error instanceof FiluflowError && error.nodeName === undefined) error.nodeName = node.name;
             executionError = serializeError(error);
           }
-          this.logger.debug({ node: node.name, err: executionError.message }, 'Node fehlgeschlagen');
+          this.logger.debug({ node: node.name, err: executionError.message }, 'Node failed');
         }
       }
 
@@ -724,7 +724,7 @@ export class WorkflowExecutor {
       if (executionError !== undefined) {
         taskData.error = executionError;
         taskData.executionStatus = 'error';
-        // Fehler auch in eine gestreamte Antwort schreiben (n8n workflow-execute.ts: sendChunk "error")
+        // Also write the error into a streamed response (n8n workflow-execute.ts: sendChunk "error")
         this.options.hooks?.sendChunk?.({
           type: 'error',
           content: executionError.description === undefined || executionError.description === null ? undefined : String(executionError.description),
@@ -746,7 +746,7 @@ export class WorkflowExecutor {
         }
       }
 
-      // Fehlerinformationen in den normalen Ausgang übernehmen
+      // Copy error information into the regular output
       for (const output of nodeSuccessData ?? []) {
         for (const item of output ?? []) {
           const json = item.json as Record<string, unknown> | undefined;
@@ -762,18 +762,18 @@ export class WorkflowExecutor {
       taskData.data = { main: (nodeSuccessData ?? []) as Array<Item[] | null> };
       const rewireTo = this.rewireOutputLogTo.get(node.name);
       if (rewireTo) taskData.data = { [rewireTo]: (nodeSuccessData ?? []) as Array<Item[] | null> };
-      // Platzhalter einer Tool-Ausführung (handleEngineRequest) wird ergänzt
+      // Placeholder of a tool execution (handleEngineRequest) is completed
       if (list[runIndex]) Object.assign(list[runIndex], taskData);
       else list.push(taskData);
       this.options.hooks?.nodeExecuteAfter?.(node.name, list[runIndex] ?? taskData);
 
       if (this.waitTill) {
-        // Node zurück auf den Stack, damit die Execution beim Fortsetzen hier weiterläuft (n8n workflow-execute.ts)
+        // Node back on the stack so the execution continues here when resumed (n8n workflow-execute.ts)
         this.stack.unshift(executionData);
         break;
       }
 
-      // Kinder auf den Stack legen
+      // Put children on the stack
       const outputs = this.graph.bySource[node.name]?.main;
       if (outputs) {
         const nodesToAdd: Array<{ position: [number, number]; connection: { node: string; index: number }; outputIndex: number }> = [];
@@ -784,14 +784,14 @@ export class WorkflowExecutor {
               throw new FiluflowError(`Destination node not found: ${connection.node}`);
             }
             const data = nodeSuccessData?.[outputIndex];
-            // Nur wenn der Ausgang Items hat; v0 auch bei leerem Ausgang an einen zweiten ("optionalen") Eingang
+            // Only if the output has items; v0 also with an empty output into a second ("optional") input
             if (data && (data.length !== 0 || (connection.index > 0 && this.legacyOrder))) {
               const target = this.graph.getNode(connection.node)!;
               nodesToAdd.push({ position: target.position ?? [0, 0], connection, outputIndex });
             }
           }
         }
-        // n8n v1: oben-links zuerst (Vergleichsfunktion bewusst unverändert übernommen); v0 in Verbindungsreihenfolge
+        // n8n v1: top-left first (comparison function deliberately kept unchanged); v0 in connection order
         if (!this.legacyOrder) nodesToAdd.sort((a, b) => {
           if (a.position[1] < b.position[1]) return 1;
           if (a.position[1] > b.position[1]) return -1;
@@ -804,7 +804,7 @@ export class WorkflowExecutor {
         }
       }
 
-      // Stack leer: wartende Nodes ausführen, die nicht alle Eingänge brauchen
+      // Stack empty: execute waiting nodes that do not need all inputs
       let waitingNodes = Object.keys(this.waiting);
       if (this.stack.length === 0 && waitingNodes.length) {
         for (let i = 0; i < waitingNodes.length; i++) {
@@ -813,7 +813,7 @@ export class WorkflowExecutor {
           if (!checkNode) continue;
           const checkType = this.registry.getVersioned(checkNode.type, checkNode.typeVersion);
           const inputCount = checkType?.inputs ? checkType.inputs(checkNode) : 1;
-          // requiredInputs gibt es nur in v1
+          // requiredInputs only exists in v1
           const requiredInputs = this.legacyOrder ? undefined : checkType?.requiredInputs?.(checkNode);
           if (requiredInputs !== undefined) {
             if ((Array.isArray(requiredInputs) && requiredInputs.length === inputCount) || requiredInputs === inputCount) {
@@ -867,7 +867,7 @@ export class WorkflowExecutor {
     ws[runIndex] = { main: new Array(numberOfConnections).fill(null) };
   }
 
-  /** Antworten auf eine frühere EngineRequest zusammenstellen (n8n processRunExecutionData, subNodeExecutionData) */
+  /** Assemble responses to an earlier EngineRequest (n8n processRunExecutionData, subNodeExecutionData) */
   private buildEngineResponse(executionData: StackItem): EngineResponse | undefined {
     const sub = executionData.metadata?.subNodeExecutionData;
     if (!sub) return undefined;
@@ -880,9 +880,9 @@ export class WorkflowExecutor {
   }
 
   /**
-   * n8n requests-response.ts handleRequest und WorkflowExecute.handleEngineRequest:
-   * je Aktion einen Platzhalter-Lauf am Tool-Node anlegen und den Tool-Node mit den Eingangsdaten des Agents
-   * (plus Tool-Argumente) auf den Stack legen; den anfragenden Node dahinter zum Fortsetzen.
+   * n8n requests-response.ts handleRequest and WorkflowExecute.handleEngineRequest:
+   * per action, create a placeholder run on the tool node and put the tool node with the agent's input data
+   * (plus tool arguments) on the stack; the requesting node behind it for resuming.
    */
   private handleEngineRequest(currentNode: WorkflowNode, request: EngineRequest, runIndex: number, executionData: StackItem): void {
     const toExecute: Array<{
@@ -917,7 +917,7 @@ export class WorkflowExecutor {
       ];
       const nodeRunData = (this.runData[node.name] ??= []);
       const nodeRunIndex = nodeRunData.length;
-      // Platzhalter wie n8n (ohne executionStatus; wird beim Ausführen des Tools ergänzt)
+      // Placeholder like n8n (without executionStatus; completed when the tool is executed)
       nodeRunData.push({ source: [], executionIndex: 0, executionTime: 0, startTime: 0, data: {} } as unknown as TaskData);
       toExecute.push({
         connection: { node: node.name, index: 0 },
@@ -930,7 +930,7 @@ export class WorkflowExecutor {
     }
     const resumeParent = executionData.source?.main?.[0]?.previousNode;
     if (!resumeParent) {
-      this.logger.error({ node: currentNode.name }, 'Eltern-Node für die Ausführung der Sub-Nodes nicht gefunden; Anfrage wird ignoriert');
+      this.logger.error({ node: currentNode.name }, 'Parent node for executing the sub-nodes not found; request is ignored');
       return;
     }
     toExecute.unshift({
@@ -943,7 +943,7 @@ export class WorkflowExecutor {
     for (const n of toExecute) this.addNodeToBeExecuted(n.connection, 0, n.parentNode, n.parentOutputData, runIndex, n.nodeRunIndex, n.metadata);
   }
 
-  /** n8n addNodeToBeExecuted (v1-Pfad) */
+  /** n8n addNodeToBeExecuted (v1 path) */
   private addNodeToBeExecuted(
     connection: { node: string; index: number },
     outputIndex: number,
@@ -1015,7 +1015,7 @@ export class WorkflowExecutor {
     });
   }
 
-  /** n8n runPartialWorkflow2 enqueueFn: v1 unshift (Tiefensuche), v0 push (Breitensuche) */
+  /** n8n runPartialWorkflow2 enqueueFn: v1 unshift (depth-first), v0 push (breadth-first) */
   private enqueue(item: StackItem): void {
     if (this.legacyOrder) this.stack.push(item);
     else this.stack.unshift(item);
@@ -1031,8 +1031,8 @@ export class WorkflowExecutor {
   }
 
   /**
-   * v0: Knoten mit mehreren Eingängen wartet zum ersten Mal; Vorgänger der anderen Eingänge, die noch nicht liefen und
-   * nicht schon eingeplant sind, werden auf den Stack gelegt (n8n addNodeToBeExecuted, Zweig !nodeWasWaiting)
+   * v0: a node with multiple inputs waits for the first time; predecessors of the other inputs that have not run yet and
+   * are not scheduled yet are put on the stack (n8n addNodeToBeExecuted, branch !nodeWasWaiting)
    */
   private forceInputNodes(target: string, parentNodeName: string, outputIndex: number, nodeSuccessData: NodeOutput, runIndex: number): void {
     const checkOutputNodes: string[] = [];
@@ -1048,7 +1048,7 @@ export class WorkflowExecutor {
         if (stackNodes.includes(inputData.node)) continue;
         if (this.runData[inputData.node] !== undefined) continue;
 
-        // Obersten Vorgänger suchen, der noch nicht lief
+        // Find the topmost predecessor that has not run yet
         const parents = this.graph.getParentNodes(inputData.node, 'main', -1);
         parents.push(inputData.node);
         parents.reverse();
@@ -1066,7 +1066,7 @@ export class WorkflowExecutor {
           nodeToAdd = parent;
         }
         if (nodeToAdd !== undefined && this.graph.getParentNodes(nodeToAdd).includes(parentNodeName) && (nodeSuccessData[outputIndex]?.length ?? 0) === 0) {
-          // Kein Lauf ohne Daten für Knoten hinter dem Elternknoten
+          // No run without data for nodes after the parent node
           nodeToAdd = undefined;
         }
         if (nodeToAdd === undefined) continue;
@@ -1085,8 +1085,8 @@ export class WorkflowExecutor {
   }
 
   /**
-   * n8n ensureInputData: Eingänge ohne aktiven Vorgänger zählen nicht; in v0 kommt ein Knoten zurück auf den Stack,
-   * solange Daten eines Eingangs fehlen
+   * n8n ensureInputData: inputs without an active predecessor do not count; in v0 a node goes back on the stack
+   * as long as data of an input is missing
    */
   private ensureInputData(executionData: StackItem): boolean {
     const node = executionData.node;
@@ -1101,7 +1101,7 @@ export class WorkflowExecutor {
     return true;
   }
 
-  /** n8n runNode: liefert null, wenn der Node keine Daten hat */
+  /** n8n runNode: returns null if the node has no data */
   private async runNode(executionData: StackItem, runIndex: number, engineResponse?: EngineResponse): Promise<NodeOutput | null | EngineRequest> {
     const node = executionData.node;
     const inputData = executionData.data;
@@ -1120,7 +1120,7 @@ export class WorkflowExecutor {
     } else {
       if (!inputData.main?.length) return null;
       connectionInputData = inputData.main[0];
-      // v1: Daten des ersten Eingangs mit Items; v0 (forceInputNodeExecution) immer Eingang 1
+      // v1: data of the first input with items; v0 (forceInputNodeExecution) always input 1
       if (!this.legacyOrder) {
         for (const mainData of inputData.main) {
           if (mainData?.length) {
@@ -1150,12 +1150,12 @@ export class WorkflowExecutor {
   }
 
   /**
-   * Kontext eines Knotens ohne laufende Ausführung (M31): aktivierte Trigger- und Poll-Knoten lesen damit Parameter,
-   * Credentials und statische Daten wie in n8n PollContext/TriggerContext (ohne Eingangsdaten)
+   * Context of a node without a running execution (M31): activated trigger and poll nodes use it to read parameters,
+   * credentials and static data like in n8n PollContext/TriggerContext (without input data)
    */
   contextFor(nodeName: string): ExecContext {
     const node = this.graph.getNode(nodeName);
-    if (!node) throw new WorkflowValidationError(`Knoten "${nodeName}" existiert nicht`, [{ severity: 'error', code: 'trigger.unknown', message: `Knoten "${nodeName}" existiert nicht` }]);
+    if (!node) throw new WorkflowValidationError(`Node "${nodeName}" does not exist`, [{ severity: 'error', code: 'trigger.unknown', message: `Node "${nodeName}" does not exist` }]);
     return new NodeExecutionContext({
       executor: this,
       node,
@@ -1166,7 +1166,7 @@ export class WorkflowExecutor {
     });
   }
 
-  /** n8n handleNodeErrorOutput: fehlerhafte Items auf den letzten Ausgang */
+  /** n8n handleNodeErrorOutput: erroneous items go to the last output */
   private handleNodeErrorOutput(executionData: StackItem, nodeSuccessData: NodeOutput, runIndex: number): void {
     const outputCount = this.mainOutputCount(executionData.node);
     const errorItems: Item[] = [];

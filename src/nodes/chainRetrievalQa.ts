@@ -1,8 +1,8 @@
-// Question and Answer Chain, @n8n/n8n-nodes-langchain.chainRetrievalQa (typeVersion 1 bis 1.6)
-// Nachgebaut nach n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/chains/ChainRetrievalQA (ChainRetrievalQa.node.ts,
-// processItem.ts, constants.ts): createRetrievalChain mit createStuffDocumentsChain (Dokumente mit "\n\n" als {context}),
-// Systemprompt und Frage als Nachricht; Antwort ab v1.5 als { response }, davor { response: { text } }; ab v1.6 in
-// Stapeln (Promise.allSettled), Fehler mit continueOnFail wie dort mit dem Index im Stapel.
+// Question and Answer Chain, @n8n/n8n-nodes-langchain.chainRetrievalQa (typeVersion 1 to 1.6)
+// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/chains/ChainRetrievalQA (ChainRetrievalQa.node.ts,
+// processItem.ts, constants.ts): createRetrievalChain with createStuffDocumentsChain (documents joined with "\n\n" as {context}),
+// system prompt and question as messages; answer from v1.5 as { response }, before that { response: { text } }; from v1.6 in
+// batches (Promise.allSettled), errors with continueOnFail as there with the index within the batch.
 import type { ExecContext, NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
 import type { Item } from '../types.js';
@@ -19,14 +19,14 @@ If you don't know the answer, just say that you don't know, don't try to make up
 ----------------
 Context: {context}`;
 
-const query = (dflt: string, version: number): ParamSchema => ({ name: 'query', label: 'Frage', type: 'string', default: dflt, required: true, show: { '@version': [version] } });
+const query = (dflt: string, version: number): ParamSchema => ({ name: 'query', label: 'Query', type: 'string', default: dflt, required: true, show: { '@version': [version] } });
 const systemPrompt = (show: ParamSchema['show']): ParamSchema => ({
   name: 'systemPromptTemplate',
-  label: 'Systemprompt',
+  label: 'System Prompt Template',
   type: 'string',
   default: SYSTEM_PROMPT_TEMPLATE,
   rows: 6,
-  description: 'Vorlage mit {context} für die gefundenen Dokumente',
+  description: 'Template string used for the system prompt; {context} holds the retrieved documents',
   show,
 });
 
@@ -37,13 +37,13 @@ const parameters: ParamSchema[] = [
   { ...promptTypeParam, hide: { '@version': [{ _cnd: { lte: 1.2 } }] } },
   { ...textFromGuardrailsParam, show: { promptType: ['guardrails'], '@version': [{ _cnd: { gte: 1.4 } }] } },
   { ...textFromPreviousNodeParam, show: { promptType: ['auto'], '@version': [{ _cnd: { gte: 1.4 } }] } },
-  { name: 'text', label: 'Prompt (Nachricht)', type: 'string', default: '', required: true, rows: 2, show: { promptType: ['define'] } },
+  { name: 'text', label: 'Prompt (User Message)', type: 'string', default: '', required: true, rows: 2, show: { promptType: ['define'] } },
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     children: [systemPrompt({ '@version': [{ _cnd: { lt: 1.5 } }] }), systemPrompt({ '@version': [{ _cnd: { gte: 1.5 } }] }), batchingParam({ '@version': [{ _cnd: { gte: 1.6 } }] })],
   },
 ];
@@ -64,7 +64,7 @@ async function answer(ctx: ExecContext, itemIndex: number): Promise<string> {
     { role: 'system', content: formatTemplate(template, values) },
     { role: 'human', content: formatTemplate('{input}', values) },
   ]);
-  // StringOutputParser: Text der Antwort (bei Blöcken die Textteile)
+  // StringOutputParser: text of the answer (for blocks the text parts)
   return result.message.lc ? textOf(result.message.lc.content as string) : result.text;
 }
 

@@ -1,7 +1,7 @@
-// Credentials einer Instanz: die Datei aus FILUFLOW_CREDENTIALS (von Hand gepflegt, nur lesend) plus eine über
-// die Oberfläche oder vom Master verwaltete Datei (credentials.managed.json). Geheime Felder verlassen den Server
-// nie; gelesen werden nur Name, Typ und die öffentlichen Felder.
-// Mit FILUFLOW_ENCRYPTION_KEY werden die Werte je Eintrag verschlüsselt gespeichert (AES-256-GCM).
+// Credentials of an instance: the file from FILUFLOW_CREDENTIALS (maintained by hand, read only) plus a file managed
+// through the web interface or by the master (credentials.managed.json). Secret fields never leave the server;
+// only name, type and the public fields are read.
+// With FILUFLOW_ENCRYPTION_KEY the values are stored encrypted per entry (AES-256-GCM).
 import { existsSync } from 'node:fs';
 import { mkdir, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
@@ -22,12 +22,12 @@ export interface CredentialInfo {
   managed: boolean;
 }
 
-/** Form in der Datei: Name ist der Schlüssel */
+/** Shape in the file: the name is the key */
 function stored(e: CredentialEntry): Record<string, unknown> {
   return { ...(e.id ? { id: e.id } : {}), ...(e.type ? { type: e.type } : {}), data: e.data };
 }
 
-/** IDs wie in n8n: 16 Zeichen aus Buchstaben und Ziffern */
+/** IDs as in n8n: 16 characters of letters and digits */
 export function newCredentialId(): string {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   return [...randomBytes(16)].map((b) => alphabet[b % alphabet.length]).join('');
@@ -68,7 +68,7 @@ export class LayeredCredentialProvider implements CredentialProvider {
     return this.list().map((e) => ({ name: e.name, ...(e.id ? { id: e.id } : {}), ...(e.type ? { type: e.type } : {}), managed: managedNames.has(e.name) && !this.base.find({ name: e.name }) }));
   }
 
-  /** Eintrag mit Herkunft; die Datei aus FILUFLOW_CREDENTIALS hat Vorrang */
+  /** Entry with its origin; the file from FILUFLOW_CREDENTIALS takes precedence */
   get(name: string): { entry: CredentialEntry; managed: boolean } | undefined {
     const base = this.base.list().find((e) => e.name === name);
     if (base) return { entry: base, managed: false };
@@ -77,19 +77,19 @@ export class LayeredCredentialProvider implements CredentialProvider {
   }
 
   /**
-   * Eintrag anlegen oder ersetzen. Namen aus der von Hand gepflegten Datei sind geschützt.
-   * keep: geheime Felder, deren gespeicherter Wert bleiben soll (die Oberfläche kennt ihn nicht), nur bei
-   * gleichem Typ. rename: neuer Name; die ID bleibt, damit Workflows mit { id, name } das Credential finden.
+   * Create or replace an entry. Names from the hand-maintained file are protected.
+   * keep: secret fields whose stored value should stay (the web interface does not know it), only for the
+   * same type. rename: new name; the ID stays so that workflows with { id, name } find the credential.
    */
   async set(name: string, entry: { type: string; data: Record<string, unknown>; id?: string }, options: { keep?: string[]; rename?: string } = {}): Promise<CredentialEntry> {
     const protectedName = (n: string) => this.base.list().some((e) => e.name === n);
-    if (protectedName(name)) throw new Error(`Credential "${name}" wird in der Credential-Datei gepflegt und kann hier nicht geändert werden`);
+    if (protectedName(name)) throw new Error(`Credential "${name}" is maintained in the credentials file and cannot be changed here`);
     const target = options.rename?.trim() || name;
     const list = this.managed.list();
     const existing = list.find((e) => e.name === name);
     if (target !== name) {
-      if (!existing) throw new Error(`Credential "${name}" nicht gefunden`);
-      if (protectedName(target) || list.some((e) => e.name === target)) throw new Error(`Credential "${target}" existiert bereits`);
+      if (!existing) throw new Error(`Credential "${name}" not found`);
+      if (protectedName(target) || list.some((e) => e.name === target)) throw new Error(`Credential "${target}" already exists`);
     }
     const data: Record<string, unknown> = { ...entry.data };
     if (existing && existing.type === entry.type) {

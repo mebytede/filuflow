@@ -1,32 +1,32 @@
-// CLI-Einstieg: filuflow <befehl> [...]
-// Muss das erste Modul sein: übernimmt alte FLOWLITE_*-Variablen, bevor andere Module die Umgebung lesen
+// CLI entry point: filuflow <command> [...]
+// Must be the first module: takes over old FLOWLITE_* variables before other modules read the environment
 import { legacyEnvNames } from './legacyEnv.js';
 import { parseArgs } from 'node:util';
 import { cmdValidate } from './validate.js';
 import { cmdNodes } from './nodes.js';
 
-const USAGE = `filuflow: n8n-kompatible Workflow-Engine
+const USAGE = `filuflow: n8n-compatible workflow engine
 
-Befehle:
-  filuflow validate <wf.json> [--json] [--credentials <pfad>]
-  filuflow run <wf.json> [--input items.json] [--trigger "Node-Name"] [--json] [--only-last] [--no-pin]
+Commands:
+  filuflow validate <wf.json> [--json] [--credentials <path>]
+  filuflow run <wf.json> [--input items.json] [--trigger "Node name"] [--json] [--only-last] [--no-pin]
   filuflow serve [--dir ./workflows] [--port 5678] [--db ./filuflow.db]
-  filuflow master [--port 5679] [--db ./master.db]       Master mit Benutzern, Projekten und Mandanten
-  filuflow master user add|list|set-password|reset-totp   Benutzer verwalten (z. B. Notfall-Zugang)
-  filuflow worker [Optionen wie serve]                    Worker in der Umgebung eines Mandanten
+  filuflow master [--port 5679] [--db ./master.db]       Master with users, projects and tenants
+  filuflow master user add|list|set-password|reset-totp   Manage users (e.g. emergency access)
+  filuflow worker [options like serve]                    Worker in a tenant's environment
   filuflow executions list|show <id> [--json] [--db ./filuflow.db]
   filuflow nodes [--json]
-  filuflow credentials encrypt|decrypt <credentials.json> [--out datei]
+  filuflow credentials encrypt|decrypt <credentials.json> [--out file]
   filuflow credentials check [<credentials.json>]
 
-Eigene Knoten (Plugins): --nodes <pfad> (mehrfach) bei validate, run, serve, worker, master und nodes;
-außerdem FILUFLOW_CUSTOM_EXTENSIONS (Pfade mit ";" getrennt) und ~/.filuflow/custom.
+Custom nodes (plugins): --nodes <path> (repeatable) for validate, run, serve, worker, master and nodes;
+also FILUFLOW_CUSTOM_EXTENSIONS (paths separated by ";") and ~/.filuflow/custom.
 `;
 
-/** Befehle, die Knotentypen brauchen und deshalb Plugins laden */
+/** Commands that need node types and therefore load plugins */
 const WITH_PLUGINS = new Set(['validate', 'run', 'serve', 'worker', 'master', 'nodes']);
 
-/** --nodes <pfad> bzw. --nodes=<pfad> aus den Argumenten lösen */
+/** Extract --nodes <path> or --nodes=<path> from the arguments */
 export function extractNodesArgs(args: string[]): { paths: string[]; rest: string[] } {
   const paths: string[] = [];
   const rest: string[] = [];
@@ -39,13 +39,13 @@ export function extractNodesArgs(args: string[]): { paths: string[]; rest: strin
   return { paths, rest };
 }
 
-/** Plugins in die Standard-Registry laden; Probleme als Hinweis auf stderr, der Befehl läuft weiter */
+/** Load plugins into the default registry; problems are reported as notes on stderr, the command keeps running */
 async function loadCliPlugins(extra: string[], withCommunity: boolean): Promise<void> {
   const { loadPlugins, pluginPathsFromEnv } = await import('../plugins/loader.js');
   const { getDefaultRegistry } = await import('../nodes/index.js');
   const paths = [...pluginPathsFromEnv(), ...extra];
   const reports = paths.length ? await loadPlugins(paths, getDefaultRegistry()) : [];
-  // Installierte Community-Pakete (M30); serve und worker laden sie selbst, um sie verwalten zu können
+  // Installed community packages (M30); serve and worker load them themselves to be able to manage them
   if (withCommunity) {
     const { CommunityPackages, defaultCommunityDir } = await import('../plugins/community.js');
     reports.push(...(await new CommunityPackages({ dir: defaultCommunityDir(), registry: getDefaultRegistry() }).loadInstalled()));
@@ -88,15 +88,15 @@ export async function main(argv: string[]): Promise<number> {
   }
   if (legacyEnvNames.length) {
     process.stderr.write(
-      `Hinweis: flowlite heißt jetzt filuflow. Veraltete Umgebungsvariablen bitte umbenennen: ${legacyEnvNames.map((n) => `${n} -> FILUFLOW_${n.slice(9)}`).join(', ')}\n`,
+      `Note: flowlite is now called filuflow. Please rename deprecated environment variables: ${legacyEnvNames.map((n) => `${n} -> FILUFLOW_${n.slice(9)}`).join(', ')}\n`,
     );
   }
   const handler = await lazy(command);
   if (!handler) {
-    process.stderr.write(`Unbekannter Befehl "${command}"\n\n${USAGE}`);
+    process.stderr.write(`Unknown command "${command}"\n\n${USAGE}`);
     return 1;
   }
-  // "master user ..." und Hilfen brauchen keine Knoten
+  // "master user ..." and help texts need no nodes
   if (WITH_PLUGINS.has(command) && !(command === 'master' && rest[0] === 'user')) {
     const { paths, rest: args } = extractNodesArgs(rest);
     await loadCliPlugins(paths, !['serve', 'worker', 'master'].includes(command));

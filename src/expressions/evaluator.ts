@@ -1,11 +1,11 @@
-// Auswertung von Expressions in einem node:vm-Kontext mit Timeout.
+// Evaluation of expressions in a node:vm context with a timeout.
 //
-// Semantik nach n8n 1.123.0 (packages/workflow/src/expression.ts) und @n8n/tournament 1.0.6:
-// - Besteht der Wert aus genau einer {{ }}-Stelle, wird der Rohwert geliefert.
-// - Sonst werden die Teile verkettet (Array.join, null/undefined werden zu "").
-// - Fehler in Teilen mit Zugriffen/Aufrufen werden geschluckt (Teil = undefined),
-//   außer ExpressionError, die weitergereicht werden.
-// - Unbekannte Bezeichner sind undefined (kein ReferenceError).
+// Semantics after n8n 1.123.0 (packages/workflow/src/expression.ts) and @n8n/tournament 1.0.6:
+// - If the value consists of exactly one {{ }} part, the raw value is returned.
+// - Otherwise the parts are concatenated (Array.join, null/undefined become "").
+// - Errors in parts with property access/calls are swallowed (part = undefined),
+//   except ExpressionError, which is passed on.
+// - Unknown identifiers are undefined (no ReferenceError).
 import vm from 'node:vm';
 import { DateTime, Duration, Interval } from 'luxon';
 import { ExpressionError, ExpressionExtensionError } from '../errors.js';
@@ -28,7 +28,7 @@ function sanitizer(value: unknown): unknown {
   return value;
 }
 
-/** Erlaubte und gesperrte globale Namen (n8n Expression.initializeGlobalContext) */
+/** Allowed and blocked global names (n8n Expression.initializeGlobalContext) */
 export function globalContext(): Record<string, unknown> {
   const data: Record<string, unknown> = {};
   for (const name of [
@@ -79,7 +79,7 @@ function getContext(): vm.Context {
 
 const scriptCache = new Map<string, vm.Script>();
 
-/** Erzeugt den JS-Code für ein Template (ohne führendes `=`) */
+/** Generates the JS code for a template (without a leading `=`) */
 export function buildProgram(template: string): string {
   const chunks = splitExpression(template);
   const codeChunks = chunks.filter((c) => c.type === 'code').map((c) => c.text);
@@ -128,7 +128,7 @@ function getScript(template: string): vm.Script {
 
 const INTERNAL_NAMES = new Set<string>([...Object.values(INTERNAL), '__fl_scope', '__fl_this']);
 
-/** Scope-Proxy für `with`: jeder Bezeichner wird über die Daten aufgelöst */
+/** Scope proxy for `with`: every identifier is resolved via the data */
 export function createScope(data: Record<string, unknown>): object {
   return new Proxy(data, {
     has(_t, key) {
@@ -137,8 +137,8 @@ export function createScope(data: Record<string, unknown>): object {
     },
     get(target, key) {
       if (key === Symbol.unscopables) return undefined;
-      // Das Datenobjekt (n8n-Proxy) meldet über `has` jeden Namen als vorhanden,
-      // daher zählt nur ein tatsächlich gesetzter Wert.
+      // The data object (n8n proxy) reports every name as present via `has`,
+      // so only an actually set value counts.
       const value = Reflect.get(target, key);
       if (value !== undefined) return value;
       if (typeof key === 'string' && Object.hasOwn(GLOBALS, key)) return GLOBALS[key];
@@ -155,8 +155,8 @@ export interface EvaluateOptions {
 }
 
 /**
- * Wertet ein Template (Expression ohne führendes `=`) aus.
- * Entspricht n8n resolveSimpleParameterValue + renderExpression.
+ * Evaluates a template (expression without a leading `=`).
+ * Corresponds to n8n resolveSimpleParameterValue + renderExpression.
  */
 export function evaluateTemplate(template: string, data: Record<string, unknown>, options: EvaluateOptions = {}): unknown {
   if (!template) return template;

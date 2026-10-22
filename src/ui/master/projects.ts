@@ -1,4 +1,4 @@
-// Master: Projektliste und Projektseite (Workflows, Ausführungen, Mitglieder, Einstellungen).
+// Master: project list and project page (workflows, executions, members, settings).
 import { ApiError } from '../api.js';
 import { confirmDialog, dialog, formatDate, h, toast } from '../dom.js';
 import type { Workflow } from '../types.js';
@@ -7,11 +7,12 @@ import { workflowTable, type WorkflowRow } from '../views/workflowTable.js';
 import { button, kpis, pageHead } from '../shell.js';
 import { mapi } from './api.js';
 import type { AccessRole, MasterWorkflow, Project, ProjectAction, ProjectRole, User, WorkerInfo, WorkflowRole } from './types.js';
+import { t, tl } from '../i18n.js';
 
 const e = encodeURIComponent;
-export const ROLE_LABEL: Record<string, string> = { admin: 'Projekt-Admin', editor: 'Bearbeiten', viewer: 'Lesen', guest: 'Gast' };
-const WORKFLOW_ROLE_LABEL: Record<string, string> = { admin: 'Verwalten', editor: 'Bearbeiten', viewer: 'Lesen', none: 'Kein Zugriff' };
-/** Eigene Rollen (M34), beim Öffnen der Seiten geladen */
+export const ROLE_LABEL: Record<string, string> = { admin: t('Project admin'), editor: t('Edit'), viewer: t('Read'), guest: t('Guest') };
+const WORKFLOW_ROLE_LABEL: Record<string, string> = { admin: t('Manage'), editor: t('Edit'), viewer: t('Read'), none: t('No access') };
+/** Custom roles (M34), loaded when the pages are opened */
 let customRoles: Array<{ id: ProjectRole; name: string }> = [];
 async function loadRoles(): Promise<void> {
   try {
@@ -21,7 +22,7 @@ async function loadRoles(): Promise<void> {
   }
 }
 export function roleLabel(role: AccessRole | WorkflowRole | string): string {
-  return ROLE_LABEL[role] ?? customRoles.find((r) => r.id === role)?.name ?? role;
+  return ROLE_LABEL[role] ?? tl(customRoles.find((r) => r.id === role)?.name) ?? role;
 }
 const workflowRoleLabel = (role: string) => WORKFLOW_ROLE_LABEL[role] ?? roleLabel(role);
 const projectRoleOptions = (): ProjectRole[] => ['admin', 'editor', 'viewer', ...customRoles.map((r) => r.id)];
@@ -32,11 +33,11 @@ export function can(p: { permissions: ProjectAction[] }, action: ProjectAction):
 }
 
 export function workerBadge(p: Project): HTMLElement {
-  if (!p.worker) return h('span', { class: 'pill pill-error', title: 'Ohne Worker werden Workflows nicht ausgeführt' }, 'kein Worker');
+  if (!p.worker) return h('span', { class: 'pill pill-error', title: t('Without a worker, workflows are not executed') }, t('no worker'));
   const online = p.worker.status === 'online';
   return h(
     'span',
-    { class: `pill ${online ? 'pill-success' : p.worker.status === 'offline' ? 'pill-error' : ''}`, title: `Worker-Status: ${p.worker.status}` },
+    { class: `pill ${online ? 'pill-success' : p.worker.status === 'offline' ? 'pill-error' : ''}`, title: t('Worker status: {status}', { status: p.worker.status }) },
     `${p.worker.tenant?.name ?? '?'} · ${p.worker.name}`,
   );
 }
@@ -51,7 +52,7 @@ async function workerOptions(selected: string | null): Promise<HTMLSelectElement
   return h(
     'select',
     { class: 'param-input', 'aria-label': 'Worker' },
-    h('option', { value: '' }, 'kein Worker'),
+    h('option', { value: '' }, t('no worker')),
     workers.map((w: WorkerInfo) => h('option', { value: w.id, selected: w.id === selected }, `${tenantName.get(w.tenantId) ?? '?'} · ${w.name} (${w.status})`)),
   );
 }
@@ -67,11 +68,11 @@ export async function projectsPage(user: User): Promise<HTMLElement> {
     const body = h(
       'div',
       { class: 'form' },
-      h('label', { class: 'field' }, h('span', null, 'Name'), name),
-      h('label', { class: 'field' }, h('span', null, 'Beschreibung'), description),
-      h('label', { class: 'field' }, h('span', null, 'Worker (Mandant)'), worker),
+      h('label', { class: 'field' }, h('span', null, t('Name')), name),
+      h('label', { class: 'field' }, h('span', null, t('Description')), description),
+      h('label', { class: 'field' }, h('span', null, t('Worker (tenant)')), worker),
     );
-    const ok = await dialog<boolean>('Neues Projekt', body, { confirm: 'Anlegen', onConfirm: () => (name.value.trim() ? true : undefined) });
+    const ok = await dialog<boolean>(t('New project'), body, { confirm: t('Create'), onConfirm: () => (name.value.trim() ? true : undefined) });
     if (!ok) return;
     try {
       const p = await mapi.createProject({ name: name.value.trim(), description: description.value, workerId: worker.value || null });
@@ -81,14 +82,14 @@ export async function projectsPage(user: User): Promise<HTMLElement> {
     }
   };
   root.append(
-    pageHead('Projekte', 'Projekte und ihre Worker', [user.role === 'admin' ? button('Neues Projekt', { icon: 'plus', size: 'm', variant: 'primary', onclick: () => void create() }) : null]),
+    pageHead(t('Projects'), t('Projects and their workers'), [user.role === 'admin' ? button(t('New project'), { icon: 'plus', size: 'm', variant: 'primary', onclick: () => void create() }) : null]),
   );
   if (!projects.length) {
     root.append(
       h(
         'div',
         { class: 'empty' },
-        h('p', null, user.role === 'admin' ? 'Noch keine Projekte. Legen Sie ein Projekt an und ordnen Sie ihm einen Worker zu.' : 'Sie sind noch in keinem Projekt Mitglied. Ein Administrator kann Sie hinzufügen.'),
+        h('p', null, user.role === 'admin' ? t('No projects yet. Create a project and assign a worker to it.') : t('You are not a member of any project yet. An administrator can add you.')),
       ),
     );
     return root;
@@ -103,7 +104,7 @@ export async function projectsPage(user: User): Promise<HTMLElement> {
           { class: 'card project-card', href: `#/project/${e(p.id)}` },
           h('div', { class: 'project-card-head' }, h('span', { class: 'strong' }, p.name), h('span', { class: 'muted small' }, roleLabel(p.role))),
           p.description ? h('p', { class: 'muted small' }, p.description) : null,
-          h('div', { class: 'project-card-foot' }, workerBadge(p), h('span', { class: 'muted small' }, `${p.workflows} Workflow${p.workflows === 1 ? '' : 's'}`)),
+          h('div', { class: 'project-card-foot' }, workerBadge(p), h('span', { class: 'muted small' }, t(p.workflows === 1 ? '{count} workflow' : '{count} workflows', { count: p.workflows }))),
         ),
       ),
     ),
@@ -119,7 +120,7 @@ export function projectHeader(p: Project, active: string): HTMLElement {
     h(
       'div',
       { class: 'page-head page-head-main' },
-      h('div', null, h('a', { href: '#/projects', class: 'label label-accent', style: { textDecoration: 'none' } }, 'Projekt'), h('h1', null, p.name)),
+      h('div', null, h('a', { href: '#/projects', class: 'label label-accent', style: { textDecoration: 'none' } }, t('Project')), h('h1', null, p.name)),
       h('div', { class: 'spacer' }),
       workerBadge(p),
       h('span', { class: 'pill' }, roleLabel(p.role)),
@@ -127,34 +128,34 @@ export function projectHeader(p: Project, active: string): HTMLElement {
     h(
       'nav',
       { class: 'tabs page-tabs' },
-      tab('workflows', 'Workflows', `#/project/${e(p.id)}`),
-      tab('executions', 'Ausführungen', `#/project/${e(p.id)}/executions`),
-      can(p, 'workflow.read') ? tab('members', 'Mitglieder', `#/project/${e(p.id)}/members`) : null,
-      can(p, 'project.manage') ? tab('settings', 'Einstellungen', `#/project/${e(p.id)}/settings`) : null,
+      tab('workflows', t('Workflows'), `#/project/${e(p.id)}`),
+      tab('executions', t('Executions'), `#/project/${e(p.id)}/executions`),
+      can(p, 'workflow.read') ? tab('members', t('Members'), `#/project/${e(p.id)}/members`) : null,
+      can(p, 'project.manage') ? tab('settings', t('Settings'), `#/project/${e(p.id)}/settings`) : null,
     ),
   );
 }
 
 async function importDialog(): Promise<Workflow | null> {
-  const ta = h('textarea', { class: 'param-input json-editor', rows: 14, spellcheck: false, placeholder: '{ "name": "...", "nodes": [...], "connections": {...} }', 'aria-label': 'Workflow-JSON' });
-  const file = h('input', { type: 'file', accept: '.json,application/json', 'aria-label': 'Datei wählen' });
+  const ta = h('textarea', { class: 'param-input json-editor', rows: 14, spellcheck: false, placeholder: '{ "name": "...", "nodes": [...], "connections": {...} }', 'aria-label': t('Workflow JSON') });
+  const file = h('input', { type: 'file', accept: '.json,application/json', 'aria-label': t('Choose file') });
   file.addEventListener('change', async () => {
     const f = file.files?.[0];
     if (f) ta.value = await f.text();
   });
   return dialog<Workflow>(
-    'Workflow importieren',
-    h('div', { class: 'form' }, h('p', { class: 'muted' }, 'Workflow-JSON aus n8n (Export) oder filuflow. Der Workflow wird inaktiv angelegt.'), file, ta),
+    t('Import workflow'),
+    h('div', { class: 'form' }, h('p', { class: 'muted' }, t('Workflow JSON from n8n (export) or filuflow. The workflow is created inactive.')), file, ta),
     {
-      confirm: 'Importieren',
+      confirm: t('Import'),
       wide: true,
       onConfirm: () => {
         try {
           const wf = JSON.parse(ta.value) as Workflow;
-          if (!wf || !Array.isArray(wf.nodes)) throw new Error('"nodes" fehlt');
+          if (!wf || !Array.isArray(wf.nodes)) throw new Error(t('"nodes" is missing'));
           return wf;
         } catch (err) {
-          toast(`Ungültiges JSON: ${(err as Error).message}`, 'error');
+          toast(t('Invalid JSON: {message}', { message: (err as Error).message }), 'error');
           return undefined;
         }
       },
@@ -169,7 +170,7 @@ export async function projectWorkflowsPage(projectId: string): Promise<HTMLEleme
   const reload = async () => root.replaceWith(await projectWorkflowsPage(projectId));
   const createNew = async () => {
     try {
-      const wf = await mapi.createWorkflow(p.id, { name: 'Neuer Workflow' });
+      const wf = await mapi.createWorkflow(p.id, { name: t('New workflow') });
       location.hash = `#/workflow/${e(wf.id)}`;
     } catch (err) {
       toast(message(err), 'error');
@@ -180,25 +181,25 @@ export async function projectWorkflowsPage(projectId: string): Promise<HTMLEleme
     if (!wf) return;
     try {
       const created = await mapi.createWorkflow(p.id, { workflow: wf });
-      toast('Importiert', 'success');
+      toast(t('Imported'), 'success');
       location.hash = `#/workflow/${e(created.id)}`;
     } catch (err) {
-      toast(`Import fehlgeschlagen: ${message(err)}`, 'error');
+      toast(t('Import failed: {message}', { message: message(err) }), 'error');
     }
   };
   const edit = can(p, 'workflow.edit');
-  if (p.role === 'guest') root.append(h('div', { class: 'notice', style: { marginTop: '24px' } }, 'Sie sind kein Mitglied dieses Projekts und sehen nur die Workflows, die für Sie freigegeben sind.'));
+  if (p.role === 'guest') root.append(h('div', { class: 'notice', style: { marginTop: '24px' } }, t('You are not a member of this project and only see the workflows shared with you.')));
   const actions = h(
     'div',
     { class: 'page-head', style: { marginBottom: '0' } },
     h('div', { class: 'spacer' }),
-    edit ? button('n8n-Export importieren', { icon: 'upload', onclick: () => void doImport() }) : null,
-    edit ? button('Neuer Workflow', { icon: 'plus', variant: 'primary', onclick: () => void createNew() }) : null,
+    edit ? button(t('Import n8n export'), { icon: 'upload', onclick: () => void doImport() }) : null,
+    edit ? button(t('New workflow'), { icon: 'plus', variant: 'primary', onclick: () => void createNew() }) : null,
   );
   root.append(actions);
-  if (!p.worker) root.append(h('div', { class: 'notice notice-warning', style: { marginTop: '24px' } }, 'Diesem Projekt ist kein Worker zugeordnet. Workflows können bearbeitet, aber nicht ausgeführt oder aktiviert werden.'));
+  if (!p.worker) root.append(h('div', { class: 'notice notice-warning', style: { marginTop: '24px' } }, t('No worker is assigned to this project. Workflows can be edited, but not executed or activated.')));
   if (!list.length) {
-    root.append(h('div', { class: 'empty' }, h('p', null, 'Noch keine Workflows in diesem Projekt. Legen Sie einen Workflow an oder importieren Sie einen n8n-Export.')));
+    root.append(h('div', { class: 'empty' }, h('p', null, t('No workflows in this project yet. Create a workflow or import an n8n export.'))));
     return root;
   }
   const { overview, error } = p.worker && can(p, 'execution.read') ? await mapi.projectOverview(p.id).catch((err: Error) => ({ overview: null, error: err.message })) : { overview: null, error: undefined };
@@ -208,37 +209,37 @@ export async function projectWorkflowsPage(projectId: string): Promise<HTMLEleme
       'div',
       { style: { marginBottom: '8px' } },
       kpis([
-        { label: 'Aktiv', value: `${active} von ${list.length}` },
-        { label: `Ausführungen ${overview?.days ?? 14} Tage`, value: overview ? String(overview.executions) : '' },
-        { label: `Fehler ${overview?.days ?? 14} Tage`, value: overview ? String(overview.errors) : '', tone: overview?.errors ? 'error' : undefined },
-        { label: 'Worker', value: p.worker ? (p.worker.status === 'online' ? 'erreichbar' : 'nicht erreichbar') : 'keiner', tone: p.worker?.status === 'online' ? undefined : 'warning' },
+        { label: t('Active'), value: t('{active} of {total}', { active, total: list.length }) },
+        { label: t('Executions {days} days', { days: overview?.days ?? 14 }), value: overview ? String(overview.executions) : '' },
+        { label: t('Errors {days} days', { days: overview?.days ?? 14 }), value: overview ? String(overview.errors) : '', tone: overview?.errors ? 'error' : undefined },
+        { label: t('Worker'), value: p.worker ? (p.worker.status === 'online' ? t('reachable') : t('not reachable')) : t('none'), tone: p.worker?.status === 'online' ? undefined : 'warning' },
       ]),
     ),
     actions,
   );
-  if (error) root.append(h('div', { class: 'notice notice-error', style: { marginTop: '24px' } }, `Letzte Läufe konnten nicht vom Worker geladen werden: ${error}`));
+  if (error) root.append(h('div', { class: 'notice notice-error', style: { marginTop: '24px' } }, t('Recent runs could not be loaded from the worker: {error}', { error })));
   const move = async (w: MasterWorkflow) => {
     const targets = (await mapi.projects()).filter((x) => x.id !== p.id && can(x, 'workflow.edit'));
-    if (!targets.length) return toast('Kein anderes Projekt mit Bearbeitungsrecht', 'error');
-    const sel = h('select', { class: 'param-input' }, targets.map((t) => h('option', { value: t.id }, t.name)));
-    const target = await dialog<string>(`"${w.name}" verschieben`, h('div', { class: 'form' }, h('label', { class: 'field' }, h('span', null, 'Ziel-Projekt'), sel), h('p', { class: 'muted small' }, 'Der Workflow wird beim bisherigen Worker entfernt und beim Worker des Ziel-Projekts verteilt.')), {
-      confirm: 'Verschieben',
+    if (!targets.length) return toast(t('No other project with edit permission'), 'error');
+    const sel = h('select', { class: 'param-input' }, targets.map((x) => h('option', { value: x.id }, x.name)));
+    const target = await dialog<string>(t('Move "{name}"', { name: w.name }), h('div', { class: 'form' }, h('label', { class: 'field' }, h('span', null, t('Target project')), sel), h('p', { class: 'muted small' }, t("The workflow is removed from the current worker and deployed to the target project's worker."))), {
+      confirm: t('Move'),
       onConfirm: () => sel.value,
     });
     if (!target) return;
     try {
       await mapi.moveWorkflow(w.id, target);
-      toast('Verschoben', 'success');
+      toast(t('Moved'), 'success');
       await reload();
     } catch (err) {
       toast(message(err), 'error');
     }
   };
   const remove = async (w: MasterWorkflow) => {
-    if (!(await confirmDialog('Workflow löschen', `"${w.name}" wird mit allen Versionen gelöscht und beim Worker entfernt.`))) return;
+    if (!(await confirmDialog(t('Delete workflow'), t('"{name}" is deleted with all versions and removed from the worker.', { name: w.name })))) return;
     try {
       await mapi.deleteWorkflow(w.id);
-      toast('Gelöscht', 'success');
+      toast(t('Deleted'), 'success');
       await reload();
     } catch (err) {
       toast(message(err), 'error');
@@ -252,25 +253,25 @@ export async function projectWorkflowsPage(projectId: string): Promise<HTMLEleme
     triggers: w.triggers ?? [],
     state: w.active ? 'aktiv' : 'inaktiv',
     stateTitle: deploymentText(w),
-    stateWarning: w.deployment.error ?? (w.active && !w.deployment.upToDate ? 'Verteilung ausstehend' : undefined),
+    stateWarning: w.deployment.error ?? (w.active && !w.deployment.upToDate ? t('Deployment pending') : undefined),
     last: overview?.workflows[w.id]?.last,
     runs: overview ? (overview.workflows[w.id]?.runs ?? 0) : undefined,
     menu: [
-      { label: 'Im Editor öffnen', onclick: () => (location.hash = `#/workflow/${e(w.id)}`) },
-      { label: 'Ausführungen', onclick: () => (location.hash = `#/project/${e(p.id)}/executions?workflow=${e(w.id)}`) },
-      { label: 'Rollen', onclick: () => void workflowAccessDialog(w).then(async (changed) => (changed ? reload() : undefined)) },
-      ...((w.role ? w.role !== 'viewer' : can(p, 'workflow.delete')) ? [{ label: 'Verschieben', onclick: () => void move(w) }, { label: 'Löschen', danger: true, onclick: () => void remove(w) }] : []),
+      { label: t('Open in editor'), onclick: () => (location.hash = `#/workflow/${e(w.id)}`) },
+      { label: t('Executions'), onclick: () => (location.hash = `#/project/${e(p.id)}/executions?workflow=${e(w.id)}`) },
+      { label: t('Roles'), onclick: () => void workflowAccessDialog(w).then(async (changed) => (changed ? reload() : undefined)) },
+      ...((w.role ? w.role !== 'viewer' : can(p, 'workflow.delete')) ? [{ label: t('Move'), onclick: () => void move(w) }, { label: t('Delete'), danger: true, onclick: () => void remove(w) }] : []),
     ],
-    ...(w.restricted ? { note: 'Eigene Rollen' } : {}),
+    ...(w.restricted ? { note: t('Custom roles') } : {}),
   }));
   const updated = list.reduce((max, w) => (w.updatedAt > max ? w.updatedAt : max), '');
-  root.append(workflowTable(rows, { source: `Worker ${p.worker ? `${p.worker.tenant?.name ?? '?'} / ${p.worker.name}` : 'keiner'}${updated ? ` · geändert ${formatDate(updated)}` : ''}` }));
+  root.append(workflowTable(rows, { source: `${t('Worker')} ${p.worker ? `${p.worker.tenant?.name ?? '?'} / ${p.worker.name}` : t('none')}${updated ? ` · ${t('changed {date}', { date: formatDate(updated) })}` : ''}` }));
   return root;
 }
 
 /**
- * Rollen eines Workflows: Projektmitglieder mit ihrer Projektrolle und eigener Rolle für diesen Workflow, dazu Personen,
- * die nur über den Workflow Zugriff haben. Liefert true, wenn etwas geändert wurde.
+ * Roles of a workflow: project members with their project role and their own role for this workflow, plus people who
+ * only have access via the workflow. Returns true if anything was changed.
  */
 export async function workflowAccessDialog(w: { id: string; name: string }): Promise<boolean> {
   await loadRoles();
@@ -292,27 +293,27 @@ export async function workflowAccessDialog(w: { id: string; name: string }): Pro
       const fixed = !canShare || m.projectRole === 'admin';
       const select = h(
         'select',
-        { class: 'param-input', disabled: fixed, 'aria-label': `Rolle von ${m.email}`, onchange: (ev: Event) => void apply(m.userId, (ev.target as HTMLSelectElement).value) },
-        m.projectRole ? h('option', { value: '', selected: !m.workflowRole }, `Wie im Projekt (${roleLabel(m.projectRole)})`) : null,
+        { class: 'param-input', disabled: fixed, 'aria-label': t('Role of {email}', { email: m.email }), onchange: (ev: Event) => void apply(m.userId, (ev.target as HTMLSelectElement).value) },
+        m.projectRole ? h('option', { value: '', selected: !m.workflowRole }, t('As in project ({role})', { role: roleLabel(m.projectRole) })) : null,
         workflowRoleOptions(true).map((r) => h('option', { value: r, selected: m.workflowRole === r }, workflowRoleLabel(r))),
       );
       return h(
         'tr',
         null,
         h('td', null, h('div', { class: 'strong' }, m.name), h('div', { class: 'cell-sub' }, m.email)),
-        h('td', { class: 'muted' }, m.projectRole ? roleLabel(m.projectRole) : 'kein Mitglied'),
-        h('td', null, m.projectRole === 'admin' ? h('span', { class: 'muted' }, 'Immer voller Zugriff') : select),
-        h('td', { class: 'actions' }, canShare && !m.projectRole ? h('button', { type: 'button', class: 'btn btn-small', onclick: () => void apply(m.userId, '') }, 'Entfernen') : null),
+        h('td', { class: 'muted' }, m.projectRole ? roleLabel(m.projectRole) : t('not a member')),
+        h('td', null, m.projectRole === 'admin' ? h('span', { class: 'muted' }, t('Always full access')) : select),
+        h('td', { class: 'actions' }, canShare && !m.projectRole ? h('button', { type: 'button', class: 'btn btn-small', onclick: () => void apply(m.userId, '') }, t('Remove')) : null),
       );
     });
     const others = directory.filter((u) => !data.some((m) => m.userId === u.id) && !admins.includes(u.id));
-    const userSel = h('select', { class: 'param-input', 'aria-label': 'Person' }, others.map((u) => h('option', { value: u.id }, `${u.name} (${u.email})`)));
-    const roleSel = h('select', { class: 'param-input', 'aria-label': 'Rolle für den Workflow' }, workflowRoleOptions(false).map((r) => h('option', { value: r }, workflowRoleLabel(r))));
+    const userSel = h('select', { class: 'param-input', 'aria-label': t('Person') }, others.map((u) => h('option', { value: u.id }, `${u.name} (${u.email})`)));
+    const roleSel = h('select', { class: 'param-input', 'aria-label': t('Role for the workflow') }, workflowRoleOptions(false).map((r) => h('option', { value: r }, workflowRoleLabel(r))));
     body.replaceChildren(
       h(
         'p',
         { class: 'muted small' },
-        'Eine eigene Rolle gilt nur für diesen Workflow und ersetzt die Projektrolle: höher (z. B. Bearbeiten für Lesende), niedriger oder "Kein Zugriff". Verwalten erlaubt zusätzlich, Rollen zu vergeben. Projekt-Admins haben immer vollen Zugriff.',
+        t('A custom role applies only to this workflow and replaces the project role: higher (e.g. Edit for readers), lower or "No access". Manage additionally allows assigning roles. Project admins always have full access.'),
       ),
       h(
         'div',
@@ -320,38 +321,38 @@ export async function workflowAccessDialog(w: { id: string; name: string }): Pro
         h(
           'table',
           { class: 'list-table' },
-          h('thead', null, h('tr', null, h('th', null, 'Person'), h('th', null, 'Projekt'), h('th', null, 'Workflow'), h('th', null, ''))),
-          h('tbody', null, rows.length ? rows : h('tr', null, h('td', { colspan: 4, class: 'muted' }, 'Noch keine Mitglieder.'))),
+          h('thead', null, h('tr', null, h('th', null, t('Person')), h('th', null, t('Project')), h('th', null, t('Workflow')), h('th', null, ''))),
+          h('tbody', null, rows.length ? rows : h('tr', null, h('td', { colspan: 4, class: 'muted' }, t('No members yet.')))),
         ),
       ),
       ...(canShare && others.length
         ? [h(
             'div',
             { class: 'inline-form' },
-            h('span', { class: 'strong' }, 'Freigeben für:'),
+            h('span', { class: 'strong' }, t('Share with:')),
             userSel,
             roleSel,
-            h('button', { type: 'button', class: 'btn', onclick: () => void apply(userSel.value, roleSel.value) }, 'Freigeben'),
+            h('button', { type: 'button', class: 'btn', onclick: () => void apply(userSel.value, roleSel.value) }, t('Share')),
           )]
         : []),
     );
   };
   await render();
-  await dialog(`Rollen für "${w.name}"`, body, { confirm: '', cancel: 'Schließen', wide: true });
+  await dialog(t('Roles for "{name}"', { name: w.name }), body, { confirm: '', cancel: t('Close'), wide: true });
   return changed;
 }
 
-/** Stand der Verteilung als Text (Tooltip am Zustand) */
+/** Deployment state as text (tooltip on the state) */
 function deploymentText(w: MasterWorkflow): string {
   const d = w.deployment;
   if (d.error) return d.error;
-  if (d.upToDate) return `Version ${d.version} beim Worker${d.at ? `, verteilt ${formatDate(d.at)}` : ''}`;
-  return d.version ? `Version ${d.version} beim Worker, Version ${w.version} ausstehend` : 'Nicht verteilt';
+  if (d.upToDate) return d.at ? t('Version {version} on the worker, deployed {date}', { version: d.version, date: formatDate(d.at) }) : t('Version {version} on the worker', { version: d.version });
+  return d.version ? t('Version {version} on the worker, version {pending} pending', { version: d.version, pending: w.version }) : t('Not deployed');
 }
 
 export function projectExecutionSource(p: Project): ExecutionSource {
   return {
-    title: 'Ausführungen',
+    title: t('Executions'),
     listHref: `#/project/${e(p.id)}/executions`,
     detailHref: (id) => `#/project/${e(p.id)}/execution/${e(id)}`,
     workflowHref: (id) => `#/workflow/${e(id)}`,
@@ -362,13 +363,13 @@ export function projectExecutionSource(p: Project): ExecutionSource {
     header: projectHeader(p, 'executions'),
     brandHref: '#/projects',
     crumbs: [
-      { label: 'Projekte', href: '#/projects' },
+      { label: t('Projects'), href: '#/projects' },
       { label: p.name, href: `#/project/${e(p.id)}` },
     ],
     backend: {
       inspect: (workflow) => mapi.inspect(p.id, workflow),
       save: () => Promise.resolve(null),
-      run: () => Promise.reject(new Error('In der Ausführungsansicht nicht möglich')),
+      run: () => Promise.reject(new Error(t('Not possible in the execution view'))),
     },
   };
 }
@@ -376,7 +377,7 @@ export function projectExecutionSource(p: Project): ExecutionSource {
 export async function projectExecutionsPage(projectId: string, params: URLSearchParams): Promise<HTMLElement> {
   const p = await mapi.project(projectId);
   if (!p.worker) {
-    return h('section', { class: 'page' }, projectHeader(p, 'executions'), h('div', { class: 'empty' }, h('p', null, 'Kein Worker zugeordnet, daher keine Ausführungen.')));
+    return h('section', { class: 'page' }, projectHeader(p, 'executions'), h('div', { class: 'empty' }, h('p', null, t('No worker assigned, therefore no executions.'))));
   }
   try {
     return await executionsView(params, projectExecutionSource(p));
@@ -386,7 +387,7 @@ export async function projectExecutionsPage(projectId: string, params: URLSearch
       'section',
       { class: 'page' },
       projectHeader(p, 'executions'),
-      h('div', { class: 'notice notice-error' }, `Ausführungen konnten nicht vom Worker geladen werden: ${message(err)}`),
+      h('div', { class: 'notice notice-error' }, t('Executions could not be loaded from the worker: {message}', { message: message(err) })),
     );
   }
 }
@@ -400,15 +401,15 @@ export async function projectMembersPage(projectId: string): Promise<HTMLElement
   const roleSelect = (value: ProjectRole, onchange?: (role: ProjectRole) => void) =>
     h(
       'select',
-      { class: 'param-input', disabled: !onchange, 'aria-label': 'Rolle', onchange: (ev: Event) => onchange?.((ev.target as HTMLSelectElement).value as ProjectRole) },
+      { class: 'param-input', disabled: !onchange, 'aria-label': t('Role'), onchange: (ev: Event) => onchange?.((ev.target as HTMLSelectElement).value as ProjectRole) },
       projectRoleOptions().map((r) => h('option', { value: r, selected: r === value }, roleLabel(r))),
     );
   root.append(
-    h('div', { class: 'page-head' }, h('h2', null, 'Mitglieder')),
+    h('div', { class: 'page-head' }, h('h2', null, t('Members'))),
     h(
       'p',
       { class: 'muted small' },
-      'Lesen: Workflows, Ausführungen und Credential-Namen ansehen. Bearbeiten: zusätzlich ändern, ausführen, aktivieren, löschen. Projekt-Admin: zusätzlich Mitglieder und Einstellungen. Globale Administratoren haben in allen Projekten volle Rechte.',
+      t('Read: view workflows, executions and credential names. Edit: additionally change, execute, activate, delete. Project admin: additionally members and settings. Global administrators have full permissions in all projects.'),
     ),
   );
   root.append(
@@ -418,7 +419,7 @@ export async function projectMembersPage(projectId: string): Promise<HTMLElement
       h(
         'table',
         { class: 'list-table' },
-        h('thead', null, h('tr', null, h('th', null, 'Name'), h('th', null, 'E-Mail'), h('th', null, 'Rolle'), h('th', null, ''))),
+        h('thead', null, h('tr', null, h('th', null, t('Name')), h('th', null, t('Email')), h('th', null, t('Role')), h('th', null, ''))),
         h(
           'tbody',
           null,
@@ -438,7 +439,7 @@ export async function projectMembersPage(projectId: string): Promise<HTMLElement
                         ? async (role) => {
                             try {
                               await mapi.setMember(p.id, m.userId, role);
-                              toast('Rolle geändert', 'success');
+                              toast(t('Role changed'), 'success');
                             } catch (err) {
                               toast(message(err), 'error');
                             }
@@ -456,18 +457,18 @@ export async function projectMembersPage(projectId: string): Promise<HTMLElement
                             type: 'button',
                             class: 'btn btn-small btn-danger',
                             onclick: async () => {
-                              if (!(await confirmDialog('Mitglied entfernen', `${m.name} verliert den Zugriff auf "${p.name}".`, 'Entfernen'))) return;
+                              if (!(await confirmDialog(t('Remove member'), t('{name} loses access to "{project}".', { name: m.name, project: p.name }), t('Remove')))) return;
                               await mapi.removeMember(p.id, m.userId);
                               await reload();
                             },
                           },
-                          'Entfernen',
+                          t('Remove'),
                         )
                       : null,
                   ),
                 ),
               )
-            : h('tr', null, h('td', { colspan: 4, class: 'muted' }, 'Keine Mitglieder (globale Administratoren haben immer Zugriff).')),
+            : h('tr', null, h('td', { colspan: 4, class: 'muted' }, t('No members (global administrators always have access).'))),
         ),
       ),
     ),
@@ -475,7 +476,7 @@ export async function projectMembersPage(projectId: string): Promise<HTMLElement
   if (manage) {
     const directory = (await mapi.directory()).filter((u) => !members.some((m) => m.userId === u.id));
     if (directory.length) {
-      const userSel = h('select', { class: 'param-input', 'aria-label': 'Benutzer' }, directory.map((u) => h('option', { value: u.id }, `${u.name} (${u.email})`)));
+      const userSel = h('select', { class: 'param-input', 'aria-label': t('User') }, directory.map((u) => h('option', { value: u.id }, `${u.name} (${u.email})`)));
       const role = roleSelect('editor', () => undefined);
       root.append(
         h(
@@ -492,10 +493,10 @@ export async function projectMembersPage(projectId: string): Promise<HTMLElement
               }
             },
           },
-          h('span', { class: 'strong' }, 'Hinzufügen:'),
+          h('span', { class: 'strong' }, t('Add:')),
           userSel,
           role,
-          h('button', { type: 'submit', class: 'btn' }, 'Hinzufügen'),
+          h('button', { type: 'submit', class: 'btn' }, t('Add')),
         ),
       );
     }
@@ -519,28 +520,28 @@ export async function projectSettingsPage(projectId: string, user: User): Promis
           const body: Record<string, unknown> = { name: name.value, description: description.value };
           if (worker && (worker.value || null) !== (p.worker?.id ?? null)) {
             const ok = await confirmDialog(
-              'Worker wechseln',
-              'Alle Workflows des Projekts werden beim bisherigen Worker entfernt und beim neuen verteilt. Credentials und Ausführungen bleiben beim jeweiligen Worker.',
-              'Wechseln',
+              t('Change worker'),
+              t('All workflows of the project are removed from the current worker and deployed to the new one. Credentials and executions stay on the respective worker.'),
+              t('Change'),
             );
             if (!ok) return;
             body.workerId = worker.value || null;
           }
           try {
             await mapi.updateProject(p.id, body);
-            toast('Gespeichert', 'success');
+            toast(t('Saved'), 'success');
             root.replaceWith(await projectSettingsPage(projectId, user));
           } catch (err) {
             toast(message(err), 'error');
           }
         },
       },
-      h('label', { class: 'field' }, h('span', null, 'Name'), name),
-      h('label', { class: 'field' }, h('span', null, 'Beschreibung'), description),
+      h('label', { class: 'field' }, h('span', null, t('Name')), name),
+      h('label', { class: 'field' }, h('span', null, t('Description')), description),
       worker
-        ? h('label', { class: 'field' }, h('span', null, 'Worker (Mandant)'), worker)
-        : h('p', { class: 'muted small' }, `Worker: ${p.worker ? `${p.worker.tenant?.name ?? '?'} · ${p.worker.name}` : 'keiner'} (nur Administratoren ändern die Zuordnung)`),
-      h('div', null, h('button', { type: 'submit', class: 'btn btn-primary' }, 'Speichern')),
+        ? h('label', { class: 'field' }, h('span', null, t('Worker (tenant)')), worker)
+        : h('p', { class: 'muted small' }, t('Worker: {worker} (only administrators change the assignment)', { worker: p.worker ? `${p.worker.tenant?.name ?? '?'} · ${p.worker.name}` : t('none') })),
+      h('div', null, h('button', { type: 'submit', class: 'btn btn-primary' }, t('Save'))),
     ),
   );
   if (user.role === 'admin') {
@@ -548,15 +549,15 @@ export async function projectSettingsPage(projectId: string, user: User): Promis
       h(
         'div',
         { class: 'card card-pad danger-zone' },
-        h('h2', null, 'Projekt löschen'),
-        h('p', { class: 'muted small' }, 'Nur möglich, wenn das Projekt keine Workflows mehr enthält.'),
+        h('h2', null, t('Delete project')),
+        h('p', { class: 'muted small' }, t('Only possible when the project no longer contains any workflows.')),
         h(
           'button',
           {
             type: 'button',
             class: 'btn btn-danger',
             onclick: async () => {
-              if (!(await confirmDialog('Projekt löschen', `"${p.name}" wird gelöscht.`))) return;
+              if (!(await confirmDialog(t('Delete project'), t('"{name}" will be deleted.', { name: p.name })))) return;
               try {
                 await mapi.deleteProject(p.id);
                 location.hash = '#/projects';
@@ -565,7 +566,7 @@ export async function projectSettingsPage(projectId: string, user: User): Promis
               }
             },
           },
-          'Projekt löschen',
+          t('Delete project'),
         ),
       ),
     );

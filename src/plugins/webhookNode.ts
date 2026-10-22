@@ -1,8 +1,8 @@
-// Webhook-Knoten aus n8n-Paketen (M32), wie n8n 1.123.0:
-//   cli webhook.service.ts getNodeWebhooks (Pfad, Methoden, isFullPath aus description.webhooks über Expressions),
-//   runWebhookMethod (webhookMethods checkExists/create/delete mit HookContext), runWebhook (WebhookContext);
+// Webhook nodes from n8n packages (M32), as in n8n 1.123.0:
+//   cli webhook.service.ts getNodeWebhooks (path, methods, isFullPath from description.webhooks via expressions),
+//   runWebhookMethod (webhookMethods checkExists/create/delete with HookContext), runWebhook (WebhookContext);
 //   core webhook-context.ts (getBodyData, getHeaderData, getQueryData, getParamsData, getRequestObject,
-//   getResponseObject, getNodeWebhookUrl, getWebhookName) und hook-context.ts (getActivationMode,
+//   getResponseObject, getNodeWebhookUrl, getWebhookName) and hook-context.ts (getActivationMode,
 //   getWebhookDescription); cli webhook-helpers.ts evaluateResponseOptions (responseMode, responseCode, responseData).
 import type { ExecContext, NodeType, PackageWebhook, PackageWebhookResult } from '../nodes/types.js';
 import { executeFunctions } from './n8nNode.js';
@@ -10,7 +10,7 @@ import { withDefaults, type N8nNodeDescription } from './n8nDescription.js';
 
 type Fn = (this: unknown) => Promise<unknown>;
 
-/** Ausschnitt aus IWebhookDescription */
+/** Excerpt of IWebhookDescription */
 export interface N8nWebhookDescription {
   name: string;
   httpMethod: string;
@@ -28,7 +28,7 @@ export interface N8nWebhookImpl {
   webhookMethods?: Record<string, { checkExists?: Fn; create?: Fn; delete?: Fn }>;
 }
 
-/** getSimpleParameterValue: "="-Werte mit $parameter (samt Defaults) auswerten, sonst unverändert; undefined: Default */
+/** getSimpleParameterValue: evaluate "=" values with $parameter (including defaults), otherwise unchanged; undefined: default */
 function simple(ctx: ExecContext, description: N8nNodeDescription, value: unknown, fallback?: unknown): unknown {
   if (value === undefined) return fallback;
   if (typeof value !== 'string' || !value.startsWith('=')) return value;
@@ -47,7 +47,7 @@ function createDeferredPromise<T>() {
   return { promise, resolve, reject };
 }
 
-/** Kontext ohne Item-Index (Webhook- und Hook-Funktionen) */
+/** Context without item index (webhook and hook functions) */
 function baseFunctions(ctx: ExecContext, description: N8nNodeDescription): Record<string, unknown> {
   const base = executeFunctions(ctx, description);
   const getNodeParameter = base.getNodeParameter as (name: string, itemIndex: number, fallbackValue?: unknown, options?: Record<string, unknown>) => unknown;
@@ -82,8 +82,8 @@ export function packageWebhooks(impl: N8nWebhookImpl): NonNullable<NodeType['pac
           isFullPath: simple(ctx, description, d.isFullPath, false) === true,
           responseMode: String(simple(ctx, description, d.responseMode, 'onReceived')),
           responseCode: Number(simple(ctx, description, d.responseCode, 200)),
-          // getComplexParameterValue mit Default "firstEntryJson": ohne responseData antwortet n8n bei onReceived mit
-          // genau diesem Text (extractWebhookOnReceivedResponse)
+          // getComplexParameterValue with default "firstEntryJson": without responseData n8n answers onReceived with
+          // exactly this text (extractWebhookOnReceivedResponse)
           responseData: String(simple(ctx, description, d.responseData, 'firstEntryJson')),
         };
         for (const method of String(methods).split(',')) {

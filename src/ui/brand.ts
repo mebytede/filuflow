@@ -1,8 +1,8 @@
-// Marke von filuflow (Entwurf "Strang"): drei Fäden laufen zu einem Strang zusammen und enden in einem Knoten.
-// Geometrie laut Design-Handoff (viewBox 48 x 48); in der Oberfläche einfarbig in currentColor.
+// filuflow brand mark (design "Strang"): three threads merge into one strand and end in a knot.
+// Geometry per design handoff (viewBox 48 x 48); single-colored in currentColor in the interface.
 import { h, s } from './dom.js';
 
-/** Bildmarke; ab 16 px und kleiner die dicke Kleinfassung (Fäden 6 statt 3,5) */
+/** Logo mark; at 16 px and smaller the thick small version (threads 6 instead of 3.5) */
 export function mark(size = 24): SVGSVGElement {
   const small = size <= 16;
   return s(
@@ -14,7 +14,7 @@ export function mark(size = 24): SVGSVGElement {
   );
 }
 
-/** Marke mit Schriftzug; Abstand 0,4 x Markenhöhe */
+/** Mark with wordmark; spacing 0.4 x mark height */
 export function brand(size = 24, href?: string): HTMLElement {
   const content = [mark(size), h('span', { class: 'brand-word' }, 'filuflow')];
   const style = { gap: `${Math.round(size * 0.4)}px`, fontSize: size >= 30 ? `${Math.round(size * 0.9)}px` : '17px' };

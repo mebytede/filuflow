@@ -1,6 +1,6 @@
 // XML, n8n-nodes-base.xml (typeVersion 1)
-// Nachgebaut nach n8n 1.123.0 packages/nodes-base/nodes/Xml/Xml.node.ts (xml2js wie n8n)
-// Hinweis: n8n verwirft bei continueOnFail das Fehler-Item (es wird nicht ausgegeben); übernommen.
+// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/Xml/Xml.node.ts (xml2js as in n8n)
+// Note: with continueOnFail n8n discards the error item (it is not output); adopted as is.
 import { Builder, Parser } from 'xml2js';
 import type { NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
@@ -8,25 +8,25 @@ import type { Item } from '../types.js';
 import { NodeOperationError } from '../errors.js';
 import { deepCopy } from './shared/utils.js';
 
-// Parameter wie Xml.node.ts (properties)
-const attrkey: ParamSchema = { name: 'attrkey', label: 'Attributschlüssel', type: 'string', default: '$', description: 'Präfix für den Zugriff auf die Attribute' };
-const charkey: ParamSchema = { name: 'charkey', label: 'Zeichenschlüssel', type: 'string', default: '_', description: 'Präfix für den Zugriff auf den Textinhalt' };
+// Parameters as in Xml.node.ts (properties)
+const attrkey: ParamSchema = { name: 'attrkey', label: 'Attribute Key', type: 'string', default: '$', description: 'Prefix that is used to access the attributes' };
+const charkey: ParamSchema = { name: 'charkey', label: 'Character Key', type: 'string', default: '_', description: 'Prefix that is used to access the character content' };
 
 const parameters: ParamSchema[] = [
   {
     name: 'mode',
-    label: 'Modus',
+    label: 'Mode',
     type: 'options',
     default: 'xmlToJson',
-    description: 'Von welchem in welches Format umgewandelt wird',
+    description: 'From and to what format the data should be converted',
     options: [
-      { value: 'jsonToxml', label: 'JSON zu XML', description: 'Wandelt JSON in XML um' },
-      { value: 'xmlToJson', label: 'XML zu JSON', description: 'Wandelt XML in JSON um' },
+      { value: 'jsonToxml', label: 'JSON to XML', description: 'Converts data from JSON to XML' },
+      { value: 'xmlToJson', label: 'XML to JSON', description: 'Converts data from XML to JSON' },
     ],
   },
   {
     name: 'xmlNotice',
-    label: 'Liegt das XML in einer Binärdatei, wandeln Sie es zuerst mit dem Knoten "Extract from File" in Text um.',
+    label: 'If your XML is inside a binary file, use the "Extract from File" node to convert it to text first.',
     type: 'notice',
     default: '',
     show: { mode: ['xmlToJson'] },
@@ -34,27 +34,27 @@ const parameters: ParamSchema[] = [
   // jsonToxml
   {
     name: 'dataPropertyName',
-    label: 'Name der Eigenschaft',
+    label: 'Property Name',
     type: 'string',
     default: 'data',
     required: true,
-    description: 'Eigenschaft, in die das erzeugte XML geschrieben wird',
+    description: 'Name of the property to write the converted XML data to',
     show: { mode: ['jsonToxml'] },
   },
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     show: { mode: ['jsonToxml'] },
     children: [
       {
         name: 'allowSurrogateChars',
-        label: 'Surrogat-Zeichen erlauben',
+        label: 'Allow Surrogate Chars',
         type: 'boolean',
         default: false,
-        description: 'Ob Zeichen aus den Unicode-Surrogatblöcken erlaubt sind',
+        description: 'Whether to allow using characters from the Unicode surrogate blocks',
       },
       attrkey,
       {
@@ -62,64 +62,64 @@ const parameters: ParamSchema[] = [
         label: 'CDATA',
         type: 'boolean',
         default: false,
-        description: 'Ob Text bei Bedarf in <![CDATA[ ... ]]> statt maskiert ausgegeben wird',
+        description: 'Whether to wrap text nodes in <![CDATA[ ... ]]> instead of escaping when necessary',
       },
       charkey,
-      { name: 'headless', label: 'Ohne Kopf', type: 'boolean', default: false, description: 'Ob der XML-Kopf entfällt' },
-      { name: 'rootName', label: 'Name des Wurzelelements', type: 'string', default: 'root', description: 'Zu verwendender Name des Wurzelelements' },
+      { name: 'headless', label: 'Headless', type: 'boolean', default: false, description: 'Whether to omit the XML header' },
+      { name: 'rootName', label: 'Root Name', type: 'string', default: 'root', description: 'Root element name to be used' },
     ],
   },
   // xmlToJson
   {
     name: 'dataPropertyName',
-    label: 'Name der Eigenschaft',
+    label: 'Property Name',
     type: 'string',
     default: 'data',
     required: true,
-    description: 'Eigenschaft mit den umzuwandelnden XML-Daten',
+    description: 'Name of the property which contains the XML data to convert',
     show: { mode: ['xmlToJson'] },
   },
   {
     name: 'options',
-    label: 'Optionen',
+    label: 'Options',
     type: 'collection',
     default: {},
-    addLabel: 'Option hinzufügen',
+    addLabel: 'Add Option',
     show: { mode: ['xmlToJson'] },
     children: [
       attrkey,
       charkey,
       {
         name: 'explicitArray',
-        label: 'Immer Arrays',
+        label: 'Explicit Array',
         type: 'boolean',
         default: false,
-        description: 'Ob Kindknoten immer in ein Array kommen, sonst nur bei mehreren',
+        description: 'Whether to always put child nodes in an array if true; otherwise an array is created only if there is more than one',
       },
       {
         name: 'explicitRoot',
-        label: 'Wurzelknoten behalten',
+        label: 'Explicit Root',
         type: 'boolean',
         default: true,
-        description: 'Ob der Wurzelknoten im Ergebnis enthalten ist',
+        description: 'Whether to set this if you want to get the root node in the resulting object',
       },
       {
         name: 'ignoreAttrs',
-        label: 'Attribute ignorieren',
+        label: 'Ignore Attributes',
         type: 'boolean',
         default: false,
-        description: 'Ob alle XML-Attribute ignoriert und nur Textknoten erzeugt werden',
+        description: 'Whether to ignore all XML attributes and only create text nodes',
       },
       {
         name: 'mergeAttrs',
-        label: 'Attribute zusammenführen',
+        label: 'Merge Attributes',
         type: 'boolean',
         default: true,
-        description: 'Ob Attribute wie Kindelemente als Eigenschaften des Elternknotens erscheinen',
+        description: 'Whether to merge attributes and child elements as properties of the parent, instead of keying attributes off a child attribute object',
       },
-      { name: 'normalize', label: 'Normalisieren', type: 'boolean', default: false, description: 'Ob Leerraum in Textknoten getrimmt wird' },
-      { name: 'normalizeTags', label: 'Tags normalisieren', type: 'boolean', default: false, description: 'Ob alle Tag-Namen kleingeschrieben werden' },
-      { name: 'trim', label: 'Trimmen', type: 'boolean', default: false, description: 'Ob Leerraum am Anfang und Ende von Textknoten entfernt wird' },
+      { name: 'normalize', label: 'Normalize', type: 'boolean', default: false, description: 'Whether to trim whitespaces inside text nodes' },
+      { name: 'normalizeTags', label: 'Normalize Tags', type: 'boolean', default: false, description: 'Whether to normalize all tag names to lowercase' },
+      { name: 'trim', label: 'Trim', type: 'boolean', default: false, description: 'Whether to trim the whitespace at the beginning and end of text nodes' },
     ],
   },
 ];

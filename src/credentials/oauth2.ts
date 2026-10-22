@@ -1,16 +1,16 @@
-// OAuth2, Credential-Typ oAuth2Api: Grants "clientCredentials", "authorizationCode" und "pkce".
-// Nachgebaut nach n8n 1.123.0:
+// OAuth2, credential type oAuth2Api: grants "clientCredentials", "authorizationCode" and "pkce".
+// Rebuilt after n8n 1.123.0:
 //   packages/core/.../utils/request-helper-functions.ts (createOAuth2Client, requestOAuth2)
 //   packages/@n8n/client-oauth2/src (credentials-flow.ts, code-flow.ts getUri/getToken, client-oauth2.ts
 //   accessTokenRequest, client-oauth2-token.ts sign/refresh, utils.ts auth/getRequestOptions, constants.ts)
-//   packages/cli/src/controllers/oauth/oauth2-credential.controller.ts (Autorisierungs-URL, PKCE, Callback,
-//   oauthTokenData zusammenführen)
-// Feldnamen wie packages/nodes-base/credentials/OAuth2Api.credentials.ts:
+//   packages/cli/src/controllers/oauth/oauth2-credential.controller.ts (authorization URL, PKCE, callback,
+//   merging oauthTokenData)
+// Field names as in packages/nodes-base/credentials/OAuth2Api.credentials.ts:
 //   grantType, accessTokenUrl, clientId, clientSecret, scope, authentication ("header" | "body"),
 //   additionalBodyProperties
-// n8n speichert das Token im Credential und nutzt es, bis die API mit 401 antwortet; dann holt es ein
-// neues Token und wiederholt den Request einmal. filuflow hält das Token im Speicher und im Server zusätzlich in der
-// Datenbank (setOAuth2TokenStore), damit es einen Neustart übersteht.
+// n8n stores the token in the credential and uses it until the API answers with 401; then it fetches a
+// new token and repeats the request once. filuflow keeps the token in memory and, in the server, additionally in the
+// database (setOAuth2TokenStore) so that it survives a restart.
 import { createHash } from 'node:crypto';
 import qs from 'qs';
 import { credentialRefOf } from './store.js';
@@ -21,21 +21,21 @@ import { NodeOperationError } from '../errors.js';
 
 export interface OAuth2Token {
   accessToken: string;
-  /** klein geschrieben, Default "bearer" */
+  /** lowercase, default "bearer" */
   tokenType: string;
   data: Record<string, unknown>;
 }
 
 const cache = new Map<string, OAuth2Token>();
 
-/** Dauerhafte Ablage der Tokens (Server: SQLite, verschlüsselt mit FILUFLOW_ENCRYPTION_KEY); n8n speichert sie im Credential */
+/** Persistent token storage (server: SQLite, encrypted with FILUFLOW_ENCRYPTION_KEY); n8n stores them in the credential */
 export interface OAuth2TokenStore {
   get<T = unknown>(key: string): T | undefined;
   set(key: string, value: unknown): void;
   delete?(key: string): void;
 }
 
-/** Schlüssel der Token-Daten eines verbundenen Credentials (authorizationCode, pkce) */
+/** Key of the token data of a connected credential (authorizationCode, pkce) */
 export function oauth2TokenKey(ref: { name: string; id?: string }): string {
   return `oauth2-cred:${ref.id ?? ref.name}`;
 }
@@ -89,7 +89,7 @@ class OAuth2RequestError extends Error {
   }
 }
 
-/** ClientOAuth2.accessTokenRequest: POST an die Token-URL, Fehler nach RFC 6749 */
+/** ClientOAuth2.accessTokenRequest: POST to the token URL, errors per RFC 6749 */
 async function accessTokenRequest(
   http: HttpClient,
   url: string,
@@ -114,7 +114,7 @@ async function accessTokenRequest(
         const parsed = parseBody(contentType, text, res.statusCode) as { error?: string; error_description?: string };
         message = (parsed.error && (ERROR_RESPONSES[parsed.error] ?? parsed.error_description ?? parsed.error)) || message;
       } catch {
-        // Antwort nicht lesbar: Statusmeldung bleibt
+        // response not readable: the status message stays
       }
     }
     throw new OAuth2RequestError(message, text);
@@ -126,7 +126,7 @@ async function accessTokenRequest(
   }
 }
 
-/** Zusätzliche Body-Felder (additionalBodyProperties, JSON) */
+/** Additional body properties (additionalBodyProperties, JSON) */
 function additionalBody(cred: Record<string, unknown>): Record<string, unknown> {
   if (typeof cred.additionalBodyProperties === 'string' && cred.additionalBodyProperties) {
     try {
@@ -159,7 +159,7 @@ async function fetchToken(ctx: ExecContext, cred: Record<string, unknown>): Prom
   }
   const headers: Record<string, string> = {};
   const body: Record<string, unknown> = { grant_type: 'client_credentials', ...additionalBody(cred) };
-  // n8n: scopes = (scope ?? '').split(' '), daher ist "scope" immer gesetzt (ggf. leer)
+  // n8n: scopes = (scope ?? '').split(' '), so "scope" is always set (possibly empty)
   body.scope = String(cred.scope ?? '').split(' ').join(' ');
   if ((cred.authentication ?? 'header') === 'body') {
     body.client_id = clientId;
@@ -175,10 +175,10 @@ async function fetchToken(ctx: ExecContext, cred: Record<string, unknown>): Prom
   }
 }
 
-/** Redirect-URI wie n8n: <Basis>/rest/oauth2-credential/callback */
+/** Redirect URI as in n8n: <base>/rest/oauth2-credential/callback */
 export const OAUTH2_CALLBACK_PATH = 'rest/oauth2-credential/callback';
 
-/** CodeFlow.getUri mit den Optionen aus oauth2-credential.controller.ts (Scope Default "openid", authQueryParameters, PKCE) */
+/** CodeFlow.getUri with the options from oauth2-credential.controller.ts (scope default "openid", authQueryParameters, PKCE) */
 export function authorizationUrl(cred: Record<string, unknown>, o: { redirectUri: string; state: string; codeChallenge?: string }): string {
   const clientId = String(cred.clientId ?? '');
   const authUrl = String(cred.authUrl ?? '');
@@ -203,8 +203,8 @@ export function authorizationUrl(cred: Record<string, unknown>, o: { redirectUri
 }
 
 /**
- * Code gegen Token tauschen (CodeFlow.getToken mit den Optionen des Controllers): PKCE schickt code_verifier,
- * "body" schickt client_id und client_secret im Body, sonst Basic-Auth. Liefert die Token-Daten.
+ * Exchange the code for a token (CodeFlow.getToken with the options of the controller): PKCE sends code_verifier,
+ * "body" sends client_id and client_secret in the body, otherwise Basic Auth. Returns the token data.
  */
 export async function exchangeAuthorizationCode(
   http: HttpClient,
@@ -231,9 +231,9 @@ export async function exchangeAuthorizationCode(
 }
 
 /**
- * Zusatzoptionen von requestOAuth2 (n8n IOAuth2Options): Token-Typ erzwingen, Token aus einem anderen Feld der
- * Token-Daten, "Bearer" weglassen, Token zusätzlich in einem eigenen Header, Client-Daten beim Refresh im Body,
- * anderer Statuscode für abgelaufene Tokens
+ * Extra options of requestOAuth2 (n8n IOAuth2Options): force the token type, token from another field of the
+ * token data, omit "Bearer", token additionally in a custom header, client data in the body on refresh,
+ * different status code for expired tokens
  */
 export interface OAuth2RequestOptions {
   tokenType?: string;
@@ -245,7 +245,7 @@ export interface OAuth2RequestOptions {
 }
 
 /**
- * Optionen je Credential-Typ, die der HTTP Request (vordefinierter Typ) und das HTTP Request Tool mitgeben, wie
+ * Options per credential type that HTTP Request (predefined type) and the HTTP Request Tool pass along, as in
  * n8n-nodes-base 1.121.0 nodes/HttpRequest/GenericFunctions.ts getOAuth2AdditionalParameters
  */
 const SERVICE_OAUTH2_OPTIONS: Record<string, OAuth2RequestOptions> = {
@@ -273,10 +273,10 @@ export function oauth2ServiceOptions(type: string): OAuth2RequestOptions | undef
   return SERVICE_OAUTH2_OPTIONS[type];
 }
 
-/** lodash get mit Punkt-Pfad */
+/** lodash get with a dot path */
 const getPath = (obj: unknown, path: string): unknown => path.split('.').reduce<unknown>((o, k) => (o && typeof o === 'object' ? (o as Record<string, unknown>)[k] : undefined), obj);
 
-/** requestOAuth2: Token aus property, Token-Typ aus den Optionen (createToken, danach klein geschrieben) */
+/** requestOAuth2: token from property, token type from the options (createToken, then lowercased) */
 function withOptions(token: OAuth2Token, options?: OAuth2RequestOptions): OAuth2Token {
   if (!options) return token;
   const fromProperty = options.property ? getPath(token.data, options.property) : undefined;
@@ -287,7 +287,7 @@ function withOptions(token: OAuth2Token, options?: OAuth2RequestOptions): OAuth2
   };
 }
 
-/** ClientOAuth2Token.refresh: neue Token-Daten, zusammengeführt mit den alten (refresh_token bleibt, wenn keiner kommt) */
+/** ClientOAuth2Token.refresh: new token data, merged with the old (refresh_token stays if none is returned) */
 export async function refreshOAuth2Token(
   http: HttpClient,
   cred: Record<string, unknown>,
@@ -311,13 +311,13 @@ export async function refreshOAuth2Token(
   } else {
     body.client_id = clientId;
   }
-  // includeCredentialsOnRefreshOnBody: client_id und client_secret zusätzlich im Body (der Basic-Header bleibt)
+  // includeCredentialsOnRefreshOnBody: client_id and client_secret additionally in the body (the Basic header stays)
   const extra = options?.includeCredentialsOnRefreshOnBody ? { client_id: cred.clientId, client_secret: cred.clientSecret } : {};
   const fresh = await accessTokenRequest(http, String(cred.accessTokenUrl ?? ''), headers, { ...body, ...additionalBody(cred), ...extra }, signal);
   return { ...data, ...fresh };
 }
 
-/** Token-Daten eines verbundenen Credentials: gespeichert (Server) oder aus dem Credential (n8n-Export) */
+/** Token data of a connected credential: stored (server) or from the credential (n8n export) */
 export function connectedTokenData(cred: Record<string, unknown>, ref?: { name: string; id?: string }): Record<string, unknown> | undefined {
   const stored = ref ? tokenStore?.get<Record<string, unknown>>(oauth2TokenKey(ref)) : undefined;
   if (stored && Object.keys(stored).length) return stored;
@@ -333,7 +333,7 @@ export function connectedTokenData(cred: Record<string, unknown>, ref?: { name: 
   return undefined;
 }
 
-/** Token aus dem Cache oder neu holen; force = nach 401 neu holen; options wie requestOAuth2 */
+/** Token from the cache or fetched anew; force = fetch again after 401; options as in requestOAuth2 */
 export async function getOAuth2Token(ctx: ExecContext, cred: Record<string, unknown>, force = false, options?: OAuth2RequestOptions): Promise<OAuth2Token> {
   return withOptions(await loadOAuth2Token(ctx, cred, force, options), options);
 }
@@ -341,12 +341,12 @@ export async function getOAuth2Token(ctx: ExecContext, cred: Record<string, unkn
 async function loadOAuth2Token(ctx: ExecContext, cred: Record<string, unknown>, force: boolean, options?: OAuth2RequestOptions): Promise<OAuth2Token> {
   const grantType = String(cred.grantType ?? 'authorizationCode');
   if (grantType === 'authorizationCode' || grantType === 'pkce') {
-    // requestOAuth2: Token aus oauthTokenData, nach 401 mit dem refresh_token erneuern und speichern
+    // requestOAuth2: token from oauthTokenData, after 401 renew with the refresh_token and store
     const ref = credentialRefOf(cred);
     const data = connectedTokenData(cred, ref);
     if (!data) {
       throw new NodeOperationError(ctx.node.name, 'OAuth credentials not connected', {
-        description: 'Das Credential ist noch nicht verbunden: in der Oberfläche unter Credentials auf "Verbinden" klicken.',
+        description: 'The credential is not connected yet: click "Connect" under Credentials in the web interface.',
       });
     }
     if (!force) return toToken(data);
@@ -361,7 +361,7 @@ async function loadOAuth2Token(ctx: ExecContext, cred: Record<string, unknown>, 
     return toToken(fresh);
   }
   if (grantType !== 'clientCredentials') {
-    throw new NodeOperationError(ctx.node.name, `OAuth2: Grant-Typ "${grantType}" wird nicht unterstützt`);
+    throw new NodeOperationError(ctx.node.name, `OAuth2: grant type "${grantType}" is not supported`);
   }
   const key = cacheKey(cred);
   if (!force) {
@@ -378,8 +378,8 @@ async function loadOAuth2Token(ctx: ExecContext, cred: Record<string, unknown>, 
 }
 
 /**
- * Request signieren wie requestOAuth2: ClientOAuth2Token.sign, danach keepBearer und keyToIncludeInAccessTokenHeader.
- * Nach einem Refresh signiert n8n nur neu und setzt den Zusatz-Header mit dem bisherigen Token (previous).
+ * Sign the request like requestOAuth2: ClientOAuth2Token.sign, then keepBearer and keyToIncludeInAccessTokenHeader.
+ * After a refresh n8n only re-signs and sets the extra header with the previous token (previous).
  */
 export function signOAuth2Request(request: HttpRequest, token: OAuth2Token, nodeName: string, options?: OAuth2RequestOptions, previous?: OAuth2Token): HttpRequest {
   const signed = signRequest(request, token, nodeName);

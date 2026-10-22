@@ -1,4 +1,4 @@
-// Datentypen der Weboberfläche (Teilmenge von src/types.ts und den API-Antworten).
+// Data types of the web interface (subset of src/types.ts and the API responses).
 
 export interface SourceData {
   previousNode: string;
@@ -41,7 +41,7 @@ export interface Connection {
   index: number;
 }
 
-/** connections[Quelle][Typ][Ausgang] = Ziele */
+/** connections[source][type][output] = targets */
 export type Connections = Record<string, Record<string, Array<Connection[] | null>>>;
 
 export interface Workflow {
@@ -96,11 +96,11 @@ export interface NodeTypeInfo {
   aiOutput?: string;
   outputs: number;
   group: string;
-  /** Parameterbeschreibung für das Formular (src/nodes/params.ts) */
+  /** Parameter description for the form (src/nodes/params.ts) */
   parameters?: ParamSchema[];
 }
 
-// Spiegel von src/nodes/params.ts (die Oberfläche wird getrennt übersetzt)
+// Mirror of src/nodes/params.ts (the interface is compiled separately)
 export interface ParamCondition {
   gte?: number;
   gt?: number;
@@ -165,11 +165,11 @@ export interface CredentialInfo {
   type?: string;
 }
 
-/** Beschreibung eines Credential-Typs (Server: src/credentials/types.ts) */
+/** Description of a credential type (server: src/credentials/types.ts) */
 export interface CredentialField {
   name: string;
   label: string;
-  /** hidden: feste Werte des Typs, ohne Eingabe */
+  /** hidden: fixed values of the type, no input */
   kind: 'string' | 'password' | 'text' | 'options' | 'boolean' | 'json' | 'hidden';
   default?: string | boolean;
   required?: boolean;
@@ -185,30 +185,30 @@ export interface CredentialTypeSchema {
   label: string;
   description: string;
   fields: CredentialField[];
-  /** OAuth-Typ (auch abgeleitet, z. B. googleOAuth2Api): Verbinden in der Liste */
+  /** OAuth type (also derived, e.g. googleOAuth2Api): connect from the list */
   oauth?: 1 | 2;
 }
 
-/** Listeneintrag der Credential-Verwaltung */
+/** List entry of the credential management */
 export interface CredentialListEntry extends CredentialInfo {
   managed: boolean;
   usedBy?: string[];
-  /** OAuth2 mit Authorization Code / PKCE oder OAuth1: verbunden? */
+  /** OAuth2 with authorization code / PKCE or OAuth1: connected? */
   oauth?: { version?: 1 | 2; grantType?: string; connected: boolean };
-  /** Master: freigegebene Projekte beim Worker (null: alle Projekte des Workers) */
+  /** Master: projects shared on the worker (null: all projects of the worker) */
   projects?: string[] | null;
-  /** Master: gemeinsames Credential aus dem Master (M33) */
+  /** Master: shared credential from the master (M33) */
   shared?: boolean;
 }
 
-/** Variable für $vars (GET /api/variables) */
+/** Variable for $vars (GET /api/variables) */
 export interface VariableEntry {
   key: string;
   value: string;
   source: 'file' | 'managed';
 }
 
-/** Ergebnis von POST /api/credentials/import */
+/** Result of POST /api/credentials/import */
 export interface CredentialImportResult {
   imported: string[];
   skipped: Array<{ name: string; reason: string }>;
@@ -222,14 +222,14 @@ export interface CredentialList {
   oauth1CallbackUrl?: string;
 }
 
-/** Beschreibung der Typen und Rückleitungs-URLs für OAuth2 und OAuth1 */
+/** Description of the types and redirect URLs for OAuth2 and OAuth1 */
 export interface CredentialTypeCatalog {
   data: CredentialTypeSchema[];
   oauthCallbackUrl?: string;
   oauth1CallbackUrl?: string;
 }
 
-/** Einzelansicht ohne Geheimnisse */
+/** Detail view without secrets */
 export interface CredentialDetail extends CredentialListEntry {
   data: Record<string, unknown>;
   secretsSet: string[];
@@ -238,14 +238,14 @@ export interface CredentialDetail extends CredentialListEntry {
 export interface CredentialSaveBody {
   type: string;
   data: Record<string, unknown>;
-  /** geheime Felder, deren gespeicherter Wert bleibt */
+  /** secret fields whose stored value is kept */
   keep: string[];
   rename?: string;
-  /** nur anlegen: vorhandenes Credential gleichen Namens nicht ersetzen */
+  /** create only: do not replace an existing credential with the same name */
   create?: boolean;
-  /** Master: beim Anlegen im Projekt-Editor nur für dieses Projekt freigeben */
+  /** Master: when created in the project editor, share with this project only */
   project?: string;
-  /** Master: gemeinsames Credential, an diese Worker verteilen (M33) */
+  /** Master: shared credential, distribute to these workers (M33) */
   workers?: string[];
 }
 
@@ -271,7 +271,7 @@ export interface Execution {
   error?: { message: string; description?: string | null; node?: string };
   runData?: Record<string, TaskData[]>;
   workflow?: Workflow;
-  /** Status "waiting": Fortsetzen spätestens dann; 3000-01-01 = bis zum Aufruf des Webhooks */
+  /** Status "waiting": resume at the latest then; 3000-01-01 = until the webhook is called */
   waitTill?: string;
 }
 
@@ -287,7 +287,7 @@ export interface WorkflowSummary {
   schedules: unknown[];
   triggers?: Array<{ kind: 'webhook' | 'schedule' | 'error' | 'manual' | 'workflow' | 'chat' | 'form' | 'other'; label: string }>;
   valid?: boolean;
-  /** Erster Validierungsfehler (ungültige Workflows) */
+  /** First validation error (invalid workflows) */
   problem?: string;
 }
 
@@ -314,7 +314,7 @@ export interface WorkflowStatus extends WorkflowSummary {
   issues: ValidationIssue[];
 }
 
-/** Installiertes Community-Paket (GET /api/community-packages) */
+/** Installed community package (GET /api/community-packages) */
 export interface CommunityPackage {
   packageName: string;
   installedVersion: string;
@@ -322,7 +322,7 @@ export interface CommunityPackage {
   installedCredentials: string[];
   createdAt: string;
   updatedAt: string;
-  /** Knoten des Pakets, die filuflow nicht laden konnte */
+  /** Nodes of the package that filuflow could not load */
   warnings?: string[];
 }
 
@@ -331,7 +331,7 @@ export interface CommunityPackageList {
   data: CommunityPackage[];
 }
 
-// Aufseher (M35 bis M38)
+// Supervisor (M35 to M38)
 export type SupervisorSeverity = 'error' | 'warning' | 'info';
 
 export interface SupervisorFinding {
@@ -350,11 +350,11 @@ export interface SupervisorFinding {
   proposalId?: string;
   firstSeen: string;
   lastSeen: string;
-  /** Master: Worker, auf dem der Hinweis entstand */
+  /** Master: worker on which the finding originated */
   workerId?: string;
   workerName?: string;
   projectId?: string;
-  /** Master: darf die Person analysieren, Vorschläge erstellen, verwerfen? */
+  /** Master: may the person analyze, create proposals, discard? */
   canUse?: boolean;
 }
 
@@ -385,7 +385,7 @@ export interface SupervisorStatus {
   proposals: number;
   lastScan?: string;
   lastReport?: string;
-  /** Master: Worker insgesamt und mit Modell, nicht erreichbare Worker */
+  /** Master: workers in total and with a model, unreachable workers */
   workers?: { total: number; withModel: number };
   errors?: string[];
 }
@@ -429,7 +429,7 @@ export interface SupervisorProposal {
   workerId?: string;
   workerName?: string;
   projectId?: string;
-  /** Master: Rechte der Person für diesen Vorschlag */
+  /** Master: the person's permissions for this proposal */
   canAccept?: boolean;
   canUse?: boolean;
 }
@@ -437,6 +437,6 @@ export interface SupervisorProposal {
 export interface SupervisorChatMessage {
   role: 'user' | 'assistant';
   content: string;
-  /** Vorschlag, den der Aufseher in dieser Antwort erstellt hat */
+  /** Proposal the supervisor created in this reply */
   proposalId?: string;
 }

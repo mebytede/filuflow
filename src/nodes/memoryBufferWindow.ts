@@ -6,7 +6,7 @@ import { NodeOperationError } from '../errors.js';
 import { BufferWindowMemory } from '../ai/memory.js';
 import type { ParamSchema } from './params.js';
 
-// Parameters as in MemoryBufferWindow.node.ts (properties) und memory/descriptions.ts (sessionIdOption,
+// Parameters as in MemoryBufferWindow.node.ts (properties) and memory/descriptions.ts (sessionIdOption,
 // expressionSessionKeyProperty(1.3), sessionKeyProperty, contextWindowLengthProperty), n8n 1.123.0.
 // In n8n "Session Key From Previous Node" is locked (disabledOptions); here it is a normal text field.
 const parameters: ParamSchema[] = [

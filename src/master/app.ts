@@ -1,6 +1,6 @@
-// Master-Server (M9): Weboberfläche und API für mehrere Benutzer mit Rechten, Projekten und Workflows.
-// Ausgeführt wird auf den Workern in den Umgebungen der Mandanten (siehe workers.ts); der Master selbst führt
-// keine Workflows aus und hält keine Credentials oder Ausführungsdaten.
+// Master server (M9): web interface and API for multiple users with permissions, projects and workflows.
+// Execution happens on the workers in the tenants' environments (see workers.ts); the master itself runs
+// no workflows and holds no credentials or execution data.
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import { OAUTH2_CALLBACK_PATH } from '../credentials/oauth2.js';
 import { OAUTH1_CALLBACK_PATH } from '../credentials/oauth1.js';
@@ -25,18 +25,18 @@ import { OidcClient } from './oidc.js';
 
 export interface MasterOptions {
   dbFile: string;
-  /** FILUFLOW_ENCRYPTION_KEY: verschlüsselt TOTP-Schlüssel und Worker-Tokens in der Datenbank */
+  /** FILUFLOW_ENCRYPTION_KEY: encrypts TOTP keys and worker tokens in the database */
   encryptionKey: string;
-  /** Öffentliche Adresse des Masters (für Cookies mit Secure und OIDC-Redirect) */
+  /** Public address of the master (for cookies with Secure and the OIDC redirect) */
   publicUrl: string;
   uiDir?: string | false;
   logger?: Logger;
   sessionIdleHours?: number;
   sessionMaxDays?: number;
   oidc?: OidcConfig;
-  /** Abgleich mit den Workern (ms, 0 = aus) */
+  /** Sync with the workers (ms, 0 = off) */
   syncIntervalMs?: number;
-  /** X-Forwarded-For auswerten (nur hinter einem Reverse Proxy, sonst könnte jeder seine IP vorgeben) */
+  /** Evaluate X-Forwarded-For (only behind a reverse proxy, otherwise anyone could fake their IP) */
   trustProxy?: boolean;
 }
 
@@ -44,7 +44,7 @@ export interface MasterServer {
   app: FastifyInstance;
   db: MasterDb;
   hub: WorkerHub;
-  /** Einmal-Token für die Einrichtung des ersten Admins (nur solange es keine Benutzer gibt) */
+  /** One-time token for setting up the first admin (only while there are no users) */
   setupToken?: string;
   close(): Promise<void>;
 }
@@ -64,20 +64,20 @@ export interface MasterContext {
   oidc?: OidcClient;
   publicUrl: string;
   secureCookies: boolean;
-  /** Offene OAuth2-Verbindungen beim Worker (state -> Worker) */
+  /** Pending OAuth2 connections on the worker (state -> worker) */
   oauthPending: Map<string, { workerId: string; userId: string; at: number }>;
   loginLimiter: RateLimiter;
   getSetupToken(): string | undefined;
   clearSetupToken(): void;
   audit(request: FastifyRequest, action: string, target?: string | null, details?: unknown): void;
-  /** Anmeldung verlangen; sendet 401/403 und liefert undefined, wenn nicht erlaubt */
+  /** Require login; sends 401/403 and returns undefined if not allowed */
   requireUser(request: FastifyRequest, reply: FastifyReply): AuthContext | undefined;
   requireAdmin(request: FastifyRequest, reply: FastifyReply): AuthContext | undefined;
 }
 
-/** Routen, die ohne vollständige Anmeldung erreichbar sind */
+/** Routes reachable without complete login */
 const PUBLIC_ROUTES = ['/api/auth/'];
-/** Routen, die bei Pflicht-TOTP ohne eingerichtetes TOTP erlaubt sind */
+/** Routes allowed with mandatory TOTP when TOTP is not yet set up */
 const TOTP_SETUP_ROUTES = ['/api/me', '/api/me/totp/setup', '/api/me/totp/enable'];
 
 export async function createMasterServer(options: MasterOptions): Promise<MasterServer> {
@@ -88,7 +88,7 @@ export async function createMasterServer(options: MasterOptions): Promise<Master
   const sessions = new Sessions(db, { idleHours: options.sessionIdleHours ?? 12, maxDays: options.sessionMaxDays ?? 7, secureCookies });
   let setupToken: string | undefined = db.countUsers() === 0 ? randomToken() : undefined;
   const hub = new WorkerHub({ db, secrets, logger });
-  /** Offene OAuth2-Verbindungen: state des Workers -> Worker (10 Minuten) */
+  /** Pending OAuth2 connections: worker state -> worker (10 minutes) */
   const oauthPending = new Map<string, { workerId: string; userId: string; at: number }>();
   const oidc = options.oidc ? new OidcClient(options.oidc) : undefined;
 
@@ -115,7 +115,7 @@ export async function createMasterServer(options: MasterOptions): Promise<Master
     },
     requireUser(request, reply) {
       if (!request.auth) {
-        void reply.code(401).send({ message: 'Nicht angemeldet' });
+        void reply.code(401).send({ message: 'Not logged in' });
         return undefined;
       }
       return request.auth;
@@ -124,7 +124,7 @@ export async function createMasterServer(options: MasterOptions): Promise<Master
       const auth = ctx.requireUser(request, reply);
       if (!auth) return undefined;
       if (auth.user.role !== 'admin') {
-        void reply.code(403).send({ message: 'Nur für Administratoren' });
+        void reply.code(403).send({ message: 'Administrators only' });
         return undefined;
       }
       return auth;
@@ -132,7 +132,7 @@ export async function createMasterServer(options: MasterOptions): Promise<Master
   };
 
   app.get('/healthz', async () => ({ status: 'ok', mode: 'master' }));
-  // OAuth2- und OAuth1-Rückleitung: der Master reicht die Werte samt state an den Worker weiter, der das Credential hält
+  // OAuth2 and OAuth1 callback: the master forwards the values including state to the worker that holds the credential
   for (const [path, version] of [
     [OAUTH2_CALLBACK_PATH, 'oauth2'],
     [OAUTH1_CALLBACK_PATH, 'oauth1'],
@@ -147,7 +147,7 @@ export async function createMasterServer(options: MasterOptions): Promise<Master
       try {
         const result = (await hub.call(worker, 'POST', `/api/worker/credentials/${version}/callback`, query, 60_000)) as { credential: string };
         db.audit({ userId: pending!.userId, email: null, action: 'worker.credential_oauth_connected', target: worker.id, details: { name: result.credential } });
-        return reply.send(oauthCallbackPage(true, `Das Credential "${result.credential}" ist beim Worker verbunden. Sie können dieses Fenster schließen.`));
+        return reply.send(oauthCallbackPage(true, `The credential "${result.credential}" is connected on the worker. You can close this window.`));
       } catch (error) {
         return reply.code(400).send(oauthCallbackPage(false, (error as Error).message));
       }
@@ -156,22 +156,22 @@ export async function createMasterServer(options: MasterOptions): Promise<Master
   if (options.uiDir !== false) registerUi(app, options.uiDir);
 
   await app.register(async (api) => {
-    // Anmeldung prüfen, CSRF-Schutz für Sitzungen, Pflicht-TOTP
+    // Check login, CSRF protection for sessions, mandatory TOTP
     api.addHook('preHandler', async (request, reply) => {
       const path = request.url.split('?')[0];
       if (!path.startsWith('/api/')) return;
       const auth = sessions.authenticate(request);
       if (auth && !('mfaPending' in auth)) request.auth = auth;
       const unsafe = !['GET', 'HEAD', 'OPTIONS'].includes(request.method);
-      // Alles außer API-Token-Requests (auch die Anmeldung selbst) braucht den CSRF-Header
+      // Everything except API token requests (including the login itself) needs the CSRF header
       if (unsafe && request.auth?.via !== 'token' && request.headers[CSRF_HEADER] !== '1') {
-        return reply.code(403).send({ message: 'CSRF-Prüfung fehlgeschlagen' });
+        return reply.code(403).send({ message: 'CSRF check failed' });
       }
       if (PUBLIC_ROUTES.some((p) => path.startsWith(p))) return;
-      if (!request.auth) return reply.code(401).send({ message: 'Nicht angemeldet' });
+      if (!request.auth) return reply.code(401).send({ message: 'Not logged in' });
       const user = request.auth.user;
       if (db.getSetting('requireTotp') === 'true' && user.password_hash && !user.totp_enabled && request.auth.via === 'session' && !TOTP_SETUP_ROUTES.includes(path)) {
-        return reply.code(403).send({ message: 'Zwei-Faktor-Anmeldung muss eingerichtet werden', code: 'totp_required' });
+        return reply.code(403).send({ message: 'Two-factor authentication must be set up', code: 'totp_required' });
       }
     });
     registerAuthRoutes(api, ctx);

@@ -1,6 +1,6 @@
-// Aufseher im Master (M38): Seite "Aufseher" für alle Benutzer mit Hinweisen und Vorschlägen der Worker (nach Rechten
-// gefiltert), Verwaltung je Worker für Admins (Einstellungen, Berichte, Prüfung) und das Aufseher-Fenster im Editor.
-// Vorschläge werden im Master angenommen und ergeben eine neue Version.
+// Supervisor in the master (M38): "Supervisor" page for all users with the workers' findings and proposals (filtered by
+// permissions), per-worker administration for admins (settings, reports, scan) and the supervisor window in the editor.
+// Proposals are accepted in the master and result in a new version.
 import { ApiError, request } from '../api.js';
 import { dialog, h } from '../dom.js';
 import { pageHead } from '../shell.js';
@@ -9,11 +9,12 @@ import { supervisorView, type SupervisorBackend } from '../views/supervisor.js';
 import type { SupervisorChatBackend } from '../editor/supervisorDrawer.js';
 import { adminTabs } from './admin.js';
 import { mapi } from './api.js';
+import { t } from '../i18n.js';
 
 const e = encodeURIComponent;
 type Errors = Array<{ workerName: string; message: string }>;
 
-/** Vorschlag annehmen; neue Workflows brauchen ein Projekt (Auswahl, wenn mehrere in Frage kommen) */
+/** Accept a proposal; new workflows need a project (choice when several are possible) */
 async function accept(p: SupervisorProposal, projectId?: string): Promise<SupervisorProposal> {
   const url = `/api/supervisor/workers/${e(p.workerId!)}/proposals/${e(p.id)}/accept`;
   try {
@@ -21,19 +22,19 @@ async function accept(p: SupervisorProposal, projectId?: string): Promise<Superv
   } catch (error) {
     const projects = (error instanceof ApiError ? (error.body as { projects?: Array<{ id: string; name: string }> } | undefined)?.projects : undefined) ?? [];
     if (!(error instanceof ApiError) || error.status !== 400 || !projects.length) throw error;
-    const select = h('select', { class: 'param-input', 'aria-label': 'Projekt' }, ...projects.map((x) => h('option', { value: x.id }, x.name)));
-    const chosen = await dialog<string>('Projekt wählen', h('div', { class: 'form' }, h('p', null, `In welchem Projekt soll der Workflow "${p.workflowName}" entstehen?`), h('label', { class: 'field' }, h('span', null, 'Projekt'), select)), {
-      confirm: 'Anlegen',
+    const select = h('select', { class: 'param-input', 'aria-label': t('Project') }, ...projects.map((x) => h('option', { value: x.id }, x.name)));
+    const chosen = await dialog<string>(t('Choose project'), h('div', { class: 'form' }, h('p', null, t('In which project should the workflow "{name}" be created?', { name: p.workflowName })), h('label', { class: 'field' }, h('span', null, t('Project')), select)), {
+      confirm: t('Create'),
       onConfirm: () => select.value,
     });
-    if (!chosen) throw new Error('Abgebrochen', { cause: error });
+    if (!chosen) throw new Error(t('Canceled'), { cause: error });
     return request<SupervisorProposal>('POST', url, { projectId: chosen });
   }
 }
 
 const proposalPath = (p: SupervisorProposal, rest = '') => `/api/supervisor/workers/${e(p.workerId!)}/proposals/${e(p.id)}${rest}`;
 
-/** Alle Worker, nach Rechten gefiltert */
+/** All workers, filtered by permissions */
 export const masterSupervisorBackend: SupervisorBackend = {
   async status(): Promise<SupervisorStatus> {
     const [overview, findings, proposals] = await Promise.all([
@@ -66,7 +67,7 @@ export const masterSupervisorBackend: SupervisorBackend = {
   executionHref: (id, item) => (item?.projectId ? `#/project/${e(item.projectId)}/execution/${e(id)}` : undefined),
 };
 
-/** Ein Worker über die Verwaltung (nur globale Admins): auch Einstellungen, Berichte, Prüfung */
+/** One worker via administration (global admins only): also settings, reports, scan */
 export function workerSupervisorBackend(workerId: string): SupervisorBackend {
   const base = `/api/admin/workers/${e(workerId)}/supervisor`;
   return {
@@ -96,7 +97,7 @@ export function masterSupervisorPage(tab: string, params: URLSearchParams): Prom
     masterSupervisorBackend,
     '#/supervisor',
     undefined,
-    'Der Aufseher jedes Workers beobachtet dessen Workflows und Ausführungen, erklärt Probleme und schlägt Verbesserungen vor. Sie sehen die Workflows, für die Sie Rechte haben. Angenommene Vorschläge werden eine neue Version im Master.',
+    t("Each worker's supervisor watches its workflows and executions, explains problems and suggests improvements. You see the workflows you have permissions for. Accepted proposals become a new version in the master."),
   );
 }
 
@@ -105,14 +106,14 @@ export async function workerSupervisorPage(workerId: string, tab: string, params
   const head = h(
     'div',
     null,
-    pageHead('Verwaltung', `Aufseher: ${worker?.name ?? workerId}`),
+    pageHead(t('Administration'), t('Supervisor: {name}', { name: worker?.name ?? workerId })),
     adminTabs('tenants'),
-    h('p', null, h('a', { href: `#/admin/worker/${e(workerId)}`, class: 'muted small' }, `Zurück zum Worker ${worker?.name ?? ''}`)),
+    h('p', null, h('a', { href: `#/admin/worker/${e(workerId)}`, class: 'muted small' }, t('Back to worker {name}', { name: worker?.name ?? '' }))),
   );
-  return supervisorView(tab, params, workerSupervisorBackend(workerId), `#/admin/worker/${e(workerId)}/supervisor`, head, 'Einstellungen, Berichte und Hinweise des Aufsehers bei diesem Worker. Das Modell nutzt ein Credential des Workers.');
+  return supervisorView(tab, params, workerSupervisorBackend(workerId), `#/admin/worker/${e(workerId)}/supervisor`, head, t("Settings, reports and findings of the supervisor on this worker. The model uses one of the worker's credentials."));
 }
 
-/** Aufseher-Fenster im Editor des Masters */
+/** Supervisor window in the master's editor */
 export function masterChatBackend(projectId: string, canAccept: boolean): SupervisorChatBackend {
   return {
     chat: (body) => request<{ reply: string; proposals: SupervisorProposal[] }>('POST', '/api/supervisor/chat', { ...body, projectId }),

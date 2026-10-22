@@ -1,4 +1,4 @@
-// REST-Client der Weboberfläche. Der API-Key liegt im localStorage dieses Browsers.
+// REST client of the web interface. The API key is stored in this browser's localStorage.
 import type {
   CommunityPackage,
   CommunityPackageList,
@@ -27,7 +27,7 @@ import type {
 } from './types.js';
 
 const KEY_STORAGE = 'filuflow.apiKey';
-/** Schlüssel vor der Umbenennung in filuflow: einmal übernehmen */
+/** Key from before the rename to filuflow: migrate once */
 const LEGACY_KEY_STORAGE = 'flowlite.apiKey';
 
 export class ApiError extends Error {
@@ -59,20 +59,20 @@ export function setApiKey(key: string | null): void {
     if (key) localStorage.setItem(KEY_STORAGE, key);
     else localStorage.removeItem(KEY_STORAGE);
   } catch {
-    // Speicher nicht verfügbar: Schlüssel gilt nur für diese Seite
+    // Storage unavailable: the key applies to this page only
   }
   memoryKey = key;
 }
 
 let memoryKey: string | null = null;
 
-/** Wird bei 401 aufgerufen (Anmeldung anzeigen) */
+/** Called on 401 (show login) */
 let onUnauthorized: () => void = () => undefined;
 export function setUnauthorizedHandler(fn: () => void): void {
   onUnauthorized = fn;
 }
 
-/** Request an die API; im Master-Modus gilt das Sitzungs-Cookie, der CSRF-Header ist dort Pflicht */
+/** Request to the API; in master mode the session cookie applies and the CSRF header is required there */
 export async function request<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   const key = getApiKey() ?? memoryKey;
   const res = await fetch(path, {
@@ -109,7 +109,7 @@ export const api = {
   save: (id: string, workflow: Workflow) => request<WorkflowStatus>('PUT', `/api/workflows/${encodeURIComponent(id)}`, workflow),
   remove: (id: string) => request<void>('DELETE', `/api/workflows/${encodeURIComponent(id)}`),
   inspect: (workflow: Workflow) => request<InspectResult>('POST', '/api/editor/inspect', { workflow }),
-  /** Auf den nächsten Aufruf einer Test-URL warten (undefined: Zeit abgelaufen) */
+  /** Wait for the next call of a test URL (undefined: timed out) */
   listen: (workflow: Workflow, signal?: AbortSignal) => request<Execution | undefined>('POST', '/api/editor/listen', { workflow, timeout: 300 }, signal),
   run: (workflow: Workflow, trigger?: string, input?: unknown, destination?: string) =>
     request<Execution>('POST', '/api/editor/run', { workflow, trigger, input, ...(destination ? { destination } : {}) }),

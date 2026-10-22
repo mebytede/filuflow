@@ -1,5 +1,5 @@
-// Datenobjekt mit allen Expression-Variablen ($json, $input, $('Node') …).
-// Verhalten und Fehlermeldungen nachgebaut nach n8n 1.123.0
+// Data object with all expression variables ($json, $input, $('Node') …).
+// Behavior and error messages rebuilt after n8n 1.123.0
 // packages/workflow/src/workflow-data-proxy.ts (WorkflowDataProxy.getDataProxy).
 import { DateTime, Duration, Interval, Settings } from 'luxon';
 import jmespath from 'jmespath';
@@ -43,12 +43,12 @@ export interface ProxyState {
   env?: Record<string, string | undefined>;
   contextNodeName?: string;
   defaultReturnRunIndex?: number;
-  /** Wertet einen Parameterwert (ggf. Expression) im selben Kontext aus */
+  /** Evaluates a parameter value (possibly an expression) in the same context */
   resolveParameter: (value: unknown, itemIndex: number, runIndex: number) => unknown;
-  /** Kontext eines Nodes (n8n getContext('node')) */
+  /** Context of a node (n8n getContext('node')) */
   getNodeContext?: (nodeName: string) => Record<string, unknown>;
   selfData?: Record<string, unknown>;
-  /** Argumente eines Tool-Aufrufs für $fromAI (sonst die Eingangsdaten des Items) */
+  /** Arguments of a tool call for $fromAI (otherwise the item's input data) */
   fromAIData?: Record<string, unknown>;
 }
 
@@ -66,7 +66,7 @@ function normalizePairedItems(paired: Item['pairedItem'] | null | undefined): Pa
 type PairedItemMethod = 'pairedItem' | 'itemMatching' | 'item' | '$getPairedItem';
 
 export function createDataProxy(state: ProxyState): Record<string, unknown> {
-  // n8n workflow-data-proxy.ts handleFromAi: Wert aus den Tool-Argumenten (auch unter "query"), sonst Default
+  // n8n workflow-data-proxy.ts handleFromAi: value from the tool arguments (also under "query"), otherwise the default
   const handleFromAi = (name: string, _description?: string, _type = 'string', defaultValue?: unknown): unknown => {
     if (!name || name === '') {
       throw new ExpressionError("Add a key, e.g. $fromAI('placeholder_name')", { nodeName: state.activeNodeName });
@@ -323,7 +323,7 @@ export function createDataProxy(state: ProxyState): Record<string, unknown> {
         itemIndex: s.itemIndex,
       });
     }
-    // jmespath erwartet echte JSON-Werte
+    // jmespath expects real JSON values
     const plain = JSON.parse(JSON.stringify(Array.isArray(data) ? data : { ...(data as object) })) as Parameters<typeof jmespath.search>[0];
     return jmespath.search(plain, query);
   };
@@ -620,7 +620,7 @@ export function createDataProxy(state: ProxyState): Record<string, unknown> {
   });
 }
 
-/** Freigegebene Umgebungsvariablen für $env (FILUFLOW_ENV_ALLOW, Default: Präfix FL_) */
+/** Allowed environment variables for $env (FILUFLOW_ENV_ALLOW, default: prefix FL_) */
 export function allowedEnv(env: NodeJS.ProcessEnv = process.env): Record<string, string | undefined> {
   const spec = env.FILUFLOW_ENV_ALLOW;
   const rules = (spec ?? 'FL_*')

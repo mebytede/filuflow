@@ -1,5 +1,5 @@
-// filuflow executions list [--workflow <id|name>] [--status <s>] [--limit n] [--json] [--db pfad]
-// filuflow executions show <id> [--json] [--db pfad]
+// filuflow executions list [--workflow <id|name>] [--status <s>] [--limit n] [--json] [--db path]
+// filuflow executions show <id> [--json] [--db path]
 import { parseArgs } from 'node:util';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -7,9 +7,9 @@ import { ExecutionStore } from '../server/store.js';
 import { formatSummary } from './run.js';
 import type { Execution } from '../types.js';
 
-const USAGE = `Aufruf:
-  filuflow executions list [--workflow <id|name>] [--status <status>] [--limit <n>] [--json] [--db <pfad>]
-  filuflow executions show <id> [--json] [--db <pfad>]
+const USAGE = `Usage:
+  filuflow executions list [--workflow <id|name>] [--status <status>] [--limit <n>] [--json] [--db <path>]
+  filuflow executions show <id> [--json] [--db <path>]
 `;
 
 export async function cmdExecutions(args: string[]): Promise<number> {
@@ -34,7 +34,7 @@ export async function cmdExecutions(args: string[]): Promise<number> {
   const [sub, id] = positionals;
   const dbFile = resolve(values.db ?? process.env.FILUFLOW_DB ?? 'filuflow.db');
   if (!existsSync(dbFile)) {
-    process.stderr.write(`Datenbank ${dbFile} nicht gefunden\n`);
+    process.stderr.write(`Database ${dbFile} not found\n`);
     return 1;
   }
   const store = new ExecutionStore(dbFile);
@@ -44,7 +44,7 @@ export async function cmdExecutions(args: string[]): Promise<number> {
       if (values.json) {
         process.stdout.write(`${JSON.stringify(list, null, 2)}\n`);
       } else if (!list.length) {
-        process.stdout.write('Keine Executions gefunden.\n');
+        process.stdout.write('No executions found.\n');
       } else {
         for (const e of list) {
           const ms = e.stoppedAt ? `${Date.parse(e.stoppedAt) - Date.parse(e.startedAt)} ms` : '';
@@ -56,7 +56,7 @@ export async function cmdExecutions(args: string[]): Promise<number> {
     if (sub === 'show' && id) {
       const e = store.get(id);
       if (!e) {
-        process.stderr.write(`Execution ${id} nicht gefunden\n`);
+        process.stderr.write(`Execution ${id} not found\n`);
         return 1;
       }
       if (values.json) process.stdout.write(`${JSON.stringify(e, null, 2)}\n`);

@@ -11,45 +11,45 @@ import { loadVars } from '../runner.js';
 import { getLogger } from '../logger.js';
 import { defaultCommunityDir } from '../plugins/community.js';
 
-const USAGE = `Aufruf: filuflow serve [Optionen]
+const USAGE = `Usage: filuflow serve [options]
 
-  --dir <pfad>          Workflow-Verzeichnis (Default: FILUFLOW_DIR oder ./workflows)
-  --port <zahl>         Port (Default: FILUFLOW_PORT oder 5678)
-  --host <adresse>      Adresse (Default: FILUFLOW_HOST oder 0.0.0.0)
-  --db <pfad>           SQLite-Datei für das Execution-Log (Default: FILUFLOW_DB oder ./filuflow.db)
-  --credentials <pfad>  credentials.json oder Verzeichnis (Default: FILUFLOW_CREDENTIALS, ./credentials.json)
-  --vars <pfad>         Variablen für $vars (Default: FILUFLOW_VARS, ./vars.json)
-  --concurrency <zahl>  gleichzeitige Executions (Default: FILUFLOW_CONCURRENCY oder 5)
+  --dir <path>          Workflow directory (default: FILUFLOW_DIR or ./workflows)
+  --port <number>       Port (default: FILUFLOW_PORT or 5678)
+  --host <address>      Address (default: FILUFLOW_HOST or 0.0.0.0)
+  --db <path>           SQLite file for the execution log (default: FILUFLOW_DB or ./filuflow.db)
+  --credentials <path>  credentials.json or directory (default: FILUFLOW_CREDENTIALS, ./credentials.json)
+  --vars <path>         Variables for $vars (default: FILUFLOW_VARS, ./vars.json)
+  --concurrency <n>     concurrent executions (default: FILUFLOW_CONCURRENCY or 5)
 
-Umgebung: FILUFLOW_API_KEY (REST-API und Weboberfläche), FILUFLOW_PRUNE_DAYS (Default 14),
-FILUFLOW_WEBHOOK_URL bzw. WEBHOOK_URL (öffentliche Basis-URL für webhookUrl),
-FILUFLOW_UI=false (Weboberfläche abschalten),
-FILUFLOW_MANAGED_CREDENTIALS (Credentials aus der Oberfläche, Default ./credentials.managed.json),
-FILUFLOW_ENCRYPTION_KEY (verschlüsselt Credentials)
+Environment: FILUFLOW_API_KEY (REST API and web interface), FILUFLOW_PRUNE_DAYS (default 14),
+FILUFLOW_WEBHOOK_URL or WEBHOOK_URL (public base URL for webhookUrl),
+FILUFLOW_UI=false (disable the web interface),
+FILUFLOW_MANAGED_CREDENTIALS (credentials from the interface, default ./credentials.managed.json),
+FILUFLOW_ENCRYPTION_KEY (encrypts credentials)
 `;
 
-const WORKER_USAGE = `Aufruf: filuflow worker [Optionen]
+const WORKER_USAGE = `Usage: filuflow worker [options]
 
-Worker für einen filuflow-Master (läuft in der Umgebung eines Mandanten). Führt die vom Master verteilten
-Workflows aus (Webhooks, Zeitpläne, manuelle Ausführung), speichert Ausführungen und Credentials lokal.
-Optionen wie bei "filuflow serve".
+Worker for a filuflow master (runs in a tenant's environment). Executes the workflows distributed by the master
+(webhooks, schedules, manual execution), stores executions and credentials locally.
+Options as for "filuflow serve".
 
-Umgebung: FILUFLOW_API_KEY (Pflicht, mindestens 16 Zeichen; diesen Token im Master beim Worker eintragen),
-FILUFLOW_MANAGED_CREDENTIALS (Credentials aus Oberfläche oder Master, Default ./credentials.managed.json),
-FILUFLOW_ENCRYPTION_KEY (verschlüsselt diese Datei), FILUFLOW_WEBHOOK_URL, FILUFLOW_UI=true (eigene Oberfläche)
+Environment: FILUFLOW_API_KEY (required, at least 16 characters; enter this token for the worker in the master),
+FILUFLOW_MANAGED_CREDENTIALS (credentials from the interface or master, default ./credentials.managed.json),
+FILUFLOW_ENCRYPTION_KEY (encrypts this file), FILUFLOW_WEBHOOK_URL, FILUFLOW_UI=true (own interface)
 `;
 
-/** Version aus package.json */
+/** Version from package.json */
 export function packageVersion(): string {
   try {
     const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
     return (JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as { version: string }).version;
   } catch {
-    return 'unbekannt';
+    return 'unknown';
   }
 }
 
-/** Worker: wie serve, mit API für den Master */
+/** Worker: like serve, with an API for the master */
 export function cmdWorker(args: string[]): Promise<number> {
   if (args.includes('--help') || args.includes('-h')) {
     process.stdout.write(WORKER_USAGE);
@@ -89,13 +89,13 @@ export async function cmdServe(args: string[], worker = false): Promise<number> 
   if (!webhookBaseUrl.endsWith('/')) webhookBaseUrl += '/';
   const logger = getLogger();
   if (worker && (env.FILUFLOW_API_KEY ?? '').length < 16) {
-    process.stderr.write('filuflow worker: FILUFLOW_API_KEY muss gesetzt sein (mindestens 16 Zeichen)\n');
+    process.stderr.write('filuflow worker: FILUFLOW_API_KEY must be set (at least 16 characters)\n');
     return 1;
   }
   const baseCredentials = await loadDefaultCredentials(values.credentials);
-  // Von Hand gepflegte Datei (nur lesend) plus die über Oberfläche oder Master verwaltete Datei
+  // Hand-maintained file (read-only) plus the file managed via the interface or master
   const credentials = await new LayeredCredentialProvider(baseCredentials, resolve(env.FILUFLOW_MANAGED_CREDENTIALS ?? 'credentials.managed.json')).load();
-  // Worker: eigene Oberfläche nur auf Wunsch (bedient wird über den Master)
+  // Worker: own interface only on request (operated via the master)
   const uiOff = worker ? env.FILUFLOW_UI !== 'true' : env.FILUFLOW_UI === 'false';
 
   const server = await createServer({
@@ -119,16 +119,16 @@ export async function cmdServe(args: string[], worker = false): Promise<number> 
       port,
       host,
       webhookBaseUrl,
-      api: env.FILUFLOW_API_KEY ? 'aktiv' : 'deaktiviert (FILUFLOW_API_KEY fehlt)',
-      ui: uiOff ? 'aus' : `http://${host === '0.0.0.0' ? 'localhost' : host}:${port}/`,
+      api: env.FILUFLOW_API_KEY ? 'active' : 'disabled (FILUFLOW_API_KEY is missing)',
+      ui: uiOff ? 'off' : `http://${host === '0.0.0.0' ? 'localhost' : host}:${port}/`,
       ...(worker ? { mode: 'worker' } : {}),
     },
-    worker ? 'filuflow-Worker läuft' : 'filuflow läuft',
+    worker ? 'filuflow worker running' : 'filuflow running',
   );
 
   await new Promise<void>((resolveStop) => {
     const stop = (signal: string) => {
-      logger.info({ signal }, 'Fahre herunter');
+      logger.info({ signal }, 'Shutting down');
       resolveStop();
     };
     process.once('SIGINT', () => stop('SIGINT'));

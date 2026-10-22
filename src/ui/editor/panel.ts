@@ -1,5 +1,6 @@
-// Seitenleiste mit den Details des ausgewählten Nodes: Parameter, Credentials, Einstellungen, Ergebnis.
+// Sidebar with the details of the selected node: parameters, credentials, settings, output.
 import { h, toast } from '../dom.js';
+import { t, tl } from '../i18n.js';
 import { iconButton } from '../shell.js';
 import type { CredentialInfo, Item, NodePorts, NodeTypeInfo, TaskData, ValidationIssue, Workflow, WorkflowNode } from '../types.js';
 import { codeTemplate } from './templates.js';
@@ -12,18 +13,18 @@ export interface PanelHost {
   ports(name: string): NodePorts | undefined;
   types(): Map<string, NodeTypeInfo>;
   credentials(): CredentialInfo[];
-  /** Neues Credential anlegen (Typ vorgegeben); fehlt, wenn die Instanz das nicht erlaubt */
+  /** Create a new credential (type given); missing if the instance does not allow it */
   createCredential?(type: string): Promise<CredentialInfo | null>;
   webhookBaseUrl(): string;
   issues(): ValidationIssue[];
   runData(): Record<string, TaskData[]> | undefined;
-  /** Änderung am Workflow; coalesceKey fasst schnelle Eingaben für Rückgängig zusammen */
+  /** Change to the workflow; coalesceKey merges quick input into one undo step */
   update(fn: (wf: Workflow) => void, coalesceKey?: string): void;
   rename(oldName: string, newName: string): string | undefined;
   close(): void;
-  /** Testlauf bis zu diesem Knoten; fehlt in Nur-Lesen-Ansichten */
+  /** Test run up to this node; missing in read-only views */
   runTo?(name: string): void;
-  /** Auf einen Aufruf der Test-URL warten bzw. das Warten beenden; fehlt, wenn das Backend es nicht kann */
+  /** Wait for a call of the test URL or stop waiting; missing if the backend cannot do it */
   listen?(): void;
   listening?(): boolean;
 }
@@ -31,9 +32,9 @@ export interface PanelHost {
 type Tab = 'params' | 'settings' | 'output';
 
 const ERROR_MODES: Array<[string, string]> = [
-  ['stopWorkflow', 'Workflow anhalten'],
-  ['continueRegularOutput', 'Weiter (normaler Ausgang)'],
-  ['continueErrorOutput', 'Weiter (Fehlerausgang)'],
+  ['stopWorkflow', 'Stop workflow'],
+  ['continueRegularOutput', 'Continue (regular output)'],
+  ['continueErrorOutput', 'Continue (error output)'],
 ];
 
 export class Panel {
@@ -44,11 +45,11 @@ export class Panel {
   private outputIndex = 0;
   private dataMode: 'table' | 'json' = 'table';
   private issuesBox?: HTMLElement;
-  /** Knoten, dessen Testdaten gerade bearbeitet werden */
+  /** Node whose test data is currently being edited */
   private editingPin?: string;
 
   constructor(private readonly host: PanelHost) {
-    this.el = h('aside', { class: 'panel', 'aria-label': 'Node-Details' });
+    this.el = h('aside', { class: 'panel', 'aria-label': t('Node details') });
     this.el.hidden = true;
   }
 
@@ -67,7 +68,7 @@ export class Panel {
     return this.name;
   }
 
-  /** Nur die Meldungen aktualisieren (ohne Fokusverlust in Eingabefeldern) */
+  /** Update only the messages (without losing focus in input fields) */
   refreshIssues(): void {
     if (!this.issuesBox || !this.name) return;
     this.issuesBox.replaceWith((this.issuesBox = this.issueList(this.name)));
@@ -81,13 +82,13 @@ export class Panel {
     const info = this.host.types().get(node.type);
     const hasRun = !!this.host.runData()?.[node.name];
     const ports = this.host.ports(node.name);
-    // Testdaten lassen sich nur für Knoten mit main-Ausgang festhalten (keine Sub-Nodes)
+    // Test data can only be pinned for nodes with a main output (no sub-nodes)
     const canPin = !this.host.readonly && !ports?.isSubNode;
     const pinned = this.host.workflow().pinData?.[node.name] !== undefined;
     const showOutput = hasRun || pinned || canPin;
     if (this.tab === 'output' && !showOutput) this.tab = 'params';
 
-    const nameInput = h('input', { type: 'text', class: 'panel-name', value: node.name, disabled: this.host.readonly, 'aria-label': 'Node-Name' });
+    const nameInput = h('input', { type: 'text', class: 'panel-name', value: node.name, disabled: this.host.readonly, 'aria-label': t('Node name') });
     nameInput.addEventListener('change', () => {
       const result = this.host.rename(node.name, nameInput.value.trim());
       if (result) this.name = result;
@@ -109,15 +110,15 @@ export class Panel {
           if (n) n.typeVersion = Number(versionSel.value);
         }),
       },
-      [...new Set([...versions, node.typeVersion])].sort((a, b) => b - a).map((v) => h('option', { value: String(v), selected: v === node.typeVersion }, `v${v}${versions.includes(v) ? '' : ' (nicht unterstützt)'}`)),
+      [...new Set([...versions, node.typeVersion])].sort((a, b) => b - a).map((v) => h('option', { value: String(v), selected: v === node.typeVersion }, `v${v}${versions.includes(v) ? '' : ` ${t('(not supported)')}`}`)),
     );
 
     const tabs = h(
       'div',
       { class: 'tabs', role: 'tablist' },
-      this.tabButton('params', 'Parameter'),
-      this.tabButton('settings', 'Einstellungen'),
-      showOutput && this.tabButton('output', 'Ergebnis'),
+      this.tabButton('params', t('Parameters')),
+      this.tabButton('settings', t('Settings')),
+      showOutput && this.tabButton('output', t('Output')),
     );
 
     this.issuesBox = this.issueList(node.name);
@@ -134,10 +135,10 @@ export class Panel {
           'div',
           { class: 'panel-title-row' },
           nameInput,
-          this.host.runTo && !ports?.isSubNode && iconButton('step-forward', 'Bis hier ausführen', () => this.host.runTo!(node.name)),
-          iconButton('x', 'Panel schließen (Esc)', () => this.host.close()),
+          this.host.runTo && !ports?.isSubNode && iconButton('step-forward', t('Execute up to here'), () => this.host.runTo!(node.name)),
+          iconButton('x', t('Close panel (Esc)'), () => this.host.close()),
         ),
-        h('div', { class: 'panel-type' }, h('span', { title: node.type }, info?.displayName ?? node.type), versionSel),
+        h('div', { class: 'panel-type' }, h('span', { title: node.type }, tl(info?.displayName) ?? node.type), versionSel),
       ),
       tabs,
       this.issuesBox,
@@ -145,15 +146,15 @@ export class Panel {
     );
   }
 
-  /** "Auf Test-Aufruf warten": nächster Aufruf der Test-URL führt den aktuellen Stand aus */
+  /** "Wait for test call": the next call of the test URL executes the current state */
   private listenButton(): HTMLElement | null {
     if (!this.host.listen) return null;
     const active = this.host.listening?.() === true;
     return h(
       'div',
       { class: 'listen-row' },
-      h('button', { type: 'button', class: 'btn', onclick: () => this.host.listen!() }, active ? 'Warten beenden' : 'Auf Test-Aufruf warten'),
-      h('span', { class: 'muted small' }, active ? ' Wartet auf Aufruf der Test-URL' : ' Der nächste Aufruf der Test-URL führt den aktuellen, auch ungespeicherten Stand aus.'),
+      h('button', { type: 'button', class: 'btn', onclick: () => this.host.listen!() }, active ? t('Stop waiting') : t('Wait for test call')),
+      h('span', { class: 'muted small' }, ` ${active ? t('Waiting for a call of the test URL') : t('The next call of the test URL executes the current state, including unsaved changes.')}`),
     );
   }
 
@@ -170,7 +171,7 @@ export class Panel {
     return h(
       'div',
       { class: 'panel-issues' },
-      issues.map((i) => h('div', { class: `issue issue-${i.severity}` }, h('strong', null, i.severity === 'error' ? 'Fehler: ' : 'Warnung: '), i.message, i.path ? h('span', { class: 'muted' }, ` (${i.path})`) : null)),
+      issues.map((i) => h('div', { class: `issue issue-${i.severity}` }, h('strong', null, `${i.severity === 'error' ? t('Error') : t('Warning')}: `), i.message, i.path ? h('span', { class: 'muted' }, ` (${i.path})`) : null)),
     );
   }
 
@@ -185,9 +186,9 @@ export class Panel {
     const box = h('div', { class: 'panel-section' });
     const ports = this.host.ports(node.name);
 
-    // Webhook-Adressen
+    // Webhook addresses
     if (node.type === 'n8n-nodes-base.webhook' && typeof node.parameters.path === 'string' && node.parameters.path.startsWith('=')) {
-      box.append(h('div', { class: 'info-box' }, h('div', { class: 'muted' }, 'Der Pfad ist eine Expression. Der Server wertet sie beim Aktivieren aus (ohne Items, mit $vars und $env).')));
+      box.append(h('div', { class: 'info-box' }, h('div', { class: 'muted' }, t('The path is an expression. The server evaluates it on activation (without items, with $vars and $env).'))));
     } else if (node.type === 'n8n-nodes-base.webhook' && typeof node.parameters.path === 'string') {
       const path = String(node.parameters.path).replace(/^\//, '');
       const base = this.host.webhookBaseUrl();
@@ -195,15 +196,15 @@ export class Panel {
         h(
           'div',
           { class: 'info-box' },
-          h('div', null, h('strong', null, 'Produktiv: '), h('code', null, `${base}/webhook/${path}`)),
-          h('div', null, h('strong', null, 'Test: '), h('code', null, `${base}/webhook-test/${path}`)),
-          h('div', { class: 'muted' }, 'Produktiv-URL gilt nur für aktive, gespeicherte Workflows.'),
+          h('div', null, h('strong', null, `${t('Production')}: `), h('code', null, `${base}/webhook/${path}`)),
+          h('div', null, h('strong', null, `${t('Test')}: `), h('code', null, `${base}/webhook-test/${path}`)),
+          h('div', { class: 'muted' }, t('The production URL only works for active, saved workflows.')),
           this.listenButton(),
         ),
       );
     }
 
-    // Formular- und Chat-Adressen
+    // Form and chat addresses
     if (node.type === 'n8n-nodes-base.formTrigger' || node.type === '@n8n/n8n-nodes-langchain.chatTrigger') {
       const base = this.host.webhookBaseUrl();
       const opts = (node.parameters.options ?? {}) as { path?: unknown };
@@ -217,18 +218,18 @@ export class Panel {
         h(
           'div',
           { class: 'info-box' },
-          h('div', null, h('strong', null, 'Produktiv: '), h('a', { href: prod, target: '_blank', rel: 'noopener' }, prod)),
-          h('div', null, h('strong', null, 'Test: '), h('a', { href: test, target: '_blank', rel: 'noopener' }, test)),
-          h('div', { class: 'muted' }, form ? 'Produktiv-URL gilt nur für aktive, gespeicherte Workflows.' : 'Die Chat-Seite gibt es nur, wenn der Chat öffentlich ist ("public").'),
+          h('div', null, h('strong', null, `${t('Production')}: `), h('a', { href: prod, target: '_blank', rel: 'noopener' }, prod)),
+          h('div', null, h('strong', null, `${t('Test')}: `), h('a', { href: test, target: '_blank', rel: 'noopener' }, test)),
+          h('div', { class: 'muted' }, form ? t('The production URL only works for active, saved workflows.') : t('The chat page only exists if the chat is public ("public").')),
           form ? this.listenButton() : null,
         ),
       );
     }
 
-    // Sprache von Code-Node und Code Tool: beim Wechsel Startcode einsetzen, wenn das Feld noch leer ist
+    // Language of the Code node and Code Tool: insert starter code on change if the field is still empty
     const isCode = node.type === 'n8n-nodes-base.code' && node.typeVersion >= 2;
     const isToolCode = node.type === '@n8n/n8n-nodes-langchain.toolCode';
-    // Mit Formular aus der Typbeschreibung steht die Sprache dort; Startcode setzt onChange unten
+    // With a form from the type description the language is there; onChange below sets the starter code
     const schema = this.host.types().get(node.type)?.parameters;
     if ((isCode || isToolCode) && !schema) {
       const languages: Array<[string, string]> = isCode
@@ -243,16 +244,16 @@ export class Panel {
           ];
       const current = typeof node.parameters.language === 'string' ? node.parameters.language : 'javaScript';
       const hints: Record<string, string> = {
-        javaScript: 'Variablen wie $input, $json und $now; print-Ausgaben mit console.log.',
-        python: 'Python im Server (Pyodide). Variablen mit _ statt $, z. B. _input.all(), _json, _now; Ausgaben mit print().',
-        pythonNative: 'Lokaler Python-Interpreter des Servers. Nur _items (alle Items) bzw. _item (je Item); Imports nur mit Freigabe in FILUFLOW_PYTHON_STDLIB_ALLOW und FILUFLOW_PYTHON_EXTERNAL_ALLOW.',
+        javaScript: t('Variables like $input, $json and $now; print output with console.log.'),
+        python: t('Python in the server (Pyodide). Variables with _ instead of $, e.g. _input.all(), _json, _now; output with print().'),
+        pythonNative: t('Local Python interpreter of the server. Only _items (all items) or _item (per item); imports only when allowed in FILUFLOW_PYTHON_STDLIB_ALLOW and FILUFLOW_PYTHON_EXTERNAL_ALLOW.'),
       };
       const langSel = h(
         'select',
         {
           class: 'param-input',
           disabled: this.host.readonly,
-          'aria-label': 'Sprache',
+          'aria-label': t('Language'),
           onchange: () => {
             const value = langSel.value;
             this.mutateNode(node.name, (n) => {
@@ -265,7 +266,7 @@ export class Panel {
         },
         languages.map(([value, label]) => h('option', { value, selected: value === current }, label)),
       );
-      box.append(h('label', { class: 'field' }, h('span', null, 'Sprache'), langSel, h('span', { class: 'muted small' }, hints[current] ?? '')));
+      box.append(h('label', { class: 'field' }, h('span', null, t('Language')), langSel, h('span', { class: 'muted small' }, hints[current] ?? '')));
     }
 
     // Credentials
@@ -274,7 +275,7 @@ export class Panel {
     const allTypes = [...new Set([...credTypes, ...existing])];
     if (allTypes.length) {
       const list = this.host.credentials();
-      box.append(h('h3', null, 'Credentials'));
+      box.append(h('h3', null, t('Credentials')));
       for (const type of allTypes) {
         const current = node.credentials?.[type];
         const options = list.filter((c) => !c.type || c.type === type);
@@ -292,12 +293,12 @@ export class Panel {
           {
             class: 'param-input',
             disabled: this.host.readonly,
-            'aria-label': `Credential ${type}`,
+            'aria-label': t('Credential {type}', { type }),
             onchange: async () => {
               if (sel.value === NEW && create) {
                 const made = await create(type);
                 if (made) {
-                  // Panel wird bei Änderungen nicht neu gezeichnet: Option selbst ergänzen
+                  // The panel is not re-rendered on changes: add the option ourselves
                   if (![...sel.options].some((x) => x.value === made.name)) sel.insertBefore(h('option', { value: made.name }, made.name), sel.lastElementChild);
                   sel.value = made.name;
                   assign(made);
@@ -307,16 +308,16 @@ export class Panel {
               assign(options.find((c) => c.name === sel.value));
             },
           },
-          h('option', { value: '' }, '(keine)'),
+          h('option', { value: '' }, t('(none)')),
           options.map((c) => h('option', { value: c.name, selected: current?.name === c.name }, c.name)),
-          current && !options.some((c) => c.name === current.name) && h('option', { value: current.name, selected: true }, `${current.name} (nicht vorhanden)`),
-          create && h('option', { value: NEW }, 'Neues Credential anlegen …'),
+          current && !options.some((c) => c.name === current.name) && h('option', { value: current.name, selected: true }, t('{name} (not available)', { name: current.name })),
+          create && h('option', { value: NEW }, t('Create new credential …')),
         );
         box.append(h('label', { class: 'field' }, h('span', null, type), sel));
       }
     }
 
-    box.append(h('h3', null, 'Parameter'));
+    box.append(h('h3', null, t('Parameters')));
     box.append(
       paramEditor(node.parameters ?? (node.parameters = {}), {
         readonly: this.host.readonly,
@@ -327,7 +328,7 @@ export class Panel {
           this.mutateNode(
             node.name,
             (n) => {
-              // Sprachwechsel im Formular: Startcode einsetzen, wenn das Feld der neuen Sprache noch leer ist
+              // Language change in the form: insert starter code if the field of the new language is still empty
               if (key === 'parameters.language' && (isCode || isToolCode)) {
                 const lang = String(n.parameters.language ?? 'javaScript');
                 const codeKey = lang === 'javaScript' ? 'jsCode' : 'pythonCode';
@@ -358,14 +359,14 @@ export class Panel {
               else delete n[key];
             }),
         }),
-        h('span', null, label),
-        hint && h('span', { class: 'muted' }, ` ${hint}`),
+        h('span', null, t(label)),
+        hint && h('span', { class: 'muted' }, ` ${t(hint)}`),
       );
     const num = (label: string, key: 'maxTries' | 'waitBetweenTries', fallback: number) =>
       h(
         'label',
         { class: 'field' },
-        h('span', null, label),
+        h('span', null, t(label)),
         h('input', {
           type: 'number',
           class: 'param-input',
@@ -386,24 +387,24 @@ export class Panel {
             delete n.continueOnFail;
           }),
       },
-      ERROR_MODES.map(([v, l]) => h('option', { value: v, selected: (node.onError ?? (node.continueOnFail ? 'continueRegularOutput' : 'stopWorkflow')) === v }, l)),
+      ERROR_MODES.map(([v, l]) => h('option', { value: v, selected: (node.onError ?? (node.continueOnFail ? 'continueRegularOutput' : 'stopWorkflow')) === v }, t(l))),
     );
-    const notes = h('textarea', { class: 'param-input', rows: 3, disabled: ro, 'aria-label': 'Notizen' });
+    const notes = h('textarea', { class: 'param-input', rows: 3, disabled: ro, 'aria-label': t('Notes') });
     notes.value = node.notes ?? '';
     notes.addEventListener('input', () => this.mutateNode(node.name, (n) => (notes.value ? (n.notes = notes.value) : delete n.notes), `${node.name}:notes`));
     return h(
       'div',
       { class: 'panel-section' },
-      check('Deaktiviert', 'disabled', '(Node wird übersprungen, Daten laufen durch)'),
-      check('Immer Daten ausgeben', 'alwaysOutputData'),
-      check('Nur einmal ausführen', 'executeOnce', '(nur erstes Item)'),
-      h('label', { class: 'field' }, h('span', null, 'Bei Fehler'), onError),
-      check('Bei Fehler wiederholen', 'retryOnFail'),
-      node.retryOnFail && num('Versuche', 'maxTries', 3),
-      node.retryOnFail && num('Wartezeit zwischen Versuchen (ms)', 'waitBetweenTries', 1000),
-      h('label', { class: 'field' }, h('span', null, 'Notizen'), notes),
-      check('Notiz im Canvas anzeigen', 'notesInFlow'),
-      h('div', { class: 'muted small' }, `Typ: ${node.type}`, h('br'), `ID: ${node.id ?? '(keine)'}`),
+      check('Disabled', 'disabled', '(node is skipped, data passes through)'),
+      check('Always output data', 'alwaysOutputData'),
+      check('Execute once', 'executeOnce', '(first item only)'),
+      h('label', { class: 'field' }, h('span', null, t('On error')), onError),
+      check('Retry on fail', 'retryOnFail'),
+      node.retryOnFail && num('Max. tries', 'maxTries', 3),
+      node.retryOnFail && num('Wait between tries (ms)', 'waitBetweenTries', 1000),
+      h('label', { class: 'field' }, h('span', null, t('Notes')), notes),
+      check('Display note in flow', 'notesInFlow'),
+      h('div', { class: 'muted small' }, `${t('Type')}: ${node.type}`, h('br'), `ID: ${node.id ?? t('(none)')}`),
     );
   }
 
@@ -416,15 +417,15 @@ export class Panel {
     if (!run) {
       box.append(this.pinBar(node, undefined));
       if (pinned) box.append(itemsView(pinned, this.dataMode));
-      else if (this.editingPin !== node.name) box.append(h('p', { class: 'muted' }, 'Noch kein Ergebnis. Starten Sie einen Testlauf oder geben Sie Testdaten ein.'));
+      else if (this.editingPin !== node.name) box.append(h('p', { class: 'muted' }, t('No output yet. Start a test run or enter test data.')));
       return box;
     }
     const controls = h('div', { class: 'output-controls' });
     if (runs.length > 1) {
       const sel = h(
         'select',
-        { class: 'param-input', 'aria-label': 'Lauf', onchange: () => ((this.outputRun = Number(sel.value)), this.render()) },
-        runs.map((_r, i) => h('option', { value: String(i), selected: i === runIndex }, `Lauf ${i + 1} von ${runs.length}`)),
+        { class: 'param-input', 'aria-label': t('Run'), onchange: () => ((this.outputRun = Number(sel.value)), this.render()) },
+        runs.map((_r, i) => h('option', { value: String(i), selected: i === runIndex }, t('Run {n} of {total}', { n: i + 1, total: runs.length }))),
       );
       controls.append(sel);
     }
@@ -435,8 +436,8 @@ export class Panel {
       const names = this.host.ports(node.name)?.outputNames;
       const sel = h(
         'select',
-        { class: 'param-input', 'aria-label': 'Ausgang', onchange: () => ((this.outputIndex = Number(sel.value)), this.render()) },
-        outputs.map((o, i) => h('option', { value: String(i), selected: i === this.outputIndex }, `Ausgang ${names?.[i] ?? i} (${o?.length ?? 0})`)),
+        { class: 'param-input', 'aria-label': t('Output'), onchange: () => ((this.outputIndex = Number(sel.value)), this.render()) },
+        outputs.map((o, i) => h('option', { value: String(i), selected: i === this.outputIndex }, t('Output {name} ({count})', { name: names?.[i] ?? i, count: o?.length ?? 0 }))),
       );
       controls.append(sel);
     }
@@ -444,7 +445,7 @@ export class Panel {
       h(
         'div',
         { class: 'segmented' },
-        h('button', { type: 'button', class: this.dataMode === 'table' ? 'on' : '', onclick: () => ((this.dataMode = 'table'), this.render()) }, 'Tabelle'),
+        h('button', { type: 'button', class: this.dataMode === 'table' ? 'on' : '', onclick: () => ((this.dataMode = 'table'), this.render()) }, t('Table')),
         h('button', { type: 'button', class: this.dataMode === 'json' ? 'on' : '', onclick: () => ((this.dataMode = 'json'), this.render()) }, 'JSON'),
       ),
     );
@@ -452,7 +453,7 @@ export class Panel {
       h(
         'div',
         { class: 'run-meta' },
-        h('span', { class: `pill pill-${run.executionStatus === 'error' || run.error ? 'error' : 'success'}` }, run.error || run.executionStatus === 'error' ? 'Fehler' : run.executionStatus === 'waiting' ? 'Wartet' : 'Erfolgreich'),
+        h('span', { class: `pill pill-${run.executionStatus === 'error' || run.error ? 'error' : 'success'}` }, run.error || run.executionStatus === 'error' ? t('Error') : run.executionStatus === 'waiting' ? t('Waiting') : t('Success')),
         ` ${run.executionTime ?? 0} ms`,
         key !== 'main' ? h('span', { class: 'muted' }, ` (${key})`) : null,
       ),
@@ -475,14 +476,14 @@ export class Panel {
   }
 
   /**
-   * Testdaten festhalten (n8n pinData): die Items gelten beim Testlauf als Ausgabe 0 des Knotens, er selbst läuft nicht.
-   * Wie in n8n nur JSON, keine Binärdaten.
+   * Pin test data (n8n pinData): during a test run the items count as output 0 of the node, the node itself does not run.
+   * As in n8n only JSON, no binary data.
    */
   private pinBar(node: WorkflowNode, runItems: Item[] | undefined): HTMLElement {
     const pinned = this.host.workflow().pinData?.[node.name] as Item[] | undefined;
     const bar = h('div', { class: 'pin-bar' });
     if (this.host.readonly || this.host.ports(node.name)?.isSubNode) {
-      if (pinned) bar.append(h('span', { class: 'pill' }, 'Festgehalten'));
+      if (pinned) bar.append(h('span', { class: 'pill' }, t('Pinned')));
       return bar;
     }
     const setPin = (items: Item[] | undefined) => {
@@ -497,43 +498,43 @@ export class Panel {
       this.render();
     };
     if (this.editingPin === node.name) {
-      const area = h('textarea', { class: 'param-input json-editor', rows: 10, spellcheck: false, 'aria-label': 'Testdaten (JSON)' });
+      const area = h('textarea', { class: 'param-input json-editor', rows: 10, spellcheck: false, 'aria-label': t('Test data (JSON)') });
       area.value = JSON.stringify((pinned ?? runItems ?? [{ json: {} }]).map((i) => i.json), null, 2);
       const apply = () => {
         let parsed: unknown;
         try {
           parsed = JSON.parse(area.value);
         } catch (error) {
-          toast(`Testdaten sind kein gültiges JSON: ${(error as Error).message}`, 'error');
+          toast(t('Test data is not valid JSON: {message}', { message: (error as Error).message }), 'error');
           return;
         }
         const list = Array.isArray(parsed) ? parsed : [parsed];
         if (list.some((v) => !v || typeof v !== 'object' || Array.isArray(v))) {
-          toast('Testdaten müssen ein JSON-Objekt oder eine Liste von Objekten sein', 'error');
+          toast(t('Test data must be a JSON object or a list of objects'), 'error');
           return;
         }
         setPin(list.map((json) => ({ json: json as Item['json'] })));
       };
       bar.append(
-        h('label', { class: 'field' }, h('span', null, 'Testdaten (JSON-Objekt oder Liste von Objekten)'), area),
+        h('label', { class: 'field' }, h('span', null, t('Test data (JSON object or list of objects)')), area),
         h(
           'div',
           { class: 'pin-actions' },
-          h('button', { type: 'button', class: 'btn btn-primary', onclick: apply }, 'Festhalten'),
-          h('button', { type: 'button', class: 'btn', onclick: () => ((this.editingPin = undefined), this.render()) }, 'Abbrechen'),
+          h('button', { type: 'button', class: 'btn btn-primary', onclick: apply }, t('Pin')),
+          h('button', { type: 'button', class: 'btn', onclick: () => ((this.editingPin = undefined), this.render()) }, t('Cancel')),
         ),
       );
       return bar;
     }
     if (pinned) {
       bar.append(
-        h('span', { class: 'pill' }, 'Festgehalten'),
-        h('span', { class: 'muted small' }, ` ${pinned.length} ${pinned.length === 1 ? 'Item' : 'Items'}; beim Testlauf liefert der Knoten diese Daten, statt zu laufen.`),
+        h('span', { class: 'pill' }, t('Pinned')),
+        h('span', { class: 'muted small' }, ` ${pinned.length === 1 ? t('1 item; in a test run the node returns this data instead of running.') : t('{count} items; in a test run the node returns this data instead of running.', { count: pinned.length })}`),
         h(
           'div',
           { class: 'pin-actions' },
-          h('button', { type: 'button', class: 'btn', onclick: () => ((this.editingPin = node.name), this.render()) }, 'Bearbeiten'),
-          h('button', { type: 'button', class: 'btn', onclick: () => setPin(undefined) }, 'Lösen'),
+          h('button', { type: 'button', class: 'btn', onclick: () => ((this.editingPin = node.name), this.render()) }, t('Edit')),
+          h('button', { type: 'button', class: 'btn', onclick: () => setPin(undefined) }, t('Unpin')),
         ),
       );
       return bar;
@@ -542,8 +543,8 @@ export class Panel {
       h(
         'div',
         { class: 'pin-actions' },
-        runItems && h('button', { type: 'button', class: 'btn', title: 'Ausgabe 0 als Testdaten festhalten', onclick: () => setPin(runItems.map((i) => ({ json: structuredClone(i.json) }))) }, 'Festhalten'),
-        h('button', { type: 'button', class: 'btn', onclick: () => ((this.editingPin = node.name), this.render()) }, runItems ? 'Testdaten bearbeiten' : 'Testdaten eingeben'),
+        runItems && h('button', { type: 'button', class: 'btn', title: t('Pin output 0 as test data'), onclick: () => setPin(runItems.map((i) => ({ json: structuredClone(i.json) }))) }, t('Pin')),
+        h('button', { type: 'button', class: 'btn', onclick: () => ((this.editingPin = node.name), this.render()) }, runItems ? t('Edit test data') : t('Enter test data')),
       ),
     );
     return bar;

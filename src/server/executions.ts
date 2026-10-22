@@ -1,10 +1,10 @@
-// Ausführungsverwaltung für den Server: Warteschlange mit Parallelitätslimit (SPEC 8),
-// Execution-Log, Abbruch, Fehler-Workflows und wartende Executions (M13).
-// Wartende Executions nachgebaut nach n8n 1.123.0 packages/cli/src/wait-tracker.ts (alle 60 s die Executions holen,
-// die in den nächsten 70 s fällig sind, und zum Zeitpunkt fortsetzen) und waiting-webhooks.ts (Fortsetzen per Webhook).
-// Fehler-Workflows nachgebaut nach n8n 1.123.0
-//   packages/cli/src/execution-lifecycle/execute-error-workflow.ts (Bedingungen, Fehlerdaten)
-//   packages/cli/src/workflows/workflow-execution.service.ts executeErrorWorkflow (Start-Node, Modus "error")
+// Execution management for the server: queue with concurrency limit (SPEC 8),
+// execution log, cancellation, error workflows and waiting executions (M13).
+// Waiting executions modeled on n8n 1.123.0 packages/cli/src/wait-tracker.ts (every 60 s fetch the executions
+// due within the next 70 s and resume them at that time) and waiting-webhooks.ts (resume via webhook).
+// Error workflows modeled on n8n 1.123.0
+//   packages/cli/src/execution-lifecycle/execute-error-workflow.ts (conditions, error data)
+//   packages/cli/src/workflows/workflow-execution.service.ts executeErrorWorkflow (start node, mode "error")
 import { randomUUID } from 'node:crypto';
 import type { Execution, ExecutionMode, Item, Workflow } from '../types.js';
 import type { Runner, RunOptions } from '../runner.js';
@@ -24,13 +24,13 @@ export interface StartOptions {
   triggerOutputs?: Array<Item[] | null>;
   usePinData?: boolean;
   hooks?: RunHooks;
-  /** Fortsetzen einer wartenden Execution (bestehende ID) */
+  /** Resuming a waiting execution (existing ID) */
   resume?: { executionId: string; data: ResumeData };
-  /** Nur bis zu diesem Knoten ausführen (Editor) */
+  /** Only execute up to this node (editor) */
   destinationNode?: string;
 }
 
-/** Fehler beim Fortsetzen mit HTTP-Status (404, 409) */
+/** Error while resuming, with HTTP status (404, 409) */
 export class ResumeError extends Error {
   constructor(
     message: string,
@@ -54,19 +54,19 @@ export interface ExecutionManagerOptions {
   runner: Runner;
   store: ExecutionStore;
   logger: Logger;
-  /** Gleichzeitige Executions (Default 5) */
+  /** Concurrent executions (default 5) */
   concurrency?: number;
   findWorkflow(id: string): Workflow | undefined;
-  /** n8n getWebhookBaseUrl, für execution.url in den Fehlerdaten */
+  /** n8n getWebhookBaseUrl, for execution.url in the error data */
   baseUrl: string;
   staticData(workflow: Workflow): Record<string, Record<string, unknown>>;
-  /** Nach einer Execution: statische Daten speichern, wenn sie sich geändert haben */
+  /** After an execution: save static data if it has changed */
   saveStaticData?(workflow: Workflow, mode: ExecutionMode): void;
-  /** Nach dem Speichern jeder Execution (Aufseher) */
+  /** After saving each execution (supervisor) */
   onFinished?(execution: Execution, workflow: Workflow): void;
 }
 
-/** wait-tracker.ts: Abfrage alle 60 s, Vorlauf 70 s */
+/** wait-tracker.ts: poll every 60 s, lookahead 70 s */
 const WAIT_POLL_MS = 60_000;
 const WAIT_LOOKAHEAD_MS = 70_000;
 
@@ -90,7 +90,7 @@ export class ExecutionManager {
     return this.active.get(id);
   }
 
-  /** Startet eine Execution (ggf. nach Wartezeit in der Warteschlange); kehrt sofort zurück */
+  /** Starts an execution (possibly after waiting in the queue); returns immediately */
   start(opts: StartOptions): ActiveExecution {
     const id = opts.resume?.executionId ?? randomUUID();
     if (!opts.resume) this.options.store.begin({ id, workflow: opts.workflow, mode: opts.mode, status: 'new' });
@@ -107,7 +107,7 @@ export class ExecutionManager {
     return entry;
   }
 
-  /** Bricht eine laufende, eingereihte oder wartende Execution ab */
+  /** Cancels a running, queued or waiting execution */
   cancel(id: string): boolean {
     const entry = this.active.get(id);
     if (!entry) {
@@ -124,8 +124,8 @@ export class ExecutionManager {
   }
 
   /**
-   * Wartende Execution fortsetzen (Zeitpunkt erreicht oder Webhook). webhookData wird die Ausgabe des wartenden
-   * Nodes; ohne gibt er seine Eingangsdaten weiter. Fehler wie n8n waiting-webhooks.ts (404, 409).
+   * Resume a waiting execution (time reached or webhook). webhookData becomes the output of the waiting
+   * node; without it, the node passes on its input data. Errors as in n8n waiting-webhooks.ts (404, 409).
    */
   resume(id: string, o: { webhookData?: Item[][]; chatMessage?: Item; hooks?: RunHooks } = {}): ActiveExecution {
     if (this.active.has(id)) throw new ResumeError(`The execution "${id}" is running already.`, 409);
@@ -137,7 +137,7 @@ export class ExecutionManager {
     const record = this.options.store.loadResume(id);
     if (!record) throw new ResumeError(`The execution "${id}" cannot be resumed.`, 409);
     this.clearWaitTimer(id);
-    // Zustand liegt jetzt im Speicher; geht die Execution erneut in "waiting", wird er neu geschrieben
+    // The state is now in memory; if the execution goes to "waiting" again, it is written anew
     this.options.store.deleteResume(id);
     this.options.store.setStatus(id, 'running');
     return this.start({
@@ -151,7 +151,7 @@ export class ExecutionManager {
     });
   }
 
-  /** wait-tracker.ts: fällige wartende Executions planen; danach alle 60 s */
+  /** wait-tracker.ts: schedule due waiting executions; afterwards every 60 s */
   startWaitTracker(): void {
     this.checkWaiting();
     this.waitPoll ??= setInterval(() => this.checkWaiting(), WAIT_POLL_MS).unref();
@@ -169,7 +169,7 @@ export class ExecutionManager {
     try {
       due = this.options.store.waitingDue(new Date(Date.now() + WAIT_LOOKAHEAD_MS).toISOString());
     } catch (error) {
-      this.options.logger.error({ err: (error as Error).message }, 'Wartende Ausführungen konnten nicht gelesen werden');
+      this.options.logger.error({ err: (error as Error).message }, 'Waiting executions could not be read');
       return;
     }
     for (const { id, waitTill } of due) this.scheduleResume(id, waitTill);
@@ -183,7 +183,7 @@ export class ExecutionManager {
       try {
         this.resume(id);
       } catch (error) {
-        this.options.logger.warn({ executionId: id, err: (error as Error).message }, 'Wartende Ausführung nicht fortgesetzt');
+        this.options.logger.warn({ executionId: id, err: (error as Error).message }, 'Waiting execution not resumed');
       }
     }, ms);
     timer.unref();
@@ -196,13 +196,13 @@ export class ExecutionManager {
     this.waitTimers.delete(id);
   }
 
-  /** Wartet, bis alle Executions beendet sind (Herunterfahren) */
+  /** Waits until all executions have finished (shutdown) */
   async drain(timeoutMs = 30_000): Promise<void> {
     const all = Promise.allSettled([...this.active.values()].map((e) => e.promise));
     await Promise.race([all, new Promise((r) => setTimeout(r, timeoutMs).unref())]);
   }
 
-  /** Auslastung: laufende und wartende Ausführungen, Limit (FILUFLOW_CONCURRENCY) */
+  /** Load: running and queued executions, limit (FILUFLOW_CONCURRENCY) */
   load(): { running: number; queued: number; concurrency: number } {
     return { running: this.running, queued: this.queue.length, concurrency: this.concurrency };
   }
@@ -266,7 +266,7 @@ export class ExecutionManager {
         this.options.saveStaticData?.(opts.workflow, opts.mode);
         return execution;
       } catch (error) {
-        // Fehler vor dem Start (z. B. Validierung): als fehlgeschlagene Execution speichern
+        // Error before the start (e.g. validation): save as a failed execution
         const now = new Date().toISOString();
         const execution: Execution = {
           id: entry.id,
@@ -287,35 +287,35 @@ export class ExecutionManager {
     }
   }
 
-  /** Execution wartet: Zustand speichern und, wenn bald fällig, Fortsetzen planen */
+  /** Execution is waiting: save the state and, if due soon, schedule the resume */
   private onWaiting(execution: Execution, workflow: Workflow, executor: WorkflowExecutor): void {
     try {
       this.options.store.saveResume(execution.id, { state: executor.getState(), runData: executor.runData, workflow });
     } catch (error) {
-      this.options.logger.error({ err: (error as Error).message, executionId: execution.id }, 'Zustand der wartenden Ausführung konnte nicht gespeichert werden');
+      this.options.logger.error({ err: (error as Error).message, executionId: execution.id }, 'State of the waiting execution could not be saved');
       this.options.store.setStatus(execution.id, 'crashed');
       return;
     }
-    this.options.logger.info({ executionId: execution.id, workflow: workflow.name, waitTill: execution.waitTill }, 'Ausführung wartet');
+    this.options.logger.info({ executionId: execution.id, workflow: workflow.name, waitTill: execution.waitTill }, 'Execution is waiting');
     if (execution.waitTill && new Date(execution.waitTill).getTime() <= Date.now() + WAIT_LOOKAHEAD_MS) this.scheduleResume(execution.id, execution.waitTill);
   }
 
-  /** Wird vom Runner für jede Execution aufgerufen (auch Unter-Workflows) */
+  /** Called by the runner for every execution (including sub-workflows) */
   async onExecutionFinished(execution: Execution, workflow: Workflow): Promise<void> {
     try {
       this.options.store.finish(execution, workflow);
     } catch (error) {
-      this.options.logger.error({ err: (error as Error).message, executionId: execution.id }, 'Execution konnte nicht gespeichert werden');
+      this.options.logger.error({ err: (error as Error).message, executionId: execution.id }, 'Execution could not be saved');
     }
     if (execution.status === 'error' && execution.mode !== 'manual') this.executeErrorWorkflow(workflow, execution);
     try {
       this.options.onFinished?.(execution, workflow);
     } catch (error) {
-      this.options.logger.error({ err: (error as Error).message, executionId: execution.id }, 'Nachbearbeitung der Execution fehlgeschlagen');
+      this.options.logger.error({ err: (error as Error).message, executionId: execution.id }, 'Post-processing of the execution failed');
     }
   }
 
-  /** execute-error-workflow.ts: externer Fehler-Workflow oder eigener Error Trigger */
+  /** execute-error-workflow.ts: external error workflow or own Error Trigger */
   private executeErrorWorkflow(workflow: Workflow, execution: Execution): void {
     const workflowId = workflow.id;
     const errorData = {
@@ -331,12 +331,12 @@ export class ExecutionManager {
     this.runErrorWorkflow(workflow, errorData, execution.mode);
   }
 
-  /** Fehler eines Auslösers ohne Ausführung (M31): Fehlerdaten { trigger: { error, mode }, workflow } wie n8n */
+  /** Error of a trigger without an execution (M31): error data { trigger: { error, mode }, workflow } as in n8n */
   executeTriggerErrorWorkflow(workflow: Workflow, error: Error, mode: ExecutionMode): void {
     this.runErrorWorkflow(workflow, { trigger: { error: serializeError(error), mode }, workflow: { id: workflow.id, name: workflow.name } }, mode);
   }
 
-  /** Kontext eines Knotens ohne Ausführung für aktivierte Auslöser (M31), mit den statischen Daten des Workflows */
+  /** Context of a node without an execution for activated triggers (M31), with the workflow's static data */
   activationContext(workflow: Workflow, nodeName: string, mode: ExecutionMode = 'trigger'): ExecContext {
     return this.options.runner.activationContext({ workflow, mode, staticData: this.options.staticData(workflow) }, nodeName);
   }
@@ -357,13 +357,13 @@ export class ExecutionManager {
       target = workflow;
     }
     if (!target) return;
-    // n8n nimmt den letzten Error Trigger in Node-Reihenfolge
+    // n8n takes the last Error Trigger in node order
     const startNode = [...target.nodes].reverse().find((n) => n.type === ERROR_TRIGGER_TYPE);
     if (!startNode) {
       this.options.logger.error(`Calling Error Workflow for "${workflowId}". Could not find "${ERROR_TRIGGER_TYPE}" in workflow "${target.id}"`);
       return;
     }
-    // JSON-Rundreise wie beim Speichern in n8n (undefined-Felder entfallen)
+    // JSON round trip as when saving in n8n (undefined fields are dropped)
     const json = JSON.parse(JSON.stringify(errorData)) as Record<string, unknown>;
     this.start({ workflow: target, mode: 'error', startNodeName: startNode.name, triggerItems: [{ json }] });
   }

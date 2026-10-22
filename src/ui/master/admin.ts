@@ -45,7 +45,7 @@ export async function overviewPage(): Promise<HTMLElement> {
   const o = await mapi.overview();
   const root = page('overview', 'Übersicht');
   const stat = (label: string, value: number | string, cls = '') => h('div', { class: `card stat ${cls}` }, h('div', { class: 'stat-value' }, String(value)), h('div', { class: 'muted small' }, label));
-  const workers = o.tenants.flatMap((t) => t.workers);
+  const workers = o.tenants.flatMap((tn) => tn.workers);
   const offline = workers.filter((w) => w.status !== 'online').length;
   const problems = workers.reduce((n, w) => n + w.outOfSync + w.deployErrors, 0);
   root.append(
@@ -87,10 +87,10 @@ export async function overviewPage(): Promise<HTMLElement> {
       h('td', { class: 'num' }, w.outOfSync || w.deployErrors ? h('span', { class: 'error-text' }, `${w.outOfSync} / ${w.deployErrors}`) : '0 / 0'),
       h('td', { class: 'small' }, w.lastSeenAt ? formatDate(w.lastSeenAt) : 'nie'),
     );
-  for (const t of o.tenants) {
+  for (const tn of o.tenants) {
     root.append(
-      h('h2', { class: 'section-title' }, t.name, t.description ? h('span', { class: 'muted small' }, ` ${t.description}`) : null),
-      t.workers.length
+      h('h2', { class: 'section-title' }, tn.name, tn.description ? h('span', { class: 'muted small' }, ` ${tn.description}`) : null),
+      tn.workers.length
         ? h(
             'div',
             { class: 'table-wrap card' },
@@ -112,7 +112,7 @@ export async function overviewPage(): Promise<HTMLElement> {
                   h('th', null, 'Zuletzt erreicht'),
                 ),
               ),
-              h('tbody', null, t.workers.map(row)),
+              h('tbody', null, tn.workers.map(row)),
             ),
           )
         : h('p', { class: 'muted' }, 'Kein Worker.'),
@@ -124,17 +124,17 @@ export async function overviewPage(): Promise<HTMLElement> {
 // -----------------------------------------------------------------------------------------------
 // Mandanten und Worker
 
-async function tenantDialog(t?: Tenant): Promise<{ name: string; description: string } | null> {
-  const name = text(t?.name ?? '');
-  const description = text(t?.description ?? '');
-  return dialog(t ? 'Mandant bearbeiten' : 'Neuer Mandant', h('div', { class: 'form' }, field('Name', name), field('Beschreibung', description)), {
-    confirm: t ? 'Speichern' : 'Anlegen',
+async function tenantDialog(tn?: Tenant): Promise<{ name: string; description: string } | null> {
+  const name = text(tn?.name ?? '');
+  const description = text(tn?.description ?? '');
+  return dialog(tn ? 'Mandant bearbeiten' : 'Neuer Mandant', h('div', { class: 'form' }, field('Name', name), field('Beschreibung', description)), {
+    confirm: tn ? 'Speichern' : 'Anlegen',
     onConfirm: () => (name.value.trim() ? { name: name.value.trim(), description: description.value } : undefined),
   });
 }
 
 async function workerDialog(tenants: Tenant[], w?: WorkerInfo, tenantId?: string): Promise<Record<string, unknown> | null> {
-  const tenant = h('select', { class: 'param-input' }, tenants.map((t) => h('option', { value: t.id, selected: t.id === (w?.tenantId ?? tenantId) }, t.name)));
+  const tenant = h('select', { class: 'param-input' }, tenants.map((tn) => h('option', { value: tn.id, selected: tn.id === (w?.tenantId ?? tenantId) }, tn.name)));
   const name = text(w?.name ?? '');
   const url = text(w?.url ?? '', { placeholder: 'https://filuflow.kunde.example' });
   const token = h('input', { type: 'password', class: 'param-input', autocomplete: 'off', placeholder: w ? 'unverändert' : 'FILUFLOW_API_KEY des Workers' });
@@ -207,8 +207,8 @@ export async function tenantsPage(): Promise<HTMLElement> {
     root.append(h('div', { class: 'empty' }, h('p', null, 'Noch keine Mandanten.')));
     return root;
   }
-  for (const t of tenants) {
-    const own = workers.filter((w) => w.tenantId === t.id);
+  for (const tn of tenants) {
+    const own = workers.filter((w) => w.tenantId === tn.id);
     root.append(
       h(
         'div',
@@ -216,8 +216,8 @@ export async function tenantsPage(): Promise<HTMLElement> {
         h(
           'div',
           { class: 'page-head' },
-          h('h2', null, t.name),
-          t.description ? h('span', { class: 'muted small' }, t.description) : null,
+          h('h2', null, tn.name),
+          tn.description ? h('span', { class: 'muted small' }, tn.description) : null,
           h('div', { class: 'spacer' }),
           h(
             'button',
@@ -225,7 +225,7 @@ export async function tenantsPage(): Promise<HTMLElement> {
               type: 'button',
               class: 'btn btn-small',
               onclick: async () => {
-                const r = await workerDialog(tenants, undefined, t.id);
+                const r = await workerDialog(tenants, undefined, tn.id);
                 if (!r) return;
                 try {
                   const w = await mapi.createWorker(r);
@@ -244,10 +244,10 @@ export async function tenantsPage(): Promise<HTMLElement> {
               type: 'button',
               class: 'btn btn-small',
               onclick: async () => {
-                const r = await tenantDialog(t);
+                const r = await tenantDialog(tn);
                 if (!r) return;
                 try {
-                  await mapi.updateTenant(t.id, r);
+                  await mapi.updateTenant(tn.id, r);
                   await reload();
                 } catch (err) {
                   toast(message(err), 'error');
@@ -262,9 +262,9 @@ export async function tenantsPage(): Promise<HTMLElement> {
               type: 'button',
               class: 'btn btn-small btn-danger',
               onclick: async () => {
-                if (!(await confirmDialog('Mandant löschen', `"${t.name}" wird gelöscht.`))) return;
+                if (!(await confirmDialog('Mandant löschen', `"${tn.name}" wird gelöscht.`))) return;
                 try {
-                  await mapi.deleteTenant(t.id);
+                  await mapi.deleteTenant(tn.id);
                   await reload();
                 } catch (err) {
                   toast(message(err), 'error');
@@ -320,8 +320,8 @@ export async function workerPage(id: string): Promise<HTMLElement> {
   const [workers, tenants, overview] = await Promise.all([mapi.workers(), mapi.tenants(), mapi.overview()]);
   const w = workers.find((x) => x.id === id);
   if (!w) return h('section', { class: 'page' }, h('h1', null, 'Worker nicht gefunden'), h('a', { href: '#/admin/tenants' }, 'Zurück'));
-  const tenant = tenants.find((t) => t.id === w.tenantId);
-  const ov = overview.tenants.flatMap((t) => t.workers).find((x) => x.id === id);
+  const tenant = tenants.find((tn) => tn.id === w.tenantId);
+  const ov = overview.tenants.flatMap((tn) => tn.workers).find((x) => x.id === id);
   const root = h('section', { class: 'page' }, pageHead('Verwaltung', 'Worker'), adminTabs('tenants'));
   const reload = async () => root.replaceWith(await workerPage(id));
   const action = (label: string, fn: () => Promise<void>, cls = 'btn') =>
@@ -703,7 +703,7 @@ export async function sharedCredentialsPage(): Promise<HTMLElement> {
   const [list, overview] = await Promise.all([mapi.sharedCredentials(), mapi.overview()]);
   const root = page('credentials', 'Gemeinsame Credentials');
   const reload = async () => root.replaceWith(await sharedCredentialsPage());
-  const allWorkers = overview.tenants.flatMap((t) => t.workers.map((w) => ({ id: w.id, label: `${t.name} / ${w.name}` })));
+  const allWorkers = overview.tenants.flatMap((tn) => tn.workers.map((w) => ({ id: w.id, label: `${tn.name} / ${w.name}` })));
 
   const edit = async (current?: SharedCredential) => {
     // Auswahl der Worker als zusätzliches Feld im Credential-Formular
