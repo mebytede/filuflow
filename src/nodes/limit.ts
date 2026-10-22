@@ -1,21 +1,21 @@
 // Limit, n8n-nodes-base.limit (typeVersion 1)
-// Nachgebaut nach n8n 1.123.0 packages/nodes-base/nodes/Transform/Limit/Limit.node.ts
+// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/Transform/Limit/Limit.node.ts
 import type { NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
 
-// Parameter wie Limit.node.ts (properties)
+// Parameters like Limit.node.ts (properties)
 const parameters: ParamSchema[] = [
-  { name: 'maxItems', label: 'Höchstens Items', type: 'number', default: 1, min: 1, description: 'Gibt es mehr Items, werden die übrigen entfernt' },
+  { name: 'maxItems', label: 'Max Items', type: 'number', default: 1, min: 1, description: 'If there are more items than this number, some are removed' },
   {
     name: 'keep',
-    label: 'Behalten',
+    label: 'Keep',
     type: 'options',
     default: 'firstItems',
     options: [
-      { value: 'firstItems', label: 'Erste Items' },
-      { value: 'lastItems', label: 'Letzte Items' },
+      { value: 'firstItems', label: 'First Items' },
+      { value: 'lastItems', label: 'Last Items' },
     ],
-    description: 'Ob beim Entfernen die Items am Anfang oder am Ende bleiben',
+    description: 'When removing items, whether to keep the ones at the start or the ending',
   },
 ];
 

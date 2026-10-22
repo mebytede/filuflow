@@ -1,53 +1,53 @@
 // When Executed by Another Workflow, n8n-nodes-base.executeWorkflowTrigger (typeVersion 1, 1.1)
-// Nachgebaut nach n8n 1.123.0 packages/nodes-base/nodes/ExecuteWorkflow/ExecuteWorkflowTrigger
-// v1: Daten werden durchgereicht. v1.1: Default "workflowInputs" (nur definierte Felder, fehlende = null).
+// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/ExecuteWorkflow/ExecuteWorkflowTrigger
+// v1: data is passed through. v1.1: default "workflowInputs" (only defined fields, missing = null).
 import lodash from 'lodash';
 import type { NodeType } from './types.js';
 import type { Item } from '../types.js';
 import { jsonParse } from './shared/utils.js';
 import type { ParamSchema } from './params.js';
 
-// Parameter wie packages/nodes-base/nodes/ExecuteWorkflow/ExecuteWorkflowTrigger/ExecuteWorkflowTrigger.node.ts
-// und utils/workflowInputsResourceMapping/constants.ts (TYPE_OPTIONS). n8n prüft die Version mit { eq: 1 }.
+// Parameters like packages/nodes-base/nodes/ExecuteWorkflow/ExecuteWorkflowTrigger/ExecuteWorkflowTrigger.node.ts
+// and utils/workflowInputsResourceMapping/constants.ts (TYPE_OPTIONS). n8n checks the version with { eq: 1 }.
 const parameters: ParamSchema[] = [
-  { name: 'events', label: 'Ereignisse', type: 'hidden', noExpression: true, default: 'worklfow_call' },
+  { name: 'events', label: 'Events', type: 'hidden', noExpression: true, default: 'worklfow_call' },
   {
     name: 'notice',
-    label: 'Ruft ein Execute-Workflow-Knoten diesen Workflow auf, startet die Ausführung hier. Alle übergebenen Daten gibt dieser Knoten aus.',
+    label: 'When an ‘Execute Workflow’ node calls this workflow, the execution starts here. Any data passed into the ‘Execute Workflow’ node will be output by this node.',
     type: 'notice',
     default: '',
     show: { '@version': [1] },
   },
   {
     name: 'outdatedVersionWarning',
-    label: 'Dieser Knoten ist veraltet. Bitte entfernen Sie ihn und fügen Sie einen neuen hinzu.',
+    label: 'This node is out of date. Please upgrade by removing it and adding a new one',
     type: 'notice',
     default: '',
     show: { '@version': [1] },
   },
   {
     name: 'inputSource',
-    label: 'Eingabedaten',
+    label: 'Input data mode',
     type: 'options',
     noExpression: true,
     default: 'workflowInputs',
     options: [
-      { value: 'workflowInputs', label: 'Über Felder festlegen', description: 'Eingabefelder im Formular angeben' },
-      { value: 'jsonExample', label: 'Über JSON-Beispiel festlegen', description: 'Schema aus einem JSON-Beispielobjekt ableiten' },
-      { value: 'passthrough', label: 'Alle Daten annehmen', description: 'Alle Daten des aufrufenden Workflows übernehmen' },
+      { value: 'workflowInputs', label: 'Define using fields below', description: 'Provide input fields via UI' },
+      { value: 'jsonExample', label: 'Define using JSON example', description: 'Generate a schema from an example JSON object' },
+      { value: 'passthrough', label: 'Accept all data', description: 'Use all incoming data from the parent workflow' },
     ],
     show: { '@version': [{ _cnd: { gte: 1.1 } }] },
   },
   {
     name: 'jsonExample_notice',
-    label: 'Geben Sie ein Beispielobjekt an, aus dem Felder und Typen abgeleitet werden. Mit dem Wert null ist jeder Typ erlaubt.',
+    label: 'Provide an example object to infer fields and their types. To allow any type for a given field, set the value to null.',
     type: 'notice',
     default: '',
     show: { '@version': [{ _cnd: { gte: 1.1 } }], inputSource: ['jsonExample'] },
   },
   {
     name: 'jsonExample',
-    label: 'JSON-Beispiel',
+    label: 'JSON Example',
     type: 'json',
     noExpression: true,
     default: JSON.stringify({ aField: 'a string', aNumber: 123, thisFieldAcceptsAnyType: null, anArray: [] }, null, 2),
@@ -55,42 +55,42 @@ const parameters: ParamSchema[] = [
   },
   {
     name: 'workflowInputs',
-    label: 'Eingabeschema des Workflows',
+    label: 'Workflow Input Schema',
     type: 'fixedCollection',
     multiple: true,
-    addLabel: 'Feld hinzufügen',
+    addLabel: 'Add field',
     default: {},
-    description: 'Erwartete Eingabefelder; ohne Felder werden alle Daten durchgereicht',
+    description: 'Define expected input fields. If no inputs are provided, all data from the calling workflow will be passed through.',
     show: { '@version': [{ _cnd: { gte: 1.1 } }], inputSource: ['workflowInputs'] },
     groups: [
       {
         name: 'values',
-        label: 'Werte',
+        label: 'Values',
         children: [
           {
             name: 'name',
             label: 'Name',
             type: 'string',
             default: '',
-            placeholder: 'z. B. fieldName',
-            description: 'Eindeutiger Name der Eingabe, über den andere Workflows sie ansprechen',
+            placeholder: 'e.g. fieldName',
+            description: 'A unique name for this workflow input, used to reference it from another workflows',
             required: true,
             noExpression: true,
           },
           {
             name: 'type',
-            label: 'Typ',
+            label: 'Type',
             type: 'options',
             default: 'string',
             options: [
-              { value: 'any', label: 'Beliebiger Typ' },
+              { value: 'any', label: 'Allow Any Type' },
               { value: 'string', label: 'String' },
               { value: 'number', label: 'Number' },
               { value: 'boolean', label: 'Boolean' },
               { value: 'array', label: 'Array' },
               { value: 'object', label: 'Object' },
             ],
-            description: 'Erwarteter Datentyp der Eingabe',
+            description: 'The type of data expected for this input',
             required: true,
             noExpression: true,
           },
