@@ -2,8 +2,9 @@
 // nur vor; Annehmen, Verwerfen und alle Einstellungen liegen bei den Menschen. Die Datenquelle ist austauschbar
 // (Einzelbetrieb: eigene API; Master: über den Master für einen Worker).
 import { api } from '../api.js';
-import { appendAll, confirmDialog, h, toast } from '../dom.js';
+import { appendAll, h, toast } from '../dom.js';
 import { button, kpis, pageHead, shortTime, toggleSwitch } from '../shell.js';
+import { proposalList } from './supervisorProposals.js';
 import type { CredentialInfo, SupervisorFinding, SupervisorProposal, SupervisorProvider, SupervisorReport, SupervisorSettings, SupervisorStatus } from '../types.js';
 
 export interface SupervisorBackend {
@@ -21,6 +22,7 @@ export interface SupervisorBackend {
   executionHref(id: string): string | undefined;
   /** Vorschläge (M36); ohne diese Methoden kein Reiter "Vorschläge" */
   proposals?(filter: { status?: string; workflow?: string }): Promise<SupervisorProposal[]>;
+  proposal?(id: string): Promise<SupervisorProposal>;
   propose?(findingId: string): Promise<SupervisorProposal>;
   proposalAction?(id: string, action: 'accept' | 'reject' | 'test'): Promise<SupervisorProposal>;
   /** Darf der Benutzer Vorschläge annehmen? */
@@ -42,6 +44,10 @@ export const standaloneSupervisorBackend: SupervisorBackend = {
   workflows: async () => (await api.workflows()).map((w) => ({ id: w.id ?? w.name, name: w.name })),
   workflowHref: (id) => `#/workflow/${encodeURIComponent(id)}`,
   executionHref: (id) => `#/execution/${encodeURIComponent(id)}`,
+  proposals: (f) => api.proposals(f),
+  proposal: (id) => api.proposal(id),
+  propose: (id) => api.propose(id),
+  proposalAction: (id, a) => api.proposalAction(id, a),
   canAccept: true,
   canConfigure: true,
 };
@@ -332,7 +338,8 @@ export async function supervisorView(tab: string, query: URLSearchParams, backen
   const st = await backend.status();
   const active = ['findings', 'proposals', 'reports', 'settings'].includes(tab) ? tab : 'findings';
   let body: HTMLElement;
-  if (active === 'reports') body = await reportsTab(backend);
+  if (active === 'proposals' && backend.proposals) body = await proposalList(backend, query, base);
+  else if (active === 'reports') body = await reportsTab(backend);
   else if (active === 'settings') body = await settingsTab(backend);
   else body = await findingsTab(backend, query, base, st);
   return h(
@@ -342,13 +349,5 @@ export async function supervisorView(tab: string, query: URLSearchParams, backen
     h('p', { class: 'muted', style: { maxWidth: '760px', marginTop: '-8px' } }, 'Der Aufseher beobachtet Workflows und Ausführungen, erklärt Probleme und schlägt Verbesserungen vor. Er ändert nichts selbst: Jeder Vorschlag wartet auf Ihre Entscheidung.'),
     tabs(base, active, !!backend.proposals),
     body,
-  );
-}
-
-export async function confirmAccept(p: SupervisorProposal): Promise<boolean> {
-  return confirmDialog(
-    'Vorschlag annehmen',
-    p.kind === 'new' ? `Der Workflow "${p.workflowName}" wird inaktiv angelegt.` : `Der Workflow "${p.workflowName}" wird mit den Änderungen gespeichert. Ob er aktiv ist, bleibt unverändert.`,
-    'Annehmen',
   );
 }

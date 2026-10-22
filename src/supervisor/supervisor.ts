@@ -15,7 +15,34 @@ import { checkWorkflow, normalizeError, type ObservedWorkflow } from './rules.js
 import { DEFAULT_SETTINGS, normalizeSettings, provider, SETTINGS_KEY } from './settings.js';
 import { BudgetExceededError, runChat, SupervisorModelError, type SupervisorTool } from './llm.js';
 import { clip, executionExcerpt, maskWorkflow } from './redact.js';
-import type { Finding, Report, SupervisorSettings } from './types.js';
+import type { Finding, Proposal, ProposalOperation, Report, SupervisorSettings } from './types.js';
+import { applyOperations, OPERATIONS_SCHEMA, OperationError, workflowDiff, workflowHash } from './operations.js';
+
+export interface ValidationOutcome {
+  valid: boolean;
+  issues: Array<{ severity: string; code?: string; message: string; node?: string }>;
+}
+
+/** Fehler beim Annehmen eines Vorschlags mit HTTP-Status */
+export class ProposalError extends Error {
+  constructor(
+    message: string,
+    readonly statusCode: number,
+    readonly issues?: ValidationOutcome['issues'],
+  ) {
+    super(message);
+  }
+}
+
+/** Fehlende Credentials blockieren einen Vorschlag nicht: Sie müssen vor dem Annehmen angelegt werden */
+const CREDENTIAL_CODES = ['credentials.missing', 'credentials.notAssigned', 'credentials.env'];
+const issueKey = (i: { code?: string; message: string; node?: string }) => `${i.code ?? ''}\u0001${i.node ?? ''}\u0001${i.message}`;
+
+/** Fehler des neuen Stands, die der alte nicht hatte */
+export function newErrors(before: ValidationOutcome | undefined, after: ValidationOutcome): ValidationOutcome['issues'] {
+  const known = new Set((before?.issues ?? []).filter((i) => i.severity === 'error').map(issueKey));
+  return after.issues.filter((i) => i.severity === 'error' && !known.has(issueKey(i)));
+}
 
 /** Regeln aus checkWorkflow (Zustände: verschwinden sie, ist der Hinweis erledigt) */
 export const STATE_RULES = ['invalid', 'activation-failed', 'repeated-failures', 'failure-rate', 'crashed', 'slower', 'no-error-handling', 'plaintext-secret', 'disabled-nodes', 'unconnected', 'outdated-version', 'http-no-retry'];
@@ -35,6 +62,16 @@ export interface SupervisorOptions {
   secrets(): string[];
   /** Typ eines Credentials (für die Prüfung der Modell-Einstellung) */
   credentialType?(name: string): string | undefined;
+  /** Credentials mit Name und Typ, ohne Werte (Werkzeug list_credentials) */
+  credentialList?(): Array<{ name: string; type?: string }>;
+  /** Vorschläge (M36): prüfen, Quelle lesen, speichern, Probelauf */
+  validate?(workflow: Workflow): ValidationOutcome;
+  /** Workflow so, wie er gespeichert ist (Ausgangsstand eines Vorschlags) */
+  workflowSource?(id: string): Promise<Workflow | undefined>;
+  /** Speichern; ohne id neu anlegen. Liefert die ID und, im Master, die neue Version */
+  saveWorkflow?(workflow: Workflow, id: string | undefined, by?: string): Promise<{ id: string; version?: number }>;
+  /** Manueller Lauf mit Testdaten (führt Knoten wirklich aus) */
+  testRun?(workflow: Workflow): Promise<{ executionId: string; status: string }>;
 }
 
 export const SYSTEM_PROMPT = [
@@ -247,6 +284,25 @@ export class Supervisor {
         },
       },
       {
+        name: 'list_credentials',
+        description: 'Listet die vorhandenen Credentials mit Name und Typ (ohne Werte). Für Knoten, die Zugangsdaten brauchen.',
+        schema: { type: 'object', properties: {} },
+        run: async () => (this.o.credentialList?.() ?? []).map((c) => ({ name: c.name, ...(c.type ? { type: c.type } : {}) })),
+      },
+      {
+        name: 'list_node_types',
+        description: 'Sucht Knotentypen nach einem Stichwort in Typ oder Name; liefert Typ, Name, Versionen und ob es ein Auslöser ist.',
+        schema: { type: 'object', properties: { query: { type: 'string', description: 'z. B. http, slack, schedule, code' } }, required: ['query'] },
+        run: async (a) => {
+          const q = String(a.query ?? '').toLowerCase();
+          return this.o.registry
+            .list()
+            .filter((t) => !t.ignored && (t.type.toLowerCase().includes(q) || t.displayName.toLowerCase().includes(q)))
+            .slice(0, 40)
+            .map((t) => ({ type: t.type, displayName: t.displayName, versions: t.versions, isTrigger: !!t.isTrigger, ...(t.isSubNode ? { subNode: t.aiOutput ?? true } : {}) }));
+        },
+      },
+      {
         name: 'get_node_type',
         description: 'Beschreibt einen Knotentyp: Name, unterstützte Versionen und Parameter (Name, Typ, Default, Optionen, Sichtbarkeit).',
         schema: { type: 'object', properties: { type: { type: 'string', description: 'z. B. n8n-nodes-base.httpRequest' } }, required: ['type'] },
@@ -293,6 +349,220 @@ export class Supervisor {
       if (error instanceof SupervisorModelError) throw error;
       throw new SupervisorModelError(message);
     }
+  }
+
+  // Vorschläge (M36)
+
+  private needsProposals(): void {
+    if (!this.o.validate || !this.o.workflowSource || !this.o.saveWorkflow) throw new ProposalError('Vorschläge sind hier nicht verfügbar', 501);
+  }
+
+  private validate(workflow: Workflow): ValidationOutcome {
+    return this.o.validate!(workflow);
+  }
+
+  /**
+   * Vorschlag anlegen: Operationen auf den gespeicherten Stand (bzw. einen leeren Workflow) anwenden und prüfen. Neue
+   * Fehler außer fehlenden Credentials verhindern den Vorschlag (die Meldung geht an das Modell zurück).
+   */
+  async createProposal(o: { kind: 'change' | 'new'; workflowId?: string; findingId?: string; title: string; summary: string; operations: ProposalOperation[] }): Promise<Proposal> {
+    this.needsProposals();
+    let base: Workflow | undefined;
+    if (o.kind === 'change') {
+      if (!o.workflowId) throw new OperationError('workflowId fehlt');
+      if (this.settings().excludedWorkflows.includes(o.workflowId)) throw new OperationError('Workflow ist vom Aufseher ausgenommen');
+      base = await this.o.workflowSource!(o.workflowId);
+      if (!base) throw new OperationError(`Workflow "${o.workflowId}" gibt es nicht`);
+    }
+    const start: Workflow = base ?? { name: 'Neuer Workflow', active: false, nodes: [], connections: {}, settings: { executionOrder: 'v1' } };
+    const proposed = applyOperations(start, o.operations, this.o.registry);
+    if (o.kind === 'new') {
+      delete proposed.id;
+      proposed.active = false;
+    } else {
+      proposed.id = base!.id;
+      proposed.active = base!.active;
+    }
+    const validation = this.validate(proposed);
+    const added = newErrors(base ? this.validate(base) : undefined, validation).filter((i) => !CREDENTIAL_CODES.includes(i.code ?? ''));
+    if (added.length) throw new OperationError(`Der vorgeschlagene Stand ist ungültig: ${added.map((i) => (i.node ? `${i.node}: ${i.message}` : i.message)).join('; ')}`);
+    const diff = workflowDiff(base, proposed);
+    if (!diff.length) throw new OperationError('Der Vorschlag ändert nichts');
+    const proposal: Proposal = {
+      id: randomUUID(),
+      kind: o.kind,
+      ...(o.workflowId ? { workflowId: o.workflowId } : {}),
+      workflowName: proposed.name,
+      ...(o.findingId ? { findingId: o.findingId } : {}),
+      title: clip(String(o.title || 'Vorschlag'), 200),
+      summary: clip(String(o.summary || ''), 4000),
+      operations: o.operations,
+      workflow: proposed,
+      ...(base ? { baseHash: workflowHash(base) } : {}),
+      diff,
+      validation: { valid: validation.valid, issues: validation.issues.map((i) => ({ severity: i.severity, message: i.message, ...(i.node ? { node: i.node } : {}) })) },
+      status: 'open',
+      createdAt: new Date().toISOString(),
+    };
+    this.store.saveProposal(proposal);
+    if (o.findingId) this.store.setFindingProposal(o.findingId, proposal.id);
+    return proposal;
+  }
+
+  /** Werkzeug für das Modell: Vorschlag einreichen (Änderung eines Workflows oder neuer Workflow) */
+  proposeTool(target: { kind: 'change'; workflowId: string; findingId?: string } | { kind: 'new' }, created: Proposal[]): SupervisorTool {
+    const change = target.kind === 'change';
+    return {
+      name: change ? 'propose_change' : 'propose_workflow',
+      description: change
+        ? 'Reicht einen Vorschlag für den Workflow ein. Die Operationen werden auf den gespeicherten Stand angewendet und geprüft; ein Mensch entscheidet später. Bei Fehlern kommt die Meldung zurück und Sie können korrigieren.'
+        : 'Reicht einen neuen Workflow als Vorschlag ein. Die Operationen bauen ihn aus einem leeren Workflow auf (zuerst setName, dann addNode und connect). Er wird inaktiv angelegt, wenn ein Mensch zustimmt.',
+      schema: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: 'Kurzer Titel, z. B. "Wiederholung für HTTP Request"' },
+          summary: { type: 'string', description: 'Was sich ändert und warum, zwei bis vier Sätze' },
+          operations: OPERATIONS_SCHEMA,
+        },
+        required: ['title', 'summary', 'operations'],
+      },
+      run: async (a) => {
+        const p = await this.createProposal({
+          kind: target.kind,
+          ...(change ? { workflowId: target.workflowId, ...(target.findingId ? { findingId: target.findingId } : {}) } : {}),
+          title: String(a.title ?? ''),
+          summary: String(a.summary ?? ''),
+          operations: a.operations as ProposalOperation[],
+        });
+        created.push(p);
+        const pending = p.validation.issues.filter((i) => i.severity === 'error');
+        return { ok: true, proposalId: p.id, changes: p.diff.map((d) => d.text), ...(pending.length ? { offen: pending.map((i) => i.message) } : {}) };
+      },
+    };
+  }
+
+  /** Vorschlag zu einem Hinweis vom Modell erstellen lassen */
+  async propose(findingId: string): Promise<Proposal> {
+    this.needsProposals();
+    const finding = this.store.getFinding(findingId);
+    if (!finding) throw new ProposalError('Hinweis nicht gefunden', 404);
+    if (finding.proposalId) {
+      const existing = this.store.getProposal(finding.proposalId);
+      if (existing?.status === 'open') throw new ProposalError('Zu diesem Hinweis gibt es schon einen offenen Vorschlag', 409);
+    }
+    const s = this.settings();
+    const secrets = this.o.secrets();
+    const o = this.observed().find((w) => (w.workflow.id ?? w.workflow.name) === finding.workflowId);
+    if (!o) throw new ProposalError('Workflow nicht gefunden oder vom Aufseher ausgenommen', 404);
+    const source = (await this.o.workflowSource!(finding.workflowId)) ?? o.workflow;
+    const execution = finding.executionId ? this.o.executions.get(finding.executionId, true) : undefined;
+    const created: Proposal[] = [];
+    const context = {
+      hinweis: { regel: finding.rule, titel: finding.title, text: finding.detail, knoten: finding.nodeName, ...(finding.analysis?.text ? { analyse: finding.analysis.text } : {}) },
+      workflow: maskWorkflow(source, secrets, s.dataScope),
+      ...(execution ? { ausfuehrung: executionExcerpt(execution, secrets, s.dataScope) } : {}),
+    };
+    const outcome = await runChat(
+      { runner: this.o.runner, store: this.store, settings: () => this.settings() },
+      [
+        { role: 'system', content: SYSTEM_PROMPT },
+        {
+          role: 'human',
+          content:
+            'Erstellen Sie einen Vorschlag, der den folgenden Hinweis behebt, und reichen Sie ihn mit dem Werkzeug propose_change ein. ' +
+            'Ändern Sie nur, was dafür nötig ist. Werte, die als *** erscheinen, lassen Sie unverändert. Zugangsdaten gehören in Credentials ' +
+            '(list_credentials zeigt die vorhandenen; fehlt eines, nennen Sie in der Zusammenfassung Typ und Namen, die angelegt werden müssen). ' +
+            'Prüfen Sie mit get_node_type, welche Parameter ein Knoten hat. Kommt eine Fehlermeldung zurück, korrigieren Sie den Vorschlag. ' +
+            'Ist keine sinnvolle Änderung möglich, reichen Sie nichts ein und begründen Sie das kurz.\n\n' +
+            clip(JSON.stringify(context, null, 1), 30_000),
+        },
+      ],
+      [...this.readTools(), this.proposeTool({ kind: 'change', workflowId: finding.workflowId, findingId }, created)],
+      { maxSteps: 8, signal: this.abort.signal },
+    );
+    const proposal = created[created.length - 1];
+    if (!proposal) throw new ProposalError(`Der Aufseher hat keinen Vorschlag erstellt${outcome.text ? `: ${clip(outcome.text, 600)}` : ''}`, 422);
+    // Frühere Entwürfe derselben Anfrage ersetzt der letzte
+    for (const p of created.slice(0, -1)) this.store.saveProposal({ ...p, status: 'rejected', decidedAt: new Date().toISOString(), decidedBy: 'Aufseher (ersetzt)' });
+    return proposal;
+  }
+
+  /** Offene Vorschläge, deren Workflow sich seit dem Vorschlag geändert hat, als veraltet markieren */
+  async refreshProposals(): Promise<void> {
+    if (!this.o.workflowSource) return;
+    for (const p of this.store.listProposals({ status: 'open', limit: 2000 })) {
+      if (p.kind !== 'change' || !p.workflowId) continue;
+      const current = await this.o.workflowSource(p.workflowId);
+      if (!current || workflowHash(current) !== p.baseHash) this.markStale(p);
+    }
+  }
+
+  private markStale(p: Proposal): void {
+    this.store.saveProposal({ ...p, status: 'stale' });
+    if (p.findingId) this.store.setFindingProposal(p.findingId, null);
+  }
+
+  /** Annehmen: speichern, wenn der Workflow seit dem Vorschlag unverändert ist; die Aktivierung bleibt, wie sie ist */
+  async acceptProposal(id: string, by?: string): Promise<Proposal> {
+    this.needsProposals();
+    const p = this.store.getProposal(id);
+    if (!p) throw new ProposalError('Vorschlag nicht gefunden', 404);
+    if (p.status !== 'open') throw new ProposalError(`Der Vorschlag ist nicht mehr offen (${p.status})`, 409);
+    const proposed = JSON.parse(JSON.stringify(p.workflow)) as Workflow;
+    let current: Workflow | undefined;
+    if (p.kind === 'change') {
+      current = await this.o.workflowSource!(p.workflowId!);
+      if (!current) throw new ProposalError('Den Workflow gibt es nicht mehr', 404);
+      if (workflowHash(current) !== p.baseHash) {
+        this.markStale(p);
+        throw new ProposalError('Der Workflow wurde seit dem Vorschlag geändert. Lassen Sie einen neuen Vorschlag erstellen.', 409);
+      }
+      proposed.active = current.active;
+    } else {
+      proposed.active = false;
+    }
+    const added = newErrors(current ? this.validate(current) : undefined, this.validate(proposed));
+    if (added.length) throw new ProposalError(`Der Vorschlag lässt sich so nicht übernehmen: ${added.map((i) => (i.node ? `${i.node}: ${i.message}` : i.message)).join('; ')}`, 409, added);
+    const saved = await this.o.saveWorkflow!(proposed, p.kind === 'change' ? p.workflowId : undefined, by);
+    const done: Proposal = { ...p, status: 'accepted', decidedAt: new Date().toISOString(), ...(by ? { decidedBy: by } : {}), result: { workflowId: saved.id, ...(saved.version !== undefined ? { version: saved.version } : {}) } };
+    this.store.saveProposal(done);
+    // Andere offene Vorschläge zum selben Workflow beruhen auf dem alten Stand
+    if (p.kind === 'change') for (const other of this.store.listProposals({ status: 'open', workflowId: p.workflowId, limit: 2000 })) if (other.id !== p.id) this.markStale(other);
+    try {
+      this.scan();
+    } catch {
+      // Prüfung läuft spätestens beim nächsten Intervall
+    }
+    return done;
+  }
+
+  rejectProposal(id: string, by?: string): Proposal {
+    const p = this.store.getProposal(id);
+    if (!p) throw new ProposalError('Vorschlag nicht gefunden', 404);
+    if (p.status !== 'open' && p.status !== 'stale') throw new ProposalError(`Der Vorschlag ist nicht mehr offen (${p.status})`, 409);
+    const done: Proposal = { ...p, status: 'rejected', decidedAt: new Date().toISOString(), ...(by ? { decidedBy: by } : {}) };
+    this.store.saveProposal(done);
+    if (p.findingId) this.store.setFindingProposal(p.findingId, null);
+    return done;
+  }
+
+  /** Probelauf des vorgeschlagenen Stands (manuell, mit Testdaten); führt die Knoten wirklich aus */
+  async testProposal(id: string): Promise<Proposal> {
+    const p = this.store.getProposal(id);
+    if (!p) throw new ProposalError('Vorschlag nicht gefunden', 404);
+    if (!this.o.testRun) throw new ProposalError('Probeläufe sind hier nicht verfügbar', 501);
+    if (p.status !== 'open') throw new ProposalError(`Der Vorschlag ist nicht mehr offen (${p.status})`, 409);
+    const workflow = JSON.parse(JSON.stringify(p.workflow)) as Workflow;
+    workflow.id = p.workflowId ?? `vorschlag-${p.id.slice(0, 8)}`;
+    let run: { executionId: string; status: string };
+    try {
+      run = await this.o.testRun(workflow);
+    } catch (error) {
+      throw new ProposalError((error as Error).message, 400);
+    }
+    const updated: Proposal = { ...p, testRun: { ...run, at: new Date().toISOString() } };
+    this.store.saveProposal(updated);
+    return updated;
   }
 
   // Tagesbericht

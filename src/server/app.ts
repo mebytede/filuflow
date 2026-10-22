@@ -3,7 +3,7 @@ import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest }
 import qs from 'qs';
 import { gunzipSync, inflateSync } from 'node:zlib';
 import { timingSafeEqual } from 'node:crypto';
-import type { Execution, Item } from '../types.js';
+import type { Execution, Item, Workflow } from '../types.js';
 import { Runner } from '../runner.js';
 import { getDefaultRegistry } from '../nodes/index.js';
 import type { NodeRegistry } from '../nodes/registry.js';
@@ -35,6 +35,7 @@ import { OAUTH1_CALLBACK_PATH } from '../credentials/oauth1.js';
 import { UndiciHttpClient } from '../http.js';
 import { Supervisor } from '../supervisor/supervisor.js';
 import { registerSupervisorApi } from '../supervisor/api.js';
+import { validateWorkflow } from '../validator.js';
 
 export interface ServerOptions {
   dir: string;
@@ -240,6 +241,22 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
       },
       workflows: () =>
         workflows!.list().map((m) => ({ workflow: m.workflow, active: m.active, issues: m.issues, ...(m.activationError ? { activationError: m.activationError } : {}) })),
+      credentialList: () => (credentials.list?.() ?? []).map((c) => ({ name: c.name, ...(c.type ? { type: c.type } : {}) })),
+      validate: (wf) => validateWorkflow(wf, { registry, credentials, checkCredentials: true }),
+      workflowSource: async (id) => {
+        try {
+          return (await workflows!.source(id)) as Workflow | undefined;
+        } catch {
+          return undefined;
+        }
+      },
+      saveWorkflow: async (wf, id) => ({ id: (await workflows!.save(wf, id)).workflow.id as string }),
+      testRun: async (wf) => {
+        runner.checkStart(wf);
+        const entry = manager.start({ workflow: wf, mode: 'manual', usePinData: true });
+        const execution = await entry.promise;
+        return { executionId: execution.id, status: execution.status };
+      },
     });
     supervisor.start();
   }

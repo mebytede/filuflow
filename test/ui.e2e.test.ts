@@ -306,6 +306,22 @@ describe('Weboberfläche', () => {
     await page.click('.tab:has-text("Berichte")');
     await page.click('button:has-text("Bericht jetzt erstellen")');
     await page.waitForSelector('.report-text:has-text("Offene Hinweise")');
+    // Vorschlag (ohne Modell direkt angelegt): Diff ansehen und annehmen
+    const target = server!.workflows.list().find((m) => m.workflow.nodes.length >= 2)!;
+    const firstNode = target.workflow.nodes[0].name;
+    const proposal = await server!.supervisor!.createProposal({
+      kind: 'change',
+      workflowId: target.workflow.id!,
+      title: 'Notiz ergänzen',
+      summary: 'Der erste Knoten bekommt eine Notiz.',
+      operations: [{ op: 'setNodeProperty', node: firstNode, property: 'notes', value: 'vom Aufseher' }],
+    });
+    await page.click('.tab:has-text("Vorschläge")');
+    await page.waitForSelector(`.proposal[data-proposal="${proposal.id}"] .diff-list:has-text("notes auf vom Aufseher")`);
+    await page.click(`.proposal[data-proposal="${proposal.id}"] button:has-text("Annehmen")`);
+    await page.click('.modal .btn-primary');
+    await page.waitForSelector('.toast:has-text("gespeichert")');
+    expect(server!.workflows.get(target.workflow.id!)!.workflow.nodes[0].notes).toBe('vom Aufseher');
 
     // Testdaten für "Quelle" eingeben und festhalten
     await page.goto(`${base}/#/workflow/pinwf`);

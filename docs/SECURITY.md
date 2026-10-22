@@ -101,7 +101,10 @@ Statische Daten des Workflows werden nicht gesendet. Workflows auf der Liste "Au
 Wer keine Daten an einen externen Anbieter geben will, nutzt Ollama auf einem eigenen Server oder kein Modell (nur feste
 Regeln).
 
-Der Aufseher ändert nichts selbst. Seine Werkzeuge lesen nur; Änderungen entstehen als Vorschlag, den ein Mensch annimmt.
+Der Aufseher ändert nichts selbst. Seine Werkzeuge lesen nur; Änderungen entstehen als Vorschlag, den ein Mensch annimmt
+(M36). Vorschläge können maskierte Werte nicht zurückschreiben, Annehmen ändert die Aktivierung nicht, und ein Probelauf,
+der Knoten wirklich ausführt, startet nur nach einer Rückfrage. Wer die REST-API des Servers nutzen darf, darf auch
+Vorschläge annehmen; im Master regeln das die Rollen (M38).
 Antworten des Modells werden als Text angezeigt, nicht als HTML. Das Tagesbudget begrenzt die Kosten auch dann, wenn ein
 Fehler sehr oft auftritt.
 

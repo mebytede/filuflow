@@ -157,7 +157,7 @@ describe('Aufseher im Server', () => {
     expect(res.json().analysis).toMatchObject({ text: 'Ursache: Der Kunde fehlt im System.\nLösung: Im Knoten "Prüfen" fehlende Kunden abfangen.', model: 'gpt-4.1-mini' });
     expect(http.bodies).toHaveLength(2);
     // Werkzeuge angeboten, Ergebnis des Werkzeugs im zweiten Aufruf mit Beispieldaten (samples)
-    expect((http.bodies[0].tools as Array<{ function: { name: string } }>).map((t) => t.function.name)).toEqual(['get_workflow', 'list_executions', 'get_execution', 'get_node_type']);
+    expect((http.bodies[0].tools as Array<{ function: { name: string } }>).map((t) => t.function.name)).toEqual(['get_workflow', 'list_executions', 'get_execution', 'list_credentials', 'list_node_types', 'get_node_type']);
     const second = JSON.stringify(http.bodies[1]);
     expect(second).toContain('nicht gefunden');
     expect(second).toContain('4712');

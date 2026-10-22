@@ -1,10 +1,11 @@
 // REST-Endpunkte des Aufsehers (Einzelbetrieb und Worker; im API-Scope mit X-API-Key).
 // M35: Status, Einstellungen, Hinweise (verwerfen, wieder öffnen, analysieren), Prüfung, Berichte, Verbrauch.
 import type { FastifyInstance, FastifyReply } from 'fastify';
-import type { Supervisor } from './supervisor.js';
+import { ProposalError, type Supervisor } from './supervisor.js';
+import { OperationError } from './operations.js';
 import { PROVIDERS } from './settings.js';
 import { BudgetExceededError, SupervisorModelError } from './llm.js';
-import type { FindingStatus } from './types.js';
+import type { FindingStatus, Proposal, ProposalStatus } from './types.js';
 
 export interface SupervisorApiOptions {
   prefix: string;
@@ -15,10 +16,20 @@ const STATUSES = ['open', 'dismissed', 'resolved', 'all'];
 
 /** Fehler des Modells: Budget 429, sonst 502 (Anbieter) bzw. 400 (Einstellung) */
 export function modelErrorReply(reply: FastifyReply, error: unknown): FastifyReply {
+  if (error instanceof ProposalError) return reply.code(error.statusCode).send({ message: error.message, ...(error.issues ? { issues: error.issues } : {}) });
+  if (error instanceof OperationError) return reply.code(400).send({ message: error.message });
   if (error instanceof BudgetExceededError) return reply.code(429).send({ message: error.message });
   if (error instanceof SupervisorModelError) return reply.code(502).send({ message: error.message });
   return reply.code(500).send({ message: (error as Error).message });
 }
+
+/** Liste ohne vollständigen Workflow und Operationen */
+export function proposalSummary(p: Proposal): Omit<Proposal, 'workflow' | 'operations'> {
+  const { workflow: _w, operations: _o, ...rest } = p;
+  return rest;
+}
+
+const PROPOSAL_STATUSES = ['open', 'accepted', 'rejected', 'stale', 'all'];
 
 export async function registerSupervisorApi(api: FastifyInstance, o: SupervisorApiOptions): Promise<void> {
   const p = o.prefix;
@@ -91,6 +102,65 @@ export async function registerSupervisorApi(api: FastifyInstance, o: SupervisorA
     if (!s.settings().model) return reply.code(400).send({ message: 'Für den Aufseher ist kein Modell eingestellt (Aufseher, Einstellungen)' });
     try {
       return await s.analyze(id);
+    } catch (error) {
+      return modelErrorReply(reply, error);
+    }
+  });
+
+  // Vorschläge (M36)
+  api.post(`${p}/findings/:id/propose`, async (request, reply) => {
+    const s = sup(reply);
+    if (!s) return reply;
+    if (!s.settings().model) return reply.code(400).send({ message: 'Für den Aufseher ist kein Modell eingestellt (Aufseher, Einstellungen)' });
+    try {
+      return reply.code(201).send(await s.propose((request.params as { id: string }).id));
+    } catch (error) {
+      return modelErrorReply(reply, error);
+    }
+  });
+
+  api.get(`${p}/proposals`, async (request, reply) => {
+    const s = sup(reply);
+    if (!s) return reply;
+    const q = request.query as { status?: string; workflow?: string; limit?: string };
+    if (q.status && !PROPOSAL_STATUSES.includes(q.status)) return reply.code(400).send({ message: `Unbekannter Status: ${q.status}` });
+    await s.refreshProposals();
+    return { data: s.store.listProposals({ status: (q.status as ProposalStatus | 'all') ?? 'open', workflowId: q.workflow || undefined, limit: q.limit ? Number(q.limit) : undefined }).map(proposalSummary) };
+  });
+
+  api.get(`${p}/proposals/:id`, async (request, reply) => {
+    const s = sup(reply);
+    if (!s) return reply;
+    const proposal = s.store.getProposal((request.params as { id: string }).id);
+    if (!proposal) return reply.code(404).send({ message: 'Vorschlag nicht gefunden' });
+    return proposal;
+  });
+
+  api.post(`${p}/proposals/:id/accept`, async (request, reply) => {
+    const s = sup(reply);
+    if (!s) return reply;
+    try {
+      return await s.acceptProposal((request.params as { id: string }).id);
+    } catch (error) {
+      return modelErrorReply(reply, error);
+    }
+  });
+
+  api.post(`${p}/proposals/:id/reject`, async (request, reply) => {
+    const s = sup(reply);
+    if (!s) return reply;
+    try {
+      return s.rejectProposal((request.params as { id: string }).id);
+    } catch (error) {
+      return modelErrorReply(reply, error);
+    }
+  });
+
+  api.post(`${p}/proposals/:id/test`, async (request, reply) => {
+    const s = sup(reply);
+    if (!s) return reply;
+    try {
+      return await s.testProposal((request.params as { id: string }).id);
     } catch (error) {
       return modelErrorReply(reply, error);
     }

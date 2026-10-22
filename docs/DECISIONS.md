@@ -447,3 +447,18 @@ Befunde aus Regeln beschreiben einen Zustand: Treten sie bei der nächsten Prüf
 Befunde aus Ausführungen sind Ereignisse: Sie zählen hoch und gelten als erledigt, wenn sie drei Tage nicht mehr
 auftraten und die letzte Ausführung gelang. Verworfene Hinweise bleiben verworfen, bis jemand sie wieder öffnet.
 
+## Vorschläge des Aufsehers (M36)
+Das Modell schickt keine vollständigen Workflows, sondern Operationen (`src/supervisor/operations.ts`), die der Aufseher
+auf eine Kopie des gespeicherten Stands anwendet. Das hat drei Gründe: Das Modell sieht Geheimnisse nur maskiert und darf
+sie nie zurückschreiben (unveränderte Teile bleiben so exakt erhalten, `***` als Wert wird abgelehnt); jede Änderung ist
+einzeln sichtbar und im Diff nachvollziehbar; und Fehler lassen sich genau benennen ("Operation 2: Knoten X gibt es
+nicht"), sodass das Modell gezielt nachbessern kann. Der vorgeschlagene Stand wird mit dem Validator geprüft; neue Fehler
+verhindern den Vorschlag, außer fehlenden Credentials, die ein Mensch erst anlegen muss.
+
+Annehmen ist an den Ausgangsstand gebunden: Eine Prüfsumme über den gespeicherten Workflow (Schlüssel sortiert) wird beim
+Vorschlag gemerkt und beim Annehmen verglichen. Hat sich der Workflow inzwischen geändert, ist der Vorschlag veraltet,
+statt fremde Änderungen zu überschreiben. Annehmen ändert die Aktivierung nie; neue Workflows entstehen inaktiv.
+
+Ein Probelauf führt Knoten wirklich aus (Dienste, Nachrichten, Datenbanken). Er läuft deshalb nur auf ausdrücklichen
+Wunsch nach einer Rückfrage und nie automatisch; automatisch ist nur die Prüfung.
+

@@ -14,6 +14,7 @@ import type {
   Overview,
   NodeTypeInfo,
   SupervisorFinding,
+  SupervisorProposal,
   SupervisorProvider,
   SupervisorReport,
   SupervisorSettings,
@@ -155,4 +156,13 @@ export const api = {
   supervisorScan: () => request<{ counts: SupervisorStatus['counts'] }>('POST', '/api/supervisor/scan'),
   reports: () => request<{ data: SupervisorReport[] }>('GET', '/api/supervisor/reports').then((r) => r.data),
   createReport: () => request<SupervisorReport>('POST', '/api/supervisor/reports'),
+  proposals: (filter: { status?: string; workflow?: string } = {}) => {
+    const q = new URLSearchParams();
+    if (filter.status) q.set('status', filter.status);
+    if (filter.workflow) q.set('workflow', filter.workflow);
+    return request<{ data: SupervisorProposal[] }>('GET', `/api/supervisor/proposals?${q.toString()}`).then((r) => r.data);
+  },
+  proposal: (id: string) => request<SupervisorProposal>('GET', `/api/supervisor/proposals/${encodeURIComponent(id)}`),
+  propose: (findingId: string) => request<SupervisorProposal>('POST', `/api/supervisor/findings/${encodeURIComponent(findingId)}/propose`),
+  proposalAction: (id: string, action: 'accept' | 'reject' | 'test') => request<SupervisorProposal>('POST', `/api/supervisor/proposals/${encodeURIComponent(id)}/${action}`),
 };

@@ -33,7 +33,7 @@ und antworten. Jeder Lauf wird protokolliert und lässt sich Knoten für Knoten 
 | **Auslöser** | Webhooks mit Antwort-Knoten und Authentifizierung, Zeitpläne, Fehler-Workflows, Aufruf durch andere Workflows, REST-API |
 | **Knoten** | Daten setzen, filtern, sortieren, zusammenfassen, verzweigen (If, Switch), zusammenführen, Schleifen, Code (JavaScript und Python), HTTP (mit Pagination, Digest-Auth, Client-Zertifikaten), HTML, XML, Datum, Krypto |
 | **KI** | AI Agent mit Tools, LLM Chain, Extraktion, Klassifikation, Stimmungsanalyse; Modelle von OpenAI, Anthropic, Google Gemini, Azure, Mistral, Groq, DeepSeek, OpenRouter und Ollama; Embeddings, Vektorspeicher und Q&A Chain (RAG) |
-| **Aufseher** | ein Modell behält die Workflows im Blick: feste Regeln, Analyse fehlgeschlagener Läufe, Tagesbericht; Änderungen nur als Vorschlag, ein Mensch entscheidet |
+| **Aufseher** | ein Modell behält die Workflows im Blick: feste Regeln, Analyse fehlgeschlagener Läufe, Tagesbericht, Verbesserungen als geprüfter Vorschlag mit Diff; ein Mensch entscheidet |
 | **Credentials** | in der Oberfläche anlegen und bearbeiten (Formulare je Typ) oder als Datei pflegen, verschlüsselt mit AES-256-GCM, Werte aus Umgebungsvariablen; geheime Werte erscheinen nie in Logs oder der Oberfläche |
 | **Team und Mandanten** | Master mit Benutzern, Rechten und Projekten; Worker in der Umgebung jedes Mandanten; Anmeldung mit Passwort und TOTP oder SSO (OIDC) |
 | **Kommandozeile** | Workflows prüfen und ausführen, Ausführungen ansehen, Credentials verschlüsseln, Benutzer verwalten |
@@ -331,6 +331,10 @@ Der Aufseher behält die Workflows im Blick und meldet, was ihm auffällt. Er ä
 - **Fehlgeschlagene Ausführungen** werden je Fehlerbild gesammelt und gezählt. Mit einem Modell erklärt der Aufseher
   Ursache und Lösung, automatisch einmal je Fehlerbild oder auf Knopfdruck.
 - **Tagesbericht** zur eingestellten Stunde mit Zahlen und, mit Modell, einer kurzen Zusammenfassung.
+- **Vorschläge:** Zu einem Hinweis erstellt der Aufseher auf Knopfdruck einen Vorschlag. Er wird vor der Anzeige geprüft und
+  als Liste der Änderungen gezeigt (Knoten, Parameter, Verbindungen, Einstellungen). Sie nehmen ihn an (der Workflow wird
+  gespeichert, die Aktivierung bleibt), verwerfen ihn oder starten vorher einen Probelauf. Hat sich der Workflow seit dem
+  Vorschlag geändert, ist der Vorschlag veraltet und lässt sich nicht mehr annehmen.
 
 Unter "Aufseher, Einstellungen" wählen Sie Anbieter, Credential und Modell-ID (Anthropic, OpenAI, Google Gemini, Ollama,
 Mistral, Groq, DeepSeek, OpenRouter, Azure OpenAI; dieselben Credentials wie für die KI-Knoten), den Datenumfang ("Aufbau
