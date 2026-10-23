@@ -6,6 +6,8 @@
 
 import { CREDENTIAL_REF, credentialRefOf } from './store.js';
 import { applySchemaDefaults } from './defaults.js';
+import type { HttpClient } from '../http.js';
+import { credentialScopes, getGoogleAccessToken } from './googleServiceAccount.js';
 
 export interface HttpOptions {
   url: string;
@@ -24,9 +26,17 @@ export interface GenericAuth {
   auth?: Record<string, unknown>;
 }
 
+/** What a function authentication may need beyond the request (e.g. a token request of its own) */
+export interface AuthExtras {
+  http?: HttpClient;
+  signal?: AbortSignal;
+}
+
 export interface AuthDefinition {
   /** Generic description or function (credentials, requestOptions) => requestOptions */
-  authenticate: { type: 'generic'; properties: GenericAuth } | ((credentials: Record<string, unknown>, options: HttpOptions) => HttpOptions | Promise<HttpOptions>);
+  authenticate:
+    | { type: 'generic'; properties: GenericAuth }
+    | ((credentials: Record<string, unknown>, options: HttpOptions, extras?: AuthExtras) => HttpOptions | Promise<HttpOptions>);
   /** Field defaults, including hidden ones (e.g. fixed URLs) */
   defaults?: Record<string, unknown>;
   /** Defaults only, no own authentication (credential types from plugins without authenticate) */
@@ -94,6 +104,18 @@ const BUILTIN: Record<string, AuthDefinition> = {
   stripeApi: { authenticate: generic({ headers: { Authorization: '=Bearer {{$credentials.secretKey}}' } }) },
   // nodes-base/credentials/HubspotAppToken.credentials.ts
   hubspotAppToken: { authenticate: generic({ headers: { Authorization: '=Bearer {{$credentials.appToken}}' } }) },
+  // nodes-base/credentials/GoogleApi.credentials.ts (function: only with "Set up for use in HTTP Request node" a token
+  // via the JWT bearer flow with the scopes of the credential, otherwise the request stays unchanged)
+  googleApi: {
+    defaults: { region: 'us-central1' },
+    authenticate: async (c, o, extras) => {
+      if (!c.httpNode) return o;
+      if (!extras?.http) throw new Error('The credential type "googleApi" needs an HTTP client for its token request');
+      const privateKey = String(c.privateKey ?? '').replace(/\\n/g, '\n').trim();
+      const token = await getGoogleAccessToken(extras.http, c, credentialScopes(c.scopes), { privateKey, signal: extras.signal });
+      return { ...o, headers: { ...(o.headers ?? {}), Authorization: `Bearer ${token}` } };
+    },
+  },
 };
 
 const registered = new Map<string, AuthDefinition>();
@@ -158,12 +180,12 @@ const resolveAll = (obj: Record<string, unknown> | undefined, credentials: Recor
   Object.fromEntries(Object.entries(obj ?? {}).map(([k, v]) => [String(resolve(k, credentials)), resolve(v, credentials)]));
 
 /** Authenticate a request with the values of a credential */
-export async function authenticateRequest(type: string, credentials: Record<string, unknown>, options: HttpOptions): Promise<HttpOptions> {
+export async function authenticateRequest(type: string, credentials: Record<string, unknown>, options: HttpOptions, extras?: AuthExtras): Promise<HttpOptions> {
   const def = definition(type);
   if (!def || def.passive) throw new Error(`Credential type "${type}" has no authentication that filuflow can apply`);
   const c = withCredentialDefaults(type, credentials);
   const auth = def.authenticate;
-  if (typeof auth === 'function') return auth(c, { ...options, headers: { ...(options.headers ?? {}) } });
+  if (typeof auth === 'function') return auth(c, { ...options, headers: { ...(options.headers ?? {}) } }, extras);
   const p = auth.properties;
   const out: HttpOptions = { ...options };
   if (p.headers) out.headers = { ...(options.headers ?? {}), ...resolveAll(p.headers, c) };

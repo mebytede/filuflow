@@ -305,7 +305,7 @@ async function configureHttpRequestFunction(ctx: ExecContext, authentication: st
     const cred = await ctx.getCredentials(type, itemIndex);
     if (hasAuthentication(type)) {
       return async (o) => {
-        const authed = await authenticateRequest(type, cred, { url: o.url, method: o.method, headers: o.headers, qs: o.qs, body: o.body });
+        const authed = await authenticateRequest(type, cred, { url: o.url, method: o.method, headers: o.headers, qs: o.qs, body: o.body }, { http: ctx.helpers.http, signal: ctx.signal });
         return sendRequest(ctx, { ...o, headers: authed.headers ?? {}, qs: authed.qs ?? {}, body: authed.body, ...(authed.auth ? { auth: authed.auth } : {}) });
       };
     }

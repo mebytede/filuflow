@@ -137,7 +137,7 @@ export function executeHelpers(ctx: ExecContext): Record<string, unknown> {
   /** Apply a credential: known authentication or OAuth2 token (oauth2: options like requestOAuth2) */
   const authenticate = async (type: string, options: HttpOptions, oauth2?: OAuth2RequestOptions): Promise<HttpOptions> => {
     const c = await credentials(type);
-    if (hasAuthentication(type)) return authenticateRequest(type, c, options);
+    if (hasAuthentication(type)) return authenticateRequest(type, c, options, { http: ctx.helpers.http, signal: ctx.signal });
     if (isOAuth2Type(type) || isOAuth2(c)) {
       const token = await getOAuth2Token(ctx, c, false, oauth2);
       const headers: Record<string, unknown> = { ...(options.headers ?? {}), Authorization: oauth2?.keepBearer === false ? token.accessToken : `Bearer ${token.accessToken}` };
