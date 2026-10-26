@@ -1,5 +1,6 @@
 // German translations (params-nodes-gmail). Keys are the English source texts.
-// Node: gmail (src/nodes/shared/gmailParams.ts). Texts already translated in other catalogs (e.g. "Options",
+// Nodes: gmail and gmailTrigger (src/nodes/shared/gmailParams.ts), with "Poll Times" of the built-in poll nodes
+// (src/nodes/shared/polling.ts). Texts already translated in other catalogs (e.g. "Options",
 // "Message", "Limit", "Name") are not repeated here.
 export const de: Record<string, string> = {
   'OAuth2 (recommended)': 'OAuth2 (empfohlen)',
@@ -170,4 +171,25 @@ export const de: Record<string, string> = {
   'ID of the message in the thread to reply to': 'ID der Nachricht in der Konversation, auf die geantwortet wird',
   'Return Only Messages': 'Nur Nachrichten ausgeben',
   'Whether to return only thread messages': 'Ob nur die Nachrichten der Konversation ausgegeben werden',
+  // Gmail Trigger (M41) and "Poll Times"
+  'Poll Times': 'Abfragezeiten',
+  'Add Poll Time': 'Abfragezeit hinzufügen',
+  'Item': 'Eintrag',
+  'Every Minute': 'Jede Minute',
+  'Every Hour': 'Jede Stunde',
+  'Every Day': 'Jeden Tag',
+  'Every Week': 'Jede Woche',
+  'Every Month': 'Jeden Monat',
+  'Every X': 'Alle X',
+  'Minute': 'Minute',
+  'Day of Month': 'Tag des Monats',
+  'Weekday': 'Wochentag',
+  'Cron Expression': 'Cron-Ausdruck',
+  'Multiple items will be returned if multiple messages are received within the polling interval. Make sure your workflow can handle multiple items.':
+    'Kommen innerhalb eines Abfrageintervalls mehrere Nachrichten an, werden mehrere Items ausgegeben. Stellen Sie sicher, dass Ihr Workflow mehrere Items verarbeiten kann.',
+  'Event': 'Ereignis',
+  'Message Received': 'Nachricht empfangen',
+  'Include Drafts': 'Entwürfe einbeziehen',
+  'Whether to include email drafts in the results': 'Ob E-Mail-Entwürfe in den Ergebnissen enthalten sind',
+  "Whether the email's attachments will be downloaded": 'Ob die Anhänge der E-Mail heruntergeladen werden',
 };

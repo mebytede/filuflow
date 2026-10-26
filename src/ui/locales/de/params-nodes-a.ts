@@ -468,7 +468,7 @@ export const de: Record<string, string> = {
   'Text Splitting': 'Text aufteilen',
   'Simple': 'Einfach',
   'Splits every 1000 characters with a 200 character overlap': 'Stücke zu 1000 Zeichen mit 200 Zeichen Überlappung',
-  'Custom': 'Eigener Text Splitter',
+  'Custom': 'Benutzerdefiniert',
   'Connect a custom text-splitting sub-node': 'Über einen angeschlossenen Text-Splitter-Knoten',
   'Pointers of the values to load (e.g. /text, /meta/title)': 'Pointer der Werte, die geladen werden (z. B. /text, /meta/title)',
   'CSV Separator': 'CSV-Trenner',

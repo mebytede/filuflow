@@ -534,3 +534,19 @@ n8n loads labels, aliases and thread messages for its option lists via the API. 
 lists yet, so label IDs are a JSON list (stored as an array, as in n8n) and alias and message ID are text fields; the node
 also accepts label IDs as JSON text or comma separated text.
 
+## Built-in poll nodes (M41)
+Poll nodes from n8n packages (M31) already had activation with "Poll Times", the first poll on activation and the
+manual run, but bound to n8n's `poll()` with `this` as PollContext. Built-in nodes now get the same behavior from
+`src/nodes/shared/polling.ts`: `pollingTrigger(poll)` returns the trigger methods (`activate`, `execute`, no inputs)
+for a plain function `poll({ ctx, manual })`, and `pollTimesParam` is the "Poll Times" form. The cron conversion, the
+interval check and the polling loop live there once and the package adapter uses them too, so both kinds behave the
+same; a test keeps the built-in form equal to the one package nodes get. The Gmail Trigger is the first user; Slack or
+Outlook triggers only need their `poll` function and parameters. No new service is needed: the server's existing
+trigger activations (`src/server/activations.ts`) start every node type that has `activate`.
+
+Manual runs of poll and trigger nodes work on a copy of the static data. n8n runs a test execution on its own
+Workflow instance and does not save its static data; in filuflow's server the in-memory static data is shared with the
+active workflow, so without the copy a test run of the Gmail Trigger would move the active trigger's window. The copy
+still starts from the stored values, so like n8n a test run does not return a message that the active trigger already
+counts as a possible duplicate. After a successful activation the static data is saved (as n8n does in
+`ActiveWorkflowManager.add`), so the first poll time survives a restart even before the first execution.

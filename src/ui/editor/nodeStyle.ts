@@ -46,6 +46,7 @@ const STYLES: Record<string, Style> = {
   [`${BASE}executeWorkflow`]: { icon: 'workflow', label: 'Workflow', category: 'service' },
   [`${BASE}emailSend`]: { icon: 'mail', label: 'Email', category: 'service' },
   [`${BASE}gmail`]: { icon: 'mail', label: 'Gmail', category: 'service' },
+  [`${BASE}gmailTrigger`]: { icon: 'mail', label: 'Gmail Trigger', category: 'trigger' },
   [`${BASE}stickyNote`]: { icon: 'file-text', label: 'Note', category: 'data' },
   [`${AI}agent`]: { icon: 'bot', label: 'AI Agent', category: 'service' },
   [`${AI}chainLlm`]: { icon: 'message-square', label: 'LLM Chain', category: 'service' },

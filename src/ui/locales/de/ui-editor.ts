@@ -19,6 +19,7 @@ export const de: Record<string, string> = {
   'Schedule': 'Zeitplan',
   'Manual': 'Manuell',
   'Error Trigger': 'Fehler-Trigger',
+  'Gmail Trigger': 'Gmail-Trigger',
   'Call': 'Aufruf',
   'Loop': 'Schleife',
   'Duplicates': 'Duplikate',

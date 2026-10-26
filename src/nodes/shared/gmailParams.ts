@@ -4,10 +4,12 @@
 // Differences in the description only (values and structure as in n8n):
 // - n8n loads labels, thread messages and aliases via API (loadOptions getLabels, getThreadMessages, getGmailAliases).
 //   Here label IDs are a JSON list (type json, value is an array as in n8n), message ID and alias are free text.
+// Gmail Trigger (M41, typeVersion 1 to 1.3): GmailTrigger.node.js of the same version, see gmailTriggerParameters.
 // - The callout "Sort your Gmail inbox using our pre-built" (template advertisement) is left out; hints are part of the
 //   description where n8n has no description.
 import type { ParamSchema } from '../params.js';
 import { formFieldsDefinitionParams } from './formParams.js';
+import { pollTimesParam } from './polling.js';
 
 const opts = (...pairs: Array<[string, string]>) => pairs.map(([value, label]) => ({ value, label }));
 const on = (resource: string, ...operation: string[]) => ({ resource: [resource], operation });
@@ -559,4 +561,54 @@ export const gmailParameters: ParamSchema[] = [
   },
   { name: 'threadId', label: 'Thread ID', type: 'string', default: '', required: true, placeholder: '172ce2c4a72cc243', show: on('thread', 'addLabels', 'removeLabels') },
   { name: 'labelIds', label: 'Label Names or IDs', type: 'json', default: [], required: true, description: labelIdsHint, show: on('thread', 'addLabels', 'removeLabels') },
+];
+
+// -------------------------------------------------------------------------------------------------------------------
+// Gmail Trigger (GmailTrigger.node.js, n8n-nodes-base 1.121.0): "Poll Times" first like every poll node
+// (commonPollingParameters). The output pane hint of n8n is a notice here. Label IDs as in the Gmail node.
+// -------------------------------------------------------------------------------------------------------------------
+
+export const gmailTriggerParameters: ParamSchema[] = [
+  pollTimesParam,
+  {
+    name: 'multipleItemsNotice',
+    label: 'Multiple items will be returned if multiple messages are received within the polling interval. Make sure your workflow can handle multiple items.',
+    type: 'notice',
+    default: '',
+  },
+  authenticationParam,
+  { name: 'event', label: 'Event', type: 'options', default: 'messageReceived', options: opts(['messageReceived', 'Message Received']) },
+  { name: 'simple', label: 'Simplify', type: 'boolean', default: true, description: 'Whether to return a simplified version of the response instead of the raw data' },
+  {
+    name: 'filters',
+    label: 'Filters',
+    type: 'collection',
+    default: {},
+    addLabel: 'Add Filter',
+    placeholder: 'Add Filter',
+    children: [
+      { name: 'includeSpamTrash', label: 'Include Spam and Trash', type: 'boolean', default: false, description: 'Whether to include messages from SPAM and TRASH in the results' },
+      { name: 'includeDrafts', label: 'Include Drafts', type: 'boolean', default: false, description: 'Whether to include email drafts in the results' },
+      {
+        name: 'labelIds',
+        label: 'Label Names or IDs',
+        type: 'json',
+        default: [],
+        description: `Only return messages with labels that match all of the specified label IDs. ${labelIdsHint}`,
+      },
+      searchParam,
+      readStatusParam,
+      senderParam,
+    ],
+  },
+  {
+    name: 'options',
+    label: 'Options',
+    type: 'collection',
+    default: {},
+    addLabel: 'Add option',
+    placeholder: 'Add option',
+    hide: { simple: [true] },
+    children: [attachmentPrefixParam(), downloadAttachmentsParam("Whether the email's attachments will be downloaded")],
+  },
 ];
