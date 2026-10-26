@@ -323,6 +323,7 @@ Engine order, expressions (including raw value vs. string), every node, filter o
 | M37 | Supervisor: Create | Supervisor chat in the editor, new workflow from a description with a validate-and-fix loop, inactive as a proposal |
 | M38 | Supervisor in the master | Supervisor per worker via the master, proposals create versions in the master, permissions "View Supervisor" and "Accept proposals" |
 | M39 | English by default, German selectable | Code, docs, server, CLI and API messages in English; web interface in English with German as a per-browser option, including node and credential labels; Supervisor language setting |
+| M40 | Gmail node | All resources and operations of Gmail v2 to 2.2 with OAuth2 and service account, MIME messages with attachments, send and wait for a response; Gmail Trigger still planned |
 
 After each milestone: update `docs/STATUS.md` (what works, what is missing) and make a commit with a meaningful message.
 
@@ -336,13 +337,15 @@ Open features, roughly ordered by benefit. Each is implemented like a milestone 
 - Scaling across multiple processes (queue, e.g. Redis) for high load
 
 ### 11.2 Nodes
-- More credential types of services (API keys with authenticate, Google service account with JWT)
+- More credential types of services (API keys with authenticate)
+  (Google service account with JWT: M40)
   (helpers in the Code node and predefined credential types in HTTP Request: M25; OAuth2 types with fixed URLs: M28)
 - AI: agent variants from typeVersion 1.x, more models (e.g. AWS Bedrock, Vertex), more embeddings and
   vector stores (e.g. PGVector, Qdrant), files such as PDF in the Data Loader
   (Responses API, Groq, Mistral, Ollama, DeepSeek, OpenRouter, Azure OpenAI, Think Tool: M26; Embeddings, Simple Vector
   Store, Retriever, Q&A Chain: M27)
-- Service nodes with their own OAuth flows (Gmail, Slack, Microsoft 365 etc.) and more integrations
+- Gmail Trigger (polling trigger with the Gmail filters, seen messages in static data) as the counterpart of the Gmail node (M40)
+- Service nodes with their own OAuth flows (Slack, Microsoft 365 etc.) and more integrations
 - Community nodes: AI sub-nodes from n8n packages (plugin interface and programmatic nodes: M24; declarative
   nodes: M29; installation from the interface: M30; poll and trigger nodes: M31; webhook nodes: M32)
 

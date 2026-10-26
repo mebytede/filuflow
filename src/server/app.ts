@@ -2,7 +2,7 @@
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import qs from 'qs';
 import { gunzipSync, inflateSync } from 'node:zlib';
-import { timingSafeEqual } from 'node:crypto';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import type { Execution, Item, Workflow } from '../types.js';
 import { Runner } from '../runner.js';
 import { getDefaultRegistry } from '../nodes/index.js';
@@ -31,6 +31,7 @@ import { credentialTypeCatalog } from '../credentials/types.js';
 import { completeOAuth, completeOAuth1, oauthCallbackPage, registerCredentialsApi, type OAuthSupport } from './credentialsApi.js';
 import { warmUpPython } from '../python/pyodide.js';
 import { OAUTH2_CALLBACK_PATH, setOAuth2TokenStore } from '../credentials/oauth2.js';
+import { setSignatureSecret } from '../nodes/shared/sendAndWait.js';
 import { OAUTH1_CALLBACK_PATH } from '../credentials/oauth1.js';
 import { UndiciHttpClient } from '../http.js';
 import { Supervisor } from '../supervisor/supervisor.js';
@@ -165,6 +166,13 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
   };
   const kvStore = { get: <T>(key: string) => store.getValue<T>(key), set: (key: string, value: unknown) => store.setValue(key, value), delete: (key: string) => store.deleteValue(key) };
   setOAuth2TokenStore(kvStore);
+  // Secret for signed resume URLs (Gmail "Send and Wait"), kept so that links stay valid after a restart
+  let hmacSecret = store.getValue<string>('hmacSignatureSecret');
+  if (!hmacSecret) {
+    hmacSecret = randomBytes(32).toString('hex');
+    store.setValue('hmacSignatureSecret', hmacSecret);
+  }
+  setSignatureSecret(hmacSecret);
   const variables = new VariableStore(kvStore, options.vars);
   // OAuth2 with Authorization Code and OAuth1: callback as in n8n under the public base URL
   const oauth: OAuthSupport = {
@@ -545,6 +553,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
       chatSessions.closeAll();
       manager.stopWaitTracker();
       setOAuth2TokenStore(undefined);
+      setSignatureSecret(undefined);
       workflows!.close();
       scheduler.stopAll();
       await triggers.closeAll();

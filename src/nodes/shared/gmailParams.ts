@@ -128,11 +128,10 @@ const filtersNotice = (resource: string): ParamSchema => ({
   show: { ...on(resource, 'getAll'), returnAll: [true] },
 });
 
-/** Filters of the trigger (GmailTrigger.node.js) and of message:getAll (MessageDescription.js) */
-export function messageFilterChildren(trigger: boolean): ParamSchema[] {
+/** Filters of message:getAll (MessageDescription.js) */
+function messageFilterChildren(): ParamSchema[] {
   return [
     { name: 'includeSpamTrash', label: 'Include Spam and Trash', type: 'boolean', default: false, description: 'Whether to include messages from SPAM and TRASH in the results' },
-    ...(trigger ? [{ name: 'includeDrafts', label: 'Include Drafts', type: 'boolean', default: false, description: 'Whether to include email drafts in the results' } satisfies ParamSchema] : []),
     {
       name: 'labelIds',
       label: 'Label Names or IDs',
@@ -142,7 +141,8 @@ export function messageFilterChildren(trigger: boolean): ParamSchema[] {
     },
     searchParam,
     readStatusParam,
-    ...(trigger ? [] : [receivedParam('receivedAfter'), receivedParam('receivedBefore')]),
+    receivedParam('receivedAfter'),
+    receivedParam('receivedBefore'),
     senderParam,
   ];
 }
@@ -208,7 +208,7 @@ const buttonStyle = (name: string, label: string, defaultValue: string, show: Pa
   show,
 });
 
-const sendAndWaitParameters: ParamSchema[] = [
+const sendAndWaitBase: ParamSchema[] = [
   { name: 'sendTo', label: 'To', type: 'string', default: '', required: true, placeholder: 'e.g. info@example.com' },
   { name: 'subject', label: 'Subject', type: 'string', default: '', required: true, placeholder: 'e.g. Approval required' },
   { name: 'message', label: 'Message', type: 'string', default: '', required: true, rows: 4 },
@@ -275,7 +275,9 @@ const sendAndWaitParameters: ParamSchema[] = [
       sendAndWaitAttribution,
     ],
   },
-].map((p) => ({ ...p, show: { ...SEND_AND_WAIT, ...(p.show ?? {}) } }));
+];
+
+const sendAndWaitParameters: ParamSchema[] = sendAndWaitBase.map((p) => ({ ...p, show: { ...SEND_AND_WAIT, ...(p.show ?? {}) } }));
 
 // -------------------------------------------------------------------------------------------------------------------
 // Gmail node
@@ -470,7 +472,7 @@ export const gmailParameters: ParamSchema[] = [
   limitParam('message'),
   simplifyParam(on('message', 'getAll')),
   filtersNotice('message'),
-  { name: 'filters', label: 'Filters', type: 'collection', default: {}, addLabel: 'Add Filter', placeholder: 'Add Filter', show: on('message', 'getAll'), children: messageFilterChildren(false) },
+  { name: 'filters', label: 'Filters', type: 'collection', default: {}, addLabel: 'Add Filter', placeholder: 'Add Filter', show: on('message', 'getAll'), children: messageFilterChildren() },
   {
     name: 'options',
     label: 'Options',
@@ -558,27 +560,3 @@ export const gmailParameters: ParamSchema[] = [
   { name: 'threadId', label: 'Thread ID', type: 'string', default: '', required: true, placeholder: '172ce2c4a72cc243', show: on('thread', 'addLabels', 'removeLabels') },
   { name: 'labelIds', label: 'Label Names or IDs', type: 'json', default: [], required: true, description: labelIdsHint, show: on('thread', 'addLabels', 'removeLabels') },
 ];
-
-// -------------------------------------------------------------------------------------------------------------------
-// Gmail Trigger (GmailTrigger.node.js), "Poll Times" first like commonPollingParameters
-// -------------------------------------------------------------------------------------------------------------------
-
-export function gmailTriggerParameters(pollTimes: ParamSchema): ParamSchema[] {
-  return [
-    pollTimes,
-    authenticationParam,
-    { name: 'event', label: 'Event', type: 'options', default: 'messageReceived', options: opts(['messageReceived', 'Message Received']) },
-    simplifyParam(undefined),
-    { name: 'filters', label: 'Filters', type: 'collection', default: {}, addLabel: 'Add Filter', placeholder: 'Add Filter', children: messageFilterChildren(true) },
-    {
-      name: 'options',
-      label: 'Options',
-      type: 'collection',
-      default: {},
-      addLabel: 'Add option',
-      placeholder: 'Add option',
-      hide: { simple: [true] },
-      children: [attachmentPrefixParam(), downloadAttachmentsParam("Whether the email's attachments will be downloaded")],
-    },
-  ];
-}

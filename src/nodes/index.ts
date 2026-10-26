@@ -63,6 +63,7 @@ import { vectorStoreInMemoryNode } from './vectorStoreInMemory.js';
 import { retrieverVectorStoreNode } from './retrieverVectorStore.js';
 import { chainRetrievalQaNode } from './chainRetrievalQa.js';
 import { toolVectorStoreNode } from './toolVectorStore.js';
+import { gmailNode } from './gmail.js';
 
 export const builtinNodeTypes: NodeType[] = [
   manualTriggerNode,
@@ -127,6 +128,7 @@ export const builtinNodeTypes: NodeType[] = [
   retrieverVectorStoreNode,
   chainRetrievalQaNode,
   toolVectorStoreNode,
+  gmailNode,
 ];
 
 let defaultRegistry: NodeRegistry | undefined;

@@ -7,6 +7,7 @@ export const de: Record<string, string> = {
   'Trigger': 'Trigger',
   'AI': 'KI',
   'AI: Sub-nodes': 'KI: Unterknoten',
+  'Services': 'Dienste',
   'Core': 'Kern',
   'Other': 'Sonstiges',
   'Extensions': 'Erweiterungen',

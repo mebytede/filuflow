@@ -33,6 +33,7 @@ import { ResumeError, type ActiveExecution, type ExecutionManager, type StartOpt
 import type { ExecutionStore } from './store.js';
 import type { RunHooks } from '../engine/executor.js';
 import { WAIT_NODE_TYPE } from '../nodes/wait.js';
+import { handleSendAndWaitRequest, noActionRequiredPage, SEND_AND_WAIT_CONTEXT_KEY, SEND_AND_WAIT_OPERATION, verifyResumeSignature, type SendAndWaitPageConfig } from '../nodes/shared/sendAndWait.js';
 import { DEFAULT_TIMEZONE } from '../engine/executor.js';
 import { resolveWebhookNode } from './webhookParams.js';
 
@@ -928,6 +929,9 @@ export class WebhookService {
     const method = request.method.toUpperCase();
     const store = this.options.store;
     const stored = store?.get(executionId, false);
+    // Send and wait (Gmail): /webhook-waiting/<executionId>/<node ID> with a signed query (waiting-webhooks.ts)
+    const sendAndWaitNode = suffix && stored ? store?.get(executionId)?.workflow?.nodes.find((n) => n.id === suffix && n.parameters.operation === SEND_AND_WAIT_OPERATION) : undefined;
+    if (store && stored && sendAndWaitNode && (method === 'GET' || method === 'POST')) return this.handleSendAndWait(executionId, sendAndWaitNode, request);
     if (!store || !stored) return errorResponse(Object.assign(new Error(`The execution "${executionId}" does not exist.`), { statusCode: 404 }));
     if (stored.status === 'running' || stored.status === 'new') {
       return errorResponse(Object.assign(new Error(`The execution "${executionId}" is running already.`), { statusCode: 409 }));
@@ -981,6 +985,48 @@ export class WebhookService {
       if (error instanceof ResumeError) return errorResponse(Object.assign(new Error(error.message), { statusCode: error.statusCode }));
       throw error;
     }
+  }
+
+  /**
+   * Resume of a node with operation "sendAndWait" (n8n waiting-webhooks.ts with sendAndWaitWebhook): signature check
+   * (401), "no action required" page once the execution no longer waits for this node, otherwise approval or form
+   */
+  private async handleSendAndWait(executionId: string, node: WorkflowNode, request: Omit<IncomingWebhookRequest, 'params'>): Promise<HttpResponse> {
+    const store = this.options.store!;
+    const stored = store.get(executionId, false)!;
+    if (!verifyResumeSignature(this.options.webhookBaseUrl, `/webhook-waiting/${executionId}/${node.id}`, request.query)) {
+      return expressResponse(401, {}, { error: 'Invalid token' }, false);
+    }
+    if (stored.status === 'running' || stored.status === 'new') {
+      return errorResponse(Object.assign(new Error(`The execution "${executionId}" is running already.`), { statusCode: 409 }));
+    }
+    if (stored.status !== 'waiting' || stored.lastNodeExecuted !== node.name) return this.formHtml(200, noActionRequiredPage());
+    const record = store.loadResume(executionId);
+    const config = record?.state.nodeContexts?.[node.name]?.[SEND_AND_WAIT_CONTEXT_KEY] as SendAndWaitPageConfig | undefined;
+    if (!record || !config) return this.formHtml(200, noActionRequiredPage());
+    const userAgent = String(request.headers['user-agent'] ?? '');
+    let result;
+    try {
+      result = await handleSendAndWaitRequest(config, {
+        method: request.method,
+        query: request.query,
+        isBot: BOT_UA.test(userAgent),
+        form: () => this.formData(request),
+        binary: this.options.binary,
+        timezone: (record.workflow.settings?.timezone as string | undefined) || DEFAULT_TIMEZONE,
+      });
+    } catch {
+      return this.formMessage(400, 'Form', 'Expected multipart/form-data');
+    }
+    if (result.workflowData) {
+      try {
+        this.options.manager.resume(executionId, { webhookData: result.workflowData });
+      } catch (error) {
+        if (error instanceof ResumeError) return errorResponse(Object.assign(new Error(error.message), { statusCode: error.statusCode }));
+        throw error;
+      }
+    }
+    return this.formHtml(result.statusCode, result.html);
   }
 
   /** getNodeWebhookUrl for the Wait node: base /webhook/, then webhookId (or workflow ID and node name) and suffix */
