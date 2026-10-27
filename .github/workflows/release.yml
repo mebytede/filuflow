@@ -39,7 +39,7 @@ jobs:
       image: ${{ steps.version.outputs.image }}
     steps:
       # Credentials stay for "git ls-remote" (private repository)
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -86,7 +86,7 @@ jobs:
     timeout-minutes: 30
     needs: prepare
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: actions/setup-node@v5
@@ -110,7 +110,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Create and push tag
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
@@ -136,7 +136,7 @@ jobs:
       IMAGE: ${{ needs.prepare.outputs.image }}
       VERSION: ${{ needs.prepare.outputs.version }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: docker/setup-qemu-action@v4
@@ -201,7 +201,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: actions/setup-node@v5
