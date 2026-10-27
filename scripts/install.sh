@@ -257,7 +257,7 @@ env_del() {
   local file="$1" key="$2" tmp
   [ -f "$file" ] || return 0
   tmp="$file.tmp.$$"
-  (umask 077 && grep -vE "^$key=" "$file" >"$tmp" || true)
+  (umask 077; grep -vE "^$key=" "$file" >"$tmp" || true)
   chmod 600 "$tmp"
   mv -f "$tmp" "$file"
 }
@@ -341,7 +341,7 @@ validate() {
     printf '%s' "$IMAGE" | grep -qE '^[a-z0-9][a-z0-9._/:@-]*$' || die "--image '$IMAGE' is not a valid image reference"
   fi
   if [ -n "$SOURCE" ]; then
-    [ -f "$SOURCE/package.json" ] && [ -f "$SOURCE/bin/filuflow.js" ] || die "--source $SOURCE is not a filuflow checkout"
+    if [ ! -f "$SOURCE/package.json" ] || [ ! -f "$SOURCE/bin/filuflow.js" ]; then die "--source $SOURCE is not a filuflow checkout"; fi
   fi
   if [ -n "$TIMEZONE" ]; then printf '%s' "$TIMEZONE" | grep -qE '^[A-Za-z0-9_+/-]+$' || die "--timezone '$TIMEZONE' is not valid"; fi
   for value in "$API_KEY" "$ENC_KEY" "$ADMIN_EMAIL" "$ADMIN_PASSWORD"; do
@@ -956,7 +956,7 @@ read_setup_token() {
   local logs=""
   for _ in 1 2 3 4 5; do
     if [ "$METHOD" = "docker" ]; then
-      logs="$(cd "$DIR" && docker compose logs --no-color filuflow 2>/dev/null || true)"
+      logs="$(cd "$DIR" || exit 0; docker compose logs --no-color filuflow 2>/dev/null || true)"
     else
       logs="$(journalctl -u "$SERVICE_NAME" --no-pager -o cat 2>/dev/null || true)"
     fi
