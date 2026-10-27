@@ -9,7 +9,7 @@ import { loggedSplitter } from './textSplitterCharacterTextSplitter.js';
 const LANGUAGES = ['cpp', 'go', 'java', 'js', 'php', 'proto', 'python', 'rst', 'ruby', 'rust', 'scala', 'swift', 'markdown', 'latex', 'html'];
 
 const parameters: ParamSchema[] = [
-  { name: 'notice', label: 'This node must be connected to a document loader.', type: 'notice', default: '' },
+  { name: 'notice', label: 'Connect this node to a document loader.', type: 'notice', default: '' },
   { name: 'chunkSize', label: 'Chunk Size', type: 'number', default: 1000 },
   { name: 'chunkOverlap', label: 'Chunk Overlap', type: 'number', default: 0 },
   {

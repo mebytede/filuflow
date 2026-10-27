@@ -11,7 +11,7 @@ export const formPathParam: ParamSchema = {
   default: '',
   placeholder: 'webhook',
   required: true,
-  description: "The final segment of the form's URL, both for test and production",
+  description: 'Last part of the form URL, the same for test and production',
 };
 
 /** Form Title (formTitle) */
@@ -22,7 +22,7 @@ export const formTitleParam: ParamSchema = {
   default: '',
   placeholder: 'e.g. Contact us',
   required: true,
-  description: 'Shown at the top of the form',
+  description: 'Heading at the top of the form',
 };
 
 /** Form Description (formDescription) */
@@ -33,7 +33,7 @@ export const formDescriptionParam: ParamSchema = {
   default: '',
   placeholder: "e.g. We'll get back to you soon",
   rows: 2,
-  description: 'Shown underneath the form title; may contain HTML',
+  description: 'Text below the form title; HTML is allowed',
 };
 
 // common.descriptions.ts placeholder (default of the HTML field)
@@ -75,7 +75,7 @@ export const formFieldsParam: ParamSchema = {
           default: '',
           placeholder: 'e.g. What is your name?',
           required: true,
-          description: 'Label that appears above the input field',
+          description: 'Caption above the input',
           hide: { fieldType: ['hiddenField', 'html'] },
         },
         {
@@ -83,7 +83,7 @@ export const formFieldsParam: ParamSchema = {
           label: 'Field Name',
           type: 'string',
           default: '',
-          description: 'The name of the field, used in input attributes and referenced by the workflow',
+          description: 'Field name used in the HTML attributes and in the workflow data',
           show: { fieldType: ['hiddenField'] },
         },
         {
@@ -92,7 +92,7 @@ export const formFieldsParam: ParamSchema = {
           type: 'options',
           default: 'text',
           required: true,
-          description: 'The type of field to add to the form',
+          description: 'Kind of form field',
           options: [
             { value: 'checkbox', label: 'Checkboxes' },
             { value: 'html', label: 'Custom HTML' },
@@ -122,7 +122,7 @@ export const formFieldsParam: ParamSchema = {
           label: 'Placeholder',
           type: 'string',
           default: '',
-          description: 'Sample text to display inside the field',
+          description: 'Hint text shown inside the empty field',
           hide: { fieldType: ['dropdown', 'date', 'file', 'html', 'hiddenField', 'radio', 'checkbox'] },
         },
         {
@@ -130,7 +130,7 @@ export const formFieldsParam: ParamSchema = {
           label: 'Default Value',
           type: 'string',
           default: '',
-          description: 'Default value that will be pre-filled in the form field',
+          description: 'Value the field starts with',
           show: { fieldType: ['text', 'number', 'email', 'textarea'] },
         },
         {
@@ -165,7 +165,7 @@ export const formFieldsParam: ParamSchema = {
           description: 'Without a value, it is taken from the query parameter with the field name',
           show: { fieldType: ['hiddenField'] },
         },
-        fieldOptionsParam('dropdown', 'Field Options', 'Option', 'Add Field Option', 'List of options that can be selected from the dropdown'),
+        fieldOptionsParam('dropdown', 'Field Options', 'Option', 'Add Field Option', 'Entries offered in the dropdown'),
         fieldOptionsParam('checkbox', 'Checkboxes', 'Checkbox Label', 'Add Checkbox'),
         fieldOptionsParam('radio', 'Radio Buttons', 'Radio Button Label', 'Add Radio Button'),
         {
@@ -180,7 +180,7 @@ export const formFieldsParam: ParamSchema = {
           label: 'Multiple Choice',
           type: 'boolean',
           default: false,
-          description: 'Whether to allow the user to select multiple options',
+          description: 'Whether more than one option can be chosen',
           show: { fieldType: ['dropdown'], '@version': [{ _cnd: { lt: 2.3 } }] },
         },
         {
@@ -229,7 +229,7 @@ export const formFieldsParam: ParamSchema = {
           language: 'html',
           default: HTML_PLACEHOLDER,
           noExpression: true,
-          description: 'HTML elements to display on the form page; script, style and input tags are not supported',
+          description: 'HTML shown on the form page; script, style and input tags are not allowed',
           show: { fieldType: ['html'] },
         },
         {
@@ -237,7 +237,7 @@ export const formFieldsParam: ParamSchema = {
           label: 'Multiple Files',
           type: 'boolean',
           default: true,
-          description: 'Whether to allow the user to select multiple files',
+          description: 'Whether more than one file can be chosen',
           show: { fieldType: ['file'] },
         },
         {
@@ -246,7 +246,7 @@ export const formFieldsParam: ParamSchema = {
           type: 'string',
           default: '',
           placeholder: 'e.g. .jpg, .png',
-          description: 'Comma-separated list of allowed file extensions; leave empty to allow all',
+          description: 'Accepted file extensions, separated by commas; empty accepts every file',
           show: { fieldType: ['file'] },
         },
         {
@@ -261,7 +261,7 @@ export const formFieldsParam: ParamSchema = {
           label: 'Required Field',
           type: 'boolean',
           default: false,
-          description: 'Whether to require the user to enter a value for this field before submitting the form',
+          description: 'Whether the form can only be submitted with this field filled in',
           hide: { fieldType: ['html', 'hiddenField'] },
         },
       ],
@@ -276,12 +276,12 @@ export function formRespondModeParam(withResponseNode: boolean): ParamSchema {
     label: 'Respond When',
     type: 'options',
     default: 'onReceived',
-    description: 'When to respond to the form submission',
+    description: 'When the form submission gets its answer',
     options: [
-      { value: 'onReceived', label: 'Form Is Submitted', description: 'As soon as this node receives the form submission' },
-      { value: 'lastNode', label: 'Workflow Finishes', description: 'When the last node of the workflow is executed' },
+      { value: 'onReceived', label: 'Form Is Submitted', description: 'Right after the submission arrives' },
+      { value: 'lastNode', label: 'Workflow Finishes', description: 'After the last node of the workflow has run' },
       ...(withResponseNode
-        ? [{ value: 'responseNode', label: "Using 'Respond to Webhook' Node", description: "When the 'Respond to Webhook' node is executed" }]
+        ? [{ value: 'responseNode', label: "Using 'Respond to Webhook' Node", description: "When the 'Respond to Webhook' node runs" }]
         : []),
     ],
   };
@@ -305,8 +305,8 @@ export const respondWithOptionsParam: ParamSchema = {
           type: 'options',
           default: 'text',
           options: [
-            { value: 'text', label: 'Form Submitted Text', description: 'Show a response text to the user' },
-            { value: 'redirect', label: 'Redirect', description: 'Redirect the user to a URL' },
+            { value: 'text', label: 'Form Submitted Text', description: 'Display a text to the user' },
+            { value: 'redirect', label: 'Redirect', description: 'Send the user on to a URL' },
           ],
         },
         {
@@ -314,7 +314,7 @@ export const respondWithOptionsParam: ParamSchema = {
           label: 'Text to Show',
           type: 'string',
           default: 'Your response has been recorded',
-          description: 'The text displayed to users after they fill the form; leave empty to show no extra text',
+          description: 'Text users see after submitting; leave empty for none',
           show: { respondWith: ['text'] },
         },
         {
@@ -323,7 +323,7 @@ export const respondWithOptionsParam: ParamSchema = {
           type: 'string',
           default: '',
           placeholder: 'e.g. https://example.com',
-          description: 'The valid URL to redirect the user to after the form is submitted',
+          description: 'URL users are sent to after submitting',
           show: { respondWith: ['redirect'] },
         },
       ],
@@ -337,7 +337,7 @@ export const appendAttributionParam: ParamSchema = {
   label: 'Append n8n Attribution',
   type: 'boolean',
   default: true,
-  description: 'Whether to include the link “Form automated with n8n” at the bottom of the form',
+  description: 'Whether the footer link “Form automated with n8n” appears below the form',
 };
 
 /**
@@ -351,7 +351,7 @@ export const formCustomCssParam: ParamSchema = {
   language: 'css',
   rows: 10,
   default: '',
-  description: 'Override default styling of the public form interface with CSS',
+  description: 'Custom CSS that replaces the default look of the public form',
 };
 
 // Form.node.ts formFieldsProperties: default of jsonOutput (example fields)

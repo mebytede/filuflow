@@ -5,7 +5,7 @@ import type { ParamSchema } from './params.js';
 
 // Parameters like Limit.node.ts (properties)
 const parameters: ParamSchema[] = [
-  { name: 'maxItems', label: 'Max Items', type: 'number', default: 1, min: 1, description: 'If there are more items than this number, some are removed' },
+  { name: 'maxItems', label: 'Max Items', type: 'number', default: 1, min: 1, description: 'Items beyond this number are dropped' },
   {
     name: 'keep',
     label: 'Keep',
@@ -15,7 +15,7 @@ const parameters: ParamSchema[] = [
       { value: 'firstItems', label: 'First Items' },
       { value: 'lastItems', label: 'Last Items' },
     ],
-    description: 'When removing items, whether to keep the ones at the start or the ending',
+    description: 'Whether the first or the last items are kept',
   },
 ];
 

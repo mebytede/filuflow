@@ -442,7 +442,7 @@ function jsCode(show: ParamSchema['show'], def: string): ParamSchema {
     language: 'javaScript',
     default: def,
     noExpression: true,
-    description: 'JavaScript code to execute, e.g. with $today for date values and $jmespath for JSON queries',
+    description: 'JavaScript to run; helpers such as $today (dates) and $jmespath (JSON queries) are available',
     show,
   };
 }
@@ -468,8 +468,8 @@ const parameters: ParamSchema[] = [
     default: 'runOnceForAllItems',
     noExpression: true,
     options: [
-      { value: 'runOnceForAllItems', label: 'Run Once for All Items', description: 'Run this code only once, no matter how many input items there are' },
-      { value: 'runOnceForEachItem', label: 'Run Once for Each Item', description: 'Run this code as many times as there are input items' },
+      { value: 'runOnceForAllItems', label: 'Run Once for All Items', description: 'The code runs a single time for all input items together' },
+      { value: 'runOnceForEachItem', label: 'Run Once for Each Item', description: 'The code runs separately for every input item' },
     ],
   },
   {
@@ -493,7 +493,7 @@ const parameters: ParamSchema[] = [
   jsCode({ '@version': [2], language: ['javaScript'], mode: ['runOnceForEachItem'] }, JS_EACH_ITEM),
   {
     name: 'notice',
-    label: 'Type $ for a list of special vars/methods. Debug by using console.log() statements and viewing their output in the browser console.',
+    label: 'Typing $ lists the built-in variables and methods. Output of console.log() shows up in the browser console.',
     type: 'notice',
     default: '',
     show: { language: ['javaScript'] },
@@ -505,14 +505,14 @@ const parameters: ParamSchema[] = [
   pythonCode('pythonNative', 'runOnceForEachItem', PY_NATIVE_EACH_ITEM),
   {
     name: 'notice',
-    label: 'Debug by using print() statements and viewing their output in the browser console.',
+    label: 'Output of print() shows up in the browser console.',
     type: 'notice',
     default: '',
     show: { language: ['python'] },
   },
   {
     name: 'notice',
-    label: 'Debug by using print() statements and viewing their output in the browser console. Native Python has no _ helpers except _items (all items) and _item (per item).',
+    label: 'Output of print() shows up in the browser console. Native Python only offers the helpers _items (all items) and _item (current item).',
     type: 'notice',
     default: '',
     show: { language: ['pythonNative'] },

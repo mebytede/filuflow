@@ -78,8 +78,8 @@ const parameters: ParamSchema[] = [
             show: { type: ['HumanMessagePromptTemplate'] },
             options: [
               { value: 'text', label: 'Text', description: 'Simple text message' },
-              { value: 'imageBinary', label: 'Image (Binary)', description: 'Process the binary input from the previous node' },
-              { value: 'imageUrl', label: 'Image (URL)', description: 'Process the image from the specified URL' },
+              { value: 'imageBinary', label: 'Image (Binary)', description: 'Use binary data from the previous node' },
+              { value: 'imageUrl', label: 'Image (URL)', description: 'Load the image from a URL' },
             ],
           },
           {
@@ -88,7 +88,7 @@ const parameters: ParamSchema[] = [
             type: 'string',
             default: 'data',
             required: true,
-            description: 'The name of the field in the chain’s input that contains the binary image file to be processed',
+            description: 'Binary field of the chain input that holds the image',
             show: { messageType: ['imageBinary'] },
           },
           {
@@ -97,7 +97,7 @@ const parameters: ParamSchema[] = [
             type: 'string',
             default: '',
             required: true,
-            description: 'URL to the image to be processed',
+            description: 'Address of the image',
             show: { messageType: ['imageUrl'] },
           },
           {
@@ -105,12 +105,12 @@ const parameters: ParamSchema[] = [
             label: 'Image Details',
             type: 'options',
             default: 'auto',
-            description: 'Control how the model processes the image and generates its textual understanding',
+            description: 'Level of detail at which the model looks at the image',
             show: { type: ['HumanMessagePromptTemplate'], messageType: ['imageBinary', 'imageUrl'] },
             options: [
-              { value: 'auto', label: 'Auto', description: 'Model will use the auto setting which will look at the image input size and decide if it should use the low or high setting' },
-              { value: 'low', label: 'Low', description: 'The model will receive a low-res 512px x 512px version of the image; faster and cheaper' },
-              { value: 'high', label: 'High', description: 'Allows the model to see the low res image and then creates detailed crops; uses more tokens' },
+              { value: 'auto', label: 'Auto', description: 'The model picks low or high based on the size of the image' },
+              { value: 'low', label: 'Low', description: 'The model sees a 512 x 512 pixel version of the image; quicker and less expensive' },
+              { value: 'high', label: 'High', description: 'The model sees the small version first and then detailed crops; costs more tokens' },
             ],
           },
           {

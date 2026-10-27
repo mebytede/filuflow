@@ -12,7 +12,7 @@ const DESCRIPTION =
 
 // Parameters as in ToolCalculator.node.ts (n8n 1.123.0): only the connection hint (getConnectionHintNoticeField)
 const parameters: ParamSchema[] = [
-  { name: 'notice', label: 'This node must be connected to an AI agent.', type: 'notice', default: '' },
+  { name: 'notice', label: 'Connect this node to an AI agent.', type: 'notice', default: '' },
 ];
 
 export const toolCalculatorNode: NodeType = {

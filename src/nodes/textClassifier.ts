@@ -23,7 +23,7 @@ const parameters: ParamSchema[] = [
     required: true,
     default: '',
     rows: 2,
-    description: 'Use an expression to reference data in previous nodes or enter static text',
+    description: 'Fixed text or an expression on data of earlier nodes',
   },
   {
     name: 'categories',
@@ -38,7 +38,7 @@ const parameters: ParamSchema[] = [
         label: 'Categories',
         children: [
           { name: 'category', label: 'Category', type: 'string', default: '', required: true, description: 'Category to add' },
-          { name: 'description', label: 'Description', type: 'string', default: '', description: 'Describe your category if it\'s not obvious' },
+          { name: 'description', label: 'Description', type: 'string', default: '', description: 'Explain the category if its name is not self-explanatory' },
         ],
       },
     ],
@@ -56,10 +56,10 @@ const parameters: ParamSchema[] = [
         label: 'When No Clear Match',
         type: 'options',
         default: 'discard',
-        description: 'What to do with items that don’t match the categories exactly',
+        description: 'Handling of items that fit no category',
         options: [
-          { value: 'discard', label: 'Discard Item', description: 'Ignore the item and drop it from the output' },
-          { value: 'other', label: "Output on Extra, 'Other' Branch", description: "Create a separate output branch called 'Other'" },
+          { value: 'discard', label: 'Discard Item', description: 'Leave the item out' },
+          { value: 'other', label: "Output on Extra, 'Other' Branch", description: "Send the item to an extra output named 'Other'" },
         ],
       },
       {
@@ -68,14 +68,14 @@ const parameters: ParamSchema[] = [
         type: 'string',
         default: SYSTEM_PROMPT_TEMPLATE,
         rows: 6,
-        description: 'String to use directly as the system prompt template',
+        description: 'Text used as the system prompt template',
       },
       {
         name: 'enableAutoFixing',
         label: 'Enable Auto-Fixing',
         type: 'boolean',
         default: true,
-        description: 'Whether to enable auto-fixing (may trigger an additional LLM call if output is broken)',
+        description: 'Whether broken output is repaired automatically, which can cost an extra LLM call',
       },
       batchingParam({ '@version': [{ _cnd: { gte: 1.1 } }] }),
     ],

@@ -12,13 +12,13 @@ export const promptTypeParam: ParamSchema = {
   type: 'options',
   default: 'auto',
   options: [
-    { value: 'auto', label: 'Connected Chat Trigger Node', description: "Looks for an input field called 'chatInput' that is coming from a directly connected Chat Trigger" },
+    { value: 'auto', label: 'Connected Chat Trigger Node', description: "Reads the field 'chatInput' delivered by a directly connected Chat Trigger" },
     {
       value: 'guardrails',
       label: 'Connected Guardrails Node',
-      description: "Looks for an input field called 'guardrailsInput' that is coming from a directly connected Guardrails Node",
+      description: "Reads the field 'guardrailsInput' delivered by a directly connected Guardrails node",
     },
-    { value: 'define', label: 'Define below', description: 'Use an expression to reference data in previous nodes or enter static text' },
+    { value: 'define', label: 'Define below', description: 'Fixed text or an expression on data of earlier nodes' },
   ],
 };
 
@@ -58,7 +58,7 @@ export const textInputParam: ParamSchema = {
 /** Notice for hasOutputParser = true (Agent V2/V3, ChainLlm) */
 export const outputParserNoticeParam: ParamSchema = {
   name: 'notice',
-  label: 'Connect an output parser on the canvas to specify the output format you require',
+  label: 'To get a fixed output format, connect an output parser on the canvas',
   type: 'notice',
   default: '',
   show: { hasOutputParser: [true] },
@@ -67,7 +67,7 @@ export const outputParserNoticeParam: ParamSchema = {
 /** Notice for needsFallback = true (Agent V2/V3, ChainLlm) */
 export const fallbackNoticeParam: ParamSchema = {
   name: 'fallbackNotice',
-  label: 'Connect an additional language model on the canvas to use it as a fallback if the main model fails',
+  label: 'A second language model connected on the canvas takes over when the main model fails',
   type: 'notice',
   default: '',
   show: { needsFallback: [true] },
@@ -81,7 +81,7 @@ export function batchingParam(show: DisplayRule | undefined, defaultBatchSize = 
     type: 'collection',
     default: {},
     addLabel: 'Add Option',
-    description: 'Batch processing options for rate limiting',
+    description: 'Settings that spread requests out to respect rate limits',
     ...(show ? { show } : {}),
     children: [
       {
@@ -89,14 +89,14 @@ export function batchingParam(show: DisplayRule | undefined, defaultBatchSize = 
         label: 'Batch Size',
         type: 'number',
         default: defaultBatchSize,
-        description: 'How many items to process in parallel',
+        description: 'Number of items handled at the same time',
       },
       {
         name: 'delayBetweenBatches',
         label: 'Delay Between Batches',
         type: 'number',
         default: 0,
-        description: 'Delay in milliseconds between batches',
+        description: 'Pause between batches in milliseconds',
       },
     ],
   };
@@ -104,8 +104,8 @@ export function batchingParam(show: DisplayRule | undefined, defaultBatchSize = 
 
 /** Options of schemaTypeField */
 export const schemaTypeOptions: ParamOption[] = [
-  { value: 'fromJson', label: 'Generate From JSON Example', description: 'Generate a schema from an example JSON object' },
-  { value: 'manual', label: 'Define using JSON Schema', description: 'Define the JSON schema manually' },
+  { value: 'fromJson', label: 'Generate From JSON Example', description: 'Derive the fields from an example JSON object' },
+  { value: 'manual', label: 'Define using JSON Schema', description: 'Write the JSON Schema yourself' },
 ];
 
 /** schemaTypeField (Default "fromJson") */
@@ -116,7 +116,7 @@ export const schemaTypeParam: ParamSchema = {
   noExpression: true,
   default: 'fromJson',
   options: schemaTypeOptions,
-  description: 'How to specify the schema for the desired output',
+  description: 'Way the output schema is defined',
 };
 
 /** Example from OutputParserStructured and InformationExtractor (overrides the default of jsonSchemaExampleField) */
@@ -151,7 +151,7 @@ export function jsonSchemaExampleParam(defaultValue: string): ParamSchema {
     noExpression: true,
     rows: 10,
     show: { schemaType: ['fromJson'] },
-    description: 'Example JSON object to use to generate the schema',
+    description: 'Sample JSON object the schema is derived from',
   };
 }
 
@@ -159,7 +159,7 @@ export function jsonSchemaExampleParam(defaultValue: string): ParamSchema {
 export function jsonSchemaExampleNoticeParam(showExtra: DisplayRule): ParamSchema {
   return {
     name: 'notice',
-    label: "All properties will be required. To make them optional, use the 'JSON Schema' schema type instead",
+    label: "Every property becomes required. Choose the 'JSON Schema' type if some should be optional",
     type: 'notice',
     default: '',
     show: { ...showExtra, schemaType: ['fromJson'] },
@@ -175,6 +175,6 @@ export function inputSchemaParam(defaultValue: string): ParamSchema {
     default: defaultValue,
     rows: 10,
     show: { schemaType: ['manual'] },
-    description: 'Schema to use for the function, in JSON Schema format; $ref is not supported',
+    description: 'JSON Schema of the function input; $ref is not supported',
   };
 }

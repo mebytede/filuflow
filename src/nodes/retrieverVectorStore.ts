@@ -13,7 +13,7 @@ export interface Retriever {
   getRelevantDocuments(query: string): Promise<Document[]>;
 }
 
-const parameters: ParamSchema[] = [{ name: 'topK', label: 'Limit', type: 'number', default: 4, description: 'The maximum number of results to return' }];
+const parameters: ParamSchema[] = [{ name: 'topK', label: 'Limit', type: 'number', default: 4, description: 'Upper limit of results' }];
 
 export const retrieverVectorStoreNode: NodeType = {
   type: '@n8n/n8n-nodes-langchain.retrieverVectorStore',

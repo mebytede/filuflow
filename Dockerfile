@@ -12,6 +12,12 @@ COPY scripts/copy-ui-assets.mjs ./scripts/
 RUN npm run build && npm prune --omit=dev
 
 FROM node:22-slim
+# OCI labels: the source label links the image in the GitHub Container Registry to the repository; the release workflow
+# adds version, revision and creation date
+LABEL org.opencontainers.image.title="filuflow" \
+      org.opencontainers.image.description="Self-hosted workflow engine with a browser editor, compatible with the n8n workflow format" \
+      org.opencontainers.image.source="https://github.com/mebytede/filuflow" \
+      org.opencontainers.image.licenses="AGPL-3.0-or-later"
 # Python (Native) in the Code node needs a Python interpreter: docker build --build-arg WITH_PYTHON=true .
 # Python (Pyodide) runs without one, it ships in node_modules.
 ARG WITH_PYTHON=false
@@ -29,6 +35,8 @@ COPY --from=build /app/package.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/bin ./bin
+# License and third-party notices travel with the image (AGPL-3.0, OFL, MPL-2.0 and the npm licenses in node_modules)
+COPY LICENSE THIRD_PARTY_NOTICES.md ./
 # /data/state exists in the image so that a named volume mounted there (compose files) belongs to "node"
 RUN mkdir -p /data/workflows /data/state && chown -R node:node /data
 WORKDIR /data

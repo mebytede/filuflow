@@ -93,7 +93,7 @@ const fieldParams: ParamSchema[] = [
     type: 'string',
     default: '',
     placeholder: 'e.g. email, name',
-    description: 'Fields in the input to exclude from the comparison',
+    description: 'Input fields that are ignored in the comparison',
     show: { compare: ['allFieldsExcept'] },
   },
   {
@@ -102,7 +102,7 @@ const fieldParams: ParamSchema[] = [
     type: 'string',
     default: '',
     placeholder: 'e.g. email, name',
-    description: 'Fields in the input to add to the comparison',
+    description: 'Input fields that are compared',
     show: { compare: ['selectedFields'] },
   },
 ];
@@ -112,7 +112,7 @@ const disableDotNotation: ParamSchema = {
   label: 'Disable Dot Notation',
   type: 'boolean',
   default: false,
-  description: 'Whether to disallow referencing child fields using "parent.child" in the field name',
+  description: 'Whether to treat dots in field names literally instead of as a path like "parent.child"',
 };
 
 const removeOtherFields: ParamSchema = {
@@ -120,7 +120,7 @@ const removeOtherFields: ParamSchema = {
   label: 'Remove Other Fields',
   type: 'boolean',
   default: false,
-  description: 'Whether to remove any fields that are not being compared. If disabled, will keep the values from the first of the duplicates.',
+  description: 'Whether fields outside the comparison are dropped. If off, the values of the first duplicate are kept.',
 };
 
 const parameters: ParamSchema[] = [
@@ -135,7 +135,7 @@ const parameters: ParamSchema[] = [
       {
         value: 'removeDuplicateInputItems',
         label: 'Remove Items Repeated Within Current Input',
-        description: 'Remove duplicates from incoming items',
+        description: 'Drop repeated items within the current input',
       },
     ],
   },
@@ -144,7 +144,7 @@ const parameters: ParamSchema[] = [
     label: 'Compare',
     type: 'options',
     default: 'allFields',
-    description: 'The fields of the input items to compare to see if they are the same',
+    description: 'Fields that decide whether two items are equal',
     show: V1,
     options: compareOptions,
   },
@@ -153,7 +153,7 @@ const parameters: ParamSchema[] = [
     label: 'Compare',
     type: 'options',
     default: 'allFields',
-    description: 'The fields of the input items to compare to see if they are the same',
+    description: 'Fields that decide whether two items are equal',
     show: { '@version': [V2], operation: ['removeDuplicateInputItems'] },
     options: compareOptions,
   },

@@ -364,7 +364,7 @@ function v1ValueGroup(name: string, label: string, value: ParamSchema): { name: 
         label: 'Name',
         type: 'string',
         default: 'propertyName',
-        description: 'Name of the property to write data to. Supports dot-notation, e.g. "data.person[0].name"',
+        description: 'Field that receives the value; dot notation such as "data.person[0].name" works',
       },
       value,
     ],
@@ -378,7 +378,7 @@ const parameters: ParamSchema[] = [
     label: 'Keep Only Set',
     type: 'boolean',
     default: false,
-    description: 'Whether only the values set on this node should be kept and all others removed',
+    description: 'Whether the output contains only the values set here and nothing else',
     show: V1,
   },
   {
@@ -391,9 +391,9 @@ const parameters: ParamSchema[] = [
     description: 'The value to set',
     show: V1,
     groups: [
-      v1ValueGroup('boolean', 'Boolean', { name: 'value', label: 'Value', type: 'boolean', default: false, description: 'The boolean value to write in the property' }),
-      v1ValueGroup('number', 'Number', { name: 'value', label: 'Value', type: 'number', default: 0, description: 'The number value to write in the property' }),
-      v1ValueGroup('string', 'String', { name: 'value', label: 'Value', type: 'string', default: '', description: 'The string value to write in the property' }),
+      v1ValueGroup('boolean', 'Boolean', { name: 'value', label: 'Value', type: 'boolean', default: false, description: 'Boolean to store' }),
+      v1ValueGroup('number', 'Number', { name: 'value', label: 'Value', type: 'number', default: 0, description: 'Number to store' }),
+      v1ValueGroup('string', 'String', { name: 'value', label: 'Value', type: 'string', default: '', description: 'Text to store' }),
     ],
   },
   {
@@ -409,7 +409,7 @@ const parameters: ParamSchema[] = [
         label: 'Dot Notation',
         type: 'boolean',
         default: true,
-        description: 'Whether "a.b" sets the property "b" underneath "a" instead of the key "a.b"',
+        description: 'Whether a name such as "a.b" means field "b" inside "a" rather than a key named "a.b"',
       },
     ],
   },
@@ -423,8 +423,8 @@ const parameters: ParamSchema[] = [
     noExpression: true,
     show: V3,
     options: [
-      { value: 'manual', label: 'Manual Mapping', description: 'Edit item fields one by one' },
-      { value: 'raw', label: 'JSON', description: 'Customize item output with JSON' },
+      { value: 'manual', label: 'Manual Mapping', description: 'Set each field separately' },
+      { value: 'raw', label: 'JSON', description: 'Describe the output item as JSON' },
     ],
   },
   {
@@ -432,7 +432,7 @@ const parameters: ParamSchema[] = [
     label: 'Duplicate Item',
     type: 'boolean',
     default: false,
-    description: 'Whether the item is output multiple times',
+    description: 'Whether each item is repeated in the output',
     show: V3,
   },
   {
@@ -441,12 +441,12 @@ const parameters: ParamSchema[] = [
     type: 'number',
     default: 0,
     min: 0,
-    description: 'How many times the item should be duplicated, mainly used for testing and debugging',
+    description: 'Number of copies per item, meant for tests and debugging',
     show: { ...V3, duplicateItem: [true] },
   },
   {
     name: 'duplicateWarning',
-    label: 'Item duplication is only applied in manual executions and is ignored in automatic runs.',
+    label: 'Copies are only made in manual runs; automatic runs ignore this setting.',
     type: 'notice',
     default: '',
     show: { ...V3, duplicateItem: [true] },
@@ -468,7 +468,7 @@ const parameters: ParamSchema[] = [
     default: {},
     multiple: true,
     addLabel: 'Add Field',
-    description: 'Edit existing fields or add new ones to modify the output data',
+    description: 'Change fields or add new ones in the output',
     show: { '@version': [3, 3.1, 3.2], mode: ['manual'] },
     groups: [
       {
@@ -481,7 +481,7 @@ const parameters: ParamSchema[] = [
             type: 'string',
             default: '',
             placeholder: 'e.g. fieldName',
-            description: 'Name of the field to set the value of. Supports dot-notation, e.g. data.person[0].name',
+            description: 'Field that receives the value; dot notation such as data.person[0].name works',
           },
           {
             name: 'type',
@@ -535,13 +535,13 @@ const parameters: ParamSchema[] = [
     label: 'Include in Output',
     type: 'options',
     default: 'all',
-    description: 'How to select the fields you want to include in your output items',
+    description: 'Which input fields end up in the output items',
     show: { '@version': [3, 3.1, 3.2] },
     options: [
-      { value: 'all', label: 'All Input Fields', description: 'Also include all unchanged fields from the input' },
-      { value: 'none', label: 'No Input Fields', description: 'Include only the fields specified above' },
-      { value: 'selected', label: 'Selected Input Fields', description: 'Also include the fields listed in the parameter "Fields to Include"' },
-      { value: 'except', label: 'All Input Fields Except', description: 'Exclude the fields listed in the parameter "Fields to Exclude"' },
+      { value: 'all', label: 'All Input Fields', description: 'Keep every other input field as well' },
+      { value: 'none', label: 'No Input Fields', description: 'Nothing beyond the fields set above' },
+      { value: 'selected', label: 'Selected Input Fields', description: 'Add the fields named in "Fields to Include"' },
+      { value: 'except', label: 'All Input Fields Except', description: 'Keep everything except the fields named in "Fields to Exclude"' },
     ],
   },
   {
@@ -549,7 +549,7 @@ const parameters: ParamSchema[] = [
     label: 'Include Other Input Fields',
     type: 'boolean',
     default: false,
-    description: 'Whether to pass all input fields to the output, along with the fields set in "Fields to Set"',
+    description: 'Whether the output keeps all input fields next to the fields from "Fields to Set"',
     show: { '@version': [V33] },
   },
   {
@@ -557,13 +557,13 @@ const parameters: ParamSchema[] = [
     label: 'Input Fields to Include',
     type: 'options',
     default: 'all',
-    description: 'How to select the fields you want to include in your output items',
+    description: 'Which input fields end up in the output items',
     show: { '@version': [V33] },
     hide: { '/includeOtherFields': [false] },
     options: [
-      { value: 'all', label: 'All', description: 'Also include all unchanged fields from the input' },
-      { value: 'selected', label: 'Selected', description: 'Also include the fields listed in the parameter "Fields to Include"' },
-      { value: 'except', label: 'All Except', description: 'Exclude the fields listed in the parameter "Fields to Exclude"' },
+      { value: 'all', label: 'All', description: 'Keep every other input field as well' },
+      { value: 'selected', label: 'Selected', description: 'Add the fields named in "Fields to Include"' },
+      { value: 'except', label: 'All Except', description: 'Keep everything except the fields named in "Fields to Exclude"' },
     ],
   },
   {
@@ -572,7 +572,7 @@ const parameters: ParamSchema[] = [
     type: 'string',
     default: '',
     placeholder: 'e.g. fieldToInclude1,fieldToInclude2',
-    description: 'Comma-separated list of the field names you want to include in the output',
+    description: 'Names of the fields to keep, separated by commas',
     show: { include: ['selected'], '@version': [3, 3.1, 3.2] },
   },
   {
@@ -581,7 +581,7 @@ const parameters: ParamSchema[] = [
     type: 'string',
     default: '',
     placeholder: 'e.g. fieldToExclude1,fieldToExclude2',
-    description: 'Comma-separated list of the field names you want to exclude from the output',
+    description: 'Names of the fields to drop, separated by commas',
     show: { include: ['except'], '@version': [3, 3.1, 3.2] },
   },
   {
@@ -590,7 +590,7 @@ const parameters: ParamSchema[] = [
     type: 'string',
     default: '',
     placeholder: 'e.g. fieldToInclude1,fieldToInclude2',
-    description: 'Comma-separated list of the field names you want to include in the output',
+    description: 'Names of the fields to keep, separated by commas',
     show: { include: ['selected'], '/includeOtherFields': [true], '@version': [V33] },
   },
   {
@@ -599,7 +599,7 @@ const parameters: ParamSchema[] = [
     type: 'string',
     default: '',
     placeholder: 'e.g. fieldToExclude1,fieldToExclude2',
-    description: 'Comma-separated list of the field names you want to exclude from the output',
+    description: 'Names of the fields to drop, separated by commas',
     show: { include: ['except'], '/includeOtherFields': [true], '@version': [V33] },
   },
   {
@@ -615,7 +615,7 @@ const parameters: ParamSchema[] = [
         label: 'Include Binary File',
         type: 'boolean',
         default: true,
-        description: 'Whether binary data should be included if present in the input item',
+        description: 'Whether existing binary data of the input item is kept',
         hide: { '@version': [{ _cnd: { gte: 3.4 } }] },
       },
       {
@@ -623,7 +623,7 @@ const parameters: ParamSchema[] = [
         label: 'Strip Binary Data',
         type: 'boolean',
         default: true,
-        description: 'Whether binary data should be stripped from the input item. Only applies when "Include Other Input Fields" is enabled.',
+        description: 'Whether binary data of the input item is removed; only relevant with "Include Other Input Fields" turned on.',
         show: { '@version': [{ _cnd: { gte: 3.4 } }], '/includeOtherFields': [true] },
       },
       {
@@ -631,7 +631,7 @@ const parameters: ParamSchema[] = [
         label: 'Ignore Type Conversion Errors',
         type: 'boolean',
         default: false,
-        description: 'Whether to ignore field type errors and apply a less strict type conversion',
+        description: 'Whether type mismatches are tolerated and values are converted more loosely',
         show: { '/mode': ['manual'] },
       },
       {
@@ -639,7 +639,7 @@ const parameters: ParamSchema[] = [
         label: 'Support Dot Notation',
         type: 'boolean',
         default: true,
-        description: 'Whether "a.b" sets the property "b" underneath "a" instead of the key "a.b"',
+        description: 'Whether a name such as "a.b" means field "b" inside "a" rather than a key named "a.b"',
       },
     ],
   },

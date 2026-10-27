@@ -22,7 +22,7 @@ const parameters: ParamSchema[] = [
     label: 'Type',
     type: 'options',
     default: 'simple',
-    description: 'The type of sorting to perform',
+    description: 'Sort method',
     options: [
       { value: 'simple', label: 'Simple' },
       { value: 'random', label: 'Random' },
@@ -36,7 +36,7 @@ const parameters: ParamSchema[] = [
     default: {},
     multiple: true,
     addLabel: 'Add Field To Sort By',
-    description: 'The fields of the input items to sort by',
+    description: 'Fields that decide the order',
     show: { type: ['simple'] },
     groups: [
       {
@@ -75,7 +75,7 @@ const parameters: ParamSchema[] = [
     rows: 10,
     default:
       "// The two items to compare are in the variables a and b\n\t// Access the fields in a.json and b.json\n\t// Return -1 if a should go before b\n\t// Return 1 if b should go before a\n\t// Return 0 if there's no difference\n\n\tfieldName = 'myField';\n\n\tif (a.json[fieldName] < b.json[fieldName]) {\n\treturn -1;\n\t}\n\tif (a.json[fieldName] > b.json[fieldName]) {\n\treturn 1;\n\t}\n\treturn 0;",
-    description: 'JavaScript code to determine the order of any two items',
+    description: 'JavaScript that compares two items and decides their order',
     show: { type: ['code'] },
   },
   {
@@ -91,7 +91,7 @@ const parameters: ParamSchema[] = [
         label: 'Disable Dot Notation',
         type: 'boolean',
         default: false,
-        description: 'Whether to disallow referencing child fields using `parent.child` in the field name',
+        description: 'Whether to treat dots in field names literally instead of as a path like `parent.child`',
       },
     ],
   },

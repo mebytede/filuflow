@@ -24,7 +24,7 @@ const authenticationParam: ParamSchema = {
   options: opts(['oAuth2', 'OAuth2 (recommended)'], ['serviceAccount', 'Service Account']),
 };
 
-const emailListDescription = (who: string) => `The email addresses of the ${who}. Multiple addresses can be separated by a comma. e.g. jay@getsby.com, jon@smith.com.`;
+const emailListDescription = (who: string) => `Addresses of the ${who}, separated by commas, such as jay@getsby.com, jon@smith.com.`;
 
 const attachmentsParam = (fieldLabel: string, fieldDefault: string): ParamSchema => ({
   name: 'attachmentsUi',
@@ -34,7 +34,7 @@ const attachmentsParam = (fieldLabel: string, fieldDefault: string): ParamSchema
   default: {},
   addLabel: 'Add Attachment',
   placeholder: 'Add Attachment',
-  description: 'Array of supported attachments to add to the message',
+  description: 'Files attached to the message',
   groups: [
     {
       name: 'attachmentsBinary',
@@ -45,7 +45,7 @@ const attachmentsParam = (fieldLabel: string, fieldDefault: string): ParamSchema
           label: fieldLabel,
           type: 'string',
           default: fieldDefault,
-          description: 'Add the field name from the input node. Multiple properties can be set separated by comma.',
+          description: 'Binary field of the input item; several fields separated by commas.',
         },
       ],
     },
@@ -60,7 +60,7 @@ const attachmentPrefixParam = (plural = false): ParamSchema => ({
   label: 'Attachment Prefix',
   type: 'string',
   default: 'attachment_',
-  description: `Prefix for name of the binary property to which to write the ${plural ? 'attachments' : 'attachment'}. An index starting with 0 will be added. So if name is 'attachment_' the first attachment is saved to 'attachment_0'.`,
+  description: `Name prefix of the binary ${plural ? 'fields for the attachments' : 'field for the attachment'}. A counter starting at 0 is appended, so with 'attachment_' the first attachment lands in 'attachment_0'.`,
 });
 
 const downloadAttachmentsParam = (description: string): ParamSchema => ({ name: 'downloadAttachments', label: 'Download Attachments', type: 'boolean', default: false, description });
@@ -70,7 +70,7 @@ const returnAllParam = (resource: string): ParamSchema => ({
   label: 'Return All',
   type: 'boolean',
   default: false,
-  description: 'Whether to return all results or only up to a given limit',
+  description: 'Whether every result is returned or only up to the limit',
   show: on(resource, 'getAll'),
 });
 
@@ -81,7 +81,7 @@ const limitParam = (resource: string): ParamSchema => ({
   default: 50,
   min: 1,
   max: 500,
-  description: 'Max number of results to return',
+  description: 'Upper limit of results',
   show: { ...on(resource, 'getAll'), returnAll: [false] },
 });
 
@@ -90,7 +90,7 @@ const simplifyParam = (show: ParamSchema['show']): ParamSchema => ({
   label: 'Simplify',
   type: 'boolean',
   default: true,
-  description: 'Whether to return a simplified version of the response instead of the raw data',
+  description: 'Whether to return a condensed result instead of the raw API data',
   show,
 });
 
@@ -99,7 +99,7 @@ const readStatusParam: ParamSchema = {
   label: 'Read Status',
   type: 'options',
   default: 'unread',
-  description: 'Filter emails by whether they have been read or not',
+  description: 'Filter by read state',
   options: opts(['both', 'Unread and read emails'], ['unread', 'Unread emails only'], ['read', 'Read emails only']),
 };
 
@@ -109,22 +109,22 @@ const searchParam: ParamSchema = {
   type: 'string',
   default: '',
   placeholder: 'has:attachment',
-  description: 'Only return messages matching the specified query. Use the same format as in the Gmail search box.',
+  description: 'Search query in the syntax of the Gmail search box; only matching messages are returned.',
 };
 
-const senderParam: ParamSchema = { name: 'sender', label: 'Sender', type: 'string', default: '', description: 'Sender name or email to filter by. Enter an email or part of a sender name.' };
+const senderParam: ParamSchema = { name: 'sender', label: 'Sender', type: 'string', default: '', description: "Filter by sender: an email address or part of the sender's name." };
 
 const receivedParam = (name: 'receivedAfter' | 'receivedBefore'): ParamSchema => ({
   name,
   label: name === 'receivedAfter' ? 'Received After' : 'Received Before',
   type: 'dateTime',
   default: '',
-  description: `Get all emails received ${name === 'receivedAfter' ? 'after' : 'before'} the specified date. In an expression you can set date using string in ISO format or a timestamp in miliseconds.`,
+  description: `Only emails that arrived ${name === 'receivedAfter' ? 'after' : 'before'} this date. Expressions can return an ISO string or a timestamp in milliseconds.`,
 });
 
 const filtersNotice = (resource: string): ParamSchema => ({
   name: 'filtersNotice',
-  label: 'Fetching a lot of messages may take a long time. Consider using filters to speed things up',
+  label: 'Loading many messages can be slow. Filters make it faster',
   type: 'notice',
   default: '',
   show: { ...on(resource, 'getAll'), returnAll: [true] },
@@ -133,13 +133,13 @@ const filtersNotice = (resource: string): ParamSchema => ({
 /** Filters of message:getAll (MessageDescription.js) */
 function messageFilterChildren(): ParamSchema[] {
   return [
-    { name: 'includeSpamTrash', label: 'Include Spam and Trash', type: 'boolean', default: false, description: 'Whether to include messages from SPAM and TRASH in the results' },
+    { name: 'includeSpamTrash', label: 'Include Spam and Trash', type: 'boolean', default: false, description: 'Whether messages in SPAM and TRASH are included' },
     {
       name: 'labelIds',
       label: 'Label Names or IDs',
       type: 'json',
       default: [],
-      description: `Only return messages with labels that match all of the specified label IDs. ${labelIdsHint}`,
+      description: `Only messages that carry every one of these labels. ${labelIdsHint}`,
     },
     searchParam,
     readStatusParam,
@@ -160,7 +160,7 @@ const limitWaitTimeParam: ParamSchema = {
   label: 'Limit Wait Time',
   type: 'fixedCollection',
   default: { values: { limitType: 'afterTimeInterval', resumeAmount: 45, resumeUnit: 'minutes' } },
-  description: 'Whether the workflow will automatically resume execution after the specified limit type',
+  description: 'Whether the workflow continues on its own once the limit is reached',
   groups: [
     {
       name: 'values',
@@ -171,10 +171,10 @@ const limitWaitTimeParam: ParamSchema = {
           label: 'Limit Type',
           type: 'options',
           default: 'afterTimeInterval',
-          description: 'Sets the condition for the execution to resume. Can be a specified date or after some time.',
+          description: 'When the execution continues: at a given date or after a period of time',
           options: [
-            { value: 'afterTimeInterval', label: 'After Time Interval', description: 'Waits for a certain amount of time' },
-            { value: 'atSpecifiedTime', label: 'At Specified Time', description: 'Waits until the set date and time to continue' },
+            { value: 'afterTimeInterval', label: 'After Time Interval', description: 'Continue after a period of time' },
+            { value: 'atSpecifiedTime', label: 'At Specified Time', description: 'Continue at a fixed date and time' },
           ],
         },
         { name: 'resumeAmount', label: 'Amount', type: 'number', default: 1, min: 0, precision: 2, description: 'The time to wait', show: { limitType: ['afterTimeInterval'] } },
@@ -183,11 +183,11 @@ const limitWaitTimeParam: ParamSchema = {
           label: 'Unit',
           type: 'options',
           default: 'hours',
-          description: 'Unit of the interval value',
+          description: 'Unit of the amount',
           options: opts(['minutes', 'Minutes'], ['hours', 'Hours'], ['days', 'Days']),
           show: { limitType: ['afterTimeInterval'] },
         },
-        { name: 'maxDateAndTime', label: 'Max Date and Time', type: 'dateTime', default: '', description: 'Continue execution after the specified date and time', show: { limitType: ['atSpecifiedTime'] } },
+        { name: 'maxDateAndTime', label: 'Max Date and Time', type: 'dateTime', default: '', description: 'Point in time at which the execution continues', show: { limitType: ['atSpecifiedTime'] } },
       ],
     },
   ],
@@ -198,7 +198,7 @@ const sendAndWaitAttribution: ParamSchema = {
   label: 'Append n8n Attribution',
   type: 'boolean',
   default: true,
-  description: 'Whether to include the phrase "This message was sent automatically with n8n" to the end of the message',
+  description: 'Whether the message ends with the line "This message was sent automatically with n8n"',
 };
 
 const buttonStyle = (name: string, label: string, defaultValue: string, show: ParamSchema['show']): ParamSchema => ({
@@ -220,9 +220,9 @@ const sendAndWaitBase: ParamSchema[] = [
     type: 'options',
     default: 'approval',
     options: [
-      { value: 'approval', label: 'Approval', description: 'User can approve/disapprove from within the message' },
-      { value: 'freeText', label: 'Free Text', description: 'User can submit a response via a form' },
-      { value: 'customForm', label: 'Custom Form', description: 'User can submit a response via a custom form' },
+      { value: 'approval', label: 'Approval', description: 'The recipient approves or declines with buttons in the message' },
+      { value: 'freeText', label: 'Free Text', description: 'The recipient answers in a form' },
+      { value: 'customForm', label: 'Custom Form', description: 'The recipient answers in a form you design' },
     ],
   },
   ...formFieldsDefinitionParams.map((p) => ({ ...p, show: { ...(p.show ?? {}), responseType: ['customForm'] } })),
@@ -268,11 +268,11 @@ const sendAndWaitBase: ParamSchema[] = [
     show: { responseType: ['freeText', 'customForm'] },
     children: [
       { name: 'messageButtonLabel', label: 'Message Button Label', type: 'string', default: 'Respond' },
-      { name: 'responseFormTitle', label: 'Response Form Title', type: 'string', default: '', description: 'Title of the form that the user can access to provide their response' },
-      { name: 'responseFormDescription', label: 'Response Form Description', type: 'string', default: '', description: 'Description of the form that the user can access to provide their response' },
+      { name: 'responseFormTitle', label: 'Response Form Title', type: 'string', default: '', description: 'Heading of the response form' },
+      { name: 'responseFormDescription', label: 'Response Form Description', type: 'string', default: '', description: 'Text below the heading of the response form' },
       { name: 'responseFormButtonLabel', label: 'Response Form Button Label', type: 'string', default: 'Submit' },
       // n8n uses its CSS variables as the default (Form/cssVariables.ts); the filuflow form pages do not use them (see formCustomCssParam)
-      { name: 'responseFormCustomCss', label: 'Response Form Custom Styling', type: 'code', language: 'css', rows: 10, default: '', description: 'Override default styling of the response form with CSS' },
+      { name: 'responseFormCustomCss', label: 'Response Form Custom Styling', type: 'code', language: 'css', rows: 10, default: '', description: 'Custom CSS that replaces the default look of the response form' },
       limitWaitTimeParam,
       sendAndWaitAttribution,
     ],
@@ -312,7 +312,7 @@ export const gmailParameters: ParamSchema[] = [
   },
   { name: 'messageId', label: 'Draft ID', type: 'string', default: '', required: true, placeholder: 'r-3254521568507167962', show: on('draft', 'delete', 'get') },
   { name: 'subject', label: 'Subject', type: 'string', default: '', required: true, placeholder: 'Hello World!', show: on('draft', 'create') },
-  { name: 'threadNotice', label: 'To reply to an existing thread, specify the exact subject title of that thread.', type: 'notice', default: '', show: on('draft', 'create') },
+  { name: 'threadNotice', label: 'For a reply in an existing thread, use exactly the subject of that thread.', type: 'notice', default: '', show: on('draft', 'create') },
   { name: 'emailType', label: 'Email Type', type: 'options', default: 'text', required: true, noExpression: true, options: opts(['html', 'HTML'], ['text', 'Text']), show: on('draft', 'create') },
   { name: 'message', label: 'Message', type: 'string', default: '', required: true, show: on('draft', 'create') },
   {
@@ -327,9 +327,9 @@ export const gmailParameters: ParamSchema[] = [
       attachmentsParam('Attachment Field Name (in Input)', ''),
       bccParam,
       ccParam,
-      { name: 'fromAlias', label: 'From Alias Name or ID', type: 'string', default: '', description: 'Select the alias to send the email from (one of the "send as" addresses of the account)' },
-      { name: 'replyTo', label: 'Send Replies To', type: 'string', default: '', placeholder: 'reply@example.com', description: 'The email address that the reply message is sent to' },
-      { name: 'threadId', label: 'Thread ID', type: 'string', default: '', placeholder: '18cc573e2431878f', description: 'The identifier of the thread to attach the draft' },
+      { name: 'fromAlias', label: 'From Alias Name or ID', type: 'string', default: '', description: 'Sender alias, one of the account\'s "send as" addresses' },
+      { name: 'replyTo', label: 'Send Replies To', type: 'string', default: '', placeholder: 'reply@example.com', description: 'Recipient address of the reply' },
+      { name: 'threadId', label: 'Thread ID', type: 'string', default: '', placeholder: '18cc573e2431878f', description: 'ID of the thread the draft belongs to' },
       { name: 'sendTo', label: 'To Email', type: 'string', default: '', placeholder: 'info@example.com', description: emailListDescription('recipients') },
     ],
   },
@@ -341,7 +341,7 @@ export const gmailParameters: ParamSchema[] = [
     addLabel: 'Add option',
     placeholder: 'Add option',
     show: on('draft', 'get'),
-    children: [attachmentPrefixParam(), downloadAttachmentsParam("Whether the draft's attachments will be downloaded")],
+    children: [attachmentPrefixParam(), downloadAttachmentsParam('Whether attachments of the draft are downloaded')],
   },
   returnAllParam('draft'),
   limitParam('draft'),
@@ -355,8 +355,8 @@ export const gmailParameters: ParamSchema[] = [
     show: on('draft', 'getAll'),
     children: [
       attachmentPrefixParam(true),
-      downloadAttachmentsParam("Whether the draft's attachments will be downloaded"),
-      { name: 'includeSpamTrash', label: 'Include Spam and Trash', type: 'boolean', default: false, description: 'Whether to include messages from SPAM and TRASH in the results' },
+      downloadAttachmentsParam('Whether attachments of the draft are downloaded'),
+      { name: 'includeSpamTrash', label: 'Include Spam and Trash', type: 'boolean', default: false, description: 'Whether messages in SPAM and TRASH are included' },
     ],
   },
   // Label (LabelDescription.js)
@@ -390,7 +390,7 @@ export const gmailParameters: ParamSchema[] = [
         label: 'Label List Visibility',
         type: 'options',
         default: 'labelShow',
-        description: 'The visibility of the label in the label list in the Gmail web interface',
+        description: 'Whether the label is listed in the label list of the Gmail web interface',
         options: opts(['labelHide', 'Hide'], ['labelShow', 'Show'], ['labelShowIfUnread', 'Show If Unread']),
       },
       {
@@ -398,7 +398,7 @@ export const gmailParameters: ParamSchema[] = [
         label: 'Message List Visibility',
         type: 'options',
         default: 'show',
-        description: 'The visibility of messages with this label in the message list in the Gmail web interface',
+        description: 'Whether messages with this label appear in the message list of the Gmail web interface',
         options: opts(['hide', 'Hide'], ['show', 'Show']),
       },
     ],
@@ -423,7 +423,7 @@ export const gmailParameters: ParamSchema[] = [
       { value: 'removeLabels', label: 'Remove Label', description: 'Remove label from message' },
       { value: 'reply', label: 'Reply', description: 'Reply to a message' },
       { value: 'send', label: 'Send', description: 'Send a message' },
-      { value: 'sendAndWait', label: 'Send and Wait for Response', description: 'Send message and wait for response' },
+      { value: 'sendAndWait', label: 'Send and Wait for Response', description: 'Send a message and pause until the reply arrives' },
     ],
   },
   { name: 'messageId', label: 'Message ID', type: 'string', default: '', required: true, placeholder: '172ce2c4a72cc243', show: on('message', 'get', 'delete', 'markAsRead', 'markAsUnread', 'reply', 'addLabels', 'removeLabels') },
@@ -449,13 +449,13 @@ export const gmailParameters: ParamSchema[] = [
     placeholder: 'Add option',
     show: on('message', 'send', 'reply'),
     children: [
-      { name: 'appendAttribution', label: 'Append n8n Attribution', type: 'boolean', default: true, description: 'Whether to include the phrase “This email was sent automatically with n8n” to the end of the email' },
+      { name: 'appendAttribution', label: 'Append n8n Attribution', type: 'boolean', default: true, description: 'Whether the email ends with the line “This email was sent automatically with n8n”' },
       attachmentsParam('Attachment Field Name', 'data'),
       bccParam,
       ccParam,
-      { name: 'senderName', label: 'Sender Name', type: 'string', default: '', placeholder: 'e.g. Nathan', description: "The name that will be shown in recipients' inboxes" },
-      { name: 'replyTo', label: 'Send Replies To', type: 'string', default: '', placeholder: 'reply@example.com', description: 'The email address that the reply message is sent to', hide: { '/operation': ['reply'] } },
-      { name: 'replyToSenderOnly', label: 'Reply to Sender Only', type: 'boolean', default: false, description: 'Whether to reply to the sender only or to the entire list of recipients' },
+      { name: 'senderName', label: 'Sender Name', type: 'string', default: '', placeholder: 'e.g. Nathan', description: 'Sender name recipients see in their inbox' },
+      { name: 'replyTo', label: 'Send Replies To', type: 'string', default: '', placeholder: 'reply@example.com', description: 'Recipient address of the reply', hide: { '/operation': ['reply'] } },
+      { name: 'replyToSenderOnly', label: 'Reply to Sender Only', type: 'boolean', default: false, description: 'Whether the reply goes only to the sender or to all recipients' },
     ],
   },
   simplifyParam(on('message', 'get')),
@@ -468,7 +468,7 @@ export const gmailParameters: ParamSchema[] = [
     placeholder: 'Add option',
     show: on('message', 'get'),
     hide: { simple: [true] },
-    children: [attachmentPrefixParam(), downloadAttachmentsParam("Whether the email's attachments will be downloaded and included in the output")],
+    children: [attachmentPrefixParam(), downloadAttachmentsParam('Whether attachments of the email are downloaded and added to the output')],
   },
   returnAllParam('message'),
   limitParam('message'),
@@ -484,7 +484,7 @@ export const gmailParameters: ParamSchema[] = [
     placeholder: 'Add option',
     show: on('message', 'getAll'),
     hide: { simple: [true] },
-    children: [attachmentPrefixParam(), downloadAttachmentsParam("Whether the email's attachments will be downloaded and included in the output")],
+    children: [attachmentPrefixParam(), downloadAttachmentsParam('Whether attachments of the email are downloaded and added to the output')],
   },
   { name: 'labelIds', label: 'Label Names or IDs', type: 'json', default: [], required: true, description: labelIdsHint, show: on('message', 'addLabels', 'removeLabels') },
   ...sendAndWaitParameters,
@@ -507,8 +507,8 @@ export const gmailParameters: ParamSchema[] = [
       { value: 'untrash', label: 'Untrash', description: 'Untrash a thread' },
     ],
   },
-  { name: 'threadId', label: 'Thread ID', type: 'string', default: '', required: true, description: 'The ID of the thread you are operating on', show: on('thread', 'get', 'delete', 'reply', 'trash', 'untrash') },
-  { name: 'messageId', label: 'Message Snippet or ID', type: 'string', default: '', description: 'ID of the message in the thread to reply to', show: on('thread', 'reply') },
+  { name: 'threadId', label: 'Thread ID', type: 'string', default: '', required: true, description: 'ID of the thread', show: on('thread', 'get', 'delete', 'reply', 'trash', 'untrash') },
+  { name: 'messageId', label: 'Message Snippet or ID', type: 'string', default: '', description: 'ID of the message in the thread that gets the reply', show: on('thread', 'reply') },
   { name: 'emailType', label: 'Email Type', type: 'options', default: 'text', required: true, noExpression: true, options: opts(['text', 'Text'], ['html', 'HTML']), show: on('thread', 'reply') },
   { name: 'message', label: 'Message', type: 'string', default: '', required: true, show: on('thread', 'reply') },
   {
@@ -523,9 +523,9 @@ export const gmailParameters: ParamSchema[] = [
       attachmentsParam('Attachment Field Name', ''),
       bccParam,
       ccParam,
-      { name: 'senderName', label: 'Sender Name', type: 'string', default: '', placeholder: 'e.g. Nathan', description: 'The name displayed in your contacts inboxes' },
-      { name: 'replyToSenderOnly', label: 'Reply to Sender Only', type: 'boolean', default: false, description: 'Whether to reply to the sender only or to the entire list of recipients', hide: { replyToRecipientsOnly: [true] } },
-      { name: 'replyToRecipientsOnly', label: 'Reply to Recipients Only', type: 'boolean', default: false, description: 'Whether to exclude the sender from the reply', hide: { replyToSenderOnly: [true] } },
+      { name: 'senderName', label: 'Sender Name', type: 'string', default: '', placeholder: 'e.g. Nathan', description: 'Sender name your contacts see in their inbox' },
+      { name: 'replyToSenderOnly', label: 'Reply to Sender Only', type: 'boolean', default: false, description: 'Whether the reply goes only to the sender or to all recipients', hide: { replyToRecipientsOnly: [true] } },
+      { name: 'replyToRecipientsOnly', label: 'Reply to Recipients Only', type: 'boolean', default: false, description: 'Whether the sender is left out of the reply', hide: { replyToSenderOnly: [true] } },
     ],
   },
   simplifyParam(on('thread', 'get')),
@@ -537,7 +537,7 @@ export const gmailParameters: ParamSchema[] = [
     addLabel: 'Add Field',
     placeholder: 'Add Field',
     show: on('thread', 'get'),
-    children: [{ name: 'returnOnlyMessages', label: 'Return Only Messages', type: 'boolean', default: true, description: 'Whether to return only thread messages' }],
+    children: [{ name: 'returnOnlyMessages', label: 'Return Only Messages', type: 'boolean', default: true, description: 'Whether only the messages of the thread are returned' }],
   },
   returnAllParam('thread'),
   limitParam('thread'),
@@ -551,8 +551,8 @@ export const gmailParameters: ParamSchema[] = [
     placeholder: 'Add Filter',
     show: on('thread', 'getAll'),
     children: [
-      { name: 'includeSpamTrash', label: 'Include Spam and Trash', type: 'boolean', default: false, description: 'Whether to include threads from SPAM and TRASH in the results' },
-      { name: 'labelIds', label: 'Label ID Names or IDs', type: 'json', default: [], description: `Only return threads with labels that match all of the specified label IDs. ${labelIdsHint}` },
+      { name: 'includeSpamTrash', label: 'Include Spam and Trash', type: 'boolean', default: false, description: 'Whether threads in SPAM and TRASH are included' },
+      { name: 'labelIds', label: 'Label ID Names or IDs', type: 'json', default: [], description: `Only threads that carry every one of these labels. ${labelIdsHint}` },
       searchParam,
       readStatusParam,
       receivedParam('receivedAfter'),
@@ -572,13 +572,13 @@ export const gmailTriggerParameters: ParamSchema[] = [
   pollTimesParam,
   {
     name: 'multipleItemsNotice',
-    label: 'Multiple items will be returned if multiple messages are received within the polling interval. Make sure your workflow can handle multiple items.',
+    label: 'Several messages arriving within one polling interval produce several items, so the workflow has to cope with more than one item.',
     type: 'notice',
     default: '',
   },
   authenticationParam,
   { name: 'event', label: 'Event', type: 'options', default: 'messageReceived', options: opts(['messageReceived', 'Message Received']) },
-  { name: 'simple', label: 'Simplify', type: 'boolean', default: true, description: 'Whether to return a simplified version of the response instead of the raw data' },
+  { name: 'simple', label: 'Simplify', type: 'boolean', default: true, description: 'Whether to return a condensed result instead of the raw API data' },
   {
     name: 'filters',
     label: 'Filters',
@@ -587,14 +587,14 @@ export const gmailTriggerParameters: ParamSchema[] = [
     addLabel: 'Add Filter',
     placeholder: 'Add Filter',
     children: [
-      { name: 'includeSpamTrash', label: 'Include Spam and Trash', type: 'boolean', default: false, description: 'Whether to include messages from SPAM and TRASH in the results' },
-      { name: 'includeDrafts', label: 'Include Drafts', type: 'boolean', default: false, description: 'Whether to include email drafts in the results' },
+      { name: 'includeSpamTrash', label: 'Include Spam and Trash', type: 'boolean', default: false, description: 'Whether messages in SPAM and TRASH are included' },
+      { name: 'includeDrafts', label: 'Include Drafts', type: 'boolean', default: false, description: 'Whether drafts are included' },
       {
         name: 'labelIds',
         label: 'Label Names or IDs',
         type: 'json',
         default: [],
-        description: `Only return messages with labels that match all of the specified label IDs. ${labelIdsHint}`,
+        description: `Only messages that carry every one of these labels. ${labelIdsHint}`,
       },
       searchParam,
       readStatusParam,
@@ -609,6 +609,6 @@ export const gmailTriggerParameters: ParamSchema[] = [
     addLabel: 'Add option',
     placeholder: 'Add option',
     hide: { simple: [true] },
-    children: [attachmentPrefixParam(), downloadAttachmentsParam("Whether the email's attachments will be downloaded")],
+    children: [attachmentPrefixParam(), downloadAttachmentsParam('Whether attachments of the email are downloaded')],
   },
 ];

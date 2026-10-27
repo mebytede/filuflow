@@ -1,0 +1,49 @@
+name: Feature request
+description: Suggest a new feature, node or improvement
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for the suggestion. Please search the existing issues first.
+        Note that external pull requests are not accepted at the moment (see CONTRIBUTING.md).
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What do you want to achieve, and what stands in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How could filuflow support this?
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Nodes (n8n compatibility)
+        - Nodes (filuflow specific)
+        - Editor and interface
+        - Server, API, webhooks, schedules
+        - Master, workers, users and tenants
+        - AI nodes and Supervisor
+        - Installation and operation
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: n8n-node
+    attributes:
+      label: n8n node and version
+      description: If this is about an n8n node that filuflow does not support yet, its type and typeVersion.
+      placeholder: "n8n-nodes-base.slack, typeVersion 2.3"
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds or other approaches you have tried.

@@ -9,7 +9,7 @@ import type { ParamSchema } from './params.js';
 const parameters: ParamSchema[] = [
   {
     name: 'notice',
-    label: 'This node will trigger when there is an error in another workflow, as long as that workflow is set up to do so.',
+    label: 'Starts when another workflow fails, provided that workflow names this one as its error workflow.',
     type: 'notice',
     default: '',
   },

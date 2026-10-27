@@ -18,7 +18,7 @@ const parameters: ParamSchema[] = [
       { value: 'errorMessage', label: 'Error Message' },
       { value: 'errorObject', label: 'Error Object' },
     ],
-    description: 'Type of error to throw',
+    description: 'Kind of error',
   },
   {
     name: 'errorMessage',

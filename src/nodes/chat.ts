@@ -21,7 +21,7 @@ const limitWaitTime: ParamSchema = {
   name: 'limitWaitTime',
   label: 'Limit Wait Time',
   type: 'fixedCollection',
-  description: 'Whether to limit the time this node should wait for a user response before execution resumes',
+  description: "Whether waiting for the user's reply has a time limit",
   default: { values: { limitType: 'afterTimeInterval', resumeAmount: 45, resumeUnit: 'minutes' } },
   groups: [
     {

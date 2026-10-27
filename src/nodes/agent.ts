@@ -23,28 +23,28 @@ const commonOptions: ParamSchema[] = [
     type: 'string',
     default: SYSTEM_MESSAGE,
     rows: 6,
-    description: 'The message that will be sent to the agent before the conversation starts',
+    description: 'Message the agent receives ahead of the conversation',
   },
   {
     name: 'maxIterations',
     label: 'Max Iterations',
     type: 'number',
     default: 10,
-    description: 'The maximum number of iterations the agent will run before stopping',
+    description: 'Upper limit of agent iterations; the agent stops once it is reached',
   },
   {
     name: 'returnIntermediateSteps',
     label: 'Return Intermediate Steps',
     type: 'boolean',
     default: false,
-    description: 'Whether or not the output should include intermediate steps the agent took',
+    description: "Whether to add the agent's intermediate steps to the output",
   },
   {
     name: 'passthroughBinaryImages',
     label: 'Automatically Passthrough Binary Images',
     type: 'boolean',
     default: true,
-    description: 'Whether or not binary images should be automatically passed through to the agent as image type messages',
+    description: 'Whether binary images in the input are handed to the agent as image messages',
   },
 ];
 
@@ -53,7 +53,7 @@ const enableStreamingOption: ParamSchema = {
   label: 'Enable Streaming',
   type: 'boolean',
   default: true,
-  description: 'Whether this agent will stream the response in real-time as it generates text',
+  description: 'Whether the agent sends its answer piece by piece while the text is being generated',
 };
 
 // Parameters like V2/AgentV2.node.ts (2, 2.1, 2.2) and V3/AgentV3.node.ts (3), options from

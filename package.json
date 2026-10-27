@@ -1,15 +1,36 @@
 {
   "name": "filuflow",
   "version": "0.1.0",
-  "description": "n8n-kompatible Workflow-Engine (internes Tool)",
+  "description": "Self-hosted workflow engine with a browser editor, webhooks, schedules, AI nodes and multi-tenant operation; runs workflows in the n8n format",
   "private": true,
   "type": "module",
-  "license": "UNLICENSED",
+  "license": "AGPL-3.0-or-later",
+  "author": "the filuflow authors (maintained by mebytede)",
+  "homepage": "https://github.com/mebytede/filuflow#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mebytede/filuflow.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mebytede/filuflow/issues"
+  },
+  "keywords": [
+    "workflow",
+    "workflow-engine",
+    "automation",
+    "n8n",
+    "n8n-compatible",
+    "webhooks",
+    "low-code",
+    "self-hosted",
+    "ai",
+    "multi-tenant"
+  ],
   "engines": {
     "node": ">=22"
   },
   "bin": {
-    "filuflow": "./bin/filuflow.js"
+    "filuflow": "bin/filuflow.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

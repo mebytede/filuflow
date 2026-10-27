@@ -155,7 +155,7 @@ const parameters: ParamSchema[] = [
             label: 'Aggregation',
             type: 'options',
             default: 'count',
-            description: 'How to combine the values of the field',
+            description: 'Aggregation applied to the field',
             options: [
               { value: 'append', label: 'Append' },
               { value: 'average', label: 'Average' },
@@ -173,7 +173,7 @@ const parameters: ParamSchema[] = [
             type: 'string',
             default: '',
             placeholder: 'e.g. cost',
-            description: 'The name of an input field that you want to summarize',
+            description: 'Input field to aggregate',
             hide: { aggregation: ['average', 'sum', 'countUnique', 'count', 'max', 'min'] },
           },
           {
@@ -182,7 +182,7 @@ const parameters: ParamSchema[] = [
             type: 'string',
             default: '',
             placeholder: 'e.g. cost',
-            description: 'The name of an input field with numbers; null, undefined and empty strings are ignored',
+            description: 'Numeric input field; null, undefined and empty strings do not count',
             show: { aggregation: ['average', 'sum'] },
           },
           {
@@ -191,7 +191,7 @@ const parameters: ParamSchema[] = [
             type: 'string',
             default: '',
             placeholder: 'e.g. cost',
-            description: 'The name of an input field; null, undefined and empty strings are ignored',
+            description: 'Input field; null, undefined and empty strings do not count',
             show: { aggregation: ['countUnique', 'count', 'max', 'min'] },
           },
           {
@@ -206,7 +206,7 @@ const parameters: ParamSchema[] = [
             label: 'Separator',
             type: 'options',
             default: ',',
-            description: 'What to insert between values',
+            description: 'Text placed between the values',
             show: { aggregation: ['concatenate'] },
             options: [
               { value: ',', label: 'Comma' },
@@ -234,7 +234,7 @@ const parameters: ParamSchema[] = [
     type: 'string',
     default: '',
     placeholder: 'e.g. country, city',
-    description: 'The names of the input fields that you want to split the summary by, comma-separated',
+    description: 'Input fields that form the groups, separated by commas',
     hide: { '/options.outputFormat': ['singleItem'] },
   },
   {
@@ -243,7 +243,7 @@ const parameters: ParamSchema[] = [
     type: 'string',
     default: '',
     placeholder: 'e.g. country, city',
-    description: 'The names of the input fields that you want to split the summary by, comma-separated',
+    description: 'Input fields that form the groups, separated by commas',
     show: { '/options.outputFormat': ['singleItem'] },
   },
   {
@@ -258,7 +258,7 @@ const parameters: ParamSchema[] = [
         label: 'Continue if Field Not Found',
         type: 'boolean',
         default: false,
-        description: 'Whether to output an empty item instead of an error when a field is not present in any item',
+        description: 'Whether a field missing from all items yields an empty item instead of an error',
         hide: { '@version': [{ _cnd: { gte: 1.1 } }] },
       },
       {
@@ -266,7 +266,7 @@ const parameters: ParamSchema[] = [
         label: 'Disable Dot Notation',
         type: 'boolean',
         default: false,
-        description: 'Whether to disallow referencing child fields using `parent.child` in the field name',
+        description: 'Whether to treat dots in field names literally instead of as a path like `parent.child`',
       },
       {
         name: 'outputFormat',

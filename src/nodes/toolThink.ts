@@ -10,8 +10,8 @@ const DEFAULT_DESCRIPTION =
   'Use the tool to think about something. It will not obtain new information or change the database, but just append the thought to the log. Use it when complex reasoning or some cache memory is needed.';
 
 const parameters: ParamSchema[] = [
-  { name: 'notice', label: 'This node must be connected to an AI agent.', type: 'notice', default: '' },
-  { name: 'description', label: 'Think Tool Description', type: 'string', default: DEFAULT_DESCRIPTION, rows: 3, required: true, description: 'Describes when the agent should use this tool' },
+  { name: 'notice', label: 'Connect this node to an AI agent.', type: 'notice', default: '' },
+  { name: 'description', label: 'Think Tool Description', type: 'string', default: DEFAULT_DESCRIPTION, rows: 3, required: true, description: 'Tells the agent when to call this tool' },
 ];
 
 export const toolThinkNode: NodeType = {

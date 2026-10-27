@@ -35,7 +35,7 @@ const completionsResponseFormat: ParamSchema = {
   default: 'text',
   options: [
     { value: 'text', label: 'Text', description: 'Regular text response' },
-    { value: 'json_object', label: 'JSON', description: 'Enables JSON mode, which should guarantee the message the model generates is valid JSON' },
+    { value: 'json_object', label: 'JSON', description: 'JSON mode makes the model answer with valid JSON' },
   ],
   description: JSON_WARNING,
 };
@@ -44,11 +44,11 @@ const reasoningEffort: ParamSchema = {
   label: 'Reasoning Effort',
   type: 'options',
   default: 'medium',
-  description: 'Controls the amount of reasoning tokens to use (o1, o3 and newer, gpt-5)',
+  description: 'How many tokens the model may spend on reasoning (o1, o3 and newer, gpt-5)',
   options: [
-    { value: 'low', label: 'Low', description: 'Favors speed and economical token usage' },
-    { value: 'medium', label: 'Medium', description: 'Balance between speed and reasoning accuracy' },
-    { value: 'high', label: 'High', description: 'Favors more complete reasoning at the cost of more tokens generated and slower responses' },
+    { value: 'low', label: 'Low', description: 'Quick answers with few tokens' },
+    { value: 'medium', label: 'Medium', description: 'Middle ground between speed and depth' },
+    { value: 'high', label: 'High', description: 'Thorough reasoning; slower and uses more tokens' },
   ],
 };
 const jsonSchemaExample = `{
@@ -63,14 +63,14 @@ const jsonSchemaExample = `{
 }`;
 
 const parameters: ParamSchema[] = [
-  { name: 'notice', label: 'This node must be connected to an AI chain or AI agent.', type: 'notice', default: '' },
+  { name: 'notice', label: 'Connect this node to an AI chain or an AI agent.', type: 'notice', default: '' },
   {
     name: 'model',
     label: 'Model',
     type: 'string',
     default: 'gpt-4o-mini',
     placeholder: 'e.g. gpt-4o-mini',
-    description: 'The model which will generate the completion',
+    description: 'Model that produces the answer',
     hide: { '@version': [{ _cnd: { gte: 1.2 } }] },
   },
   {
@@ -83,7 +83,7 @@ const parameters: ParamSchema[] = [
       { name: 'list', label: 'From List', placeholder: 'e.g. gpt-4.1-mini' },
       { name: 'id', label: 'ID', placeholder: 'gpt-4.1-mini' },
     ],
-    description: 'Model from the list or by ID',
+    description: 'Pick a model or enter its ID',
     hide: { '@version': [{ _cnd: { lte: 1.1 } }] },
   },
   {
@@ -115,7 +115,7 @@ const parameters: ParamSchema[] = [
             type: 'options',
             default: 'medium',
             options: LOW_MEDIUM_HIGH,
-            description: 'How much of the context window the search may use',
+            description: 'Share of the context window available to the search',
           },
           {
             name: 'allowedDomains',
@@ -123,7 +123,7 @@ const parameters: ParamSchema[] = [
             type: 'string',
             default: '',
             placeholder: 'e.g. google.com, wikipedia.org',
-            description: 'Comma-separated list of domains to search; only domains in this list will be searched.',
+            description: 'Domains the search is limited to, separated by commas.',
           },
           { name: 'country', label: 'Country', type: 'string', default: '', placeholder: 'e.g. US, GB' },
           { name: 'city', label: 'City', type: 'string', default: '', placeholder: 'e.g. New York, London' },
@@ -142,7 +142,7 @@ const parameters: ParamSchema[] = [
             type: 'json',
             default: '[]',
             required: true,
-            description: 'The vector store IDs to use for the file search (managed in the OpenAI dashboard)',
+            description: 'IDs of the vector stores to search, as set up in the OpenAI dashboard',
           },
           { name: 'filters', label: 'Filter', type: 'json', default: '{}' },
           { name: 'maxResults', label: 'Max Results', type: 'number', default: 1, min: 1, max: 50 },
@@ -153,7 +153,7 @@ const parameters: ParamSchema[] = [
         label: 'Code Interpreter',
         type: 'boolean',
         default: true,
-        description: 'Whether to allow the model to execute code in a sandboxed environment',
+        description: 'Whether the model may run code in a sandbox',
       },
     ],
   },
@@ -171,7 +171,7 @@ const parameters: ParamSchema[] = [
         label: 'Base URL',
         type: 'string',
         default: 'https://api.openai.com/v1',
-        description: 'Override the default base URL for the API; not every third-party model supports chat, tools or JSON.',
+        description: 'Different base URL for the API; third-party models do not all support chat, tools or JSON.',
         hide: { '@version': [{ _cnd: { gte: 1.1 } }] },
       },
       {
@@ -182,7 +182,7 @@ const parameters: ParamSchema[] = [
         min: -2,
         max: 2,
         precision: 1,
-        description: 'Positive values penalize new tokens based on their existing frequency in the text so far, decreasing the model’s likelihood to repeat the same line verbatim.',
+        description: 'Positive values lower the chance of tokens the more often they already occur, so the model repeats itself less.',
       },
       {
         name: 'maxTokens',
@@ -190,7 +190,7 @@ const parameters: ParamSchema[] = [
         type: 'number',
         default: -1,
         max: 32768,
-        description: 'The maximum number of tokens to generate (-1 for no limit)',
+        description: 'Upper limit of generated tokens; -1 means no limit',
       },
       { ...completionsResponseFormat, show: { '@version': [{ _cnd: { lt: 1.3 } }] } },
       { ...completionsResponseFormat, show: { '@version': [{ _cnd: { gte: 1.3 } }], '/responsesApiEnabled': [false] } },
@@ -225,12 +225,12 @@ const parameters: ParamSchema[] = [
                 label: 'Name',
                 type: 'string',
                 default: 'my_schema',
-                description: 'The name of the response format; a-z, A-Z, 0-9, underscores and dashes, max 64 characters',
+                description: 'Name of the format: letters a-z and A-Z, digits, underscores and dashes, up to 64 characters',
                 show: { type: ['json_schema'] },
               },
               {
                 name: 'requiredNotice',
-                label: 'All properties in the schema must be set to "required" when using "strict" mode.',
+                label: 'In "strict" mode, every property of the schema has to be listed as "required".',
                 type: 'notice',
                 default: '',
                 show: { strict: [true] },
@@ -240,7 +240,7 @@ const parameters: ParamSchema[] = [
                 label: 'Schema',
                 type: 'json',
                 default: jsonSchemaExample,
-                description: 'The schema of the response format',
+                description: 'JSON Schema of the answer',
                 show: { type: ['json_schema'] },
               },
               {
@@ -248,7 +248,7 @@ const parameters: ParamSchema[] = [
                 label: 'Description',
                 type: 'string',
                 default: '',
-                description: 'The description of the response format',
+                description: 'What the format is for',
                 show: { type: ['json_schema'] },
               },
               {
@@ -256,7 +256,7 @@ const parameters: ParamSchema[] = [
                 label: 'Strict',
                 type: 'boolean',
                 default: false,
-                description: 'Whether to require that the AI will always generate responses that match the provided JSON Schema',
+                description: 'Whether the answer must always follow the JSON Schema exactly',
                 show: { type: ['json_schema'] },
               },
             ],
@@ -271,7 +271,7 @@ const parameters: ParamSchema[] = [
         min: -2,
         max: 2,
         precision: 1,
-        description: 'Positive values penalize new tokens based on whether they appear in the text so far, increasing the model’s likelihood to talk about new topics.',
+        description: 'Positive values lower the chance of tokens that already occurred, which nudges the model toward new topics.',
       },
       {
         name: 'temperature',
@@ -281,7 +281,7 @@ const parameters: ParamSchema[] = [
         min: 0,
         max: 2,
         precision: 1,
-        description: 'Controls randomness: lowering results in less random completions.',
+        description: 'Lower values make the answers more predictable.',
       },
       { ...reasoningEffort, show: { '@version': [{ _cnd: { lte: 1.1 } }], '/model': REASONING_MODELS } },
       { ...reasoningEffort, show: { '@version': [{ _cnd: { gte: 1.2 } }] } },
@@ -290,9 +290,9 @@ const parameters: ParamSchema[] = [
         label: 'Timeout',
         type: 'number',
         default: 60000,
-        description: 'Maximum amount of time a request is allowed to take in milliseconds',
+        description: 'Time limit per request in milliseconds',
       },
-      { name: 'maxRetries', label: 'Max Retries', type: 'number', default: 2, description: 'Maximum number of retries to attempt' },
+      { name: 'maxRetries', label: 'Max Retries', type: 'number', default: 2, description: 'How often a failed request is repeated at most' },
       {
         name: 'topP',
         label: 'Top P',
@@ -301,14 +301,14 @@ const parameters: ParamSchema[] = [
         min: 0,
         max: 1,
         precision: 1,
-        description: 'Controls diversity via nucleus sampling; we generally recommend altering this or temperature but not both.',
+        description: 'Nucleus sampling; usually change either this value or the temperature, not both.',
       },
       {
         name: 'conversationId',
         label: 'Conversation ID',
         type: 'string',
         default: '',
-        description: 'The conversation that this response belongs to; input and output items are added to it',
+        description: 'Conversation the response is part of; input and output are appended to it',
         show: RESPONSES_API,
       },
       {
@@ -316,7 +316,7 @@ const parameters: ParamSchema[] = [
         label: 'Prompt Cache Key',
         type: 'string',
         default: '',
-        description: 'Used by OpenAI to cache responses for similar requests',
+        description: 'Key OpenAI uses to cache answers to similar requests',
         show: RESPONSES_API,
       },
       {
@@ -324,7 +324,7 @@ const parameters: ParamSchema[] = [
         label: 'Safety Identifier',
         type: 'string',
         default: '',
-        description: 'A stable identifier for your end users, used to help OpenAI detect abuse',
+        description: 'Stable ID of your end user that helps OpenAI spot abuse',
         show: RESPONSES_API,
       },
       {
@@ -332,7 +332,7 @@ const parameters: ParamSchema[] = [
         label: 'Service Tier',
         type: 'options',
         default: 'auto',
-        description: 'The service tier to use for the request',
+        description: 'Service tier of the request',
         options: [
           { value: 'auto', label: 'Auto' },
           { value: 'flex', label: 'Flex' },
@@ -346,7 +346,7 @@ const parameters: ParamSchema[] = [
         label: 'Metadata',
         type: 'json',
         default: '{}',
-        description: 'Up to 16 key-value pairs attached to the response',
+        description: 'At most 16 key-value pairs stored with the response',
         show: RESPONSES_API,
       },
       {
@@ -356,7 +356,7 @@ const parameters: ParamSchema[] = [
         default: 0,
         min: 0,
         max: 20,
-        description: 'Number of most likely tokens to return at each token position, each with an associated log probability (0 to 20)',
+        description: 'How many of the most likely tokens are returned per position, with their log probabilities (0 to 20)',
         show: RESPONSES_API,
       },
       {
@@ -364,16 +364,16 @@ const parameters: ParamSchema[] = [
         label: 'Prompt',
         type: 'fixedCollection',
         default: { promptOptions: [{ promptId: '' }] },
-        description: 'Reusable prompt template from the OpenAI dashboard',
+        description: 'Prompt template saved in the OpenAI dashboard',
         show: RESPONSES_API,
         groups: [
           {
             name: 'promptOptions',
             label: 'Prompt',
             children: [
-              { name: 'promptId', label: 'Prompt ID', type: 'string', default: '', description: 'The unique identifier of the prompt template to use' },
-              { name: 'version', label: 'Version', type: 'string', default: '', description: 'Optional version of the prompt template' },
-              { name: 'variables', label: 'Variables', type: 'json', default: '{}', description: 'Values for the placeholders of the template' },
+              { name: 'promptId', label: 'Prompt ID', type: 'string', default: '', description: 'ID of the prompt template' },
+              { name: 'version', label: 'Version', type: 'string', default: '', description: 'Version of the template (optional)' },
+              { name: 'variables', label: 'Variables', type: 'json', default: '{}', description: 'Placeholder values for the template' },
             ],
           },
         ],
