@@ -5,7 +5,7 @@ import type { DisplayRule, ParamSchema, ParamType } from '../nodes/params.js';
 import type { CredentialField, CredentialTypeSchema } from '../credentials/types.js';
 
 /** Excerpt of INodeProperties that filuflow evaluates */
-export interface N8nProperty {
+export interface PackageProperty {
   displayName?: string;
   name: string;
   type: string;
@@ -18,12 +18,12 @@ export interface N8nProperty {
   displayOptions?: { show?: DisplayRule; hide?: DisplayRule };
   typeOptions?: Record<string, unknown>;
   /** options/multiOptions: values; collection: sub-parameters; fixedCollection: groups */
-  options?: Array<Omit<N8nProperty, 'type'> & { type?: string; value?: string | number | boolean; values?: N8nProperty[] }>;
+  options?: Array<Omit<PackageProperty, 'type'> & { type?: string; value?: string | number | boolean; values?: PackageProperty[] }>;
   modes?: Array<{ name: string; displayName?: string; placeholder?: string }>;
   routing?: unknown;
 }
 
-export interface N8nNodeDescription {
+export interface PackageNodeDescription {
   displayName: string;
   name: string;
   version: number | number[];
@@ -33,7 +33,7 @@ export interface N8nNodeDescription {
   inputs?: unknown;
   outputs?: unknown;
   outputNames?: string[];
-  properties: N8nProperty[];
+  properties: PackageProperty[];
   credentials?: Array<{ name: string; required?: boolean; displayOptions?: { show?: DisplayRule; hide?: DisplayRule } }>;
   requestDefaults?: Record<string, unknown>;
   /** Pagination etc. for declarative nodes */
@@ -61,7 +61,7 @@ const TYPE_MAP: Record<string, ParamType> = {
 };
 
 /** INodeProperties -> ParamSchema (form in the editor) */
-export function propertiesToSchema(props: N8nProperty[]): ParamSchema[] {
+export function propertiesToSchema(props: PackageProperty[]): ParamSchema[] {
   return props.map((p) => {
     const t = p.typeOptions ?? {};
     // Option lists that the reference loads at runtime (loadOptionsMethod) become free input
@@ -85,7 +85,7 @@ export function propertiesToSchema(props: N8nProperty[]): ParamSchema[] {
     if (!dynamic && (p.type === 'options' || p.type === 'multiOptions')) {
       schema.options = (p.options ?? []).map((o) => ({ value: o.value ?? o.name, label: o.name, ...(o.description ? { description: o.description } : {}) }));
     }
-    if (p.type === 'collection') schema.children = propertiesToSchema((p.options ?? []) as N8nProperty[]);
+    if (p.type === 'collection') schema.children = propertiesToSchema((p.options ?? []) as PackageProperty[]);
     if (p.type === 'fixedCollection') {
       schema.groups = (p.options ?? []).map((g) => ({ name: g.name, label: g.displayName ?? g.name, children: propertiesToSchema(g.values ?? []) }));
     }
@@ -117,7 +117,7 @@ function matches(value: unknown, allowed: unknown): boolean {
 }
 
 /** node-helpers.ts displayParameter: show requires a matching value per key, hide hides on any match */
-export function isDisplayed(options: N8nProperty['displayOptions'], values: Values, root: Values, version: number): boolean {
+export function isDisplayed(options: PackageProperty['displayOptions'], values: Values, root: Values, version: number): boolean {
   if (!options) return true;
   const lookup = (key: string): unknown => {
     if (key === '@version') return version;
@@ -146,7 +146,7 @@ const copy = <T>(v: T): T => (v === undefined || v === null || typeof v !== 'obj
  * Parameters with defaults like the reference getNodeParameters: visible parameters without a value get their default (same name:
  * the first visible one), entries of fixedCollections are filled with the defaults of their fields.
  */
-export function withDefaults(props: N8nProperty[], params: Values, version: number, root?: Values): Values {
+export function withDefaults(props: PackageProperty[], params: Values, version: number, root?: Values): Values {
   const out: Values = { ...params };
   const top = root ?? out;
   const done = new Set<string>();
@@ -170,22 +170,22 @@ export function withDefaults(props: N8nProperty[], params: Values, version: numb
 }
 
 /** Credential types the node needs with these parameters (description.credentials with displayOptions) */
-export function neededCredentials(description: N8nNodeDescription, params: Values, version: number): string[] {
+export function neededCredentials(description: PackageNodeDescription, params: Values, version: number): string[] {
   return (description.credentials ?? []).filter((c) => isDisplayed(c.displayOptions, params, params, version)).map((c) => c.name);
 }
 
 /** Excerpt of ICredentialType */
-export interface N8nCredentialType {
+export interface PackageCredentialType {
   name: string;
   displayName?: string;
   documentationUrl?: string;
-  properties: N8nProperty[];
+  properties: PackageProperty[];
   extends?: string[];
   authenticate?: unknown;
 }
 
 /** ICredentialType -> form in the web interface */
-export function credentialToSchema(c: N8nCredentialType): CredentialTypeSchema {
+export function credentialToSchema(c: PackageCredentialType): CredentialTypeSchema {
   const fields: CredentialField[] = [];
   for (const p of c.properties ?? []) {
     if (p.type === 'notice') continue;

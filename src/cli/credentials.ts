@@ -7,7 +7,7 @@ import { parseArgs } from 'node:util';
 import { readFile, writeFile } from 'node:fs/promises';
 import { StaticCredentialProvider, decryptCredentialsFile, encryptCredentialsFile, loadDefaultCredentials } from '../credentials/store.js';
 import { LayeredCredentialProvider } from '../credentials/managed.js';
-import { n8nKeyFromEnv, readN8nExport } from '../credentials/n8nCipher.js';
+import { importKeyFromEnv, readCredentialExport } from '../credentials/importCipher.js';
 
 const USAGE = `Usage:
   filuflow credentials encrypt <credentials.json> [--out <file>]     encrypt the values of each entry
@@ -53,7 +53,7 @@ export async function cmdCredentials(args: string[]): Promise<number> {
   }
   if (sub === 'import' && file) {
     try {
-      const entries = readN8nExport(JSON.parse(await readFile(file, 'utf8')) as unknown, values['import-key'] ?? n8nKeyFromEnv());
+      const entries = readCredentialExport(JSON.parse(await readFile(file, 'utf8')) as unknown, values['import-key'] ?? importKeyFromEnv());
       if (values.managed) {
         const layered = await new LayeredCredentialProvider(new StaticCredentialProvider(), values.managed).load();
         for (const e of entries) {

@@ -9,7 +9,7 @@ import { readFile, readdir, stat } from 'node:fs/promises';
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { join, basename } from 'node:path';
 import { isSecretField, PUBLIC_KEY, SECRET_KEY } from './types.js';
-import { decryptN8nCredential, n8nKeyFromEnv } from './n8nCipher.js';
+import { decryptImportedCredential, importKeyFromEnv } from './importCipher.js';
 
 /** Name and ID of the credential attached to resolved data (executor.getCredentials), e.g. for OAuth2 tokens */
 export const CREDENTIAL_REF = Symbol('filuflow.credentialRef');
@@ -145,13 +145,13 @@ function toEntry(name: string, raw: unknown, where: string): CredentialEntry {
   }
   const obj = value as Record<string, unknown>;
   if (typeof obj.data === 'string' && obj.type) {
-    // Export without --decrypted: decrypt with FILUFLOW_IMPORT_ENCRYPTION_KEY (n8nCipher.ts)
-    const n8nKey = n8nKeyFromEnv();
-    if (!n8nKey) {
+    // Export without --decrypted: decrypt with FILUFLOW_IMPORT_ENCRYPTION_KEY (importCipher.ts)
+    const importKey = importKeyFromEnv();
+    if (!importKey) {
       throw new Error(`${where}: credential "${name}" is encrypted with the key of the source instance; set FILUFLOW_IMPORT_ENCRYPTION_KEY or export with "export:credentials --decrypted"`);
     }
     try {
-      obj.data = decryptN8nCredential(obj.data, n8nKey);
+      obj.data = decryptImportedCredential(obj.data, importKey);
     } catch (error) {
       throw new Error(`${where}: credential "${name}": ${(error as Error).message}`, { cause: error });
     }

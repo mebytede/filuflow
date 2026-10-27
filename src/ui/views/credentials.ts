@@ -49,7 +49,7 @@ export async function connectOAuth(getUrl: () => Promise<{ url: string }>, onDon
  * Import a credentials export of the reference (export:credentials, also encrypted): choose a file, enter the source key.
  * Returns true if anything was imported.
  */
-export async function importCredentialsDialog(importFn: (body: { credentials: unknown; n8nKey?: string; overwrite?: boolean }) => Promise<CredentialImportResult>): Promise<boolean> {
+export async function importCredentialsDialog(importFn: (body: { credentials: unknown; importKey?: string; overwrite?: boolean }) => Promise<CredentialImportResult>): Promise<boolean> {
   const file = h('input', { type: 'file', accept: '.json,application/json', class: 'param-input', 'aria-label': t('Export file') });
   const key = h('input', { type: 'password', class: 'param-input', autocomplete: 'off', 'aria-label': t('Source encryption key') });
   const overwrite = h('input', { type: 'checkbox', 'aria-label': t('Replace existing') });
@@ -77,7 +77,7 @@ export async function importCredentialsDialog(importFn: (body: { credentials: un
         return undefined;
       }
       try {
-        const result = await importFn({ credentials, ...(key.value ? { n8nKey: key.value } : {}), overwrite: overwrite.checked });
+        const result = await importFn({ credentials, ...(key.value ? { importKey: key.value } : {}), overwrite: overwrite.checked });
         changed = result.imported.length > 0;
         const skipped = result.skipped.map((s) => `${s.name} (${s.reason})`).join(', ');
         toast(t('{count} imported', { count: result.imported.length }) + (skipped ? t(', skipped: {list}', { list: skipped }) : ''), result.imported.length ? 'success' : 'info');

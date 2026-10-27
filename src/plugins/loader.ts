@@ -17,14 +17,14 @@ import type { NodeRegistry } from '../nodes/registry.js';
 import type { NodeType } from '../nodes/types.js';
 import { registerCredentialType } from '../credentials/types.js';
 import { pluginApi, type FiluflowPlugin } from './api.js';
-import { installN8nWorkflowShim } from './n8nWorkflowShim.js';
-import { n8nNodeType, unsupportedReason, type N8nNodeInstance } from './n8nNode.js';
+import { installWorkflowModuleShim } from './workflowModuleShim.js';
+import { packageNodeType, unsupportedReason, type PackageNodeInstance } from './packageNode.js';
 import { registerPluginCredential } from './credentials.js';
-import type { N8nCredentialType } from './n8nDescription.js';
+import type { PackageCredentialType } from './packageDescription.js';
 
 export interface PluginReport {
   source: string;
-  kind: 'filuflow' | 'n8n-package' | 'n8n-custom';
+  kind: 'filuflow' | 'package' | 'custom';
   nodes: string[];
   credentials: string[];
   errors: string[];
@@ -57,7 +57,7 @@ const require = createRequire(import.meta.url);
 
 /** Load and instantiate a class from a CommonJS file like the reference */
 function loadClass<T>(file: string): T {
-  installN8nWorkflowShim();
+  installWorkflowModuleShim();
   const className = basename(file).split('.')[0];
   const mod = require(file) as Record<string, unknown>;
   const Cls = (mod[className] ?? (mod.default as Record<string, unknown> | undefined)?.[className]) as (new () => T) | undefined;
@@ -85,9 +85,9 @@ class Loader {
     r.nodes.push(type.type);
   }
 
-  private n8nCredential(r: PluginReport, file: string): void {
+  private packageCredential(r: PluginReport, file: string): void {
     try {
-      const c = loadClass<N8nCredentialType>(file);
+      const c = loadClass<PackageCredentialType>(file);
       registerPluginCredential(c);
       r.credentials.push(c.name);
     } catch (error) {
@@ -95,15 +95,15 @@ class Loader {
     }
   }
 
-  private n8nNode(r: PluginReport, file: string, packageName: string): void {
+  private packageNode(r: PluginReport, file: string, packageName: string): void {
     try {
-      const node = loadClass<N8nNodeInstance>(file);
+      const node = loadClass<PackageNodeInstance>(file);
       const reason = unsupportedReason(node);
       if (reason) {
         r.errors.push(`${basename(file)}: ${reason}`);
         return;
       }
-      this.register(r, n8nNodeType(packageName, node));
+      this.register(r, packageNodeType(packageName, node));
     } catch (error) {
       r.errors.push(`${basename(file)}: ${(error as Error).message}`);
     }
@@ -151,7 +151,7 @@ class Loader {
     try {
       pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')) as typeof pkg;
     } catch (error) {
-      this.report(dir, 'n8n-package').errors.push(`package.json: ${(error as Error).message}`);
+      this.report(dir, 'package').errors.push(`package.json: ${(error as Error).message}`);
       return;
     }
     if (pkg.filuflow) {
@@ -159,13 +159,13 @@ class Loader {
       return;
     }
     if (pkg.n8n) {
-      const r = this.report(dir, 'n8n-package');
+      const r = this.report(dir, 'package');
       if (!pkg.name || RESERVED.test(`${pkg.name}.x`)) {
         r.errors.push('Package name missing or reserved for built-in node packages');
         return;
       }
-      for (const c of pkg.n8n.credentials ?? []) this.n8nCredential(r, resolve(dir, c));
-      for (const n of pkg.n8n.nodes ?? []) this.n8nNode(r, resolve(dir, n), pkg.name);
+      for (const c of pkg.n8n.credentials ?? []) this.packageCredential(r, resolve(dir, c));
+      for (const n of pkg.n8n.nodes ?? []) this.packageNode(r, resolve(dir, n), pkg.name);
       return;
     }
     if (pkg.main) await this.filuflowPlugin(resolve(dir, pkg.main));
@@ -178,8 +178,8 @@ class Loader {
       return;
     }
     if (statSync(full).isFile()) {
-      if (full.endsWith('.node.js')) this.n8nNode(this.report(full, 'n8n-custom'), full, 'CUSTOM');
-      else if (full.endsWith('.credentials.js')) this.n8nCredential(this.report(full, 'n8n-custom'), full);
+      if (full.endsWith('.node.js')) this.packageNode(this.report(full, 'custom'), full, 'CUSTOM');
+      else if (full.endsWith('.credentials.js')) this.packageCredential(this.report(full, 'custom'), full);
       else await this.filuflowPlugin(full);
       return;
     }
@@ -191,9 +191,9 @@ class Loader {
     const credentials = walk(full, (f) => f.endsWith('.credentials.js'));
     const nodes = walk(full, (f) => f.endsWith('.node.js'));
     if (credentials.length || nodes.length) {
-      const r = this.report(full, 'n8n-custom');
-      for (const c of credentials) this.n8nCredential(r, c);
-      for (const n of nodes) this.n8nNode(r, n, 'CUSTOM');
+      const r = this.report(full, 'custom');
+      for (const c of credentials) this.packageCredential(r, c);
+      for (const n of nodes) this.packageNode(r, n, 'CUSTOM');
     }
     for (const entry of readdirSync(full, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
       const p = join(full, entry.name);

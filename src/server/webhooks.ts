@@ -810,11 +810,11 @@ export class WebhookService {
       .find((n) => isCompletion(n) && !!runData[n!.name]);
   }
 
-  /** Follow-up pages, Wait "On Form Submitted" and completion: /form-waiting/<executionId>[/n8n-execution-status] */
+  /** Follow-up pages, Wait "On Form Submitted" and completion: /form-waiting/<executionId>[/execution-status] */
   async handleWaitingForm(executionId: string, suffix: string, request: Omit<IncomingWebhookRequest, 'params'>): Promise<HttpResponse> {
     const method = request.method.toUpperCase();
     const stored = this.options.store?.get(executionId);
-    if (suffix === 'n8n-execution-status') {
+    if (suffix === 'execution-status') {
       let status = stored?.status ?? 'null';
       if (status === 'waiting') {
         const record = this.options.store!.loadResume(executionId);

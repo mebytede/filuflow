@@ -128,7 +128,7 @@ export class CommunityPackages {
     for (const p of this.list()) {
       const dir = this.packageDir(p.packageName);
       if (!existsSync(dir)) {
-        out.push({ source: dir, kind: 'n8n-package', nodes: [], credentials: [], errors: ['Package missing from the folder, please reinstall'] });
+        out.push({ source: dir, kind: 'package', nodes: [], credentials: [], errors: ['Package missing from the folder, please reinstall'] });
         continue;
       }
       const [report] = await loadPlugins([dir], this.o.registry);

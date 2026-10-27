@@ -71,12 +71,12 @@ describe('Loading', () => {
         errors: ['type name "n8n-nodes-base.set" is reserved for n8n', 'invalid type name "ohnepunkt" (format: <package>.<name>)'],
       },
       {
-        kind: 'n8n-custom',
+        kind: 'custom',
         nodes: ['CUSTOM.greeter'],
         credentials: ['demoApi'],
         errors: ['Modell.node.js: AI sub-nodes from n8n packages are not supported yet'],
       },
-      { kind: 'n8n-package', nodes: ['n8n-nodes-demo.splitter'], credentials: [], errors: [] },
+      { kind: 'package', nodes: ['n8n-nodes-demo.splitter'], credentials: [], errors: [] },
       { kind: 'filuflow', nodes: [], credentials: [], errors: ['Path not found'] },
     ]);
     // Loading again: the types already exist

@@ -8,22 +8,22 @@
 import { Cron } from 'croner';
 import type { Activation, ActivationHandle, ExecContext } from '../nodes/types.js';
 import type { Item, NodeOutput } from '../types.js';
-import { executeFunctions } from './n8nNode.js';
+import { executeFunctions } from './packageNode.js';
 import { isManualRun, pollTimesToCron, startPolling, withDetachedStaticData, type TriggerTime } from '../nodes/shared/polling.js';
-import type { N8nNodeDescription, N8nProperty } from './n8nDescription.js';
+import type { PackageNodeDescription, PackageProperty } from './packageDescription.js';
 
 type Emit = (data: Item[][]) => void;
 type EmitError = (error: Error) => void;
 
 /** INodeType with poll or trigger (excerpt) */
-export interface N8nTriggerImpl {
-  description: N8nNodeDescription;
+export interface PackageTriggerImpl {
+  description: PackageNodeDescription;
   poll?: (this: unknown) => Promise<Item[][] | null>;
   trigger?: (this: unknown) => Promise<{ closeFunction?: () => Promise<void> | void; manualTriggerFunction?: () => Promise<void> } | undefined>;
 }
 
 /** n8n-workflow cronNodeOptions (time values of the "Poll Times" setting) */
-const TRIGGER_TIME_VALUES: N8nProperty[] = [
+const TRIGGER_TIME_VALUES: PackageProperty[] = [
   {
     displayName: 'Mode',
     name: 'mode',
@@ -74,7 +74,7 @@ const TRIGGER_TIME_VALUES: N8nProperty[] = [
 ];
 
 /** commonPollingParameters: "Poll Times", default every minute */
-export const POLL_TIMES: N8nProperty = {
+export const POLL_TIMES: PackageProperty = {
   displayName: 'Poll Times',
   name: 'pollTimes',
   type: 'fixedCollection',
@@ -85,7 +85,7 @@ export const POLL_TIMES: N8nProperty = {
 };
 
 /** applySpecialNodeParameters: poll nodes get "Poll Times" at the front of their parameters */
-export function withPollTimes(description: N8nNodeDescription): N8nNodeDescription {
+export function withPollTimes(description: PackageNodeDescription): PackageNodeDescription {
   if (!description.polling || description.properties.some((p) => p.name === 'pollTimes')) return description;
   return { ...description, properties: [POLL_TIMES, ...description.properties] };
 }
@@ -104,7 +104,7 @@ function createDeferredPromise<T>(): { promise: Promise<T>; resolve: (v: T) => v
 /** PollContext/TriggerContext: context without item index, with emit functions and activation mode */
 function contextFunctions(
   ctx: ExecContext,
-  description: N8nNodeDescription,
+  description: PackageNodeDescription,
   o: { activation: 'activate' | 'manual'; emit: Emit; emitError: EmitError; schedule: (expression: string, run: () => void) => void },
 ): Record<string, unknown> {
   const base = executeFunctions(ctx, description);
@@ -128,7 +128,7 @@ function contextFunctions(
 }
 
 /** Activation in the server */
-export async function activateTrigger(impl: N8nTriggerImpl, a: Activation): Promise<ActivationHandle> {
+export async function activateTrigger(impl: PackageTriggerImpl, a: Activation): Promise<ActivationHandle> {
   const description = withPollTimes(impl.description);
   if (impl.poll) {
     const fns = contextFunctions(a.ctx, description, { activation: 'activate', emit: (d) => a.emit(d), emitError: (e) => a.emitError(e), schedule: (e, r) => a.schedule(e, r) });
@@ -150,7 +150,7 @@ export async function activateTrigger(impl: N8nTriggerImpl, a: Activation): Prom
  * Execution of the node: in a manual run (editor, CLI without input) poll once or wait for the first emit,
  * otherwise pass on the data of the trigger
  */
-export async function executeTrigger(impl: N8nTriggerImpl, runCtx: ExecContext): Promise<NodeOutput | null> {
+export async function executeTrigger(impl: PackageTriggerImpl, runCtx: ExecContext): Promise<NodeOutput | null> {
   if (!isManualRun(runCtx)) return runCtx.inputs.length ? runCtx.inputs : [[]];
   // Manual runs work on a copy of the static data (the reference does not save it in manual mode)
   const ctx = withDetachedStaticData(runCtx);

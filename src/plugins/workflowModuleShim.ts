@@ -2,7 +2,7 @@
 // mainly error classes, connection types and small helper functions; types disappear on compilation. Own
 // implementation after the behavior in the reference version 1.123.0 packages/workflow/src (errors/node-operation.error.ts,
 // errors/node-api.error.ts, interfaces.ts NodeConnectionTypes, utils.ts jsonParse/deepCopy/updateDisplayOptions).
-// If "n8n-workflow" is installed with the plugin itself, the node uses that package (see installN8nWorkflowShim).
+// If "n8n-workflow" is installed with the plugin itself, the node uses that package (see installWorkflowModuleShim).
 import { createRequire } from 'node:module';
 import { NodeApiError as BaseNodeApiError, NodeOperationError as BaseNodeOperationError, FiluflowError } from '../errors.js';
 
@@ -140,7 +140,7 @@ let installed = false;
  * Make require('n8n-workflow') resolvable for plugins: if the package is installed with the plugin, that one applies; otherwise
  * resolution returns this replacement. Community nodes are CommonJS, hence via Module._resolveFilename and the require cache.
  */
-export function installN8nWorkflowShim(): void {
+export function installWorkflowModuleShim(): void {
   if (installed) return;
   installed = true;
   const require = createRequire(import.meta.url);

@@ -5,13 +5,13 @@
 //   getResponseObject, getNodeWebhookUrl, getWebhookName) and hook-context.ts (getActivationMode,
 //   getWebhookDescription); cli webhook-helpers.ts evaluateResponseOptions (responseMode, responseCode, responseData).
 import type { ExecContext, NodeType, PackageWebhook, PackageWebhookResult } from '../nodes/types.js';
-import { executeFunctions } from './n8nNode.js';
-import { withDefaults, type N8nNodeDescription } from './n8nDescription.js';
+import { executeFunctions } from './packageNode.js';
+import { withDefaults, type PackageNodeDescription } from './packageDescription.js';
 
 type Fn = (this: unknown) => Promise<unknown>;
 
 /** Excerpt of IWebhookDescription */
-export interface N8nWebhookDescription {
+export interface PackageWebhookDescription {
   name: string;
   httpMethod: string;
   path: string;
@@ -22,14 +22,14 @@ export interface N8nWebhookDescription {
   restartWebhook?: boolean;
 }
 
-export interface N8nWebhookImpl {
-  description: N8nNodeDescription & { webhooks?: N8nWebhookDescription[] };
+export interface PackageWebhookImpl {
+  description: PackageNodeDescription & { webhooks?: PackageWebhookDescription[] };
   webhook?: Fn;
   webhookMethods?: Record<string, { checkExists?: Fn; create?: Fn; delete?: Fn }>;
 }
 
 /** getSimpleParameterValue: evaluate "=" values with $parameter (including defaults), otherwise unchanged; undefined: default */
-function simple(ctx: ExecContext, description: N8nNodeDescription, value: unknown, fallback?: unknown): unknown {
+function simple(ctx: ExecContext, description: PackageNodeDescription, value: unknown, fallback?: unknown): unknown {
   if (value === undefined) return fallback;
   if (typeof value !== 'string' || !value.startsWith('=')) return value;
   const $parameter = withDefaults(description.properties, ctx.node.parameters ?? {}, ctx.node.typeVersion);
@@ -48,7 +48,7 @@ function createDeferredPromise<T>() {
 }
 
 /** Context without item index (webhook and hook functions) */
-function baseFunctions(ctx: ExecContext, description: N8nNodeDescription): Record<string, unknown> {
+function baseFunctions(ctx: ExecContext, description: PackageNodeDescription): Record<string, unknown> {
   const base = executeFunctions(ctx, description);
   const getNodeParameter = base.getNodeParameter as (name: string, itemIndex: number, fallbackValue?: unknown, options?: Record<string, unknown>) => unknown;
   return {
@@ -62,7 +62,7 @@ export function hasPackageWebhooks(impl: { webhook?: unknown; description: { web
   return typeof impl.webhook === 'function' && !!impl.description.webhooks?.length;
 }
 
-export function packageWebhooks(impl: N8nWebhookImpl): NonNullable<NodeType['packageWebhooks']> {
+export function packageWebhooks(impl: PackageWebhookImpl): NonNullable<NodeType['packageWebhooks']> {
   const description = impl.description;
   return {
     describe(ctx) {
@@ -127,7 +127,7 @@ export function packageWebhooks(impl: N8nWebhookImpl): NonNullable<NodeType['pac
         getMode: () => (o.isTest ? 'manual' : 'webhook'),
         getNodeWebhookUrl: (name: string) => o.webhookUrl(name),
         getWebhookName: () => webhookName,
-        getWebhookDescription: (name: string) => (description.webhooks as N8nWebhookDescription[] | undefined)?.find((d) => d.name === name),
+        getWebhookDescription: (name: string) => (description.webhooks as PackageWebhookDescription[] | undefined)?.find((d) => d.name === name),
       };
       return (await fn.call(fns)) as boolean | undefined;
     },

@@ -8,35 +8,35 @@
 // trigger nodes by src/plugins/triggerNode.ts (M31), webhook nodes by src/plugins/webhookNode.ts (M32).
 import type { ExecContext, NodeIssue, NodeType } from '../nodes/types.js';
 import type { NodeOutput, WorkflowNode } from '../types.js';
-import { NodeOperationError, ApplicationError } from './n8nWorkflowShim.js';
-import { neededCredentials, propertiesToSchema, withDefaults, type N8nNodeDescription } from './n8nDescription.js';
+import { NodeOperationError, ApplicationError } from './workflowModuleShim.js';
+import { neededCredentials, propertiesToSchema, withDefaults, type PackageNodeDescription } from './packageDescription.js';
 import { withCredentialDefaults } from '../credentials/authenticate.js';
 import { executeHelpers } from '../nodes/shared/executeHelpers.js';
 import { getByPath } from '../expressions/resolve.js';
 import { isDeclarative, runRoutingNode, withRequestOptions } from './routingNode.js';
-import { activateTrigger, executeTrigger, withPollTimes, type N8nTriggerImpl } from './triggerNode.js';
-import { hasPackageWebhooks, packageWebhooks, type N8nWebhookImpl } from './webhookNode.js';
+import { activateTrigger, executeTrigger, withPollTimes, type PackageTriggerImpl } from './triggerNode.js';
+import { hasPackageWebhooks, packageWebhooks, type PackageWebhookImpl } from './webhookNode.js';
 
 /** Excerpt of INodeType */
-export interface N8nNodeInstance {
-  description: N8nNodeDescription;
+export interface PackageNodeInstance {
+  description: PackageNodeDescription;
   execute?: (this: unknown) => Promise<unknown>;
-  trigger?: N8nTriggerImpl['trigger'];
-  poll?: N8nTriggerImpl['poll'];
-  webhook?: N8nWebhookImpl['webhook'];
-  webhookMethods?: N8nWebhookImpl['webhookMethods'];
+  trigger?: PackageTriggerImpl['trigger'];
+  poll?: PackageTriggerImpl['poll'];
+  webhook?: PackageWebhookImpl['webhook'];
+  webhookMethods?: PackageWebhookImpl['webhookMethods'];
   supplyData?: unknown;
   /** IVersionedNodeType */
-  nodeVersions?: Record<number, N8nNodeInstance>;
+  nodeVersions?: Record<number, PackageNodeInstance>;
   currentVersion?: number;
 }
 
 /** Reason why a node cannot be loaded (undefined: supported) */
-export function unsupportedReason(node: N8nNodeInstance): string | undefined {
+export function unsupportedReason(node: PackageNodeInstance): string | undefined {
   const versions = node.nodeVersions ? Object.values(node.nodeVersions) : [node];
   for (const v of versions) {
     if (typeof v.execute === 'function' || isDeclarative(v)) continue;
-    if (hasPackageWebhooks(v as N8nWebhookImpl)) continue;
+    if (hasPackageWebhooks(v as PackageWebhookImpl)) continue;
     if (v.webhook || v.description.webhooks?.length) return 'Webhook node without a webhook method or without a description of the webhooks';
     if (typeof v.poll === 'function' || typeof v.trigger === 'function') continue;
     if (v.description.polling) return 'Poll node without a poll method';
@@ -52,7 +52,7 @@ function mainCount(value: unknown, fallback: number): number {
   return value.filter((v) => v === 'main' || (v && typeof v === 'object' && (v as { type?: string }).type === 'main')).length;
 }
 
-function mainNames(value: unknown, description: N8nNodeDescription): string[] | undefined {
+function mainNames(value: unknown, description: PackageNodeDescription): string[] | undefined {
   if (description.outputNames?.length) return description.outputNames;
   if (!Array.isArray(value)) return undefined;
   const names = value.filter((v) => v && typeof v === 'object' && (v as { type?: string }).type === 'main').map((v) => String((v as { displayName?: string }).displayName ?? ''));
@@ -60,7 +60,7 @@ function mainNames(value: unknown, description: N8nNodeDescription): string[] | 
 }
 
 /** this context for execute (IExecuteFunctions, excerpt) */
-export function executeFunctions(ctx: ExecContext, description: N8nNodeDescription): Record<string, unknown> {
+export function executeFunctions(ctx: ExecContext, description: PackageNodeDescription): Record<string, unknown> {
   const node = ctx.node;
   const defaults = withDefaults(description.properties, node.parameters ?? {}, node.typeVersion);
   const credentials = async (type: string, itemIndex?: number) => withCredentialDefaults(type, await ctx.getCredentials(type, itemIndex));
@@ -105,7 +105,7 @@ export function executeFunctions(ctx: ExecContext, description: N8nNodeDescripti
 }
 
 /** this context per item for declarative nodes (IExecuteSingleFunctions, excerpt; execute-single-context.ts) */
-export function executeSingleFunctions(ctx: ExecContext, description: N8nNodeDescription, itemIndex: number): Record<string, unknown> {
+export function executeSingleFunctions(ctx: ExecContext, description: PackageNodeDescription, itemIndex: number): Record<string, unknown> {
   const base = executeFunctions(ctx, description);
   const getNodeParameter = base.getNodeParameter as (name: string, itemIndex: number, fallbackValue?: unknown, options?: Record<string, unknown>) => unknown;
   const getCredentials = base.getCredentials as (type: string, itemIndex?: number) => Promise<Record<string, unknown>>;
@@ -122,17 +122,17 @@ export function executeSingleFunctions(ctx: ExecContext, description: N8nNodeDes
 }
 
 /** Type name as in the reference: <package>.<description.name>, custom folders "CUSTOM" */
-export function n8nNodeType(packageName: string, instance: N8nNodeInstance): NodeType {
+export function packageNodeType(packageName: string, instance: PackageNodeInstance): NodeType {
   const base = instance.description;
   const versions = instance.nodeVersions
     ? Object.keys(instance.nodeVersions).map(Number).sort((a, b) => a - b)
     : (Array.isArray(base.version) ? base.version : [base.version]).map(Number);
-  const forVersion = (version: number): N8nNodeInstance => (instance.nodeVersions ? (instance.nodeVersions[version] ?? instance.nodeVersions[Math.max(...versions)]) : instance);
+  const forVersion = (version: number): PackageNodeInstance => (instance.nodeVersions ? (instance.nodeVersions[version] ?? instance.nodeVersions[Math.max(...versions)]) : instance);
   // Declarative nodes get the "Request Options" setting as in the reference
-  const describe = (impl: N8nNodeInstance) => (isDeclarative(impl) ? withRequestOptions(impl.description) : withPollTimes(impl.description));
-  const isTriggerImpl = (impl: N8nNodeInstance) => typeof impl.execute !== 'function' && (typeof impl.poll === 'function' || typeof impl.trigger === 'function');
-  const isWebhookImpl = (impl: N8nNodeInstance) => typeof impl.execute !== 'function' && hasPackageWebhooks(impl as N8nWebhookImpl);
-  const webhooksFor = (version: number) => packageWebhooks(forVersion(version) as N8nWebhookImpl);
+  const describe = (impl: PackageNodeInstance) => (isDeclarative(impl) ? withRequestOptions(impl.description) : withPollTimes(impl.description));
+  const isTriggerImpl = (impl: PackageNodeInstance) => typeof impl.execute !== 'function' && (typeof impl.poll === 'function' || typeof impl.trigger === 'function');
+  const isWebhookImpl = (impl: PackageNodeInstance) => typeof impl.execute !== 'function' && hasPackageWebhooks(impl as PackageWebhookImpl);
+  const webhooksFor = (version: number) => packageWebhooks(forVersion(version) as PackageWebhookImpl);
   const allVersions = instance.nodeVersions ? Object.values(instance.nodeVersions) : [instance];
   const latest = forVersion(Math.max(...versions));
   const description = (node: WorkflowNode) => describe(forVersion(node.typeVersion));
@@ -164,12 +164,12 @@ export function n8nNodeType(packageName: string, instance: N8nNodeInstance): Nod
     async activate(activation) {
       const impl = forVersion(activation.ctx.node.typeVersion);
       if (!isTriggerImpl(impl)) return {};
-      return activateTrigger(impl as N8nTriggerImpl, activation);
+      return activateTrigger(impl as PackageTriggerImpl, activation);
     },
     async execute(ctx) {
       const impl = forVersion(ctx.node.typeVersion);
       if (typeof impl.execute !== 'function' && isDeclarative(impl)) return runRoutingNode(ctx, impl.description);
-      if (isTriggerImpl(impl)) return executeTrigger(impl as N8nTriggerImpl, ctx);
+      if (isTriggerImpl(impl)) return executeTrigger(impl as PackageTriggerImpl, ctx);
       // workflow-execute.ts runNode: webhook nodes pass on the data of the call
       if (isWebhookImpl(impl)) return ctx.inputs.length ? ctx.inputs : [[{ json: {} }]];
       if (typeof impl.execute !== 'function') throw new NodeOperationError(ctx.node, unsupportedReason(impl) ?? 'Node without execute');

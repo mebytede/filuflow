@@ -171,7 +171,7 @@ describe('Multi-page forms', () => {
     const id = s.store.list({ limit: 1 })[0].id;
     expect(first.headers.location).toBe(`http://x/form-waiting/${id}`);
     await until(() => s.store.get(id, false)?.status === 'waiting');
-    expect((await s.app.inject({ method: 'GET', url: `/form-waiting/${id}/n8n-execution-status` })).body).toBe('form-waiting');
+    expect((await s.app.inject({ method: 'GET', url: `/form-waiting/${id}/execution-status` })).body).toBe('form-waiting');
 
     const second = await s.app.inject({ method: 'GET', url: `/form-waiting/${id}` });
     expect(second.body).toContain('<h1 class="form-title">Residence</h1>');

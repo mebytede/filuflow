@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { createServer, type FiluflowServer } from '../src/server/app.js';
 import { StaticCredentialProvider, loadCredentials } from '../src/credentials/store.js';
 import { LayeredCredentialProvider } from '../src/credentials/managed.js';
-import { decryptN8nCredential, encryptN8nCredential } from '../src/credentials/n8nCipher.js';
+import { decryptImportedCredential, encryptImportedCredential } from '../src/credentials/importCipher.js';
 
 const N8N_KEY = 'n8n-instance-key';
 let dir: string | undefined;
@@ -23,17 +23,17 @@ afterEach(async () => {
 
 // This is what an export of "n8n export:credentials --all" looks like (data encrypted)
 const exported = () => [
-  { id: 'cred-header-1', name: 'Customer API', type: 'httpHeaderAuth', data: encryptN8nCredential({ name: 'X-Api-Key', value: 'secret-1' }, N8N_KEY), isManaged: false },
-  { id: 'cred-basic-2', name: 'Basic', type: 'httpBasicAuth', data: encryptN8nCredential({ user: 'ada', password: 'lovelace' }, N8N_KEY) },
+  { id: 'cred-header-1', name: 'Customer API', type: 'httpHeaderAuth', data: encryptImportedCredential({ name: 'X-Api-Key', value: 'secret-1' }, N8N_KEY), isManaged: false },
+  { id: 'cred-basic-2', name: 'Basic', type: 'httpBasicAuth', data: encryptImportedCredential({ user: 'ada', password: 'lovelace' }, N8N_KEY) },
 ];
 
 describe('n8n encryption', () => {
   it('is interchangeable with OpenSSL (EVP_BytesToKey, MD5, AES-256-CBC)', () => {
     const text = execFileSync('openssl', ['enc', '-aes-256-cbc', '-md', 'md5', '-salt', '-base64', '-A', '-pass', `pass:${N8N_KEY}`], { input: '{"a":1}' }).toString().trim();
-    expect(decryptN8nCredential(text, N8N_KEY)).toEqual({ a: 1 });
-    const back = execFileSync('openssl', ['enc', '-d', '-aes-256-cbc', '-md', 'md5', '-base64', '-A', '-pass', `pass:${N8N_KEY}`], { input: encryptN8nCredential({ b: 2 }, N8N_KEY), stdio: ['pipe', 'pipe', 'ignore'] }).toString();
+    expect(decryptImportedCredential(text, N8N_KEY)).toEqual({ a: 1 });
+    const back = execFileSync('openssl', ['enc', '-d', '-aes-256-cbc', '-md', 'md5', '-base64', '-A', '-pass', `pass:${N8N_KEY}`], { input: encryptImportedCredential({ b: 2 }, N8N_KEY), stdio: ['pipe', 'pipe', 'ignore'] }).toString();
     expect(JSON.parse(back)).toEqual({ b: 2 });
-    expect(() => decryptN8nCredential(encryptN8nCredential({ b: 2 }, N8N_KEY), 'wrong')).toThrow(/wrong n8n key/);
+    expect(() => decryptImportedCredential(encryptImportedCredential({ b: 2 }, N8N_KEY), 'wrong')).toThrow(/wrong n8n key/);
   });
 
   it('the loader reads encrypted exports with N8N_ENCRYPTION_KEY', async () => {
@@ -57,8 +57,8 @@ describe('Import via the API and the CLI', () => {
     const post = (body: unknown) => server!.app.inject({ method: 'POST', url: '/api/credentials/import', headers: { 'x-api-key': 'k', 'content-type': 'application/json' }, payload: JSON.stringify(body) });
 
     expect((await post({ credentials: exported() })).statusCode).toBe(400);
-    expect((await post({ credentials: exported(), n8nKey: 'wrong' })).json().message).toMatch(/wrong n8n key/);
-    const res = await post({ credentials: exported(), n8nKey: N8N_KEY });
+    expect((await post({ credentials: exported(), importKey: 'wrong' })).json().message).toMatch(/wrong n8n key/);
+    const res = await post({ credentials: exported(), importKey: N8N_KEY });
     expect(res.json()).toEqual({ imported: ['Customer API'], skipped: [{ name: 'Basic', reason: 'maintained in the credentials file' }] });
     expect(credentials.find({ name: 'x', id: 'cred-header-1' })?.data).toEqual({ name: 'X-Api-Key', value: 'secret-1' });
     // Values not in plain text in the response and (with a key) not in the file

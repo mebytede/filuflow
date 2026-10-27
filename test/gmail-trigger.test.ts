@@ -16,7 +16,7 @@ import { getDefaultRegistry } from '../src/nodes/index.js';
 import { gmailTriggerNode } from '../src/nodes/gmailTrigger.js';
 import { pollTimesParam } from '../src/nodes/shared/polling.js';
 import { POLL_TIMES } from '../src/plugins/triggerNode.js';
-import { propertiesToSchema } from '../src/plugins/n8nDescription.js';
+import { propertiesToSchema } from '../src/plugins/packageDescription.js';
 import { gmailTriggerParameters } from '../src/nodes/shared/gmailParams.js';
 import { nodeTypeList } from '../src/server/editorApi.js';
 import { composeMail } from '../src/nodes/shared/mime.js';

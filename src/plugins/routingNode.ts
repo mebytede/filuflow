@@ -7,9 +7,9 @@ import type { ExecContext } from '../nodes/types.js';
 import type { Item, NodeOutput } from '../types.js';
 import { NodeApiError, serializeError } from '../errors.js';
 import { getByPath } from '../expressions/resolve.js';
-import { NodeOperationError } from './n8nWorkflowShim.js';
-import { isDisplayed, withDefaults, type N8nNodeDescription, type N8nProperty } from './n8nDescription.js';
-import { executeSingleFunctions } from './n8nNode.js';
+import { NodeOperationError } from './workflowModuleShim.js';
+import { isDisplayed, withDefaults, type PackageNodeDescription, type PackageProperty } from './packageDescription.js';
+import { executeSingleFunctions } from './packageNode.js';
 
 type Values = Record<string, unknown>;
 // Functions from the package (preSend, postReceive, pagination) get the this context of IExecuteSingleFunctions
@@ -48,18 +48,18 @@ interface FullResponse {
 const emptyResult = (): ResultOptions => ({ options: { qs: {}, body: {}, headers: {} }, preSend: [], postReceive: [], requestOperations: {} });
 
 /** Is the node declarative (no execute, no trigger, no webhooks)? The reference runs such nodes via RoutingNode */
-export function isDeclarative(node: { execute?: unknown; trigger?: unknown; poll?: unknown; webhook?: unknown; supplyData?: unknown; description: N8nNodeDescription }): boolean {
+export function isDeclarative(node: { execute?: unknown; trigger?: unknown; poll?: unknown; webhook?: unknown; supplyData?: unknown; description: PackageNodeDescription }): boolean {
   const d = node.description;
   if (node.execute || node.trigger || node.poll || node.webhook || node.supplyData || d.polling || d.webhooks?.length) return false;
   return !!d.requestDefaults || hasRouting(d.properties);
 }
 
-function hasRouting(props: N8nProperty[] | undefined): boolean {
-  return (props ?? []).some((p) => !!p.routing || hasRouting(p.options as N8nProperty[] | undefined) || (p.options ?? []).some((o) => hasRouting(o.values)));
+function hasRouting(props: PackageProperty[] | undefined): boolean {
+  return (props ?? []).some((p) => !!p.routing || hasRouting(p.options as PackageProperty[] | undefined) || (p.options ?? []).some((o) => hasRouting(o.values)));
 }
 
 /** directory-loader.ts applyDeclarativeNodeOptionParameters: "Request Options" setting (batching, SSL, proxy, timeout) */
-const REQUEST_OPTIONS: N8nProperty = {
+const REQUEST_OPTIONS: PackageProperty = {
   displayName: 'Request Options',
   name: 'requestOptions',
   type: 'collection',
@@ -92,7 +92,7 @@ const REQUEST_OPTIONS: N8nProperty = {
 };
 
 /** Add "Request Options" to the description (an own requestOptions collection is merged and sorted) */
-export function withRequestOptions(description: N8nNodeDescription): N8nNodeDescription {
+export function withRequestOptions(description: PackageNodeDescription): PackageNodeDescription {
   const props = [...description.properties];
   const i = props.findIndex((p) => p.name === 'requestOptions');
   if (i === -1) props.push(REQUEST_OPTIONS);
@@ -129,7 +129,7 @@ function merge(target: Values, source: Values): Values {
   return target;
 }
 
-export async function runRoutingNode(ctx: ExecContext, rawDescription: N8nNodeDescription): Promise<NodeOutput> {
+export async function runRoutingNode(ctx: ExecContext, rawDescription: PackageNodeDescription): Promise<NodeOutput> {
   const description = withRequestOptions(rawDescription);
   const node = ctx.node;
   const version = node.typeVersion;
@@ -165,7 +165,7 @@ export async function runRoutingNode(ctx: ExecContext, rawDescription: N8nNodeDe
   }
 
   /** getRequestOptionsFromParameters */
-  const optionsFrom = (thisArgs: Values, prop: Omit<N8nProperty, 'type'> & { type?: string; value?: unknown }, itemIndex: number, path: string, keys: Values): ResultOptions | undefined => {
+  const optionsFrom = (thisArgs: Values, prop: Omit<PackageProperty, 'type'> & { type?: string; value?: unknown }, itemIndex: number, path: string, keys: Values): ResultOptions | undefined => {
     const out = emptyResult();
     let basePath = path ? `${path}.` : '';
     // The reference always checks visibility against the top-level parameters

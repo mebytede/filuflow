@@ -605,3 +605,24 @@ majors exist and are left to Dependabot.
 icon data, separator data, Pyodide) with license texts, and a table of all runtime npm packages generated from
 `package-lock.json` by `scripts/third-party-licenses.mjs` (no new dependency). The Docker image contains `LICENSE`
 and the notices next to `node_modules`, whose packages carry their own license files.
+
+## Neutral naming (M44)
+**Why.** filuflow stays fully compatible with the common workflow JSON format and with community node packages, but it
+is a product of its own. Using the reference product's name in prose, the interface, messages or docs invites trademark
+trouble and suggests an affiliation that does not exist. The owner decided to drop the name everywhere it is not
+technically required; the README's trademark note became unnecessary with it and was removed.
+
+**What stays as identifiers.** Everything that exported workflows, credential exports or community packages contain or
+that npm resolves: node and credential type strings (`n8n-nodes-base.*`, `@n8n/n8n-nodes-langchain.*`), npm package names
+(`n8n-workflow`, `n8n-core`, `n8n-nodes-base`, `@n8n/...`), the community naming scheme `n8n-nodes-*` /
+`@scope/n8n-nodes-*`, the `n8n` key in a community package's `package.json`, format-defined keys and option values (for
+example `appendAttribution`), and the Docker image and source tag used by the recording scripts. Exported symbols and file
+names are renamed in a separate pass. Prose refers to "the reference implementation" or "the reference version 1.123.0";
+source references in comments name package, version and path (`Reference: n8n-nodes-base 1.121.0,
+nodes/Set/v2/SetV2.node.ts`).
+
+**Environment aliases removed.** The `N8N_*` fallbacks (payload size, community packages, custom extensions, Python
+allowlists and environment access, import key, HMAC secret, file access restriction, Python switch) are no longer read;
+only the `FILUFLOW_*` names apply. The key for importing encrypted credential exports is now
+`FILUFLOW_IMPORT_ENCRYPTION_KEY` (CLI `--import-key`), replacing `FILUFLOW_N8N_ENCRYPTION_KEY` and `--n8n-key`. Since no release
+has shipped the aliases yet (0.1.0 is unreleased), no transition period is needed.

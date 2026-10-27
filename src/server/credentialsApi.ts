@@ -19,7 +19,7 @@ import {
   type OAuth2TokenStore,
 } from '../credentials/oauth2.js';
 import { createHash, randomBytes } from 'node:crypto';
-import { readN8nExport } from '../credentials/n8nCipher.js';
+import { readCredentialExport } from '../credentials/importCipher.js';
 import { connectedOAuth1TokenData, oauth1AccessToken, oauth1AuthorizationUrl, oauth1TokenKey } from '../credentials/oauth1.js';
 
 export interface CredentialsApiOptions {
@@ -335,10 +335,10 @@ export async function registerCredentialsApi(api: FastifyInstance, o: Credential
   // imported workflows find their credentials via { id, name }. Existing names are only replaced with overwrite.
   api.post(`${o.prefix}/import`, async (request, reply) => {
     if (!layered) return reply.code(409).send({ message: 'Credentials of this instance are not writable' });
-    const body = (request.body ?? {}) as { credentials?: unknown; n8nKey?: unknown; overwrite?: unknown };
+    const body = (request.body ?? {}) as { credentials?: unknown; importKey?: unknown; overwrite?: unknown };
     let entries;
     try {
-      entries = readN8nExport(body.credentials, typeof body.n8nKey === 'string' && body.n8nKey ? body.n8nKey : undefined);
+      entries = readCredentialExport(body.credentials, typeof body.importKey === 'string' && body.importKey ? body.importKey : undefined);
     } catch (error) {
       return reply.code(400).send({ message: (error as Error).message });
     }

@@ -288,9 +288,9 @@ export function registerWorkerRoutes(api: FastifyInstance, ctx: MasterContext): 
     if (!ctx.requireAdmin(request, reply)) return;
     const worker = db.getWorker((request.params as { id: string }).id);
     if (!worker) return reply.code(404).send({ message: 'Worker not found' });
-    const body = (request.body ?? {}) as { credentials?: unknown; n8nKey?: unknown; overwrite?: unknown };
+    const body = (request.body ?? {}) as { credentials?: unknown; importKey?: unknown; overwrite?: unknown };
     try {
-      const result = (await hub.call(worker, 'POST', '/api/worker/credentials/import', { credentials: body.credentials, n8nKey: body.n8nKey, overwrite: body.overwrite === true }, 60_000)) as {
+      const result = (await hub.call(worker, 'POST', '/api/worker/credentials/import', { credentials: body.credentials, importKey: body.importKey, overwrite: body.overwrite === true }, 60_000)) as {
         imported: string[];
         skipped: unknown[];
       };

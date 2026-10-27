@@ -16,7 +16,7 @@ import { createRequireResolver } from './shared/requireResolver.js';
 
 export const CODE_TIMEOUT_MS = Number(process.env.FILUFLOW_CODE_TIMEOUT_MS ?? 60_000);
 
-const REQUIRED_N8N_ITEM_KEYS = new Set(['json', 'binary', 'pairedItem', 'error', 'index']);
+const RESERVED_ITEM_KEYS = new Set(['json', 'binary', 'pairedItem', 'error', 'index']);
 
 /** Reference: result-validation.ts TextKeys: JavaScript says "object", Python says "dictionary" */
 interface TextKeys {
@@ -156,7 +156,7 @@ function validateTopLevelKeys(item: Record<string, unknown>, itemIndex: number):
   const unknown: string[] = [];
   for (const key in item) {
     if (!Object.prototype.hasOwnProperty.call(item, key)) continue;
-    if (REQUIRED_N8N_ITEM_KEYS.has(key)) reserved ??= key;
+    if (RESERVED_ITEM_KEYS.has(key)) reserved ??= key;
     else unknown.push(key);
   }
   if (unknown.length > 0) {
@@ -191,7 +191,7 @@ function validateRunCodeAllItems(result: unknown, text: TextKeys = JS_TEXT): Ite
         });
       }
     }
-    const mustHaveKey = result.some((item) => Object.keys(item as object).some((k) => REQUIRED_N8N_ITEM_KEYS.has(k)));
+    const mustHaveKey = result.some((item) => Object.keys(item as object).some((k) => RESERVED_ITEM_KEYS.has(k)));
     if (mustHaveKey) result.forEach((item, i) => validateTopLevelKeys(item as Record<string, unknown>, i));
   }
   const items = normalizeItems(result);

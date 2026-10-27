@@ -98,7 +98,7 @@ async function run(parameters: Record<string, unknown>, options?: Parameters<typ
 
 describe('Declarative nodes', () => {
   it('loads the node with its credential and adds the Request Options', () => {
-    expect(reports[0]).toMatchObject({ kind: 'n8n-package', nodes: ['n8n-nodes-wetter.wetter'], credentials: ['wetterApi'], errors: [] });
+    expect(reports[0]).toMatchObject({ kind: 'package', nodes: ['n8n-nodes-wetter.wetter'], credentials: ['wetterApi'], errors: [] });
     const described = nodeTypeList(registry).find((t) => t.type === 'n8n-nodes-wetter.wetter')!;
     expect(described.parameters!.map((p) => p.name)).toContain('requestOptions');
     expect(described.parameters!.find((p) => p.name === 'requestOptions')!.children!.map((c) => c.name)).toEqual(['batching', 'allowUnauthorizedCerts', 'proxy', 'timeout']);

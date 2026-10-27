@@ -2,9 +2,9 @@
 // of requests via src/credentials/authenticate.ts (reference: ICredentialType.authenticate, generic or as a function).
 import { registerCredentialType } from '../credentials/types.js';
 import { registerCredentialAuth, type AuthDefinition } from '../credentials/authenticate.js';
-import { credentialToSchema, type N8nCredentialType } from './n8nDescription.js';
+import { credentialToSchema, type PackageCredentialType } from './packageDescription.js';
 
-export function registerPluginCredential(c: N8nCredentialType): void {
+export function registerPluginCredential(c: PackageCredentialType): void {
   registerCredentialType(credentialToSchema(c));
   const defaults = Object.fromEntries((c.properties ?? []).filter((p) => p.default !== undefined).map((p) => [p.name, p.default]));
   const auth = c.authenticate as AuthDefinition['authenticate'] | undefined;

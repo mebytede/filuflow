@@ -19,7 +19,7 @@ function keyAndIv(secret: string, salt: Buffer): { key: Buffer; iv: Buffer } {
 }
 
 /** Decrypts an exported encrypted value; returns the JSON object of the credential data */
-export function decryptN8nCredential(data: string, secret: string): Record<string, unknown> {
+export function decryptImportedCredential(data: string, secret: string): Record<string, unknown> {
   const input = Buffer.from(data, 'base64');
   if (input.length < 16 || !input.subarray(0, 8).equals(MAGIC)) throw new Error('Not an encrypted credential value');
   const { key, iv } = keyAndIv(secret, input.subarray(8, 16));
@@ -38,7 +38,7 @@ export function decryptN8nCredential(data: string, secret: string): Record<strin
 }
 
 /** Encrypts like the reference (for tests and exports in the same format) */
-export function encryptN8nCredential(data: Record<string, unknown>, secret: string): string {
+export function encryptImportedCredential(data: Record<string, unknown>, secret: string): string {
   const salt = randomBytes(8);
   const { key, iv } = keyAndIv(secret, salt);
   const cipher = createCipheriv('aes-256-cbc', key, iv);
@@ -46,11 +46,11 @@ export function encryptN8nCredential(data: Record<string, unknown>, secret: stri
 }
 
 /** Encryption key of the source instance from the environment (FILUFLOW_IMPORT_ENCRYPTION_KEY) */
-export function n8nKeyFromEnv(env: NodeJS.ProcessEnv = process.env): string | undefined {
+export function importKeyFromEnv(env: NodeJS.ProcessEnv = process.env): string | undefined {
   return env.FILUFLOW_IMPORT_ENCRYPTION_KEY || undefined;
 }
 
-export interface N8nExportEntry {
+export interface CredentialExportEntry {
   id?: string;
   name: string;
   type: string;
@@ -58,7 +58,7 @@ export interface N8nExportEntry {
 }
 
 /** Read the entries of an exported file; decrypt encrypted data with the reference key */
-export function readN8nExport(raw: unknown, secret?: string): N8nExportEntry[] {
+export function readCredentialExport(raw: unknown, secret?: string): CredentialExportEntry[] {
   const list = Array.isArray(raw) ? raw : raw && typeof raw === 'object' && Array.isArray((raw as { data?: unknown }).data) ? (raw as { data: unknown[] }).data : undefined;
   if (!list) throw new Error('Expected an exported file (list of credentials)');
   return list.map((item, i) => {
@@ -68,7 +68,7 @@ export function readN8nExport(raw: unknown, secret?: string): N8nExportEntry[] {
     let data: Record<string, unknown>;
     if (typeof e.data === 'string') {
       if (!secret) throw new Error(`"${e.name}" is encrypted: provide the import key (FILUFLOW_IMPORT_ENCRYPTION_KEY) or export with "export:credentials --decrypted"`);
-      data = decryptN8nCredential(e.data, secret);
+      data = decryptImportedCredential(e.data, secret);
     } else if (e.data && typeof e.data === 'object' && !Array.isArray(e.data)) {
       data = e.data as Record<string, unknown>;
     } else {
