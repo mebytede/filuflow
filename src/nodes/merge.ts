@@ -466,7 +466,7 @@ const numberInputsParam = (show: ParamSchema['show']): ParamSchema => ({
   noExpression: true,
   default: 2,
   options: [2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => ({ value: n, label: String(n) })),
-  description: 'The number of data inputs you want to merge. The node waits for all connected inputs to be executed.',
+  description: 'Number of inputs to combine. The node runs once every connected input has delivered data.',
   show,
 });
 
@@ -509,8 +509,8 @@ const clashHandlingParam = (defaultValue: unknown, rule: Pick<ParamSchema, 'show
           type: 'options',
           default: 'deepMerge',
           options: [
-            { value: 'deepMerge', label: 'Deep Merge', description: 'Merge at every level of nesting' },
-            { value: 'shallowMerge', label: 'Shallow Merge', description: 'Merge at the top level only (all nested fields will come from the same input)' },
+            { value: 'deepMerge', label: 'Deep Merge', description: 'Combine nested objects at all depths' },
+            { value: 'shallowMerge', label: 'Shallow Merge', description: 'Combine only top-level fields; nested fields are taken from one input as a whole' },
           ],
           show: NOT_ADD_SUFFIX,
         },
@@ -519,7 +519,7 @@ const clashHandlingParam = (defaultValue: unknown, rule: Pick<ParamSchema, 'show
           label: 'Minimize Empty Fields',
           type: 'boolean',
           default: false,
-          description: 'Whether an empty preferred value (undefined, null, empty string) is replaced by the other one',
+          description: 'Whether an empty preferred value (undefined, null, empty string) gives way to the value of the other input',
           show: NOT_ADD_SUFFIX,
         },
       ],
@@ -534,7 +534,7 @@ const fuzzyCompareParam: ParamSchema = {
   label: 'Fuzzy Compare',
   type: 'boolean',
   default: false,
-  description: 'Whether to tolerate small type differences when comparing fields (e.g. the number 3 and the string "3")',
+  description: 'Whether values of slightly different types count as equal, such as the number 3 and the string "3"',
 };
 
 const multipleMatchesParam = (show: ParamSchema['show']): ParamSchema => ({
@@ -543,8 +543,8 @@ const multipleMatchesParam = (show: ParamSchema['show']): ParamSchema => ({
   type: 'options',
   default: 'all',
   options: [
-    { value: 'all', label: 'Include All Matches', description: 'Output multiple items if there are multiple matches' },
-    { value: 'first', label: 'Include First Match Only', description: 'Only ever output a single item per match' },
+    { value: 'all', label: 'Include All Matches', description: 'One output item per match' },
+    { value: 'first', label: 'Include First Match Only', description: 'At most one output item per match' },
   ],
   show,
 });
@@ -560,12 +560,12 @@ const parameters: ParamSchema[] = [
     noExpression: true,
     default: 'append',
     options: [
-      { value: 'append', label: 'Append', description: 'Output items of each input, one after the other' },
+      { value: 'append', label: 'Append', description: 'Items of all inputs in sequence' },
       { value: 'combine', label: 'Combine', description: 'Merge matching items together' },
-      { value: 'combineBySql', label: 'SQL Query', description: 'Write a query to do the merge' },
-      { value: 'chooseBranch', label: 'Choose Branch', description: 'Output data from a specific branch, without modifying it' },
+      { value: 'combineBySql', label: 'SQL Query', description: 'Combine the inputs with an SQL query' },
+      { value: 'chooseBranch', label: 'Choose Branch', description: 'Pass on the data of one input unchanged' },
     ],
-    description: 'How input data should be merged',
+    description: 'Way the inputs are combined',
   },
   {
     name: 'combineBy',
@@ -574,11 +574,11 @@ const parameters: ParamSchema[] = [
     noExpression: true,
     default: 'combineByFields',
     options: [
-      { value: 'combineByFields', label: 'Matching Fields', description: 'Combine items with the same field values' },
-      { value: 'combineByPosition', label: 'Position', description: 'Combine items based on their order' },
-      { value: 'combineAll', label: 'All Possible Combinations', description: 'Every pairing of every two items (cross join)' },
+      { value: 'combineByFields', label: 'Matching Fields', description: 'Pair items whose fields match' },
+      { value: 'combineByPosition', label: 'Position', description: 'Pair items by position' },
+      { value: 'combineAll', label: 'All Possible Combinations', description: 'Each item paired with each item of the other input (cross join)' },
     ],
-    description: 'How input data should be merged',
+    description: 'Way the inputs are combined',
     show: { mode: ['combine'] },
   },
   // append
@@ -599,7 +599,7 @@ const parameters: ParamSchema[] = [
     label: 'Fields To Match Have Different Names',
     type: 'boolean',
     default: false,
-    description: 'Whether name(s) of field to match are different in input 1 and input 2',
+    description: 'Whether the fields to compare have different names in input 1 and input 2',
     show: BY_FIELDS,
   },
   {
@@ -608,7 +608,7 @@ const parameters: ParamSchema[] = [
     type: 'string',
     default: '',
     placeholder: 'e.g. id, name',
-    description: 'Specify the fields to use for matching input items (comma separated)',
+    description: 'Fields compared to find matching items, separated by commas',
     show: { advanced: [false], ...BY_FIELDS },
   },
   {
@@ -618,7 +618,7 @@ const parameters: ParamSchema[] = [
     multiple: true,
     addLabel: 'Add Fields to Match',
     default: { values: [{ field1: '', field2: '' }] },
-    description: 'Specify the fields to use for matching input items',
+    description: 'Fields compared to find matching items',
     show: { advanced: [true], ...BY_FIELDS },
     groups: [
       {
@@ -637,13 +637,13 @@ const parameters: ParamSchema[] = [
     type: 'options',
     default: 'keepMatches',
     options: [
-      { value: 'keepMatches', label: 'Keep Matches', description: 'Output matching items merged together (inner join)' },
+      { value: 'keepMatches', label: 'Keep Matches', description: 'Only matched items, combined (inner join)' },
       { value: 'keepNonMatches', label: 'Keep Non-Matches', description: 'Output non-matching items' },
-      { value: 'keepEverything', label: 'Keep Everything', description: 'Output matching items merged together, plus non-matching items (outer join)' },
-      { value: 'enrichInput1', label: 'Enrich Input 1', description: 'All items of input 1, with data from input 2 added in (left join)' },
-      { value: 'enrichInput2', label: 'Enrich Input 2', description: 'All items of input 2, with data from input 1 added in (right join)' },
+      { value: 'keepEverything', label: 'Keep Everything', description: 'Matched items combined, plus all unmatched items (outer join)' },
+      { value: 'enrichInput1', label: 'Enrich Input 1', description: 'Every item of input 1, enriched with matching data from input 2 (left join)' },
+      { value: 'enrichInput2', label: 'Enrich Input 2', description: 'Every item of input 2, enriched with matching data from input 1 (right join)' },
     ],
-    description: 'How to select the items to send to output',
+    description: 'Which items are passed to the output',
     show: BY_FIELDS,
   },
   {
@@ -685,7 +685,7 @@ const parameters: ParamSchema[] = [
         label: 'Disable Dot Notation',
         type: 'boolean',
         default: false,
-        description: 'Whether to disallow referencing child fields using parent.child in the field name',
+        description: 'Whether to treat dots in field names literally instead of as a path like parent.child',
       },
       fuzzyCompareParam,
       multipleMatchesParam({ '/joinMode': ['keepMatches'], '/outputDataFrom': ['both'] }),
@@ -708,7 +708,7 @@ const parameters: ParamSchema[] = [
         label: 'Include Any Unpaired Items',
         type: 'boolean',
         default: false,
-        description: 'Whether unpaired items should be included in the result when there are differing numbers of items among the inputs',
+        description: 'Whether leftover items are kept when the inputs have different numbers of items',
       },
     ],
   },
@@ -743,7 +743,7 @@ const parameters: ParamSchema[] = [
           { value: 'success', label: 'Success' },
           { value: 'empty', label: 'Empty Result' },
         ],
-        description: 'What to output when the query returns no rows',
+        description: 'Output if the query finds no rows',
       },
     ],
   },
@@ -774,7 +774,7 @@ const parameters: ParamSchema[] = [
     type: 'options',
     default: 1,
     options: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => ({ value: n, label: String(n) })),
-    description: 'The number of the input to use data of',
+    description: 'Input whose data is passed on',
     show: { output: ['specifiedInput'], mode: ['chooseBranch'] },
   },
 ];

@@ -1,0 +1,229 @@
+# Release: lint and tests, multi-arch Docker image (linux/amd64, linux/arm64) in the GitHub Container Registry and a
+# GitHub release with the notes from CHANGELOG.md. Procedure in docs/RELEASING.md.
+#
+# Two ways to start it:
+# - push a tag vX.Y.Z (X.Y.Z must match package.json)
+# - "Run workflow" (workflow_dispatch) on main with the version: the workflow checks everything, runs the tests and only
+#   then creates and pushes the tag vX.Y.Z itself with GITHUB_TOKEN. A tag pushed with GITHUB_TOKEN does not start
+#   another workflow run, so this run carries on with the image and the release.
+#
+# Image tags: X.Y.Z, X.Y and latest (pre-releases such as 1.2.0-rc.1 only get X.Y.Z-rc.1).
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release without "v", e.g. 0.1.0 (must match package.json and CHANGELOG.md)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Check version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      minor: ${{ steps.version.outputs.minor }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+      image: ${{ steps.version.outputs.image }}
+    steps:
+      # Credentials stay for "git ls-remote" (private repository)
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Determine and check version
+        id: version
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+          REF: ${{ github.ref }}
+          REF_NAME: ${{ github.ref_name }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            if [ "$REF" != "refs/heads/main" ]; then
+              echo "::error::Start the release workflow on main (started on $REF)"; exit 1
+            fi
+            VERSION="${INPUT_VERSION#v}"
+            if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" >/dev/null; then
+              echo "::error::Tag v$VERSION already exists"; exit 1
+            fi
+          else
+            VERSION="${REF_NAME#v}"
+          fi
+          if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "::error::'$VERSION' is not a version of the form X.Y.Z or X.Y.Z-pre"; exit 1
+          fi
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [ "$PKG_VERSION" != "$VERSION" ]; then
+            echo "::error::package.json has version $PKG_VERSION, the release is $VERSION"; exit 1
+          fi
+          node scripts/changelog-section.mjs "$VERSION" --require-date > /dev/null
+          case "$VERSION" in *-*) PRERELEASE=true ;; *) PRERELEASE=false ;; esac
+          {
+            echo "version=$VERSION"
+            echo "minor=$(echo "$VERSION" | cut -d. -f1,2)"
+            echo "prerelease=$PRERELEASE"
+            echo "image=ghcr.io/$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')/filuflow"
+          } >> "$GITHUB_OUTPUT"
+          echo "Release $VERSION (pre-release: $PRERELEASE)"
+
+  test:
+    name: Lint and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: prepare
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Chromium for the browser tests (without a browser they would be skipped)
+      - run: node node_modules/playwright-core/cli.js install --with-deps chromium
+      - run: npm run lint
+      - run: npm test
+      - run: npm run test:compat
+      - run: npm run build
+
+  tag:
+    name: Create tag
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [prepare, test]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - name: Create and push tag
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "v$VERSION" -m "filuflow $VERSION" "$GITHUB_SHA"
+          git push origin "refs/tags/v$VERSION"
+
+  image:
+    name: Docker image
+    # Runs after the tag job, or without it when the run was started by a tag push
+    if: >-
+      !cancelled() && needs.test.result == 'success' &&
+      (needs.tag.result == 'success' || needs.tag.result == 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    needs: [prepare, test, tag]
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ${{ needs.prepare.outputs.image }}
+      VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Image tags and labels
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=${{ needs.prepare.outputs.version }}
+            type=raw,value=${{ needs.prepare.outputs.minor }},enable=${{ needs.prepare.outputs.prerelease == 'false' }}
+            type=raw,value=latest,enable=${{ needs.prepare.outputs.prerelease == 'false' }}
+          labels: |
+            org.opencontainers.image.title=filuflow
+            org.opencontainers.image.description=Self-hosted workflow engine with a browser editor, compatible with the n8n workflow format
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.url=https://github.com/${{ github.repository }}
+            org.opencontainers.image.licenses=AGPL-3.0-or-later
+            org.opencontainers.image.version=${{ needs.prepare.outputs.version }}
+      - name: Build for amd64 and check health
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: filuflow:release-check
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Start image and check health
+        run: |
+          docker run -d --name filuflow-release -p 5678:5678 -e FILUFLOW_API_KEY=ci-key filuflow:release-check
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:5678/healthz; then echo; docker rm -f filuflow-release; exit 0; fi
+            sleep 2
+          done
+          docker logs filuflow-release
+          exit 1
+      - name: Build and push (amd64, arm64)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  release:
+    name: GitHub release
+    if: ${{ !cancelled() && needs.image.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [prepare, image]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Create release with notes from CHANGELOG.md
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
+          IMAGE: ${{ needs.prepare.outputs.image }}
+        run: |
+          node scripts/changelog-section.mjs "$VERSION" > notes.md
+          {
+            echo
+            echo "### Docker image"
+            echo
+            echo '```bash'
+            echo "docker pull $IMAGE:$VERSION"
+            echo '```'
+          } >> notes.md
+          FLAGS="--verify-tag"
+          if [ "$PRERELEASE" = "true" ]; then FLAGS="$FLAGS --prerelease"; else FLAGS="$FLAGS --latest"; fi
+          # shellcheck disable=SC2086
+          gh release create "v$VERSION" --title "filuflow $VERSION" --notes-file notes.md $FLAGS

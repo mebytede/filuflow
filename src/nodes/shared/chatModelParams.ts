@@ -2,7 +2,7 @@
 // LmChatDeepSeek, LmChatOpenRouter and LmChatAzureOpenAi/properties.ts.
 import type { ParamSchema } from '../params.js';
 
-export const MODEL_NOTICE: ParamSchema = { name: 'notice', label: 'This node must be connected to an AI chain or AI agent.', type: 'notice', default: '' };
+export const MODEL_NOTICE: ParamSchema = { name: 'notice', label: 'Connect this node to an AI chain or an AI agent.', type: 'notice', default: '' };
 
 /** Model as free input (n8n loads the list via API) */
 export const modelParam = (defaultModel: string, label = 'Model'): ParamSchema => ({
@@ -23,7 +23,7 @@ export function compatibleOptions(o: { temperatureMax: number; timeout: number }
     addLabel: 'Add Option',
     children: [
       { name: 'frequencyPenalty', label: 'Frequency Penalty', type: 'number', default: 0, min: -2, max: 2, precision: 1 },
-      { name: 'maxTokens', label: 'Maximum Number of Tokens', type: 'number', default: -1, max: 32768, description: 'The maximum number of tokens to generate (-1 for no limit)' },
+      { name: 'maxTokens', label: 'Maximum Number of Tokens', type: 'number', default: -1, max: 32768, description: 'Upper limit of generated tokens; -1 means no limit' },
       {
         name: 'responseFormat',
         label: 'Response Format',

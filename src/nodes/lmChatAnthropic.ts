@@ -27,14 +27,14 @@ const modelField: ParamSchema = {
   label: 'Model',
   type: 'options',
   options: MODEL_OPTIONS,
-  description: 'The model which will generate the completion',
+  description: 'Model that produces the answer',
   default: 'claude-2',
 };
 const HIDE_WHEN_THINKING = { thinking: [true] };
 
 const parameters: ParamSchema[] = [
   // getConnectionHintNoticeField([AiChain, AiChain])
-  { name: 'notice', label: 'This node must be connected to an AI chain.', type: 'notice', default: '' },
+  { name: 'notice', label: 'Connect this node to an AI chain.', type: 'notice', default: '' },
   { ...modelField, show: { '@version': [1] } },
   { ...modelField, default: 'claude-3-sonnet-20240229', show: { '@version': [1.1] } },
   {
@@ -53,7 +53,7 @@ const parameters: ParamSchema[] = [
       { name: 'list', label: 'From List', placeholder: 'e.g. claude-sonnet-4-5-20250929' },
       { name: 'id', label: 'ID', placeholder: 'claude-sonnet-4-5-20250929' },
     ],
-    description: 'Model from the list or by ID',
+    description: 'Pick a model or enter its ID',
     show: { '@version': [{ _cnd: { gte: 1.3 } }] },
   },
   {
@@ -70,7 +70,7 @@ const parameters: ParamSchema[] = [
         label: 'Maximum Number of Tokens',
         type: 'number',
         default: 4096,
-        description: 'The maximum number of tokens to generate in the completion',
+        description: 'Upper limit of tokens in the answer',
       },
       {
         name: 'temperature',
@@ -80,7 +80,7 @@ const parameters: ParamSchema[] = [
         min: 0,
         max: 1,
         precision: 1,
-        description: 'Controls randomness: lowering results in less random completions.',
+        description: 'Lower values make the answers more predictable.',
         hide: HIDE_WHEN_THINKING,
       },
       {
@@ -91,7 +91,7 @@ const parameters: ParamSchema[] = [
         min: -1,
         max: 1,
         precision: 1,
-        description: 'Used to remove "long tail" low probability responses; -1 disables it.',
+        description: 'Only the most likely tokens are considered; -1 turns this off.',
         hide: HIDE_WHEN_THINKING,
       },
       {
@@ -102,16 +102,16 @@ const parameters: ParamSchema[] = [
         min: 0,
         max: 1,
         precision: 1,
-        description: 'Controls diversity via nucleus sampling; we generally recommend altering this or temperature but not both.',
+        description: 'Nucleus sampling; usually change either this value or the temperature, not both.',
         hide: HIDE_WHEN_THINKING,
       },
-      { name: 'thinking', label: 'Enable Thinking', type: 'boolean', default: false, description: 'Whether to enable thinking mode for the model' },
+      { name: 'thinking', label: 'Enable Thinking', type: 'boolean', default: false, description: 'Whether the model uses extended thinking' },
       {
         name: 'thinkingBudget',
         label: 'Thinking Budget (Tokens)',
         type: 'number',
         default: 1024,
-        description: 'The maximum number of tokens to use for thinking',
+        description: 'Token budget for thinking',
         show: { thinking: [true] },
       },
     ],

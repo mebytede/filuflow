@@ -17,10 +17,10 @@ export function loggedSplitter<T extends TextSplitter>(ctx: ExecContext, splitte
 }
 
 const parameters: ParamSchema[] = [
-  { name: 'notice', label: 'This node must be connected to a document loader.', type: 'notice', default: '' },
+  { name: 'notice', label: 'Connect this node to a document loader.', type: 'notice', default: '' },
   { name: 'separator', label: 'Separator', type: 'string', default: '' },
-  { name: 'chunkSize', label: 'Chunk Size', type: 'number', default: 1000, description: 'Maximum number of characters per chunk' },
-  { name: 'chunkOverlap', label: 'Chunk Overlap', type: 'number', default: 0, description: 'Number of characters shared between consecutive chunks' },
+  { name: 'chunkSize', label: 'Chunk Size', type: 'number', default: 1000, description: 'Upper limit of characters in a chunk' },
+  { name: 'chunkOverlap', label: 'Chunk Overlap', type: 'number', default: 0, description: 'Characters that neighboring chunks have in common' },
 ];
 
 export const textSplitterCharacterTextSplitterNode: NodeType = {

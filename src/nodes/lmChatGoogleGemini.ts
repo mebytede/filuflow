@@ -10,14 +10,14 @@ import type { ParamSchema } from './params.js';
 // n8n loads the models via API (loadOptions); here the model is a free input.
 // The category default (HARM_CATEGORY_UNSPECIFIED) is missing from the n8n options; here it is its own option.
 const parameters: ParamSchema[] = [
-  { name: 'notice', label: 'This node must be connected to an AI chain or AI agent.', type: 'notice', default: '' },
+  { name: 'notice', label: 'Connect this node to an AI chain or an AI agent.', type: 'notice', default: '' },
   {
     name: 'modelName',
     label: 'Model',
     type: 'string',
     default: 'models/gemini-2.5-flash',
     placeholder: 'e.g. models/gemini-2.5-flash',
-    description: 'The model which will generate the completion',
+    description: 'Model that produces the answer',
   },
   {
     name: 'options',
@@ -28,7 +28,7 @@ const parameters: ParamSchema[] = [
     addLabel: 'Add Option',
     description: 'Additional options to add',
     children: [
-      { name: 'maxOutputTokens', label: 'Maximum Number of Tokens', type: 'number', default: 2048, description: 'The maximum number of tokens to generate in the completion' },
+      { name: 'maxOutputTokens', label: 'Maximum Number of Tokens', type: 'number', default: 2048, description: 'Upper limit of tokens in the answer' },
       {
         name: 'temperature',
         label: 'Sampling Temperature',
@@ -37,7 +37,7 @@ const parameters: ParamSchema[] = [
         min: 0,
         max: 1,
         precision: 1,
-        description: 'Controls randomness: lowering results in less random completions.',
+        description: 'Lower values make the answers more predictable.',
       },
       {
         name: 'topK',
@@ -47,7 +47,7 @@ const parameters: ParamSchema[] = [
         min: -1,
         max: 40,
         precision: 1,
-        description: 'Used to remove "long tail" low probability responses; -1 disables it.',
+        description: 'Only the most likely tokens are considered; -1 turns this off.',
       },
       {
         name: 'topP',
@@ -57,7 +57,7 @@ const parameters: ParamSchema[] = [
         min: 0,
         max: 1,
         precision: 1,
-        description: 'Controls diversity via nucleus sampling; we generally recommend altering this or temperature but not both.',
+        description: 'Nucleus sampling; usually change either this value or the temperature, not both.',
       },
       {
         name: 'safetySettings',
@@ -77,7 +77,7 @@ const parameters: ParamSchema[] = [
                 label: 'Safety Category',
                 type: 'options',
                 default: 'HARM_CATEGORY_UNSPECIFIED',
-                description: 'The category of harmful content to block',
+                description: 'Category of harmful content',
                 options: [
                   { value: 'HARM_CATEGORY_UNSPECIFIED', label: 'Unspecified' },
                   { value: 'HARM_CATEGORY_HARASSMENT', label: 'Harassment' },
@@ -91,7 +91,7 @@ const parameters: ParamSchema[] = [
                 label: 'Safety Threshold',
                 type: 'options',
                 default: 'HARM_BLOCK_THRESHOLD_UNSPECIFIED',
-                description: 'The threshold of harmful content to block',
+                description: 'From which likelihood content of this category is blocked',
                 options: [
                   { value: 'HARM_BLOCK_THRESHOLD_UNSPECIFIED', label: 'Unspecified' },
                   { value: 'BLOCK_LOW_AND_ABOVE', label: 'Low and Above' },

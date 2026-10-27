@@ -656,7 +656,7 @@ function toolParametersCollection(name: string, label: string, show: ParamSchema
             type: 'string',
             default: '',
             show: { valueProvider: ['fieldValue'] },
-            description: 'Use {placeholder} to let the model fill in parts of the value',
+            description: 'Parts written as {placeholder} are filled in by the model',
           },
         ],
       },
@@ -666,19 +666,19 @@ function toolParametersCollection(name: string, label: string, show: ParamSchema
 
 /** jsonInput (descriptions.ts): a multi-line string in n8n, not a json type */
 function toolJsonInput(name: string, show: ParamSchema['show']): ParamSchema {
-  return { name, label: 'JSON', type: 'string', rows: 5, default: '', show, description: 'Use {placeholder} to let the model fill in parts of the JSON' };
+  return { name, label: 'JSON', type: 'string', rows: 5, default: '', show, description: 'Parts of the JSON written as {placeholder} are filled in by the model' };
 }
 
 const parameters: ParamSchema[] = [
-  { name: 'notice', label: 'This node must be connected to an AI agent.', type: 'notice', default: '' },
+  { name: 'notice', label: 'Connect this node to an AI agent.', type: 'notice', default: '' },
   {
     name: 'toolDescription',
     label: 'Description',
     type: 'string',
     default: '',
     rows: 3,
-    placeholder: 'e.g. Get the current weather in the requested city',
-    description: 'Explain to the LLM what this tool does',
+    placeholder: "e.g. Returns today's weather for a city",
+    description: 'Tells the model what the tool is for',
   },
   {
     name: 'method',
@@ -689,7 +689,7 @@ const parameters: ParamSchema[] = [
   },
   {
     name: 'placeholderNotice',
-    label: 'Tip: You can use a {placeholder} for any part of the request to be filled by the model. Provide more context about them in the placeholders section',
+    label: 'Tip: any part of the request can be a {placeholder} that the model fills in. Describe the placeholders further down so the model knows what to put there',
     type: 'notice',
     default: '',
   },
@@ -710,8 +710,8 @@ const parameters: ParamSchema[] = [
     description: 'filuflow handles the authentication; the model never sees the credentials',
     options: [
       { value: 'none', label: 'None' },
-      { value: 'predefinedCredentialType', label: 'Predefined Credential Type', description: 'Ready-made authentication for a service' },
-      { value: 'genericCredentialType', label: 'Generic Credential Type', description: 'Fully customizable, e.g. Basic, Header or OAuth2' },
+      { value: 'predefinedCredentialType', label: 'Predefined Credential Type', description: 'Prepared authentication of a service' },
+      { value: 'genericCredentialType', label: 'Generic Credential Type', description: 'Your own setup, e.g. Basic, Header or OAuth2' },
     ],
   },
   {
@@ -727,7 +727,7 @@ const parameters: ParamSchema[] = [
   },
   {
     name: 'googleApiWarning',
-    label: 'Make sure you have specified the scope(s) for the Service Account in the credential',
+    label: 'The credential of the service account needs its scopes set',
     type: 'notice',
     default: '',
     show: { nodeCredentialType: ['googleApi'] },
@@ -752,17 +752,17 @@ const parameters: ParamSchema[] = [
     ],
   },
   // Query
-  { name: 'sendQuery', label: 'Send Query Parameters', type: 'boolean', default: false, noExpression: true, description: 'Whether the request has query params or not' },
+  { name: 'sendQuery', label: 'Send Query Parameters', type: 'boolean', default: false, noExpression: true, description: 'Whether query parameters are sent' },
   { name: 'specifyQuery', label: 'Specify Query Parameters', type: 'options', default: 'keypair', show: { sendQuery: [true] }, options: SPECIFY_BY_OPTIONS },
   toolParametersCollection('parametersQuery', 'Query Parameters', { sendQuery: [true], specifyQuery: ['keypair'] }),
   toolJsonInput('jsonQuery', { sendQuery: [true], specifyQuery: ['json'] }),
   // Header
-  { name: 'sendHeaders', label: 'Send Headers', type: 'boolean', default: false, noExpression: true, description: 'Whether the request has headers or not' },
+  { name: 'sendHeaders', label: 'Send Headers', type: 'boolean', default: false, noExpression: true, description: 'Whether headers are sent' },
   { name: 'specifyHeaders', label: 'Specify Headers', type: 'options', default: 'keypair', show: { sendHeaders: [true] }, options: SPECIFY_BY_OPTIONS },
   toolParametersCollection('parametersHeaders', 'Header Parameters', { sendHeaders: [true], specifyHeaders: ['keypair'] }),
   toolJsonInput('jsonHeaders', { sendHeaders: [true], specifyHeaders: ['json'] }),
   // Body
-  { name: 'sendBody', label: 'Send Body', type: 'boolean', default: false, noExpression: true, description: 'Whether the request has a body or not' },
+  { name: 'sendBody', label: 'Send Body', type: 'boolean', default: false, noExpression: true, description: 'Whether a body is sent' },
   { name: 'specifyBody', label: 'Specify Body', type: 'options', default: 'keypair', show: { sendBody: [true] }, options: SPECIFY_BY_OPTIONS },
   toolParametersCollection('parametersBody', 'Body Parameters', { sendBody: [true], specifyBody: ['keypair'] }),
   toolJsonInput('jsonBody', { sendBody: [true], specifyBody: ['json'] }),
@@ -806,7 +806,7 @@ const parameters: ParamSchema[] = [
     type: 'boolean',
     default: false,
     noExpression: true,
-    description: 'Whether to optimize the tool response to reduce the amount of data passed to the LLM, which can improve results and reduce cost',
+    description: 'Whether the response is trimmed before it reaches the model; less data often means better answers and lower cost',
   },
   {
     name: 'responseType',
@@ -827,7 +827,7 @@ const parameters: ParamSchema[] = [
     default: '',
     placeholder: 'e.g. records',
     show: { optimizeResponse: [true], responseType: ['json'] },
-    description: 'Specify the name of the field in the response containing the data; leave empty for the whole response',
+    description: 'Response field that holds the data; empty means the whole response',
   },
   {
     name: 'fieldsToInclude',
@@ -837,10 +837,10 @@ const parameters: ParamSchema[] = [
     show: { optimizeResponse: [true], responseType: ['json'] },
     options: [
       { value: 'all', label: 'All', description: 'Include all fields' },
-      { value: 'selected', label: 'Selected', description: 'Include only fields specified below' },
+      { value: 'selected', label: 'Selected', description: 'Keep only the fields listed below' },
       { value: 'except', label: 'Except', description: 'Exclude fields specified below' },
     ],
-    description: 'What fields response object should include',
+    description: 'Fields kept in the response object',
   },
   {
     name: 'fields',
@@ -850,7 +850,7 @@ const parameters: ParamSchema[] = [
     placeholder: 'e.g. field1,field2',
     show: { optimizeResponse: [true], responseType: ['json'] },
     hide: { fieldsToInclude: ['all'] },
-    description: 'Comma-separated list of the field names. Supports dot notation.',
+    description: 'Field names separated by commas; dot notation works.',
   },
   {
     name: 'cssSelector',
@@ -859,7 +859,7 @@ const parameters: ParamSchema[] = [
     default: 'body',
     placeholder: 'e.g. body',
     show: { optimizeResponse: [true], responseType: ['html'] },
-    description: 'Select specific element (e.g. body) or multiple elements (e.g. div) of chosen type in the response HTML',
+    description: 'CSS selector for one element (such as body) or several (such as div) of the response HTML',
   },
   {
     name: 'onlyContent',
@@ -867,7 +867,7 @@ const parameters: ParamSchema[] = [
     type: 'boolean',
     default: false,
     show: { optimizeResponse: [true], responseType: ['html'] },
-    description: 'Whether to return only content of HTML elements, stripping HTML tags and attributes',
+    description: 'Whether only the text of the elements is returned, without tags and attributes',
   },
   {
     name: 'elementsToOmit',
@@ -876,7 +876,7 @@ const parameters: ParamSchema[] = [
     default: '',
     placeholder: 'e.g. img, .className, #ItemId',
     show: { optimizeResponse: [true], responseType: ['html'], onlyContent: [true] },
-    description: 'Comma-separated list of selectors that would be excluded when extracting content',
+    description: 'Selectors left out when extracting the content, separated by commas',
   },
   {
     name: 'truncateResponse',

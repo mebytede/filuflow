@@ -57,7 +57,7 @@ const parameters: ParamSchema[] = [
     default: DEFAULT_JSON_SCHEMA,
     rows: 10,
     required: true,
-    description: 'JSON Schema used to structure and validate the output',
+    description: 'JSON Schema that shapes and checks the output',
     show: { '@version': [{ _cnd: { lte: 1.1 } }] },
   },
   {
@@ -65,14 +65,14 @@ const parameters: ParamSchema[] = [
     label: 'Auto-Fix Format',
     type: 'boolean',
     default: false,
-    description: 'Whether to automatically fix the output when it is not in the correct format. Will cause another LLM call.',
+    description: 'Whether output in the wrong format is repaired automatically; this costs an extra LLM call.',
   },
   {
     name: 'customizeRetryPrompt',
     label: 'Customize Retry Prompt',
     type: 'boolean',
     default: false,
-    description: 'Whether to customize the prompt used for retrying the output parsing',
+    description: 'Whether the prompt for the repair attempt can be edited',
     show: { autoFix: [true] },
   },
   {

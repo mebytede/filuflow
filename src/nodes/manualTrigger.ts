@@ -8,7 +8,7 @@ import type { ParamSchema } from './params.js';
 const parameters: ParamSchema[] = [
   {
     name: 'notice',
-    label: 'This is where the workflow execution starts when you run it manually in the editor. There are separate triggers for schedules and webhooks.',
+    label: 'Running the workflow by hand in the editor starts here. Schedules and webhooks have triggers of their own.',
     type: 'notice',
     default: '',
   },

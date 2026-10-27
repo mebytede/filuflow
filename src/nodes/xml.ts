@@ -9,8 +9,8 @@ import { NodeOperationError } from '../errors.js';
 import { deepCopy } from './shared/utils.js';
 
 // Parameters as in Xml.node.ts (properties)
-const attrkey: ParamSchema = { name: 'attrkey', label: 'Attribute Key', type: 'string', default: '$', description: 'Prefix that is used to access the attributes' };
-const charkey: ParamSchema = { name: 'charkey', label: 'Character Key', type: 'string', default: '_', description: 'Prefix that is used to access the character content' };
+const attrkey: ParamSchema = { name: 'attrkey', label: 'Attribute Key', type: 'string', default: '$', description: 'Key prefix for attributes' };
+const charkey: ParamSchema = { name: 'charkey', label: 'Character Key', type: 'string', default: '_', description: 'Key for the text content' };
 
 const parameters: ParamSchema[] = [
   {
@@ -18,15 +18,15 @@ const parameters: ParamSchema[] = [
     label: 'Mode',
     type: 'options',
     default: 'xmlToJson',
-    description: 'From and to what format the data should be converted',
+    description: 'Direction of the conversion',
     options: [
-      { value: 'jsonToxml', label: 'JSON to XML', description: 'Converts data from JSON to XML' },
-      { value: 'xmlToJson', label: 'XML to JSON', description: 'Converts data from XML to JSON' },
+      { value: 'jsonToxml', label: 'JSON to XML', description: 'Turn JSON into XML' },
+      { value: 'xmlToJson', label: 'XML to JSON', description: 'Turn XML into JSON' },
     ],
   },
   {
     name: 'xmlNotice',
-    label: 'If your XML is inside a binary file, use the "Extract from File" node to convert it to text first.',
+    label: 'XML in a binary file has to be turned into text first, for example with the "Extract from File" node.',
     type: 'notice',
     default: '',
     show: { mode: ['xmlToJson'] },
@@ -38,7 +38,7 @@ const parameters: ParamSchema[] = [
     type: 'string',
     default: 'data',
     required: true,
-    description: 'Name of the property to write the converted XML data to',
+    description: 'Field that receives the XML',
     show: { mode: ['jsonToxml'] },
   },
   {
@@ -54,7 +54,7 @@ const parameters: ParamSchema[] = [
         label: 'Allow Surrogate Chars',
         type: 'boolean',
         default: false,
-        description: 'Whether to allow using characters from the Unicode surrogate blocks',
+        description: 'Whether characters from the Unicode surrogate ranges are allowed',
       },
       attrkey,
       {
@@ -62,11 +62,11 @@ const parameters: ParamSchema[] = [
         label: 'CDATA',
         type: 'boolean',
         default: false,
-        description: 'Whether to wrap text nodes in <![CDATA[ ... ]]> instead of escaping when necessary',
+        description: 'Whether text that needs escaping is put into <![CDATA[ ... ]]> instead',
       },
       charkey,
-      { name: 'headless', label: 'Headless', type: 'boolean', default: false, description: 'Whether to omit the XML header' },
-      { name: 'rootName', label: 'Root Name', type: 'string', default: 'root', description: 'Root element name to be used' },
+      { name: 'headless', label: 'Headless', type: 'boolean', default: false, description: 'Whether the XML declaration is left out' },
+      { name: 'rootName', label: 'Root Name', type: 'string', default: 'root', description: 'Name of the root element' },
     ],
   },
   // xmlToJson
@@ -76,7 +76,7 @@ const parameters: ParamSchema[] = [
     type: 'string',
     default: 'data',
     required: true,
-    description: 'Name of the property which contains the XML data to convert',
+    description: 'Field that holds the XML',
     show: { mode: ['xmlToJson'] },
   },
   {
@@ -94,32 +94,32 @@ const parameters: ParamSchema[] = [
         label: 'Explicit Array',
         type: 'boolean',
         default: false,
-        description: 'Whether to always put child nodes in an array if true; otherwise an array is created only if there is more than one',
+        description: 'Whether child nodes always end up in an array; if off, only repeated children form an array',
       },
       {
         name: 'explicitRoot',
         label: 'Explicit Root',
         type: 'boolean',
         default: true,
-        description: 'Whether to set this if you want to get the root node in the resulting object',
+        description: 'Whether the result contains the root element',
       },
       {
         name: 'ignoreAttrs',
         label: 'Ignore Attributes',
         type: 'boolean',
         default: false,
-        description: 'Whether to ignore all XML attributes and only create text nodes',
+        description: 'Whether attributes are dropped so that only text remains',
       },
       {
         name: 'mergeAttrs',
         label: 'Merge Attributes',
         type: 'boolean',
         default: true,
-        description: 'Whether to merge attributes and child elements as properties of the parent, instead of keying attributes off a child attribute object',
+        description: 'Whether attributes become plain properties of the element next to its children instead of being grouped in a separate attribute object',
       },
-      { name: 'normalize', label: 'Normalize', type: 'boolean', default: false, description: 'Whether to trim whitespaces inside text nodes' },
-      { name: 'normalizeTags', label: 'Normalize Tags', type: 'boolean', default: false, description: 'Whether to normalize all tag names to lowercase' },
-      { name: 'trim', label: 'Trim', type: 'boolean', default: false, description: 'Whether to trim the whitespace at the beginning and end of text nodes' },
+      { name: 'normalize', label: 'Normalize', type: 'boolean', default: false, description: 'Whether whitespace inside text nodes is trimmed' },
+      { name: 'normalizeTags', label: 'Normalize Tags', type: 'boolean', default: false, description: 'Whether tag names are converted to lower case' },
+      { name: 'trim', label: 'Trim', type: 'boolean', default: false, description: 'Whether whitespace at both ends of text nodes is removed' },
     ],
   },
 ];

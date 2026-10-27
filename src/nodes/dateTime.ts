@@ -58,7 +58,7 @@ const includeInputFields: ParamSchema = {
   label: 'Include Input Fields',
   type: 'boolean',
   default: false,
-  description: 'Whether to include all fields of the input item in the output item',
+  description: 'Whether the output item keeps every field of the input item',
 };
 
 function outputField(operation: string, def: string): ParamSchema {
@@ -67,7 +67,7 @@ function outputField(operation: string, def: string): ParamSchema {
     label: 'Output Field Name',
     type: 'string',
     default: def,
-    description: 'Name of the field to put the output in',
+    description: 'Field that receives the result',
     show: op(operation),
   };
 }
@@ -129,13 +129,13 @@ const parameters: ParamSchema[] = [
   },
 
   // getCurrentDate
-  notice('getCurrentDate', 'You can also refer to the current date in n8n expressions by using {{ $now }} or {{ $today }}.'),
+  notice('getCurrentDate', 'In expressions, {{ $now }} and {{ $today }} give the current date as well.'),
   {
     name: 'includeTime',
     label: 'Include Current Time',
     type: 'boolean',
     default: true,
-    description: 'When deactivated, the time will be set to midnight',
+    description: 'If turned off, the time is set to 00:00',
     show: op('getCurrentDate'),
   },
   outputField('getCurrentDate', 'currentDate'),
@@ -146,19 +146,19 @@ const parameters: ParamSchema[] = [
       type: 'string',
       default: '',
       placeholder: 'America/New_York',
-      description: 'The timezone to use; empty means the workflow timezone; use "GMT" for +00:00',
+      description: 'Time zone for the result; empty uses the workflow time zone, "GMT" stands for +00:00',
     },
   ]),
 
   // addToDate
-  notice('addToDate', "You can also do this using an expression, e.g. {{ your_date.plus(5, 'minutes') }}."),
+  notice('addToDate', "An expression works too, for example {{ your_date.plus(5, 'minutes') }}."),
   {
     name: 'magnitude',
     label: 'Date to Add To',
     type: 'string',
     default: '',
     required: true,
-    description: 'The date that you want to change',
+    description: 'Date to modify',
     show: op('addToDate'),
   },
   {
@@ -167,7 +167,7 @@ const parameters: ParamSchema[] = [
     type: 'options',
     default: 'days',
     required: true,
-    description: 'Time unit for Duration parameter below',
+    description: 'Unit of the duration below',
     show: op('addToDate'),
     options: timeUnits,
   },
@@ -176,21 +176,21 @@ const parameters: ParamSchema[] = [
     label: 'Duration',
     type: 'number',
     default: 0,
-    description: 'The number of time units to add to the date',
+    description: 'How many units are added',
     show: op('addToDate'),
   },
   outputField('addToDate', 'newDate'),
   options('addToDate'),
 
   // subtractFromDate
-  notice('subtractFromDate', "You can also do this using an expression, e.g. {{ your_date.minus(5, 'minutes') }}."),
+  notice('subtractFromDate', "An expression works too, for example {{ your_date.minus(5, 'minutes') }}."),
   {
     name: 'magnitude',
     label: 'Date to Subtract From',
     type: 'string',
     default: '',
     required: true,
-    description: 'The date that you want to change',
+    description: 'Date to modify',
     show: op('subtractFromDate'),
   },
   {
@@ -199,7 +199,7 @@ const parameters: ParamSchema[] = [
     type: 'options',
     default: 'days',
     required: true,
-    description: 'Time unit for Duration parameter below',
+    description: 'Unit of the duration below',
     show: op('subtractFromDate'),
     options: timeUnits,
   },
@@ -208,20 +208,20 @@ const parameters: ParamSchema[] = [
     label: 'Duration',
     type: 'number',
     default: 0,
-    description: 'The number of time units to subtract from the date',
+    description: 'How many units are subtracted',
     show: op('subtractFromDate'),
   },
   outputField('subtractFromDate', 'newDate'),
   options('subtractFromDate'),
 
   // formatDate
-  notice('formatDate', "You can also do this using an expression, e.g. {{ your_date.format('yyyy-MM-dd') }}."),
+  notice('formatDate', "An expression works too, for example {{ your_date.format('yyyy-MM-dd') }}."),
   {
     name: 'date',
     label: 'Date',
     type: 'string',
     default: '',
-    description: 'The date that you want to format',
+    description: 'Date to format',
     show: op('formatDate'),
   },
   {
@@ -229,7 +229,7 @@ const parameters: ParamSchema[] = [
     label: 'Format',
     type: 'options',
     default: 'MM/dd/yyyy',
-    description: 'The format to convert the date to',
+    description: 'Target format',
     show: op('formatDate'),
     options: [
       { value: 'custom', label: 'Custom Format' },
@@ -258,25 +258,25 @@ const parameters: ParamSchema[] = [
       label: 'From Date Format',
       type: 'string',
       default: 'e.g yyyyMMdd',
-      description: 'Format of the input date in luxon tokens, in case it is not recognized (case sensitive)',
+      description: 'Luxon tokens describing the input date if it is not recognized automatically; case matters',
     },
     {
       name: 'timezone',
       label: 'Use Workflow Timezone',
       type: 'boolean',
       default: false,
-      description: 'Whether to use the timezone of the workflow instead of the one of the input date',
+      description: 'Whether the workflow time zone replaces the time zone of the input date',
     },
   ]),
 
   // roundDate
-  notice('roundDate', "You can also do this using an expression, e.g. {{ your_date.beginningOf('month') }} or {{ your_date.endOfMonth() }}."),
+  notice('roundDate', "An expression works too, for example {{ your_date.beginningOf('month') }} or {{ your_date.endOfMonth() }}."),
   {
     name: 'date',
     label: 'Date',
     type: 'string',
     default: '',
-    description: 'The date that you want to round',
+    description: 'Date to round',
     show: op('roundDate'),
   },
   {
@@ -327,18 +327,18 @@ const parameters: ParamSchema[] = [
       label: 'Output as ISO String',
       type: 'boolean',
       default: false,
-      description: 'Whether to output the date as ISO string or not',
+      description: 'Whether the result is an ISO string',
     },
   ]),
 
   // extractDate
-  notice('extractDate', 'You can also do this using an expression, e.g. {{ your_date.extract("month") }}.'),
+  notice('extractDate', 'An expression works too, for example {{ your_date.extract("month") }}.'),
   {
     name: 'date',
     label: 'Date',
     type: 'string',
     default: '',
-    description: 'The date you want to extract a part from',
+    description: 'Date to take the part from',
     show: op('extractDate'),
   },
   {

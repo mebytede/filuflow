@@ -15,7 +15,7 @@ const parameters: ParamSchema[] = [
     label: 'Convert Types Where Required',
     type: 'boolean',
     default: false,
-    description: 'If the type of an expression does not match the type of the comparison, n8n will try to cast the expression to the required type. E.g. for booleans "false" or 0 will be cast to false',
+    description: 'If a value has a different type than the comparison needs, it is converted first; for booleans, "false" and 0 both become false',
     show: { '@version': [{ _cnd: { gte: 2.1 } }] },
   },
   {
@@ -25,13 +25,13 @@ const parameters: ParamSchema[] = [
     default: {},
     addLabel: 'Add Option',
     children: [
-      { name: 'ignoreCase', label: 'Ignore Case', type: 'boolean', default: true, description: 'Whether to ignore letter case when evaluating conditions' },
+      { name: 'ignoreCase', label: 'Ignore Case', type: 'boolean', default: true, description: 'Whether upper and lower case count as equal in conditions' },
       {
         name: 'looseTypeValidation',
         label: 'Convert Types Where Required',
         type: 'boolean',
         default: true,
-        description: 'If the type of an expression does not match the type of the comparison, n8n will try to cast the expression to the required type. E.g. for booleans "false" or 0 will be cast to false',
+        description: 'If a value has a different type than the comparison needs, it is converted first; for booleans, "false" and 0 both become false',
         show: { '@version': [{ _cnd: { lt: 2.1 } }] },
       },
     ],

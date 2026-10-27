@@ -19,10 +19,10 @@ If you don't know the answer, just say that you don't know, don't try to make up
 {context}`;
 
 const parameters: ParamSchema[] = [
-  { name: 'notice', label: 'This node must be connected to an AI agent.', type: 'notice', default: '' },
+  { name: 'notice', label: 'Connect this node to an AI agent.', type: 'notice', default: '' },
   { name: 'name', label: 'Data Name', type: 'string', default: '', placeholder: 'e.g. users_info', show: { '@version': [1] } },
-  { name: 'description', label: 'Description of Data', type: 'string', default: '', rows: 3, placeholder: 'e.g. a customer\'s name, email and contract' },
-  { name: 'topK', label: 'Limit', type: 'number', default: 4, description: 'The maximum number of results to return' },
+  { name: 'description', label: 'Description of Data', type: 'string', default: '', rows: 3, placeholder: 'e.g. customer names, email addresses and contracts' },
+  { name: 'topK', label: 'Limit', type: 'number', default: 4, description: 'Upper limit of results' },
 ];
 
 async function getTool(ctx: ExecContext, itemIndex: number, log: boolean): Promise<ToolInstance> {

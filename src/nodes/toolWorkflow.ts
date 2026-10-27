@@ -259,10 +259,10 @@ function toolV2(baseCtx: ExecContext, itemIndex: number, manualLogging: boolean)
 // workflowSelector (from v1.2) stores a resource locator; the editor has no resourceMapper (workflowInputs, v2),
 // so JSON is used here.
 const V1 = { '@version': [{ _cnd: { lt: 2 } }] };
-const DESCRIPTION_PLACEHOLDER = 'Call this tool to get a random color. The input should be a string with comma separated names of colors to exclude.';
+const DESCRIPTION_PLACEHOLDER = 'Returns a random color. Input: names of colors to leave out, separated by commas.';
 
 const parameters: ParamSchema[] = [
-  { name: 'notice', label: 'This node must be connected to an AI agent.', type: 'notice', default: '' },
+  { name: 'notice', label: 'Connect this node to an AI agent.', type: 'notice', default: '' },
   { name: 'name', label: 'Name', type: 'string', default: '', placeholder: 'My_Color_Tool', show: { '@version': [1] } },
   {
     // v1: gte 1.1, v2: lte 2.1 (otherwise identical)
@@ -271,7 +271,7 @@ const parameters: ParamSchema[] = [
     type: 'string',
     default: '',
     placeholder: 'e.g. My_Color_Tool',
-    description: 'The name of the function to be called, could contain letters, numbers, and underscores only',
+    description: 'Function name; only letters, digits and underscores',
     show: { '@version': [1.1, 1.2, 1.3, 2, 2.1] },
   },
   {
@@ -286,7 +286,7 @@ const parameters: ParamSchema[] = [
   { name: 'description', label: 'Description', type: 'string', default: '', rows: 3, placeholder: DESCRIPTION_PLACEHOLDER },
   {
     name: 'executeNotice',
-    label: 'This tool will call the workflow you define below, and look in the last node for the response. The workflow needs to start with an Execute Workflow trigger.',
+    label: 'The tool runs the workflow chosen below and takes the response from its last node. That workflow has to begin with an Execute Workflow trigger.',
     type: 'notice',
     default: '',
   },
@@ -295,10 +295,10 @@ const parameters: ParamSchema[] = [
     label: 'Source',
     type: 'options',
     default: 'database',
-    description: 'Where to get the workflow to execute from',
+    description: 'Source of the workflow to run',
     options: [
-      { value: 'database', label: 'Database', description: 'Load the workflow by ID' },
-      { value: 'parameter', label: 'Define Below', description: 'Pass the JSON code of a workflow' },
+      { value: 'database', label: 'Database', description: 'Look up the workflow by ID' },
+      { value: 'parameter', label: 'Define Below', description: 'Provide the workflow as JSON' },
     ],
   },
   {
@@ -351,7 +351,7 @@ const parameters: ParamSchema[] = [
     default: '\n\n\n\n\n\n\n\n\n',
     rows: 10,
     required: true,
-    description: 'The workflow JSON code to execute',
+    description: 'Workflow JSON to run',
     show: { source: ['parameter'] },
   },
   {
@@ -360,7 +360,7 @@ const parameters: ParamSchema[] = [
     type: 'string',
     default: 'response',
     required: true,
-    description: 'The name of the property of the last node that will be returned',
+    description: 'Field of the last node that is returned',
     show: { '@version': [{ _cnd: { lt: 1.3 } }] },
   },
   {
@@ -371,7 +371,7 @@ const parameters: ParamSchema[] = [
     default: {},
     placeholder: 'Add Value',
     addLabel: 'Add Value',
-    description: 'These will be output by the Execute Workflow trigger of the called workflow',
+    description: 'The Execute Workflow trigger of the called workflow outputs these values',
     show: V1,
     groups: [
       {
@@ -384,7 +384,7 @@ const parameters: ParamSchema[] = [
             type: 'string',
             default: '',
             placeholder: 'e.g. fieldName',
-            description: 'Name of the field to set the value of. Supports dot-notation. Example: data.person[0].name.',
+            description: 'Field that receives the value; dot notation such as data.person[0].name works.',
           },
           {
             name: 'type',
@@ -432,7 +432,7 @@ const parameters: ParamSchema[] = [
     type: 'boolean',
     default: false,
     noExpression: true,
-    description: 'Whether to specify the schema for the function. This would require the LLM to provide the input in the correct format and would validate it against the schema.',
+    description: 'Whether the function has an input schema. The model then has to send matching input, which is checked against the schema.',
     show: V1,
   },
   {
@@ -441,10 +441,10 @@ const parameters: ParamSchema[] = [
     type: 'options',
     default: 'fromJson',
     noExpression: true,
-    description: 'How to specify the schema for the function',
+    description: 'Way the function schema is defined',
     options: [
-      { value: 'fromJson', label: 'Generate From JSON Example', description: 'Generate a schema from an example JSON object' },
-      { value: 'manual', label: 'Define using JSON Schema', description: 'Define the JSON schema manually' },
+      { value: 'fromJson', label: 'Generate From JSON Example', description: 'Derive the fields from an example JSON object' },
+      { value: 'manual', label: 'Define using JSON Schema', description: 'Write the JSON Schema yourself' },
     ],
     show: { specifyInputSchema: [true], ...V1 },
   },
@@ -455,7 +455,7 @@ const parameters: ParamSchema[] = [
     default: '{\n\t"some_input": "some_value"\n}',
     noExpression: true,
     rows: 10,
-    description: 'Example JSON object to use to generate the schema',
+    description: 'Sample JSON object the schema is derived from',
     show: { schemaType: ['fromJson'], ...V1 },
   },
   {
@@ -465,7 +465,7 @@ const parameters: ParamSchema[] = [
     default:
       '{\n"type": "object",\n"properties": {\n\t"some_input": {\n\t\t"type": "string",\n\t\t"description": "Some input to the function"\n\t\t}\n\t}\n}',
     rows: 10,
-    description: 'Schema to use for the function ($ref is not supported)',
+    description: 'JSON Schema of the function input ($ref is not supported)',
     show: { schemaType: ['manual'], ...V1 },
   },
 ];

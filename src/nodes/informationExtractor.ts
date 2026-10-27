@@ -27,13 +27,13 @@ If you do not know the value of an attribute asked to extract, you may omit the 
 // Parameters like chains/InformationExtractor/InformationExtractor.node.ts (properties), shared fields from
 // utils/descriptions.ts and utils/sharedFields.ts
 const parameters: ParamSchema[] = [
-  { name: 'text', label: 'Text', type: 'string', default: '', rows: 2, description: 'The text to extract information from' },
+  { name: 'text', label: 'Text', type: 'string', default: '', rows: 2, description: 'Input text for the extraction' },
   {
     ...schemaTypeParam,
     default: 'fromAttributes',
-    description: 'How you want to specify the schema for the desired output',
+    description: 'Way the output schema is defined',
     options: [
-      { value: 'fromAttributes', label: 'From Attribute Descriptions', description: 'Extract specific attributes from the text based on types and descriptions' },
+      { value: 'fromAttributes', label: 'From Attribute Descriptions', description: 'List attributes with type and description' },
       ...schemaTypeOptions,
     ],
   },
@@ -60,7 +60,7 @@ const parameters: ParamSchema[] = [
             type: 'options',
             default: 'string',
             required: true,
-            description: 'Data type of the attribute',
+            description: 'Type of the attribute',
             options: [
               { value: 'boolean', label: 'Boolean' },
               { value: 'date', label: 'Date' },
@@ -95,7 +95,7 @@ const parameters: ParamSchema[] = [
         type: 'string',
         default: SYSTEM_PROMPT_TEMPLATE,
         rows: 6,
-        description: 'String to use directly as the system prompt template',
+        description: 'Text used as the system prompt template',
       },
       batchingParam({ '@version': [{ _cnd: { gte: 1.1 } }] }),
     ],

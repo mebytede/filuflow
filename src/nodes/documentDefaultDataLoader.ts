@@ -9,15 +9,15 @@ import { RecursiveCharacterTextSplitter } from '../ai/documents.js';
 import { binaryLoader, jsonLoader } from '../ai/loaders.js';
 
 const parameters: ParamSchema[] = [
-  { name: 'notice', label: 'This node must be connected to a vector store.', type: 'notice', default: '' },
+  { name: 'notice', label: 'Connect this node to a vector store.', type: 'notice', default: '' },
   {
     name: 'dataType',
     label: 'Type of Data',
     type: 'options',
     default: 'json',
     options: [
-      { value: 'json', label: 'JSON', description: 'Process JSON data from previous step' },
-      { value: 'binary', label: 'Binary', description: 'Process binary data from previous step' },
+      { value: 'json', label: 'JSON', description: 'Use the JSON data of the previous node' },
+      { value: 'binary', label: 'Binary', description: 'Use the binary data of the previous node' },
     ],
   },
   {
@@ -67,8 +67,8 @@ const parameters: ParamSchema[] = [
     default: 'simple',
     show: { '@version': [1.1] },
     options: [
-      { value: 'simple', label: 'Simple', description: 'Splits every 1000 characters with a 200 character overlap' },
-      { value: 'custom', label: 'Custom', description: 'Connect a custom text-splitting sub-node' },
+      { value: 'simple', label: 'Simple', description: 'Chunks of 1000 characters that overlap by 200' },
+      { value: 'custom', label: 'Custom', description: 'Use a connected text splitter sub-node' },
     ],
   },
   {
@@ -78,7 +78,7 @@ const parameters: ParamSchema[] = [
     default: {},
     addLabel: 'Add Option',
     children: [
-      { name: 'pointers', label: 'JSON Pointer', type: 'string', default: '', description: 'Pointers of the values to load (e.g. /text, /meta/title)', show: { '/loader': ['jsonLoader', 'auto'] } },
+      { name: 'pointers', label: 'JSON Pointer', type: 'string', default: '', description: 'JSON pointers to the values that are loaded, such as /text or /meta/title', show: { '/loader': ['jsonLoader', 'auto'] } },
       { name: 'separator', label: 'CSV Separator', type: 'string', default: ',', show: { '/loader': ['csvLoader', 'auto'] } },
       { name: 'column', label: 'CSV Column', type: 'string', default: '', description: 'Load only this column', show: { '/loader': ['csvLoader', 'auto'] } },
       { name: 'splitPages', label: 'Split Pages in PDF', type: 'boolean', default: true, show: { '/loader': ['pdfLoader', 'auto'] } },
@@ -88,7 +88,7 @@ const parameters: ParamSchema[] = [
         type: 'fixedCollection',
         default: {},
         multiple: true,
-        description: 'Metadata to add to each document; can be used for filtering during retrieval',
+        description: 'Metadata attached to every document, usable as a filter when retrieving',
         addLabel: 'Add Property',
         groups: [
           {

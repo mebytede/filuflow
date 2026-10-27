@@ -82,7 +82,7 @@ const waitUnit = (defaultValue: string, rule: Pick<ParamSchema, 'show' | 'hide'>
   type: 'options',
   default: defaultValue,
   options: UNIT_OPTIONS,
-  description: 'The time unit of the Wait Amount value',
+  description: 'Unit of the wait amount',
   ...rule,
 });
 
@@ -93,7 +93,7 @@ const webhookSuffix: ParamSchema = {
   default: '',
   placeholder: 'webhook',
   noExpression: true,
-  description: 'This suffix path will be appended to the restart URL. Helpful when using multiple wait nodes.',
+  description: 'Path added to the end of the resume URL; useful when a workflow has several wait nodes.',
 };
 
 const appendAttribution: ParamSchema = {
@@ -101,7 +101,7 @@ const appendAttribution: ParamSchema = {
   label: 'Append n8n Attribution',
   type: 'boolean',
   default: true,
-  description: 'Whether to include the link "Form automated with n8n" at the bottom of the form',
+  description: 'Whether the footer link "Form automated with n8n" appears below the form',
 };
 
 const fieldOptionsParam = (label: string, addLabel: string, optionLabel: string, fieldType: string, description?: string): ParamSchema => ({
@@ -136,7 +136,7 @@ const formFields: ParamSchema = {
           type: 'string',
           default: '',
           placeholder: 'e.g. What is your name?',
-          description: 'Label that appears above the input field',
+          description: 'Caption above the input',
           required: true,
           hide: { fieldType: ['hiddenField', 'html'] },
         },
@@ -145,7 +145,7 @@ const formFields: ParamSchema = {
           label: 'Field Name',
           type: 'string',
           default: '',
-          description: 'The name of the field, used in input attributes and referenced by the workflow',
+          description: 'Field name used in the HTML attributes and in the workflow data',
           show: { fieldType: ['hiddenField'] },
         },
         {
@@ -153,7 +153,7 @@ const formFields: ParamSchema = {
           label: 'Element Type',
           type: 'options',
           default: 'text',
-          description: 'The type of field to add to the form',
+          description: 'Kind of form field',
           required: true,
           options: [
             { value: 'checkbox', label: 'Checkboxes' },
@@ -176,7 +176,7 @@ const formFields: ParamSchema = {
           type: 'string',
           default: '',
           placeholder: 'e.g. content-section',
-          description: 'Optional field. It can be used to include the html in the output.',
+          description: 'Optional; if set, the HTML appears in the output.',
           show: { fieldType: ['html'] },
         },
         {
@@ -184,7 +184,7 @@ const formFields: ParamSchema = {
           label: 'Placeholder',
           type: 'string',
           default: '',
-          description: 'Sample text to display inside the field',
+          description: 'Hint text shown inside the empty field',
           hide: { fieldType: ['dropdown', 'date', 'file', 'html', 'hiddenField', 'radio', 'checkbox'] },
         },
         {
@@ -192,7 +192,7 @@ const formFields: ParamSchema = {
           label: 'Default Value',
           type: 'string',
           default: '',
-          description: 'Default value that will be pre-filled in the form field',
+          description: 'Value the field starts with',
           show: { fieldType: ['text', 'number', 'email', 'textarea'] },
         },
         {
@@ -200,7 +200,7 @@ const formFields: ParamSchema = {
           label: 'Default Value',
           type: 'dateTime',
           default: '',
-          description: 'Default date value that will be pre-filled in the form field (format: YYYY-MM-DD)',
+          description: 'Date the field starts with, as YYYY-MM-DD',
           show: { fieldType: ['date'] },
         },
         {
@@ -208,7 +208,7 @@ const formFields: ParamSchema = {
           label: 'Default Value',
           type: 'string',
           default: '',
-          description: 'Default selected option; must match one of the option labels',
+          description: 'Option chosen at the start; has to equal one of the option labels',
           show: { fieldType: ['dropdown', 'radio'] },
         },
         {
@@ -216,7 +216,7 @@ const formFields: ParamSchema = {
           label: 'Default Value',
           type: 'string',
           default: '',
-          description: 'Default selected options, comma-separated; must match option labels',
+          description: 'Options chosen at the start, separated by commas; each has to equal an option label',
           show: { fieldType: ['checkbox'] },
         },
         {
@@ -224,15 +224,15 @@ const formFields: ParamSchema = {
           label: 'Field Value',
           type: 'string',
           default: '',
-          description: 'Input value can be set here or will be passed as a query parameter via Field Name if no value is set',
+          description: 'Value of the field; if empty, it is taken from the query parameter named like the field',
           show: { fieldType: ['hiddenField'] },
         },
-        fieldOptionsParam('Options', 'Add Option', 'Option', 'dropdown', 'List of options that can be selected from the dropdown'),
+        fieldOptionsParam('Options', 'Add Option', 'Option', 'dropdown', 'Entries offered in the dropdown'),
         fieldOptionsParam('Checkboxes', 'Add Checkbox', 'Label', 'checkbox'),
         fieldOptionsParam('Radio Buttons', 'Add Radio Button', 'Label', 'radio'),
         {
           name: 'multiselectLegacyNotice',
-          label: 'This field type is deprecated and will be removed in the future. Please use the Checkboxes or Radio Buttons field type instead.',
+          label: 'This field type is deprecated and will go away. Switch to Checkboxes or Radio Buttons.',
           type: 'notice',
           default: '',
           show: { multiselect: [true], fieldType: ['dropdown'], '@version': [{ _cnd: { lt: 2.3 } }] },
@@ -242,7 +242,7 @@ const formFields: ParamSchema = {
           label: 'Multiple Choice',
           type: 'boolean',
           default: false,
-          description: 'Whether to allow the user to select multiple options from the dropdown list',
+          description: 'Whether more than one entry of the list can be chosen',
           show: { fieldType: ['dropdown'], '@version': [{ _cnd: { lt: 2.3 } }] },
         },
         {
@@ -291,7 +291,7 @@ const formFields: ParamSchema = {
           language: 'html',
           noExpression: true,
           default: '<!-- Your custom HTML here --->\n\n\n',
-          description: 'HTML elements to display on the form page (no script, style or input tags)',
+          description: 'HTML shown on the form page; script, style and input tags are not allowed',
           show: { fieldType: ['html'] },
         },
         {
@@ -299,7 +299,7 @@ const formFields: ParamSchema = {
           label: 'Multiple Files',
           type: 'boolean',
           default: true,
-          description: 'Whether to allow the user to select multiple files from the file input or just one',
+          description: 'Whether more than one file can be chosen',
           show: { fieldType: ['file'] },
         },
         {
@@ -308,12 +308,12 @@ const formFields: ParamSchema = {
           type: 'string',
           default: '',
           placeholder: 'e.g. .jpg, .png',
-          description: 'Comma-separated list of allowed file extensions; leave empty to allow all',
+          description: 'Accepted file extensions, separated by commas; empty accepts every file',
           show: { fieldType: ['file'] },
         },
         {
           name: 'formatDate',
-          label: 'The displayed date is formatted based on the locale of the user\'s browser',
+          label: "The date appears in the format of the browser's language settings",
           type: 'notice',
           default: '',
           show: { fieldType: ['date'] },
@@ -323,7 +323,7 @@ const formFields: ParamSchema = {
           label: 'Required Field',
           type: 'boolean',
           default: false,
-          description: 'Whether to require the user to enter a value for this field before submitting the form',
+          description: 'Whether the form can only be submitted with this field filled in',
           hide: { fieldType: ['html', 'hiddenField'] },
         },
       ],
@@ -348,8 +348,8 @@ const respondWithOptions: ParamSchema = {
           type: 'options',
           default: 'text',
           options: [
-            { value: 'text', label: 'Form Submitted Text', description: 'Show a response text to the user' },
-            { value: 'redirect', label: 'Redirect to URL', description: 'Redirect the user to a URL' },
+            { value: 'text', label: 'Form Submitted Text', description: 'Display a text to the user' },
+            { value: 'redirect', label: 'Redirect to URL', description: 'Send the user on to a URL' },
           ],
         },
         {
@@ -357,7 +357,7 @@ const respondWithOptions: ParamSchema = {
           label: 'Text to Show',
           type: 'string',
           default: 'Your response has been recorded',
-          description: 'The text displayed to users after they fill the form. Leave it empty if you don\'t want to show any additional text.',
+          description: 'Text users see after submitting. Leave empty for none.',
           show: { respondWith: ['text'] },
         },
         {
@@ -366,7 +366,7 @@ const respondWithOptions: ParamSchema = {
           type: 'string',
           default: '',
           placeholder: 'e.g. http://www.n8n.io',
-          description: 'The URL to redirect users to after they fill the form. Must be a valid URL.',
+          description: 'URL users are sent to after submitting; has to be a valid URL.',
           show: { respondWith: ['redirect'] },
         },
       ],
@@ -381,12 +381,12 @@ const parameters: ParamSchema[] = [
     type: 'options',
     default: 'timeInterval',
     options: [
-      { value: 'timeInterval', label: 'After Time Interval', description: 'Waits for a certain amount of time' },
-      { value: 'specificTime', label: 'At Specified Time', description: 'Waits until a specific date and time to continue' },
-      { value: 'webhook', label: 'On Webhook Call', description: 'Waits for a webhook call before continuing' },
-      { value: 'form', label: 'On Form Submitted', description: 'Waits for a form submission before continuing' },
+      { value: 'timeInterval', label: 'After Time Interval', description: 'Continue after a period of time' },
+      { value: 'specificTime', label: 'At Specified Time', description: 'Continue at a fixed date and time' },
+      { value: 'webhook', label: 'On Webhook Call', description: 'Continue once a webhook call arrives' },
+      { value: 'form', label: 'On Form Submitted', description: 'Continue once a form is submitted' },
     ],
-    description: 'Determines the waiting mode to use before the workflow continues',
+    description: 'What the workflow waits for',
   },
   {
     name: 'incomingAuthentication',
@@ -397,7 +397,7 @@ const parameters: ParamSchema[] = [
       { value: 'basicAuth', label: 'Basic Auth' },
       { value: 'none', label: 'None' },
     ],
-    description: 'If and how incoming resume form requests to $execution.resumeFormUrl should be authenticated',
+    description: 'Authentication required for form requests to $execution.resumeFormUrl',
     show: ON_FORM,
   },
   {
@@ -411,7 +411,7 @@ const parameters: ParamSchema[] = [
       { value: 'jwtAuth', label: 'JWT Auth' },
       { value: 'none', label: 'None' },
     ],
-    description: 'If and how incoming resume webhook requests to $execution.resumeUrl should be authenticated',
+    description: 'Authentication required for webhook requests to $execution.resumeUrl',
     show: ON_WEBHOOK,
   },
   // resume: specificTime
@@ -421,7 +421,7 @@ const parameters: ParamSchema[] = [
     type: 'dateTime',
     default: '',
     required: true,
-    description: 'The date and time to wait for before continuing',
+    description: 'Point in time at which the workflow continues',
     show: { resume: ['specificTime'] },
   },
   // resume: timeInterval
@@ -432,14 +432,14 @@ const parameters: ParamSchema[] = [
   // resume: webhook, form
   {
     name: 'webhookNotice',
-    label: 'The webhook URL will be generated at run time. It can be referenced with the $execution.resumeUrl variable. Send it somewhere before getting to this node.',
+    label: 'The webhook URL is created during the execution and is available as $execution.resumeUrl. Pass it on before the workflow reaches this node.',
     type: 'notice',
     default: '',
     show: ON_WEBHOOK,
   },
   {
     name: 'formNotice',
-    label: 'The form URL will be generated at run time. It can be referenced with the $execution.resumeFormUrl variable. Send it somewhere before getting to this node.',
+    label: 'The form URL is created during the execution and is available as $execution.resumeFormUrl. Pass it on before the workflow reaches this node.',
     type: 'notice',
     default: '',
     show: ON_FORM,
@@ -452,7 +452,7 @@ const parameters: ParamSchema[] = [
     default: '',
     placeholder: 'e.g. Contact us',
     required: true,
-    description: 'Shown at the top of the form',
+    description: 'Heading at the top of the form',
     show: ON_FORM,
   },
   {
@@ -462,7 +462,7 @@ const parameters: ParamSchema[] = [
     default: '',
     placeholder: 'e.g. We\'ll get back to you soon',
     rows: 2,
-    description: 'Shown underneath the Form Title. Can be used to prompt the user on how to complete the form. Accepts HTML.',
+    description: 'Text below the form title, for example instructions for filling it in. HTML is allowed.',
     show: ON_FORM,
   },
   formFields,
@@ -472,11 +472,11 @@ const parameters: ParamSchema[] = [
     type: 'options',
     default: 'onReceived',
     options: [
-      { value: 'onReceived', label: 'Form Is Submitted', description: 'As soon as this node receives the form submission' },
-      { value: 'lastNode', label: 'Workflow Finishes', description: 'When the last node of the workflow is executed' },
-      { value: 'responseNode', label: "Using 'Respond to Webhook' Node", description: 'When the \'Respond to Webhook\' node is executed' },
+      { value: 'onReceived', label: 'Form Is Submitted', description: 'Right after the submission arrives' },
+      { value: 'lastNode', label: 'Workflow Finishes', description: 'After the last node of the workflow has run' },
+      { value: 'responseNode', label: "Using 'Respond to Webhook' Node", description: "When the 'Respond to Webhook' node runs" },
     ],
-    description: 'When to respond to the form submission',
+    description: 'When the form submission gets its answer',
     show: ON_FORM,
   },
   // Webhook/description.ts
@@ -486,7 +486,7 @@ const parameters: ParamSchema[] = [
     type: 'options',
     default: 'GET',
     options: ['DELETE', 'GET', 'HEAD', 'PATCH', 'POST', 'PUT'].map((m) => ({ value: m, label: m })),
-    description: 'The HTTP method to listen to',
+    description: 'HTTP method that is accepted',
     show: ON_WEBHOOK,
   },
   {
@@ -496,7 +496,7 @@ const parameters: ParamSchema[] = [
     default: 200,
     min: 100,
     max: 599,
-    description: 'The HTTP response code to return',
+    description: 'HTTP status code of the response',
     show: ON_WEBHOOK,
     hide: { responseMode: ['responseNode'] },
   },
@@ -506,11 +506,11 @@ const parameters: ParamSchema[] = [
     type: 'options',
     default: 'onReceived',
     options: [
-      { value: 'onReceived', label: 'Immediately', description: 'As soon as this node executes' },
-      { value: 'lastNode', label: 'When Last Node Finishes', description: 'Returns data of the last-executed node' },
-      { value: 'responseNode', label: "Using 'Respond to Webhook' Node", description: 'Response defined in that node' },
+      { value: 'onReceived', label: 'Immediately', description: 'Right when this node runs' },
+      { value: 'lastNode', label: 'When Last Node Finishes', description: 'Answer with the output of the node that ran last' },
+      { value: 'responseNode', label: "Using 'Respond to Webhook' Node", description: 'The answer comes from that node' },
     ],
-    description: 'When and how to respond to the webhook',
+    description: 'Defines when and how the chat gets its answer',
     show: { '@version': [1, 1.1, 2], ...ON_WEBHOOK },
   },
   {
@@ -519,12 +519,12 @@ const parameters: ParamSchema[] = [
     type: 'options',
     default: 'firstEntryJson',
     options: [
-      { value: 'allEntries', label: 'All Entries', description: 'Returns all the entries of the last node. Always returns an array.' },
-      { value: 'firstEntryJson', label: 'First Entry JSON', description: 'Returns the JSON data of the first entry of the last node. Always returns a JSON object.' },
-      { value: 'firstEntryBinary', label: 'First Entry Binary', description: 'Returns the binary data of the first entry of the last node. Always returns a binary file.' },
+      { value: 'allEntries', label: 'All Entries', description: 'Every item of the last node, always as an array.' },
+      { value: 'firstEntryJson', label: 'First Entry JSON', description: 'JSON of the first item of the last node, always as an object.' },
+      { value: 'firstEntryBinary', label: 'First Entry Binary', description: 'Binary data of the first item of the last node, always as a file.' },
       { value: 'noData', label: 'No Body', description: 'Returns without a body' },
     ],
-    description: 'What data should be returned',
+    description: 'Content of the response',
     show: { responseMode: ['lastNode'], ...ON_WEBHOOK },
   },
   {
@@ -533,7 +533,7 @@ const parameters: ParamSchema[] = [
     type: 'string',
     default: 'data',
     required: true,
-    description: 'The name of the node input field with the binary data',
+    description: 'Input field that holds the binary data',
     show: { responseData: ['firstEntryBinary'], ...ON_WEBHOOK },
   },
   // waitTimeProperties
@@ -542,7 +542,7 @@ const parameters: ParamSchema[] = [
     label: 'Limit Wait Time',
     type: 'boolean',
     default: false,
-    description: 'Whether to limit the time this node should wait for a user response before execution resumes',
+    description: "Whether waiting for the user's reply has a time limit",
     show: WEBHOOK_OR_FORM,
   },
   {
@@ -551,10 +551,10 @@ const parameters: ParamSchema[] = [
     type: 'options',
     default: 'afterTimeInterval',
     options: [
-      { value: 'afterTimeInterval', label: 'After Time Interval', description: 'Waits for a certain amount of time' },
-      { value: 'atSpecifiedTime', label: 'At Specified Time', description: 'Waits until a specific date and time to continue' },
+      { value: 'afterTimeInterval', label: 'After Time Interval', description: 'Continue after a period of time' },
+      { value: 'atSpecifiedTime', label: 'At Specified Time', description: 'Continue at a fixed date and time' },
     ],
-    description: 'Sets the condition for the execution to resume. Can be a specified date or after some time.',
+    description: 'When the execution continues: at a given date or after a period of time',
     show: { limitWaitTime: [true], ...WEBHOOK_OR_FORM },
   },
   {
@@ -564,7 +564,7 @@ const parameters: ParamSchema[] = [
     default: 1,
     min: 0,
     precision: 2,
-    description: 'The maximum time to wait',
+    description: 'Longest waiting time',
     show: { limitType: ['afterTimeInterval'], limitWaitTime: [true], ...WEBHOOK_OR_FORM },
   },
   {
@@ -573,7 +573,7 @@ const parameters: ParamSchema[] = [
     type: 'options',
     default: 'hours',
     options: UNIT_OPTIONS,
-    description: 'Unit of the interval value',
+    description: 'Unit of the amount',
     show: { limitType: ['afterTimeInterval'], limitWaitTime: [true], ...WEBHOOK_OR_FORM },
   },
   {
@@ -581,7 +581,7 @@ const parameters: ParamSchema[] = [
     label: 'Max Date and Time',
     type: 'dateTime',
     default: '',
-    description: 'Continue execution after the specified date and time',
+    description: 'Point in time at which the execution continues',
     show: { limitType: ['atSpecifiedTime'], limitWaitTime: [true], ...WEBHOOK_OR_FORM },
   },
   // Options for resume=webhook: optionsProperty from Webhook/description.ts plus webhookSuffix
@@ -598,7 +598,7 @@ const parameters: ParamSchema[] = [
         label: 'Binary File',
         type: 'boolean',
         default: false,
-        description: 'Whether the webhook will receive binary data',
+        description: 'Whether the request carries binary data',
         show: { '/httpMethod': ['PATCH', 'PUT', 'POST'], '@version': [1] },
       },
       {
@@ -606,7 +606,7 @@ const parameters: ParamSchema[] = [
         label: 'Put Output File in Field',
         type: 'string',
         default: 'data',
-        description: 'If the data gets received via "Form-Data Multipart" it will be the prefix and a number starting with 0 will be attached to it',
+        description: 'For "Form-Data Multipart" requests this is a prefix, followed by a counter starting at 0',
         show: { binaryData: [true], '@version': [1] },
       },
       {
@@ -614,7 +614,7 @@ const parameters: ParamSchema[] = [
         label: 'Field Name for Binary Data',
         type: 'string',
         default: 'data',
-        description: 'The name of the output field to put any binary file data in',
+        description: 'Output field for binary file data',
         hide: { '@version': [1] },
       },
       {
@@ -622,7 +622,7 @@ const parameters: ParamSchema[] = [
         label: 'Ignore Bots',
         type: 'boolean',
         default: false,
-        description: 'Whether to ignore requests from bots like link previewers and web crawlers',
+        description: 'Whether requests from bots such as crawlers and link previews are ignored',
       },
       {
         name: 'ipWhitelist',
@@ -630,14 +630,14 @@ const parameters: ParamSchema[] = [
         type: 'string',
         default: '',
         placeholder: 'e.g. 127.0.0.1',
-        description: 'Comma-separated list of allowed IP addresses. Leave empty to allow all IPs.',
+        description: 'IP addresses allowed to call, separated by commas; empty allows every address.',
       },
       {
         name: 'noResponseBody',
         label: 'No Response Body',
         type: 'boolean',
         default: false,
-        description: 'Whether to send any body in the response',
+        description: 'Whether the response has a body',
         show: { '/responseMode': ['onReceived'] },
         hide: { rawBody: [true] },
       },
@@ -655,7 +655,7 @@ const parameters: ParamSchema[] = [
         label: 'Raw Body',
         type: 'boolean',
         default: false,
-        description: 'Whether to return the raw body',
+        description: 'Whether the body is returned unparsed',
         hide: { noResponseBody: [true], '@version': [1] },
       },
       {
@@ -664,7 +664,7 @@ const parameters: ParamSchema[] = [
         type: 'string',
         default: '',
         placeholder: 'success',
-        description: 'Custom response data to send',
+        description: 'Response body of your own',
         show: { '/responseMode': ['onReceived'] },
         hide: { noResponseBody: [true] },
       },
@@ -674,7 +674,7 @@ const parameters: ParamSchema[] = [
         type: 'string',
         default: '',
         placeholder: 'application/xml',
-        description: 'Set a custom content-type to return if another one as the "application/json" should be returned',
+        description: 'Content type of the response if it should be something other than "application/json"',
         show: { '/responseData': ['firstEntryJson'], '/responseMode': ['lastNode'] },
       },
       {
@@ -684,7 +684,7 @@ const parameters: ParamSchema[] = [
         multiple: true,
         addLabel: 'Add Response Header',
         default: {},
-        description: 'Add headers to the webhook response',
+        description: 'Extra headers for the response',
         groups: [
           {
             name: 'entries',
@@ -701,7 +701,7 @@ const parameters: ParamSchema[] = [
         label: 'Field Name',
         type: 'string',
         default: 'data',
-        description: 'Name of the property to return the data of instead of the whole JSON',
+        description: 'Field whose content is returned instead of the whole JSON',
         show: { '/responseData': ['firstEntryJson'], '/responseMode': ['lastNode'] },
       },
       webhookSuffix,

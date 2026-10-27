@@ -17,7 +17,7 @@ const UNIT_SECONDS: Record<string, number> = { seconds: 1, minutes: 60, hours: 3
 const PAGE = { operation: ['page'] };
 const COMPLETION = { operation: ['completion'] };
 const parameters: ParamSchema[] = [
-  { name: 'triggerNotice', label: 'An n8n Form Trigger node must be set up before this node', type: 'notice', default: '' },
+  { name: 'triggerNotice', label: 'This node needs a Form Trigger earlier in the workflow', type: 'notice', default: '' },
   {
     name: 'operation',
     label: 'Page Type',
@@ -37,9 +37,9 @@ const parameters: ParamSchema[] = [
     default: 'text',
     show: COMPLETION,
     options: [
-      { value: 'text', label: 'Show Completion Screen', description: 'Show a response text to the user' },
-      { value: 'redirect', label: 'Redirect to URL', description: 'Redirect the user to a URL' },
-      { value: 'showText', label: 'Show Text', description: 'Display simple text or HTML' },
+      { value: 'text', label: 'Show Completion Screen', description: 'Display a text to the user' },
+      { value: 'redirect', label: 'Redirect to URL', description: 'Send the user on to a URL' },
+      { value: 'showText', label: 'Show Text', description: 'Show plain text or HTML' },
       { value: 'returnBinary', label: 'Return Binary File', description: 'Return incoming binary file' },
     ],
   },
@@ -53,7 +53,7 @@ const parameters: ParamSchema[] = [
     default: '',
     rows: 2,
     placeholder: 'e.g. Thanks for filling the form',
-    description: 'The text to display on the page; use HTML to style it',
+    description: 'Text of the page; HTML is allowed for formatting',
     show: { ...COMPLETION, respondWith: ['showText'] },
   },
   {
@@ -62,7 +62,7 @@ const parameters: ParamSchema[] = [
     type: 'string',
     default: 'data',
     placeholder: 'e.g. data',
-    description: 'Find the name of input field containing the binary data to return',
+    description: 'Input field with the binary data to return',
     show: { ...COMPLETION, respondWith: ['returnBinary'] },
   },
   {
@@ -70,18 +70,18 @@ const parameters: ParamSchema[] = [
     label: 'Limit Wait Time',
     type: 'boolean',
     default: false,
-    description: 'Whether to limit the time this node should wait for a user response before execution resumes',
+    description: "Whether waiting for the user's reply has a time limit",
   },
   {
     name: 'limitType',
     label: 'Limit Type',
     type: 'options',
     default: 'afterTimeInterval',
-    description: 'Sets the condition for the execution to resume. Can be a specified date or after some time.',
+    description: 'When the execution continues: at a given date or after a period of time',
     show: { limitWaitTime: [true] },
     options: [
-      { value: 'afterTimeInterval', label: 'After Time Interval', description: 'Waits for a certain amount of time' },
-      { value: 'atSpecifiedTime', label: 'At Specified Time', description: 'Waits until the set date and time to continue' },
+      { value: 'afterTimeInterval', label: 'After Time Interval', description: 'Continue after a period of time' },
+      { value: 'atSpecifiedTime', label: 'At Specified Time', description: 'Continue at a fixed date and time' },
     ],
   },
   {
@@ -99,7 +99,7 @@ const parameters: ParamSchema[] = [
     label: 'Unit',
     type: 'options',
     default: 'hours',
-    description: 'Unit of the interval value',
+    description: 'Unit of the amount',
     show: { limitWaitTime: [true], limitType: ['afterTimeInterval'] },
     options: [
       { value: 'minutes', label: 'Minutes' },
@@ -112,7 +112,7 @@ const parameters: ParamSchema[] = [
     label: 'Max Date and Time',
     type: 'dateTime',
     default: '',
-    description: 'Continue execution after the specified date and time',
+    description: 'Point in time at which the execution continues',
     show: { limitWaitTime: [true], limitType: ['atSpecifiedTime'] },
   },
   {

@@ -191,7 +191,7 @@ const allowFileUploadsParam: ParamSchema = {
   label: 'Allow File Uploads',
   type: 'boolean',
   default: false,
-  description: 'Whether to allow file uploads in the chat',
+  description: 'Whether users can upload files in the chat',
 };
 const allowedFilesMimeTypesParam: ParamSchema = {
   name: 'allowedFilesMimeTypes',
@@ -199,14 +199,14 @@ const allowedFilesMimeTypesParam: ParamSchema = {
   type: 'string',
   default: '*',
   placeholder: 'e.g. image/*, text/*, application/pdf',
-  description: 'Allowed file types for upload; comma-separated list of MIME types',
+  description: 'MIME types users may upload, separated by commas',
 };
-const lastNodeMode = { value: 'lastNode', label: 'When Last Node Finishes', description: 'Returns data of the last-executed node' };
-const responseNodeMode = { value: 'responseNode', label: "Using 'Respond to Webhook' Node", description: 'Response defined in that node' };
-const responseNodesMode = { value: 'responseNodes', label: 'Using Response Nodes', description: "Send responses to the chat by using 'Respond to Chat' or 'Respond to Webhook' nodes" };
-const streamingMode = { value: 'streaming', label: 'Streaming', description: 'Streaming response from specified nodes (e.g. AI Agent)' };
+const lastNodeMode = { value: 'lastNode', label: 'When Last Node Finishes', description: 'Answer with the output of the node that ran last' };
+const responseNodeMode = { value: 'responseNode', label: "Using 'Respond to Webhook' Node", description: 'The answer comes from that node' };
+const responseNodesMode = { value: 'responseNodes', label: 'Using Response Nodes', description: "Answers are sent by 'Respond to Chat' or 'Respond to Webhook' nodes" };
+const streamingMode = { value: 'streaming', label: 'Streaming', description: 'Nodes with streaming support (such as AI Agent) send their answer as it is generated' };
 function responseModeParam(options: ParamSchema['options'], show?: ParamSchema['show']): ParamSchema {
-  return { name: 'responseMode', label: 'Response Mode', type: 'options', default: 'lastNode', description: 'When and how to respond to the webhook', options, ...(show ? { show } : {}) };
+  return { name: 'responseMode', label: 'Response Mode', type: 'options', default: 'lastNode', description: 'Defines when and how the chat gets its answer', options, ...(show ? { show } : {}) };
 }
 const commonOptions: ParamSchema[] = [
   {
@@ -214,7 +214,7 @@ const commonOptions: ParamSchema[] = [
     label: 'Allowed Origins (CORS)',
     type: 'string',
     default: '*',
-    description: 'Comma-separated list of URLs allowed for cross-origin non-preflight requests; use * to allow all origins',
+    description: 'Origins that may send cross-origin requests without preflight, separated by commas; * allows any origin',
     show: { '/mode': ['hostedChat', 'webhook'] },
   },
   { ...allowFileUploadsParam, show: HOSTED },
@@ -225,7 +225,7 @@ const commonOptions: ParamSchema[] = [
     type: 'string',
     default: 'Type your question..',
     placeholder: 'e.g. Type your message',
-    description: 'Shown as placeholder text in the chat input field',
+    description: 'Placeholder text of the message input',
     show: HOSTED,
   },
   {
@@ -233,11 +233,11 @@ const commonOptions: ParamSchema[] = [
     label: 'Load Previous Session',
     type: 'options',
     default: 'notSupported',
-    description: 'Whether to load messages from a previous chat session',
+    description: 'Whether earlier messages of the session are shown again',
     options: [
-      { value: 'notSupported', label: 'Off', description: 'Loading messages of previous session is turned off' },
-      { value: 'memory', label: 'From Memory', description: 'Load session messages from memory' },
-      { value: 'manually', label: 'Manually', description: 'Manually return messages of session' },
+      { value: 'notSupported', label: 'Off', description: 'Earlier messages are not loaded' },
+      { value: 'memory', label: 'From Memory', description: 'Take earlier messages from the connected memory' },
+      { value: 'manually', label: 'Manually', description: 'Return earlier messages yourself' },
     ],
   },
   {
@@ -245,7 +245,7 @@ const commonOptions: ParamSchema[] = [
     label: 'Require Button Click to Start Chat',
     type: 'boolean',
     default: false,
-    description: 'Whether to show the welcome screen at the start of the chat',
+    description: 'Whether a welcome screen opens the chat',
     show: HOSTED,
   },
   {
@@ -254,7 +254,7 @@ const commonOptions: ParamSchema[] = [
     type: 'string',
     default: 'New Conversation',
     placeholder: 'e.g. New Conversation',
-    description: 'Shown as part of the welcome screen, in the middle of the chat window',
+    description: 'Text of the welcome screen, centered in the chat window',
     show: { showWelcomeScreen: [true], '/mode': ['hostedChat'] },
   },
   {
@@ -263,7 +263,7 @@ const commonOptions: ParamSchema[] = [
     type: 'string',
     default: "Start a chat. We're here to help you 24/7.",
     placeholder: 'e.g. We are here for you',
-    description: 'Shown at the top of the chat, under the title',
+    description: 'Line below the title at the top of the chat',
     show: HOSTED,
   },
   {
@@ -272,7 +272,7 @@ const commonOptions: ParamSchema[] = [
     type: 'string',
     default: 'Hi there! 👋',
     placeholder: 'e.g. Welcome',
-    description: 'Shown at the top of the chat',
+    description: 'Heading at the top of the chat',
     show: HOSTED,
   },
   {
@@ -282,7 +282,7 @@ const commonOptions: ParamSchema[] = [
     language: 'css',
     rows: 10,
     default: '',
-    description: 'Override default styling of the public chat interface with CSS',
+    description: 'Custom CSS that replaces the default look of the public chat',
     show: HOSTED,
   },
 ];
@@ -302,7 +302,7 @@ const parameters: ParamSchema[] = [
     label: 'Make Chat Publicly Available',
     type: 'boolean',
     default: false,
-    description: 'Whether the chat should be publicly available or only accessible through the editor chat window',
+    description: 'Whether the chat is public or only usable from the chat panel in the editor',
   },
   {
     name: 'mode',
@@ -311,20 +311,20 @@ const parameters: ParamSchema[] = [
     default: 'hostedChat',
     show: { public: [true] },
     options: [
-      { value: 'hostedChat', label: 'Hosted Chat', description: 'Chat on a page served by the server' },
-      { value: 'webhook', label: 'Embedded Chat', description: 'Use your own chat interface or embed the widget in another page' },
+      { value: 'hostedChat', label: 'Hosted Chat', description: 'The server provides a chat page' },
+      { value: 'webhook', label: 'Embedded Chat', description: 'Build your own chat front end or put the widget on another page' },
     ],
   },
   {
     name: 'hostedChatNotice',
-    label: 'The chat is available at the URL above once the workflow is active.',
+    label: 'After activating the workflow, the chat can be reached at the URL above.',
     type: 'notice',
     default: '',
     show: { mode: ['hostedChat'], public: [true] },
   },
   {
     name: 'embeddedChatNotice',
-    label: 'Embed the chat in a website or call the webhook URL directly; it is live once the workflow is active.',
+    label: 'Put the chat on a website or send requests to the webhook URL; both work after the workflow is activated.',
     type: 'notice',
     default: '',
     show: { mode: ['webhook'], public: [true] },
@@ -337,7 +337,7 @@ const parameters: ParamSchema[] = [
     description: 'The way to authenticate',
     show: { public: [true] },
     options: [
-      { value: 'basicAuth', label: 'Basic Auth', description: 'Simple username and password (the same one for all users)' },
+      { value: 'basicAuth', label: 'Basic Auth', description: 'One shared username and password for everyone' },
       { value: 'none', label: 'None' },
     ],
   },
@@ -347,7 +347,7 @@ const parameters: ParamSchema[] = [
     type: 'string',
     default: 'Hi there! 👋\nMy name is Nathan. How can I assist you today?',
     rows: 3,
-    description: 'Default messages shown at the start of the chat, one per line',
+    description: 'Messages that open the chat, one per line',
     show: { mode: ['hostedChat'], public: [true] },
   },
   {

@@ -68,18 +68,18 @@ function respondWithParam(show: ParamSchema['show'], noExpression?: boolean): Pa
     label: 'Respond With',
     type: 'options',
     default: 'firstIncomingItem',
-    description: 'The data that should be returned',
+    description: 'Content of the response',
     ...(noExpression ? { noExpression } : {}),
     show,
     options: [
-      { value: 'allIncomingItems', label: 'All Incoming Items', description: 'Respond with all input JSON items' },
-      { value: 'binary', label: 'Binary File', description: 'Respond with incoming file binary data' },
-      { value: 'firstIncomingItem', label: 'First Incoming Item', description: 'Respond with the first input JSON item' },
-      { value: 'json', label: 'JSON', description: 'Respond with a custom JSON body' },
-      { value: 'jwt', label: 'JWT Token', description: 'Respond with a JWT token' },
-      { value: 'noData', label: 'No Data', description: 'Respond with an empty body' },
-      { value: 'redirect', label: 'Redirect', description: 'Respond with a redirect to a given URL' },
-      { value: 'text', label: 'Text', description: 'Respond with a simple text message body' },
+      { value: 'allIncomingItems', label: 'All Incoming Items', description: 'All input items as JSON' },
+      { value: 'binary', label: 'Binary File', description: 'A file from the binary data of the input' },
+      { value: 'firstIncomingItem', label: 'First Incoming Item', description: 'The first input item as JSON' },
+      { value: 'json', label: 'JSON', description: 'A JSON body of your own' },
+      { value: 'jwt', label: 'JWT Token', description: 'A signed JWT' },
+      { value: 'noData', label: 'No Data', description: 'No body' },
+      { value: 'redirect', label: 'Redirect', description: 'A redirect to a URL' },
+      { value: 'text', label: 'Text', description: 'A plain text body' },
     ],
   };
 }
@@ -90,12 +90,12 @@ const parameters: ParamSchema[] = [
     label: 'Enable Response Output Branch',
     type: 'boolean',
     default: false,
-    description: 'Whether to provide an additional output branch with the response sent to the webhook',
+    description: 'Whether a second output passes on the response that was sent',
     show: { '@version': [{ _cnd: { gte: 1.4 } }] },
   },
   {
     name: 'generalNotice',
-    label: "Verify that the Webhook node's 'Respond' parameter is set to 'Using Respond to Webhook Node'.",
+    label: "The Webhook node's 'Respond' parameter has to be 'Using Respond to Webhook Node'.",
     type: 'notice',
     default: '',
   },
@@ -103,7 +103,7 @@ const parameters: ParamSchema[] = [
   respondWithParam({ '@version': [{ _cnd: { gte: 1.2 } }] }, true),
   {
     name: 'webhookNotice',
-    label: 'When using expressions, note that this node will only run for the first item in the input data.',
+    label: 'Expressions are evaluated for the first input item only, because this node runs just once.',
     type: 'notice',
     default: '',
     show: { respondWith: ['json', 'text', 'jwt'] },
@@ -115,7 +115,7 @@ const parameters: ParamSchema[] = [
     default: '',
     required: true,
     placeholder: 'e.g. https://example.com',
-    description: 'The URL to redirect to',
+    description: 'Target of the redirect',
     show: { respondWith: ['redirect'] },
   },
   {
@@ -124,7 +124,7 @@ const parameters: ParamSchema[] = [
     type: 'json',
     default: '{\n  "myField": "value"\n}',
     rows: 4,
-    description: 'The HTTP response JSON data',
+    description: 'JSON body of the response',
     show: { respondWith: ['json'] },
   },
   {
@@ -133,7 +133,7 @@ const parameters: ParamSchema[] = [
     type: 'json',
     default: '{\n  "myField": "value"\n}',
     rows: 4,
-    description: 'The payload to include in the JWT token',
+    description: 'Payload of the JWT',
     show: { respondWith: ['jwt'] },
   },
   {
@@ -143,7 +143,7 @@ const parameters: ParamSchema[] = [
     default: '',
     rows: 2,
     placeholder: 'e.g. Workflow completed',
-    description: 'The HTTP response text data',
+    description: 'Text body of the response',
     show: { respondWith: ['text'] },
   },
   {
@@ -153,8 +153,8 @@ const parameters: ParamSchema[] = [
     default: 'automatically',
     show: { respondWith: ['binary'] },
     options: [
-      { value: 'automatically', label: 'Choose Automatically From Input', description: 'Use if input data will contain a single piece of binary data' },
-      { value: 'set', label: 'Specify Myself', description: 'Enter the name of the input field the binary data will be in' },
+      { value: 'automatically', label: 'Choose Automatically From Input', description: 'Use this if the input holds exactly one binary file' },
+      { value: 'set', label: 'Specify Myself', description: 'Give the input field that holds the binary data' },
     ],
   },
   {
@@ -163,12 +163,12 @@ const parameters: ParamSchema[] = [
     type: 'string',
     default: 'data',
     required: true,
-    description: 'The name of the node input field with the binary data',
+    description: 'Input field that holds the binary data',
     show: { respondWith: ['binary'], responseDataSource: ['set'] },
   },
   {
     name: 'contentTypeNotice',
-    label: 'Consider adding a "Content-Type" header with an appropriate value to ensure the response is received correctly.',
+    label: 'Add a matching "Content-Type" header so that the client interprets the response correctly.',
     type: 'notice',
     default: '',
     show: { respondWith: ['text'] },
@@ -180,7 +180,7 @@ const parameters: ParamSchema[] = [
     default: {},
     addLabel: 'Add Option',
     children: [
-      { name: 'responseCode', label: 'Response Code', type: 'number', default: 200, min: 100, max: 599, description: 'The HTTP response code to return. Defaults to 200.' },
+      { name: 'responseCode', label: 'Response Code', type: 'number', default: 200, min: 100, max: 599, description: 'HTTP status code of the response, 200 if not set.' },
       {
         name: 'responseHeaders',
         label: 'Response Headers',
@@ -188,7 +188,7 @@ const parameters: ParamSchema[] = [
         default: {},
         multiple: true,
         addLabel: 'Add Response Header',
-        description: 'Add headers to the webhook response',
+        description: 'Extra headers for the response',
         groups: [
           {
             name: 'entries',
@@ -206,7 +206,7 @@ const parameters: ParamSchema[] = [
         type: 'string',
         default: '',
         placeholder: 'e.g. data',
-        description: 'The name of the response field to put all items in',
+        description: 'Response field that holds all items',
         show: { '/respondWith': ['allIncomingItems', 'firstIncomingItem'] },
       },
       {
@@ -214,7 +214,7 @@ const parameters: ParamSchema[] = [
         label: 'Streaming',
         type: 'boolean',
         default: true,
-        description: 'Whether to write the response to a streamed webhook response',
+        description: 'Whether the response is written into a streaming webhook response',
         show: { '/respondWith': ['allIncomingItems', 'firstIncomingItem', 'text', 'json', 'jwt'], '@version': [{ _cnd: { gte: 1.5 } }] },
       },
     ],

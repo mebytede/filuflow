@@ -569,3 +569,39 @@ files (compose file, systemd unit, Caddy site) are rewritten on every run; own c
 `docker-compose.override.yml` or a systemd drop-in. The env file is only amended, so secrets and own settings survive
 updates. No new runtime dependencies for filuflow itself.
 
+
+## Public release (M43)
+**License AGPL-3.0-or-later.** filuflow is a server product: most users will run it as a network service, not
+redistribute it. Under a permissive license or the plain GPL, anyone could offer a modified filuflow as a hosted service
+without sharing the changes. The AGPL closes that gap (section 13: users of a modified version over a network can get
+its source) while leaving self-hosting, internal company use and commercial use free, and it does not reach into the
+workflows, credentials and configuration people run on filuflow. "Or later" follows the FSF recommendation and keeps the
+door open for a future AGPL version without having to ask every copyright holder; nothing in the repository requires
+"only" (no third-party code under AGPL-3.0-only is included, and the bundled material under OFL-1.1, ISC, MIT and MPL-2.0
+is compatible). The n8n code is not copied (Sustainable Use License), so the n8n license does not constrain the choice.
+`private: true` stays in `package.json`: filuflow is distributed as source and Docker image, not on npm, and the flag
+prevents an accidental publish. Copyright line: "the filuflow authors", maintained by the GitHub account mebytede.
+
+**No external pull requests for now.** As long as all code comes from the maintainers, the copyright situation stays
+simple (no contributor license agreement or DCO process, the license can still be adjusted, for example for dual
+licensing) and the review effort stays manageable while the architecture is still moving. Issues, n8n compatibility
+reports and private security reports are welcome and are the main input. The pull request template and CONTRIBUTING
+say so; the decision is to be revisited, together with a DCO, once the project has settled.
+
+**Release flow.** Releases are cut from `main` by `.github/workflows/release.yml`. It can be started by pushing a tag
+`vX.Y.Z` or by hand with the version as input; in the second case it creates and pushes the tag itself with
+`GITHUB_TOKEN` (`contents: write` only for that job), but only after the version check and the full test suite, so a
+failed run leaves no tag behind. This path exists because the maintainer's tooling cannot push tags. A tag pushed with
+`GITHUB_TOKEN` does not trigger workflows, so there is no second run. The version in `package.json` and a dated
+CHANGELOG section must match the tag, the release notes are that section (`scripts/changelog-section.mjs`), so the
+changelog stays the single source. Images are multi-arch (amd64, arm64; arm64 built with QEMU, which is slow but
+needs no extra runners) and tagged `X.Y.Z`, `X.Y` and `latest`; pre-releases get only their own tag. The amd64 image is
+started and checked via `/healthz` before anything is pushed. Actions from GitHub (`actions/*`) and Docker
+(`docker/*`) only, plus the preinstalled `gh` CLI for the release, no other third-party actions. CI and release use
+`actions/checkout@v5` and `actions/setup-node@v5` (Node 24 runtime, ends the Node 20 deprecation warnings); newer
+majors exist and are left to Dependabot.
+
+**Third-party notices.** `THIRD_PARTY_NOTICES.md` lists the material that ships inside the repository or image (fonts,
+icon data, separator data, Pyodide) with license texts, and a table of all runtime npm packages generated from
+`package-lock.json` by `scripts/third-party-licenses.mjs` (no new dependency). The Docker image contains `LICENSE`
+and the notices next to `node_modules`, whose packages carry their own license files.

@@ -10,12 +10,18 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/mebytede/filuflow/actions/workflows/ci.yml"><img src="https://github.com/mebytede/filuflow/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue" alt="License: AGPL-3.0-or-later"></a>
+</p>
+
+<p align="center">
   <a href="#quick-start">Quick start</a> ·
   <a href="#web-interface">Web interface</a> ·
   <a href="#server-and-api">Server and API</a> ·
   <a href="#multiple-users-and-tenants">Master and Worker</a> ·
   <a href="#configuration">Configuration</a> ·
-  <a href="#documentation">Documentation</a>
+  <a href="#documentation">Documentation</a> ·
+  <a href="#license">License</a>
 </p>
 
 ![Editor showing the last run of a workflow](docs/assets/editor.png)
@@ -23,6 +29,9 @@
 filuflow (Latin *filum*, the thread) is a lean workflow engine with a browser editor. A workflow connects nodes
 into a flow: a webhook receives a message, nodes transform the data, branch, call services and AI models,
 and respond. Every run is logged and can be traced node by node.
+
+> **Status:** filuflow is young and in early development (0.x). Interfaces, configuration and the database schema can
+> still change between minor versions; read the [changelog](CHANGELOG.md) before updating.
 
 ## What filuflow can do
 
@@ -565,8 +574,9 @@ removes it when the assignment is lifted and catches up on failures at the next 
 worker. The image is based on `node:22-slim` and runs as user `node` with the working directory `/data` (workflows under
 `/data/workflows`, optionally `/data/credentials.json` and `/data/vars.json`).
 
-A prebuilt image is published to the GitHub Container Registry (`ghcr.io/mebytede/filuflow:main`, see Development); while
-the package is private, only accounts with access can pull it. To build it yourself:
+Prebuilt images for amd64 and arm64 are published to the GitHub Container Registry: `ghcr.io/mebytede/filuflow:latest`
+(latest release), `:<version>` and `:<major>.<minor>` for releases, `:main` for the current development state (see
+Development). To build it yourself:
 
 ```bash
 docker build -t filuflow .                                   # with Python (Native): --build-arg WITH_PYTHON=true
@@ -597,7 +607,8 @@ and is built with `tsc`.
 
 The CI on GitHub (`.github/workflows/ci.yml`) checks every pull request and every push to `main`: lint, tests with Chromium,
 golden tests, build and the Docker image (build, start, `/healthz`). After a push to `main` the image is available at
-`ghcr.io/mebytede/filuflow:main` and `ghcr.io/mebytede/filuflow:<commit>`.
+`ghcr.io/mebytede/filuflow:main` and `ghcr.io/mebytede/filuflow:<commit>`. Releases are built by
+`.github/workflows/release.yml` (see [docs/RELEASING.md](docs/RELEASING.md)).
 
 ## Documentation
 
@@ -606,7 +617,36 @@ golden tests, build and the Docker image (build, start, `/healthz`). After a pus
 - [docs/SECURITY.md](docs/SECURITY.md): security model, login, credentials
 - [docs/DECISIONS.md](docs/DECISIONS.md): decisions and dependencies
 - [docs/SPEC.md](docs/SPEC.md): specification and planned work
+- [docs/RELEASING.md](docs/RELEASING.md): release procedure
+- [CHANGELOG.md](CHANGELOG.md): changes per version
 
 > **Formerly flowlite.** filuflow was called flowlite until October 2026. Old environment variables (`FLOWLITE_*`) still apply as long as the
 > new one is not set; a notice appears at startup. The default database is now called `filuflow.db` (rename an existing
 > `flowlite.db` or pass it with `--db`). API tokens with `flt_` remain valid.
+
+## Contributing
+
+Bug reports, feature requests and reports about n8n workflows that behave differently are welcome as
+[issues](https://github.com/mebytede/filuflow/issues). External pull requests are not accepted at the moment; see
+[CONTRIBUTING.md](CONTRIBUTING.md) for the reasons, how to report bugs and how to build and test locally. Please report
+security problems privately as described in [SECURITY.md](SECURITY.md). Everyone taking part is expected to follow the
+[Code of Conduct](CODE_OF_CONDUCT.md).
+
+## License
+
+Copyright the filuflow authors. The project is maintained by [mebytede](https://github.com/mebytede).
+
+filuflow is free software under the [GNU Affero General Public License v3.0 or later](LICENSE) (AGPL-3.0-or-later).
+In plain words, and not as legal advice: you may use filuflow for any purpose, including commercially and inside your
+company, and you may change it. If you give copies to others, you must pass on the source code under the same license.
+The AGPL adds one rule for networks: if you **modify** filuflow and let other people use your modified version over a
+network (for example as a hosted service for customers), you must offer those users the complete source code of your
+modified version under the AGPL. Running an unmodified filuflow, and writing your own workflows, credentials and
+configuration, does not create such an obligation; your workflows are your data, not part of filuflow. The license text
+is authoritative.
+
+Bundled third-party material (IBM Plex fonts, Lucide icons, Pyodide and the npm dependencies) keeps its own licenses;
+see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+filuflow is an independent project and not affiliated with or endorsed by n8n GmbH. n8n is a trademark of n8n GmbH; it
+is used here only to describe compatibility.

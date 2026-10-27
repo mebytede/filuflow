@@ -60,7 +60,7 @@ const CODE_HINT = 'The input is available in the "query" variable; return a sing
 const SHOW_SCHEMA = { specifyInputSchema: [true] };
 
 const parameters: ParamSchema[] = [
-  { name: 'notice', label: 'This node must be connected to an AI agent.', type: 'notice', default: '' },
+  { name: 'notice', label: 'Connect this node to an AI agent.', type: 'notice', default: '' },
   { name: 'name', label: 'Name', type: 'string', default: '', placeholder: 'My_Tool', show: { '@version': [1] } },
   {
     name: 'name',
@@ -68,7 +68,7 @@ const parameters: ParamSchema[] = [
     type: 'string',
     default: '',
     placeholder: 'e.g. My_Tool',
-    description: 'The name of the function to be called, could contain letters, numbers, and underscores only',
+    description: 'Function name; only letters, digits and underscores',
     show: { '@version': [1.1] },
   },
   {
@@ -86,7 +86,7 @@ const parameters: ParamSchema[] = [
     type: 'string',
     default: '',
     rows: 3,
-    placeholder: 'Call this tool to get a random color. The input should be a string with comma separated names of colors to exclude.',
+    placeholder: 'Returns a random color. Input: names of colors to leave out, separated by commas.',
   },
   {
     name: 'language',
@@ -125,7 +125,7 @@ const parameters: ParamSchema[] = [
     type: 'boolean',
     default: false,
     noExpression: true,
-    description: 'Whether to specify the schema for the function. This would require the LLM to provide the input in the correct format and would validate it against the schema.',
+    description: 'Whether the function has an input schema. The model then has to send matching input, which is checked against the schema.',
   },
   {
     name: 'schemaType',
@@ -133,10 +133,10 @@ const parameters: ParamSchema[] = [
     type: 'options',
     default: 'fromJson',
     noExpression: true,
-    description: 'How to specify the schema for the function',
+    description: 'Way the function schema is defined',
     options: [
-      { value: 'fromJson', label: 'Generate From JSON Example', description: 'Generate a schema from an example JSON object' },
-      { value: 'manual', label: 'Define using JSON Schema', description: 'Define the JSON schema manually' },
+      { value: 'fromJson', label: 'Generate From JSON Example', description: 'Derive the fields from an example JSON object' },
+      { value: 'manual', label: 'Define using JSON Schema', description: 'Write the JSON Schema yourself' },
     ],
     show: SHOW_SCHEMA,
   },
@@ -147,12 +147,12 @@ const parameters: ParamSchema[] = [
     default: '{\n\t"some_input": "some_value"\n}',
     noExpression: true,
     rows: 10,
-    description: 'Example JSON object to use to generate the schema',
+    description: 'Sample JSON object the schema is derived from',
     show: { ...SHOW_SCHEMA, schemaType: ['fromJson'] },
   },
   {
     name: 'notice',
-    label: "All properties will be required. To make them optional, use the 'JSON Schema' schema type instead.",
+    label: "Every property becomes required. Choose the 'JSON Schema' type if some should be optional.",
     type: 'notice',
     default: '',
     show: { ...SHOW_SCHEMA, '@version': [{ _cnd: { gte: 1.3 } }], schemaType: ['fromJson'] },
@@ -164,7 +164,7 @@ const parameters: ParamSchema[] = [
     default:
       '{\n"type": "object",\n"properties": {\n\t"some_input": {\n\t\t"type": "string",\n\t\t"description": "Some input to the function"\n\t\t}\n\t}\n}',
     rows: 10,
-    description: 'Schema to use for the function ($ref is not supported)',
+    description: 'JSON Schema of the function input ($ref is not supported)',
     show: { ...SHOW_SCHEMA, schemaType: ['manual'] },
   },
 ];

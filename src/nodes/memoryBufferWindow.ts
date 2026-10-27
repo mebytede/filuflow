@@ -10,13 +10,13 @@ import type { ParamSchema } from './params.js';
 // expressionSessionKeyProperty(1.3), sessionKeyProperty, contextWindowLengthProperty), n8n 1.123.0.
 // In n8n "Session Key From Previous Node" is locked (disabledOptions); here it is a normal text field.
 const parameters: ParamSchema[] = [
-  { name: 'notice', label: 'This node must be connected to an AI agent.', type: 'notice', default: '' },
+  { name: 'notice', label: 'Connect this node to an AI agent.', type: 'notice', default: '' },
   {
     name: 'sessionKey',
     label: 'Session Key',
     type: 'string',
     default: 'chat_history',
-    description: 'The key to use to store the memory in the workflow data',
+    description: 'Key under which the memory is kept in the workflow data',
     show: { '@version': [1] },
   },
   {
@@ -24,7 +24,7 @@ const parameters: ParamSchema[] = [
     label: 'Session ID',
     type: 'string',
     default: '={{ $json.sessionId }}',
-    description: 'The key to use to store the memory',
+    description: 'Key under which the memory is kept',
     show: { '@version': [1.1] },
   },
   {
@@ -33,8 +33,8 @@ const parameters: ParamSchema[] = [
     type: 'options',
     default: 'fromInput',
     options: [
-      { value: 'fromInput', label: 'Connected Chat Trigger Node', description: "Looks for an input field called 'sessionId' that is coming from a directly connected Chat Trigger" },
-      { value: 'customKey', label: 'Define below', description: 'Use an expression to reference data in previous nodes or enter static text' },
+      { value: 'fromInput', label: 'Connected Chat Trigger Node', description: "Reads the field 'sessionId' delivered by a directly connected Chat Trigger" },
+      { value: 'customKey', label: 'Define below', description: 'Fixed text or an expression on data of earlier nodes' },
     ],
     show: { '@version': [{ _cnd: { gte: 1.2 } }] },
   },
@@ -43,7 +43,7 @@ const parameters: ParamSchema[] = [
     label: 'Session Key From Previous Node',
     type: 'string',
     default: '={{ $json.sessionId }}',
-    description: 'With this option the key is always read from $json.sessionId.',
+    description: 'The key then always comes from $json.sessionId.',
     show: { sessionIdType: ['fromInput'], '@version': [{ _cnd: { gte: 1.3 } }] },
   },
   {
@@ -51,7 +51,7 @@ const parameters: ParamSchema[] = [
     label: 'Key',
     type: 'string',
     default: '',
-    description: 'The key to use to store session ID in the memory',
+    description: 'Key for the session ID in the memory',
     show: { sessionIdType: ['customKey'] },
   },
   {
@@ -59,7 +59,7 @@ const parameters: ParamSchema[] = [
     label: 'Context Window Length',
     type: 'number',
     default: 5,
-    description: 'How many past interactions the model receives as context',
+    description: 'Number of earlier exchanges passed to the model as context',
   },
 ];
 

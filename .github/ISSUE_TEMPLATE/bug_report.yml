@@ -1,0 +1,82 @@
+name: Bug report
+description: Something in filuflow does not work as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a bug. Please search the existing issues first.
+        **Security problems do not belong here**: report them privately as described in SECURITY.md.
+        Remove credentials, tokens, personal data and internal URLs from everything you paste.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: The smallest set of steps that shows the problem.
+      placeholder: |
+        1. Import the workflow below
+        2. Run it with ...
+        3. See ...
+    validations:
+      required: true
+  - type: textarea
+    id: workflow
+    attributes:
+      label: Minimal workflow (JSON)
+      description: A workflow that shows the problem, and input data if needed. It will be formatted as code.
+      render: json
+  - type: input
+    id: version
+    attributes:
+      label: filuflow version
+      description: Release, image tag or digest, or commit.
+      placeholder: "0.1.0, ghcr.io/mebytede/filuflow:main, or a commit SHA"
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Mode
+      options:
+        - Single server (serve)
+        - Master
+        - Worker
+        - CLI (run or validate)
+        - Not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: installation
+    attributes:
+      label: Installation
+      options:
+        - Docker image
+        - scripts/install.sh with Docker
+        - scripts/install.sh native (systemd)
+        - From source (npm)
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Operating system, Node.js version (when not using Docker), browser for interface problems.
+  - type: textarea
+    id: n8n
+    attributes:
+      label: Difference from n8n
+      description: If filuflow behaves differently from n8n, name the n8n version and paste what n8n returns.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: Log lines around the problem (FILUFLOW_LOG_LEVEL=debug gives more detail). It will be formatted as code.
+      render: text

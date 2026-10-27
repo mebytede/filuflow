@@ -326,6 +326,7 @@ Engine order, expressions (including raw value vs. string), every node, filter o
 | M40 | Gmail node | All resources and operations of Gmail v2 to 2.2 with OAuth2 and service account, MIME messages with attachments, send and wait for a response |
 | M41 | Gmail Trigger | Polling trigger v1 to 1.3 with the Gmail filters, seen messages in static data like n8n; generic mechanism for built-in poll nodes (Poll Times, activation, manual run) |
 | M42 | Installation | `scripts/install.sh` for serve, master and worker with Docker or systemd, optional Caddy with Let's Encrypt, updates and uninstall; `docs/INSTALL.md` |
+| M43 | Public release preparation | AGPL-3.0-or-later license with third-party notices, community files (contributing, code of conduct, security policy, issue forms, Dependabot), release workflow with multi-arch images and GitHub releases from the changelog, `docs/RELEASING.md` with the GitHub settings checklist |
 
 After each milestone: update `docs/STATUS.md` (what works, what is missing) and make a commit with a meaningful message.
 
@@ -397,3 +398,19 @@ proposal that a human accepts or dismisses; accepting activates nothing.
 - Re-runs update (keep secrets, own settings and data), `--update`, `--uninstall` keeps data, `--purge` deletes it.
 - `docs/INSTALL.md`: requirements, the script, manual installation per mode and method, HTTPS (Caddy, nginx), first
   steps, updates, backup and restore, uninstalling, troubleshooting.
+
+## Public release (M43)
+Preparing the repository for publication on GitHub:
+- License AGPL-3.0-or-later (`LICENSE` with the unmodified FSF text), `package.json` with license, repository, homepage,
+  bugs and keywords (`private: true` stays to prevent an accidental npm publish).
+- `THIRD_PARTY_NOTICES.md`: IBM Plex (OFL-1.1, license text), Lucide (ISC and MIT for Feather, license text), separator
+  data from `@langchain/textsplitters` (MIT), Pyodide (MPL-2.0) and a generated table of the runtime npm dependencies
+  (`scripts/third-party-licenses.mjs --write`, `--check`). The Docker image contains `LICENSE` and the notices.
+- Community files: `CONTRIBUTING.md` (external pull requests not accepted for now, issues welcome), `CODE_OF_CONDUCT.md`
+  (Contributor Covenant 2.1), `SECURITY.md` (supported versions, private vulnerability reporting), issue forms, pull
+  request template, `CODEOWNERS`, `dependabot.yml`.
+- `.github/workflows/release.yml`: on a tag `vX.Y.Z` or started by hand with the version (then it creates the tag
+  itself after the tests): checks version, package.json and changelog, runs the CI checks, builds amd64 and arm64
+  images with OCI labels (`X.Y.Z`, `X.Y`, `latest`) and creates the GitHub release with the changelog section.
+- `CHANGELOG.md` (Keep a Changelog), `docs/RELEASING.md` (procedure and one-time GitHub settings), README with badges,
+  status note, license and contributing sections and a note on the n8n trademark.

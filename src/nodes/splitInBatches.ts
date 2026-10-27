@@ -20,11 +20,11 @@ interface LoopContext {
 const parameters: ParamSchema[] = [
   {
     name: 'splitInBatchesNotice',
-    label: 'You may not need this node: nodes automatically run once for each input item.',
+    label: 'Often this node is not needed, because nodes already run once per input item.',
     type: 'notice',
     default: '',
   },
-  { name: 'batchSize', label: 'Batch Size', type: 'number', default: 1, min: 1, description: 'The number of items to return with each call' },
+  { name: 'batchSize', label: 'Batch Size', type: 'number', default: 1, min: 1, description: 'Items per batch' },
   {
     name: 'options',
     label: 'Options',
@@ -37,7 +37,7 @@ const parameters: ParamSchema[] = [
         label: 'Reset',
         type: 'boolean',
         default: false,
-        description: 'Whether the node starts again from the beginning and treats the incoming items as a new set of data',
+        description: 'Whether the node starts over and treats the incoming items as a new data set',
       },
     ],
   },

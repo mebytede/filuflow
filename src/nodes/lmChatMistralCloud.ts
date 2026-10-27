@@ -16,12 +16,12 @@ const parameters: ParamSchema[] = [
     default: {},
     addLabel: 'Add Option',
     children: [
-      { name: 'maxTokens', label: 'Maximum Number of Tokens', type: 'number', default: -1, max: 32768, description: 'The maximum number of tokens to generate (-1 for no limit)' },
+      { name: 'maxTokens', label: 'Maximum Number of Tokens', type: 'number', default: -1, max: 32768, description: 'Upper limit of generated tokens; -1 means no limit' },
       { name: 'temperature', label: 'Sampling Temperature', type: 'number', default: 0.7, min: 0, max: 1, precision: 1 },
       { name: 'maxRetries', label: 'Max Retries', type: 'number', default: 2 },
       { name: 'topP', label: 'Top P', type: 'number', default: 1, min: 0, max: 1, precision: 1 },
-      { name: 'safeMode', label: 'Safe Mode', type: 'boolean', default: false, description: 'Whether to inject a safety prompt before all conversations (has no effect in n8n)' },
-      { name: 'randomSeed', label: 'Random Seed', type: 'number', description: 'The seed to use for random sampling; set it to get deterministic results' },
+      { name: 'safeMode', label: 'Safe Mode', type: 'boolean', default: false, description: 'Whether a safety prompt is put in front of every conversation (ignored by n8n)' },
+      { name: 'randomSeed', label: 'Random Seed', type: 'number', description: 'Seed for random sampling; a fixed value makes results reproducible' },
     ],
   },
 ];

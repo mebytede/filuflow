@@ -21,7 +21,7 @@ const parameters: ParamSchema[] = [
     ],
   },
   MODEL_NOTICE,
-  { name: 'model', label: 'Model (Deployment) Name', type: 'string', default: '', required: true, description: 'The name of the model (deployment) to use in Azure' },
+  { name: 'model', label: 'Model (Deployment) Name', type: 'string', default: '', required: true, description: 'Deployment name of the model in Azure' },
   compatibleOptions({ temperatureMax: 2, timeout: 60000 }),
 ];
 

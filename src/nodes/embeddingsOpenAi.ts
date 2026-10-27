@@ -14,7 +14,7 @@ const model = (dflt: string): Omit<ParamSchema, 'show' | 'hide'> => ({
 });
 
 const parameters: ParamSchema[] = [
-  { name: 'notice', label: 'This node must be connected to a vector store.', type: 'notice', default: '' },
+  { name: 'notice', label: 'Connect this node to a vector store.', type: 'notice', default: '' },
   { ...model('text-embedding-ada-002'), show: { '@version': [1] } },
   { ...model('text-embedding-3-small'), hide: { '@version': [1] } },
   {
@@ -29,10 +29,10 @@ const parameters: ParamSchema[] = [
         label: 'Dimensions',
         type: 'options',
         options: [256, 512, 1024, 1536, 3072].map((n) => ({ value: n, label: String(n) })),
-        description: 'Only supported in text-embedding-3 and later models',
+        description: 'Requires text-embedding-3 or a newer model',
       },
       { name: 'baseURL', label: 'Base URL', type: 'string', default: 'https://api.openai.com/v1', show: { '@version': [{ _cnd: { gte: 1.2 } }] } },
-      { name: 'batchSize', label: 'Batch Size', type: 'number', default: 512, max: 2048, description: 'Maximum number of documents to send in each request' },
+      { name: 'batchSize', label: 'Batch Size', type: 'number', default: 512, max: 2048, description: 'Upper limit of documents per request' },
       { name: 'stripNewLines', label: 'Strip New Lines', type: 'boolean', default: true },
       { name: 'timeout', label: 'Timeout (ms)', type: 'number', default: -1, description: '-1 for no limit' },
       {
