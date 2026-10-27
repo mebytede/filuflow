@@ -1,5 +1,5 @@
 // Extension functions for arrays.
-// Behavior rebuilt after n8n 1.123.0 packages/workflow/src/extensions/array-extensions.ts
+// Behavior rebuilt after the reference version 1.123.0 packages/workflow/src/extensions/array-extensions.ts
 import { randomInt } from 'node:crypto';
 import lodash from 'lodash';
 import { ExpressionError, ExpressionExtensionError } from '../../errors.js';

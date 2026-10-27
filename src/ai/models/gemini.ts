@@ -1,4 +1,4 @@
-// Google Gemini (generateContent) as in n8n 1.123.0 with @langchain/google-genai 2.0 and @google/generative-ai 0.24:
+// Google Gemini (generateContent) as in the reference version 1.123.0 with @langchain/google-genai 2.0 and @google/generative-ai 0.24:
 //   chat_models.js (_generate: systemInstruction, generationConfig), utils/common.js
 //   (convertBaseMessagesToContent, mapGenerateContentResultToChatResult), utils/tools.js (functionDeclarations),
 //   @google/generative-ai index.mjs (URL, headers, order of the fields in the body)

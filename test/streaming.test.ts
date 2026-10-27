@@ -1,4 +1,4 @@
-// M21: streaming like n8n. Webhook with responseMode "streaming" and Respond to Webhook 1.5, Chat Trigger with
+// M21: streaming like the reference. Webhook with responseMode "streaming" and Respond to Webhook 1.5, Chat Trigger with
 // streaming and AI Agent (V3 per model call, V2 over the whole run) with streamed responses from OpenAI, Anthropic
 // and Gemini, also with tool calls in the stream.
 import { afterEach, beforeAll, afterAll, describe, expect, it } from 'vitest';

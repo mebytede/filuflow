@@ -7,7 +7,7 @@
 // "path" matches path + query exactly; "pathPrefix" only the beginning; "bodyContains" requires a text
 // (or, for an array, all texts) in the body.
 // Requests to mocks with "log": true are recorded (server.requests; with MOCK_LOG=<file> also as JSON lines),
-// so golden tests can compare the requests of n8n and filuflow (e.g. prompts to AI APIs).
+// so golden tests can compare the requests of the reference implementation and filuflow (e.g. prompts to AI APIs).
 // Additionally: /echo/* returns the request (method, path, query, selected headers, body).
 // /oauth-echo/token returns an OAuth2 token that encodes the token request (method, headers, body),
 // so golden tests can compare the token request via the subsequent Authorization header.
@@ -102,7 +102,7 @@ export function startMockServer(fixturesDir, port = 18089) {
         res.end(JSON.stringify({ error: 'no mock', method: req.method, url }));
         return;
       }
-      // Fixed headers so responses look the same in tests and n8n
+      // Fixed headers so responses look the same in tests and in the reference implementation
       const headers = { 'content-type': 'application/json', ...(mock.headers ?? {}) };
       res.writeHead(mock.status ?? 200, headers);
       if (mock.bodyBase64 !== undefined) res.end(Buffer.from(mock.bodyBase64, 'base64'));

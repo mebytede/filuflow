@@ -1,11 +1,11 @@
 // Chat Trigger, @n8n/n8n-nodes-langchain.chatTrigger (typeVersion 1 to 1.4)
-// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/trigger/ChatTrigger/ChatTrigger.node.ts:
+// Rebuilt after the reference version 1.123.0, packages/@n8n/nodes-langchain/nodes/trigger/ChatTrigger/ChatTrigger.node.ts:
 //   - webhooks under <webhookId>/chat: GET "setup" (hosted chat page), POST "default" (messages)
 //   - not public (public: false): 404; Basic Auth via httpBasicAuth
 //   - action "loadPreviousSession": messages from the connected Simple Memory or an empty list
 //   - otherwise: the request JSON is the item (multipart: fields plus files as binary data0, data1 …)
 //   - responseMode from options: lastNode (default), responseNode or streaming (from v1.2, JSON lines like the webhook)
-// The hosted page is our own implementation (n8n embeds @n8n/chat from a CDN): src/ui/chat/page.ts.
+// The hosted page is our own implementation (the reference embeds the package @n8n/chat from a CDN): src/ui/chat/page.ts.
 import type { NodeIssue, NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
 import type { Item, Workflow, WorkflowNode } from '../types.js';
@@ -37,7 +37,7 @@ export interface ChatHandleResult {
   workflowData?: Item[][];
 }
 
-/** Path like n8n getNodeWebhookPath (isFullPath not set): <webhookId>/chat */
+/** Path like the reference getNodeWebhookPath (isFullPath not set): <webhookId>/chat */
 export function chatWebhookPath(node: WorkflowNode): string {
   return `${node.webhookId ?? ''}/${CHAT_PATH}`;
 }
@@ -89,7 +89,7 @@ export async function handleChatRequest(ctx: ChatHandleContext): Promise<ChatHan
   const options = (p.options ?? {}) as ChatOptions;
   const mode = (p.mode as string | undefined) ?? 'hostedChat';
 
-  // validateAuth (GenericFunctions.ts): only Basic Auth (n8n User Auth does not exist in filuflow)
+  // validateAuth (GenericFunctions.ts): only Basic Auth (the reference option "n8nUserAuth" does not exist in filuflow)
   if (p.authentication === 'basicAuth') {
     const expected = await ctx.getCredentials('httpBasicAuth').catch(() => undefined);
     const unauthorized = (code: number, message: string) => ({ directResponse: { statusCode: code, headers: { 'www-authenticate': 'Basic realm="Webhook"' }, body: message } });
@@ -182,8 +182,8 @@ function loadSessionMessages(workflow: Workflow, node: WorkflowNode, sessionId: 
   return [];
 }
 
-// Parameters like n8n ChatTrigger.node.ts (properties, commonOptionsFields). Deviation: authentication without
-// "n8nUserAuth", which does not exist in filuflow. customCss has an empty default instead of the n8n template (constants.ts cssVariables), because the
+// Parameters like the reference ChatTrigger.node.ts (properties, commonOptionsFields). Deviation: authentication without
+// "n8nUserAuth", which does not exist in filuflow. customCss has an empty default instead of the reference template (constants.ts cssVariables), because the
 // hosted page is our own implementation without these CSS variables.
 const HOSTED = { '/mode': ['hostedChat'] };
 const allowFileUploadsParam: ParamSchema = {
@@ -352,14 +352,14 @@ const parameters: ParamSchema[] = [
   },
   {
     name: 'availableInChat',
-    label: 'Make Available in n8n Chat',
+    label: 'Make Available in Chat',
     type: 'boolean',
     default: false,
     noExpression: true,
-    description: 'Whether the agent appears in n8n Chat; has no effect in filuflow',
+    description: 'Whether the agent appears in the chat hub of the reference implementation; has no effect in filuflow',
     show: { '@version': [{ _cnd: { gte: 1.4 } }] },
   },
-  { name: 'agentName', label: 'Agent Name', type: 'string', default: '', noExpression: true, description: 'Name of the agent in n8n Chat', show: { availableInChat: [true] } },
+  { name: 'agentName', label: 'Agent Name', type: 'string', default: '', noExpression: true, description: 'Name of the agent in the chat hub of the reference implementation', show: { availableInChat: [true] } },
   {
     name: 'agentDescription',
     label: 'Agent Description',
@@ -367,7 +367,7 @@ const parameters: ParamSchema[] = [
     default: '',
     rows: 2,
     noExpression: true,
-    description: 'Description of the agent in n8n Chat',
+    description: 'Description of the agent in the chat hub of the reference implementation',
     show: { availableInChat: [true] },
   },
   chatOptions({ public: [false], '@version': [1, 1.1] }, [allowFileUploadsParam, allowedFilesMimeTypesParam]),
@@ -394,7 +394,7 @@ export const chatTriggerNode: NodeType = {
   validate(node) {
     const issues: NodeIssue[] = [];
     if (node.parameters.authentication === 'n8nUserAuth') {
-      issues.push({ code: 'node.unsupportedParameter', message: 'Chat Trigger: "n8n User Auth" does not exist in filuflow; please use Basic Auth', path: 'parameters.authentication' });
+      issues.push({ code: 'node.unsupportedParameter', message: 'Chat Trigger: authentication "n8nUserAuth" is not supported in filuflow; please use Basic Auth', path: 'parameters.authentication' });
     }
     if (!node.webhookId) issues.push({ code: 'node.unsupportedParameter', message: 'Chat Trigger needs a webhookId', path: 'webhookId' });
     return issues;

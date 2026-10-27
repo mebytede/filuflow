@@ -1,6 +1,6 @@
-// Document loaders of the Default Data Loader (M27) as in n8n 1.123.0 utils/N8nJsonLoader.ts and N8nBinaryLoader.ts:
+// Document loaders of the Default Data Loader (M27) as in the reference version 1.123.0 utils/N8nJsonLoader.ts and N8nBinaryLoader.ts:
 // JSON data (whole item as JSON or an expression as text) and binary data (text, JSON, CSV), optionally with a
-// text splitter, metadata from options.metadata. Log on the loader node like n8n logWrapper (processItem:
+// text splitter, metadata from options.metadata. Log on the loader node like the reference logWrapper (processItem:
 // input [[item]], output { response } with pairedItem). PDF, DOCX and EPUB need libraries that filuflow does not
 // ship; they are rejected with a clear message.
 import type { ExecContext } from '../nodes/types.js';
@@ -75,7 +75,7 @@ export function jsonLoader(ctx: ExecContext, splitter?: TextSplitter): DocumentP
       else if (typeof data === 'string') docs = loadText(data, 'text/plain');
       else throw new NodeOperationError(ctx.node.name, 'Document loader is not initialized');
     }
-    // Like n8n: without a setting metadata is an empty array and is merged in anyway (without effect)
+    // Like the reference: without a setting metadata is an empty array and is merged in anyway (without effect)
     return withMetadata(split(splitter, docs), metadata as Record<string, unknown>);
   });
 }
@@ -169,7 +169,7 @@ export function binaryLoader(ctx: ExecContext, binaryDataKey: string, splitter?:
   return logged(ctx, async (item, itemIndex) => {
     const mode = ctx.getParam<string>('binaryMode', itemIndex, 'allInputData');
     if (mode !== 'allInputData') return byKey(item, itemIndex, binaryDataKey);
-    // Like n8n: all binary fields of all input items, each read from the current item
+    // Like the reference: all binary fields of all input items, each read from the current item
     const docs: Document[] = [];
     for (const data of ctx.items) for (const key of Object.keys(data.binary ?? {})) docs.push(...(await byKey(item, itemIndex, key)));
     return docs;

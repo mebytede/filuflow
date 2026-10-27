@@ -1,5 +1,5 @@
 // Default Data Loader, @n8n/n8n-nodes-langchain.documentDefaultDataLoader (typeVersion 1, 1.1)
-// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/document_loaders/DocumentDefaultDataLoader:
+// Rebuilt after the reference version 1.123.0, packages/@n8n/nodes-langchain/nodes/document_loaders/DocumentDefaultDataLoader:
 // JSON or binary data as documents; v1.1 splits by itself by default (RecursiveCharacterTextSplitter 1000/200), with
 // "Custom" or in v1 via a connected Text Splitter.
 import type { NodeType } from './types.js';

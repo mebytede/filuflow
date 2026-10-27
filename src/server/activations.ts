@@ -1,4 +1,4 @@
-// Triggers with their own activation (M31): poll and trigger nodes from n8n packages. Like n8n ActiveWorkflowManager
+// Triggers with their own activation (M31): poll and trigger nodes from packages in the community node format. Like the reference ActiveWorkflowManager
 // (getExecutePollFunctions/getExecuteTriggerFunctions): emit saves the static data and starts an execution
 // from the node with the supplied data; errors start the error workflow ("trigger" error data). A trigger node
 // that reports an error is closed and reactivated with increasing delay (WORKFLOW_REACTIVATE_INITIAL_TIMEOUT

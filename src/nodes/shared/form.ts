@@ -1,8 +1,8 @@
 // Forms (Form Trigger, Form node, Wait "On Form Submitted").
-// Behavior after n8n 1.123.0 packages/nodes-base/nodes/Form/utils/utils.ts (prepareFormData, prepareFormReturnItem,
+// Behavior after the reference version 1.123.0, packages/nodes-base/nodes/Form/utils/utils.ts (prepareFormData, prepareFormReturnItem,
 // addFormResponseDataToReturnItem, sanitizeHtml, formWebhook), Form/common.descriptions.ts (field types, defaults) and
 // utils/formCompletionUtils.ts. The pages are our own implementation: plain HTML forms (multipart/form-data),
-// without script; n8n uses a template with JavaScript. The field names field-0, field-1 … and the output are the same.
+// without script; the reference uses a template with JavaScript. The field names field-0, field-1 … and the output are the same.
 import { DateTime } from 'luxon';
 import type { Item } from '../../types.js';
 import type { BinaryStore } from '../../binary.js';
@@ -33,7 +33,7 @@ export interface FormField {
 
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
 
-// sanitizeHtml: allowed tags and attributes like n8n (sanitize-html), here as a small filter of our own
+// sanitizeHtml: allowed tags and attributes like the reference (sanitize-html), here as a small filter of our own
 const ALLOWED_TAGS = new Set([
   'b', 'div', 'i', 'iframe', 'img', 'video', 'source', 'em', 'strong', 'a', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'u', 'sub', 'sup',
   'code', 'pre', 'span', 'br', 'ul', 'ol', 'li', 'p', 'table', 'thead', 'tbody', 'tfoot', 'td', 'tr', 'th',
@@ -74,7 +74,7 @@ export function sanitizeHtml(html: string): string {
       if (URL_ATTRS.has(name) && !/^https?:\/\//i.test(value.trim())) continue;
       attrs.push(`${name}="${esc(value)}"`);
     }
-    // iframes always in a sandbox (n8n transformTags)
+    // iframes always in a sandbox (reference: transformTags)
     if (tag === 'iframe') attrs.push('sandbox=""', 'referrerpolicy="strict-origin-when-cross-origin"');
     out += `<${tag}${attrs.length ? ` ${attrs.join(' ')}` : ''}>`;
   }
@@ -181,7 +181,7 @@ export function renderCompletionPage(p: { title: string; message?: string; formT
   return shell(p.formTitle || p.title, body, p.customCss);
 }
 
-/** Check required checkboxes and selection limits (n8n checks in the browser); returns a message or undefined */
+/** Check required checkboxes and selection limits (the reference checks in the browser); returns a message or undefined */
 export function validateSubmission(fields: FormField[], form: FormData): string | undefined {
   for (const [index, field] of fields.entries()) {
     if (field.fieldType !== 'checkbox') continue;
@@ -257,7 +257,7 @@ export async function formReturnItem(o: {
   return item;
 }
 
-/** Defaults of the parameter description (n8n adds them when loading the workflow): fieldType "text" */
+/** Defaults of the parameter description (the reference adds them when loading the workflow): fieldType "text" */
 function withDefaults(field: FormField): FormField {
   return { ...field, fieldType: field.fieldType ?? 'text' };
 }

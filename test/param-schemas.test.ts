@@ -1,5 +1,5 @@
 // M19: parameter descriptions per node type. Structure, visibility rules, defaults and coverage of all parameters
-// that appear in the fixture workflows (exported from n8n).
+// that appear in the fixture workflows (exported from the reference).
 import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -62,7 +62,7 @@ describe('Parameter descriptions', () => {
     expect(problems).toEqual([]);
   });
 
-  it('knows all parameters of the fixture workflows (exported from n8n)', () => {
+  it('knows all parameters of the fixture workflows (exported from the reference)', () => {
     const dir = join(import.meta.dirname, '..', 'fixtures');
     const problems: string[] = [];
     let checked = 0;
@@ -89,7 +89,7 @@ describe('Parameter descriptions', () => {
           const v = node.parameters?.[def.name];
           if (v === undefined || (typeof v === 'string' && v.startsWith('='))) continue;
           const allowed = (def.options ?? []).map((o) => o.value);
-          // fixtures/12-data-nodes sets dateTime "to" to "day" by hand; n8n only offers "month"
+          // fixtures/12-data-nodes sets dateTime "to" to "day" by hand; the reference only offers "month"
           if (node.type === 'n8n-nodes-base.dateTime' && def.name === 'to' && v === 'day') continue;
           if (def.type === 'options' && !allowed.includes(v as string)) problems.push(`${name}: ${node.type} "${def.name}" = ${JSON.stringify(v)} not in the options`);
           if (def.type === 'multiOptions' && (!Array.isArray(v) || v.some((x) => !allowed.includes(x as string)))) problems.push(`${name}: ${node.type} "${def.name}" = ${JSON.stringify(v)} not in the options`);
@@ -100,7 +100,7 @@ describe('Parameter descriptions', () => {
     expect([...new Set(problems)]).toEqual([]);
   });
 
-  it('visibility like n8n: show, hide, @version, expressions', () => {
+  it('visibility like the reference: show, hide, @version, expressions', () => {
     const schema: ParamSchema[] = [
       { name: 'mode', label: 'Mode', type: 'options', default: 'a', options: [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }] },
       { name: 'onlyA', label: 'Only A', type: 'string', default: '', show: { mode: ['a'] } },

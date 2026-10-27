@@ -7,7 +7,7 @@ import { button, duration, pageHead, shortTime, statusWord } from '../shell.js';
 import { dateLocale, t } from '../i18n.js';
 
 /** Source of the executions: server in standalone mode or a project's worker (via the master) */
-/** Waiting execution: until when (n8n WAIT_INDEFINITELY = 3000-01-01 means: until the webhook arrives) */
+/** Waiting execution: until when (reference WAIT_INDEFINITELY = 3000-01-01 means: until the webhook arrives) */
 function waitText(waitTill: string | undefined): string {
   if (!waitTill || waitTill.startsWith('3000-')) return t('waiting for call');
   return t('waiting until {time}', { time: new Date(waitTill).toLocaleString(dateLocale(), { dateStyle: 'short', timeStyle: 'short' }) });

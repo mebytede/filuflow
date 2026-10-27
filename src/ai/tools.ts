@@ -1,7 +1,7 @@
 // Tools for the agent (instead of LangChain Tool/DynamicTool/DynamicStructuredTool).
 // A tool with text input has the schema { input?: string } as in LangChain and receives only `input`.
 // Runs in runData: when called by Agent V2 (inline) one run per call on the tool node
-// (n8n logWrapper or own log in the Code tool); with Agent V3 the engine executes the tool node.
+// (reference: logWrapper or own log in the Code tool); with Agent V3 the engine executes the tool node.
 import type { ExecContext } from '../nodes/types.js';
 import type { JsonSchema, ZType } from './schema.js';
 import { zodParse, zodToJsonSchema } from './schema.js';
@@ -20,7 +20,7 @@ export interface ToolInstance {
   invoke(args: unknown): Promise<string>;
 }
 
-/** n8n nodeNameToToolName */
+/** Reference: nodeNameToToolName */
 export function nodeNameToToolName(name: string): string {
   return name.replace(/[^a-zA-Z0-9_-]+/g, '_');
 }
@@ -32,7 +32,7 @@ export interface ToolOptions {
   schema?: ZType;
   /** Actual execution with text (or object with a schema) */
   func: (query: unknown) => Promise<string>;
-  /** Write a run into the runData of the tool node (n8n logWrapper) */
+  /** Write a run into the runData of the tool node (reference: logWrapper) */
   log?: { ctx: ExecContext; inputKey: 'input' | 'query' };
 }
 

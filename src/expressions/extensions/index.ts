@@ -1,5 +1,5 @@
 // Dispatcher for extension functions.
-// Behavior rebuilt after n8n 1.123.0 packages/workflow/src/extensions/expression-extension.ts
+// Behavior rebuilt after the reference version 1.123.0 packages/workflow/src/extensions/expression-extension.ts
 // (findExtendedFunction, extend, extendOptional).
 import { DateTime } from 'luxon';
 import { ExpressionExtensionError } from '../../errors.js';
@@ -52,7 +52,7 @@ interface Found {
   fn: (...args: unknown[]) => unknown;
 }
 
-// n8n converts ISO date strings to Date only for the lookup; the call uses the
+// The reference converts ISO date strings to Date only for the lookup; the call uses the
 // original value (expression-extension.ts findExtendedFunction/extend). Deliberately kept.
 function findExtendedFunction(input: unknown, name: string): Found | undefined {
   let fn: ExtensionFunction | undefined;

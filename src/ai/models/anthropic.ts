@@ -1,4 +1,4 @@
-// Anthropic Messages API as in n8n 1.123.0 with @langchain/anthropic 1.1 (ChatAnthropic):
+// Anthropic Messages API as in the reference version 1.123.0 with @langchain/anthropic 1.1 (ChatAnthropic):
 //   chat_models.js (invocationParams: field order, default max_tokens per model, thinking)
 //   utils/message_inputs.js (_convertMessagesToAnthropicPayload, _ensureMessageContents, mergeMessages)
 import type { ExecContext } from '../../nodes/types.js';
@@ -13,7 +13,7 @@ export interface AnthropicOptions {
   temperature?: number;
   topK?: number;
   topP?: number;
-  /** n8n invocationKwargs (e.g. thinking) */
+  /** Reference: invocationKwargs (e.g. thinking) */
   invocationKwargs?: Record<string, unknown>;
   headers?: Record<string, string>;
 }

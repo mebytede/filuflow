@@ -1,4 +1,4 @@
-// Chat Trigger (M16): webhooks under <webhookId>/chat like n8n, hosted page, messages answered by the last
+// Chat Trigger (M16): webhooks under <webhookId>/chat like the reference, hosted page, messages answered by the last
 // node or by the Respond node, not public = 404, Basic Auth, loadPreviousSession, test URL.
 import { afterEach, describe, expect, it } from 'vitest';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';

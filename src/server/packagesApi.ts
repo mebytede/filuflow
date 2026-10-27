@@ -1,4 +1,4 @@
-// Community packages via the REST API (M30), modeled on n8n /rest/community-packages: list, install,
+// Community packages via the REST API (M30), modeled on the reference endpoint /rest/community-packages: list, install,
 // update, remove. In standalone mode under /api/community-packages, on a worker under
 // /api/worker/community-packages (the master forwards requests from global admins).
 import type { FastifyInstance } from 'fastify';
@@ -8,7 +8,7 @@ import { CommunityPackageError, type CommunityPackages } from '../plugins/commun
 export interface PackagesApiOptions {
   prefix: string;
   packages: CommunityPackages | undefined;
-  /** FILUFLOW_COMMUNITY_PACKAGES_ENABLED / N8N_COMMUNITY_PACKAGES_ENABLED */
+  /** FILUFLOW_COMMUNITY_PACKAGES_ENABLED */
   enabled: boolean;
   logger?: Logger;
 }

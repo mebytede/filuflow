@@ -1,4 +1,4 @@
-// Simple Memory (Buffer Window) as in n8n 1.123.0:
+// Simple Memory (Buffer Window) as in the reference version 1.123.0:
 //   packages/@n8n/nodes-langchain/nodes/memory/MemoryBufferWindow/MemoryBufferWindow.node.ts
 //   (MemoryChatBufferSingleton: in-process storage per "<workflow ID>__<session ID>", deleted after 1 h idle)
 //   packages/@n8n/nodes-langchain/utils/logWrapper.ts (runs "loadMemoryVariables" and "saveContext")
@@ -60,7 +60,7 @@ export class BufferWindowMemory {
   }
 
   /**
-   * chatHistory.addAIMessage / addUserMessage (Respond to Chat). n8n calls this via memory.chatHistory, which logWrapper
+   * chatHistory.addAIMessage / addUserMessage (Respond to Chat). The reference calls this via memory.chatHistory, which logWrapper
    * does not wrap; hence without its own run in the log.
    */
   addMessage(role: 'human' | 'ai', content: string): void {

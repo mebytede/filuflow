@@ -1,21 +1,20 @@
 // Python in the Code node with a local Python interpreter (language "pythonNative").
-// In n8n 1.123.0 this runs in the Python task runner (packages/@n8n/task-runner-python: task_executor.py,
+// In the reference version 1.123.0 this runs in the Python task runner (packages/@n8n/task-runner-python: task_executor.py,
 // task_analyzer.py, import_validation.py, constants.py, config/task_runner_config.py) and requires
-// N8N_RUNNERS_ENABLED. filuflow instead starts one Python process per execution with its own
+// task runners to be enabled. filuflow instead starts one Python process per execution with its own
 // small runner (below) and rebuilds the behavior:
 //   - code in a function, the return value is the result; only `_items` (all items) or `_item` (per item)
 //   - per item: None skips the item, otherwise json (or the dict without "binary") plus pairedItem
 //   - imports only from allowlists (standard library, external packages; default: none), relative imports and
 //     dangerous names and attributes are rejected before the start, builtins like eval, open, getattr are blocked
-//   - environment cleared (N8N_BLOCK_RUNNER_ENV_ACCESS, default on), timeout (default 60 s)
+//   - environment cleared (default on), timeout (default 60 s)
 //   - print() goes into the node's output, result as JSON with str() for unknown types
 // Settings: FILUFLOW_PYTHON (interpreter, default python3), FILUFLOW_PYTHON_STDLIB_ALLOW,
-// FILUFLOW_PYTHON_EXTERNAL_ALLOW, FILUFLOW_PYTHON_BUILTINS_DENY, FILUFLOW_PYTHON_ENV_ACCESS=true;
-// the n8n names (N8N_RUNNERS_STDLIB_ALLOW etc.) apply as well.
+// FILUFLOW_PYTHON_EXTERNAL_ALLOW, FILUFLOW_PYTHON_BUILTINS_DENY, FILUFLOW_PYTHON_ENV_ACCESS=true.
 // The process has the server's permissions. The blocks prevent accidents, they are not a security boundary.
 import { spawn } from 'node:child_process';
 
-/** Default like n8n constants.py BUILTINS_DENY_DEFAULT */
+/** Default like the reference constants.py BUILTINS_DENY_DEFAULT */
 const BUILTINS_DENY_DEFAULT =
   'eval,exec,compile,open,input,breakpoint,getattr,object,type,vars,setattr,delattr,hasattr,dir,memoryview,__build_class__,globals,locals,license,help,credits,copyright';
 
@@ -33,12 +32,11 @@ const list = (value: string | undefined) =>
     .filter(Boolean);
 
 export function nativeSecurityFromEnv(env: NodeJS.ProcessEnv = process.env): NativeSecurity {
-  const block = env.N8N_BLOCK_RUNNER_ENV_ACCESS;
   return {
-    stdlibAllow: list(env.FILUFLOW_PYTHON_STDLIB_ALLOW ?? env.N8N_RUNNERS_STDLIB_ALLOW),
-    externalAllow: list(env.FILUFLOW_PYTHON_EXTERNAL_ALLOW ?? env.N8N_RUNNERS_EXTERNAL_ALLOW),
-    builtinsDeny: list(env.FILUFLOW_PYTHON_BUILTINS_DENY ?? env.N8N_RUNNERS_BUILTINS_DENY ?? BUILTINS_DENY_DEFAULT),
-    envAccess: env.FILUFLOW_PYTHON_ENV_ACCESS !== undefined ? env.FILUFLOW_PYTHON_ENV_ACCESS === 'true' : block === 'false',
+    stdlibAllow: list(env.FILUFLOW_PYTHON_STDLIB_ALLOW),
+    externalAllow: list(env.FILUFLOW_PYTHON_EXTERNAL_ALLOW),
+    builtinsDeny: list(env.FILUFLOW_PYTHON_BUILTINS_DENY ?? BUILTINS_DENY_DEFAULT),
+    envAccess: env.FILUFLOW_PYTHON_ENV_ACCESS === 'true',
   };
 }
 

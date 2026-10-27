@@ -1,9 +1,9 @@
-// OAuth2 credential types with fixed service data (M28). Each type extends oAuth2Api (n8n ICredentialType.extends)
+// OAuth2 credential types with fixed service data (M28). Each type extends oAuth2Api (reference: ICredentialType.extends)
 // and sets grant type, URLs, scopes, query parameters and the kind of client authentication as hidden fields.
-// Names, values and visible extra fields as in n8n 1.123.0 (n8n-nodes-base 1.121.0),
+// Names, values and visible extra fields as in the reference version 1.123.0 (n8n-nodes-base 1.121.0),
 // packages/nodes-base/credentials/<Type>.credentials.ts, e.g. GoogleOAuth2Api.credentials.ts, GmailOAuth2Api.credentials.ts,
 // MicrosoftOAuth2Api.credentials.ts, GithubOAuth2Api.credentials.ts. Values starting with "=" are expressions over $self (the other
-// values of the credential), as n8n evaluates them on load (credentials-helper.ts applyDefaultsAndOverwrites).
+// values of the credential), as the reference evaluates them on load (credentials-helper.ts applyDefaultsAndOverwrites).
 import type { CredentialField, CredentialTypeSchema } from './types.js';
 
 const hidden = (name: string, value: string): CredentialField => ({ name, label: name, kind: 'hidden', default: value });
@@ -17,7 +17,7 @@ interface ServiceOAuth2 {
   authentication: 'header' | 'body';
 }
 
-/** Type with all service data as hidden fields (order as in n8n) */
+/** Type with all service data as hidden fields (order as in the reference) */
 function service(name: string, label: string, description: string, s: ServiceOAuth2, extra: CredentialField[] = []): CredentialTypeSchema {
   return {
     name,
@@ -311,7 +311,7 @@ export const OAUTH2_SERVICE_TYPES: CredentialTypeSchema[] = [
         'user-read-playback-state playlist-read-collaborative user-modify-playback-state playlist-modify-public user-read-currently-playing playlist-read-private user-read-recently-played playlist-modify-private user-library-read user-follow-read',
       authentication: 'header',
     },
-    // in n8n for the Spotify node
+    // in the reference for the Spotify node
     [hidden('server', 'https://api.spotify.com/')],
   ),
   service(
@@ -361,7 +361,7 @@ export const OAUTH2_SERVICE_TYPES: CredentialTypeSchema[] = [
     'Mailchimp OAuth2 API',
     'OAuth2 for Mailchimp.',
     { authUrl: 'https://login.mailchimp.com/oauth2/authorize', accessTokenUrl: 'https://login.mailchimp.com/oauth2/token', scope: '', authentication: 'body' },
-    // in n8n for the Mailchimp node (data center of the account)
+    // in the reference for the Mailchimp node (data center of the account)
     [hidden('metadataUrl', 'https://login.mailchimp.com/oauth2/metadata')],
   ),
 ];

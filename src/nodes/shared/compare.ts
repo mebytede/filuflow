@@ -1,4 +1,4 @@
-// Comparison helpers, rebuilt after n8n 1.123.0 packages/nodes-base/utils/utilities.ts
+// Comparison helpers, rebuilt after the reference version 1.123.0, packages/nodes-base/utils/utilities.ts
 // (fuzzyCompare, preparePairedItemDataArray, compareItems, flattenKeys, chunk)
 import lodash from 'lodash';
 import type { Item, PairedItem } from '../../types.js';

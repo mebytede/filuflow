@@ -124,7 +124,7 @@ export const api = {
   credential: (name: string) => request<CredentialDetail>('GET', `/api/credentials/${encodeURIComponent(name)}`),
   saveCredential: (name: string, body: CredentialSaveBody) => request<CredentialInfo>('PUT', `/api/credentials/${encodeURIComponent(name)}`, body),
   removeCredential: (name: string) => request<void>('DELETE', `/api/credentials/${encodeURIComponent(name)}`),
-  importCredentials: (body: { credentials: unknown; n8nKey?: string; overwrite?: boolean }) =>
+  importCredentials: (body: { credentials: unknown; importKey?: string; overwrite?: boolean }) =>
     request<CredentialImportResult>('POST', '/api/credentials/import', body),
   variables: () => request<{ data: VariableEntry[] }>('GET', '/api/variables').then((r) => r.data),
   saveVariable: (key: string, body: { value: string; rename?: string; create?: boolean }) => request<VariableEntry>('PUT', `/api/variables/${encodeURIComponent(key)}`, body),

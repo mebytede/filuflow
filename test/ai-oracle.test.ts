@@ -1,4 +1,4 @@
-// AI helper functions against n8n code as an oracle (test/oracle/ai-table.json.gz, scripts/record-ai-oracle.sh):
+// AI helper functions against reference code as an oracle (test/oracle/ai-table.json.gz, scripts/record-ai-oracle.sh):
 // Schema from example JSON, format instructions and parser results of the Structured Output Parser.
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';

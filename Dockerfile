@@ -15,7 +15,7 @@ FROM node:22-slim
 # OCI labels: the source label links the image in the GitHub Container Registry to the repository; the release workflow
 # adds version, revision and creation date
 LABEL org.opencontainers.image.title="filuflow" \
-      org.opencontainers.image.description="Self-hosted workflow engine with a browser editor, compatible with the n8n workflow format" \
+      org.opencontainers.image.description="Self-hosted workflow engine with a browser editor, compatible with the common workflow JSON format" \
       org.opencontainers.image.source="https://github.com/mebytede/filuflow" \
       org.opencontainers.image.licenses="AGPL-3.0-or-later"
 # Python (Native) in the Code node needs a Python interpreter: docker build --build-arg WITH_PYTHON=true .

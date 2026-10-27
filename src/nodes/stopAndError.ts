@@ -1,5 +1,5 @@
 // Stop and Error, n8n-nodes-base.stopAndError (typeVersion 1)
-// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/StopAndError (StopAndError.node.ts, utils.ts)
+// Rebuilt after the reference version 1.123.0, packages/nodes-base/nodes/StopAndError (StopAndError.node.ts, utils.ts)
 import type { NodeType } from './types.js';
 import { StopAndErrorError } from '../errors.js';
 import { jsonParse } from './shared/utils.js';

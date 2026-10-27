@@ -1,4 +1,4 @@
-// OpenAI Chat Completions as in n8n 1.123.0 with @langchain/openai 1.1 (ChatOpenAI):
+// OpenAI Chat Completions as in the reference version 1.123.0 with @langchain/openai 1.1 (ChatOpenAI):
 //   chat_models/completions.js (invocationParams: field order, max_tokens or max_completion_tokens)
 //   converters/completions.js (convertMessagesToCompletionsMessageParams)
 // The Responses API is in openaiResponses.ts; Groq and Azure extend this class (compatible.ts).
@@ -15,7 +15,7 @@ export interface OpenAiOptions {
   frequencyPenalty?: number;
   presencePenalty?: number;
   maxTokens?: number;
-  /** response_format, reasoning_effort (n8n modelKwargs) */
+  /** response_format, reasoning_effort (reference: modelKwargs) */
   modelKwargs?: Record<string, unknown>;
   headers?: Record<string, string>;
 }

@@ -1,5 +1,5 @@
 // Anthropic Chat Model, @n8n/n8n-nodes-langchain.lmChatAnthropic (typeVersion 1 to 1.3)
-// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/llms/LMChatAnthropic/LmChatAnthropic.node.ts
+// Rebuilt after the reference version 1.123.0, packages/@n8n/nodes-langchain/nodes/llms/LMChatAnthropic/LmChatAnthropic.node.ts
 import type { NodeType } from './types.js';
 import { AnthropicChatModel } from '../ai/models/anthropic.js';
 import type { ParamSchema } from './params.js';
@@ -8,8 +8,8 @@ const MODEL_DEFAULTS: Record<string, string> = { '1': 'claude-2', '1.1': 'claude
 const MIN_THINKING_BUDGET = 1024;
 const DEFAULT_MAX_TOKENS = 4096;
 
-// Parameters like LmChatAnthropic.node.ts (properties and modelField, n8n 1.123.0).
-// From v1.3 n8n loads the models via API (searchModels); here the model is then a free input.
+// Parameters like LmChatAnthropic.node.ts (properties and modelField, reference version 1.123.0).
+// From v1.3 the reference loads the models via API (searchModels); here the model is then a free input.
 const MODEL_OPTIONS = [
   { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet (20241022)' },
   { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus (20240229)' },
@@ -157,7 +157,7 @@ export const lmChatAnthropicNode: NodeType = {
     if (credentials.header && typeof credentials.headerName === 'string' && credentials.headerName && typeof credentials.headerValue === 'string') {
       headers[credentials.headerName] = credentials.headerValue;
     }
-    // n8n: topP only if set; with topP set and no temperature, the default temperature is omitted
+    // Reference: topP only if set; with topP set and no temperature, the default temperature is omitted
     return new AnthropicChatModel(ctx, {
       apiKey: String(credentials.apiKey ?? ''),
       baseURL: String(credentials.url ?? 'https://api.anthropic.com'),

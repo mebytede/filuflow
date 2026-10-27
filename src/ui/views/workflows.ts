@@ -1,5 +1,5 @@
 // Workflow overview: KPIs, search and filter, table with trigger, state and last run;
-// create new, import n8n export, delete.
+// create new, import exported workflow, delete.
 import { api } from '../api.js';
 import { confirmDialog, dialog, h, toast } from '../dom.js';
 import type { Workflow, WorkflowSummary } from '../types.js';
@@ -12,7 +12,7 @@ export async function workflowsView(): Promise<HTMLElement> {
   const [list, overview] = await Promise.all([api.workflows(), api.overview().catch(() => undefined)]);
   const root = h('section', { class: 'page' });
   const importWorkflow = async () => {
-    const ta = h('textarea', { class: 'param-input json-editor', rows: 14, spellcheck: false, placeholder: t('Workflow JSON from n8n (export or copied nodes)'), 'aria-label': t('Workflow JSON') });
+    const ta = h('textarea', { class: 'param-input json-editor', rows: 14, spellcheck: false, placeholder: t('Workflow JSON (exported workflow or copied nodes)'), 'aria-label': t('Workflow JSON') });
     const file = h('input', { type: 'file', accept: '.json,application/json', 'aria-label': t('Choose file') });
     file.addEventListener('change', async () => {
       const f = file.files?.[0];
@@ -39,7 +39,7 @@ export async function workflowsView(): Promise<HTMLElement> {
     });
     if (!wf) return;
     try {
-      // Always import as a new workflow (IDs from n8n would otherwise collide with existing files)
+      // Always import as a new workflow (imported IDs would otherwise collide with existing files)
       if (wf.id && list.some((w) => w.id === wf.id)) delete wf.id;
       wf.active = false;
       const result = await api.create(wf);
@@ -50,7 +50,7 @@ export async function workflowsView(): Promise<HTMLElement> {
     }
   };
   const head = pageHead(t('Workflows'), t('All workflows of this instance'), [
-    button(t('Import n8n export'), { icon: 'upload', size: 'm', onclick: () => void importWorkflow() }),
+    button(t('Import exported workflow'), { icon: 'upload', size: 'm', onclick: () => void importWorkflow() }),
     button(t('Draft with the supervisor'), { icon: 'scan-eye', size: 'm', href: '#/new?aufseher=1' }),
     button(t('New workflow'), { icon: 'plus', size: 'm', variant: 'primary', href: '#/new' }),
   ]);
@@ -60,8 +60,8 @@ export async function workflowsView(): Promise<HTMLElement> {
       h(
         'div',
         { class: 'empty' },
-        h('p', null, t('No workflows yet. Create workflows as JSON in the directory or import an n8n export.')),
-        button(t('Import n8n export'), { icon: 'upload', onclick: () => void importWorkflow() }),
+        h('p', null, t('No workflows yet. Create workflows as JSON in the directory or import an exported workflow.')),
+        button(t('Import exported workflow'), { icon: 'upload', onclick: () => void importWorkflow() }),
         button(t('New workflow'), { icon: 'plus', variant: 'primary', href: '#/new' }),
       ),
     );

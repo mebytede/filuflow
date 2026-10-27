@@ -1,7 +1,7 @@
-// OAuth 1.0a (RFC 5849) for the oAuth1Api credential, as in n8n 1.123.0:
+// OAuth 1.0a (RFC 5849) for the oAuth1Api credential, as in the reference version 1.123.0:
 //   packages/core/src/execution-engine/node-execution-context/utils/request-helper-functions.ts requestOAuth1
 //   packages/cli/src/controllers/oauth/oauth1-credential.controller.ts (request token, redirect, access token)
-// The signature follows the behavior of the oauth-1.0a library that n8n uses: nonce of 32 characters, timestamp in
+// The signature follows the behavior of the oauth-1.0a library that the reference uses: nonce of 32 characters, timestamp in
 // seconds, parameters from oauth_*, request data and URL query, each key and value percent-encoded and sorted;
 // base string METHOD&URL&PARAMETERS, key consumerSecret&tokenSecret, HMAC-SHA1/256/512 as Base64.
 import { createHmac, randomInt } from 'node:crypto';
@@ -87,7 +87,7 @@ export function oauth1TokenKey(ref: { name: string; id?: string }): string {
   return `oauth1-cred:${ref.id || ref.name}`;
 }
 
-/** Token data of a connected credential: stored (server) or from the credential (n8n export) */
+/** Token data of a connected credential: stored (server) or from the credential (exported file) */
 export function connectedOAuth1TokenData(cred: Record<string, unknown>, ref?: { name: string; id?: string }): Record<string, unknown> | undefined {
   const stored = ref ? getOAuth2TokenStore()?.get<Record<string, unknown>>(oauth1TokenKey(ref)) : undefined;
   if (stored && Object.keys(stored).length) return stored;
@@ -101,7 +101,7 @@ export async function oauth1AuthorizationUrl(http: HttpClient, cred: Record<stri
   const data = { oauth_callback: callbackUrl };
   const url = String(cred.requestTokenUrl ?? '');
   const oauth = authorizeOAuth1({ method: 'POST', url, data }, { consumerKey: String(cred.consumerKey ?? ''), consumerSecret: String(cred.consumerSecret ?? ''), signatureMethod: String(cred.signatureMethod ?? 'HMAC-SHA1') });
-  // n8n passes the data to axios (JSON body) and puts only the oauth_* values of the signature into the header.
+  // The reference passes the data to axios (JSON body) and puts only the oauth_* values of the signature into the header.
   // filuflow additionally puts oauth_callback into the header (RFC 5849 2.1), since many providers do not read a JSON body;
   // the signature is the same.
   const res = await http.request({ method: 'POST', url, headers: { authorization: oauth1Header({ ...oauth, ...data }), 'content-type': 'application/json' }, body: JSON.stringify(data) });

@@ -1,5 +1,5 @@
 // Sort, n8n-nodes-base.sort (typeVersion 1)
-// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/Transform/Sort (Sort.node.ts, utils.ts)
+// Rebuilt after the reference version 1.123.0, packages/nodes-base/nodes/Transform/Sort (Sort.node.ts, utils.ts)
 import vm from 'node:vm';
 import { randomInt } from 'node:crypto';
 import lodash from 'lodash';
@@ -15,7 +15,7 @@ function shuffleArray<T>(array: T[]): void {
   }
 }
 
-// Parameters as in Sort.node.ts (properties); the code default is copied verbatim (including the tabs from n8n)
+// Parameters as in Sort.node.ts (properties); the code default is copied verbatim (including the tabs from the reference)
 const parameters: ParamSchema[] = [
   {
     name: 'type',

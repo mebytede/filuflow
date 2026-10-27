@@ -1,5 +1,5 @@
 // Execute Workflow, n8n-nodes-base.executeWorkflow (typeVersion 1 to 1.3)
-// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/ExecuteWorkflow/ExecuteWorkflow:
+// Rebuilt after the reference version 1.123.0, packages/nodes-base/nodes/ExecuteWorkflow/ExecuteWorkflow:
 //   ExecuteWorkflow.node.ts, GenericFunctions.ts (getWorkflowInfo),
 //   utils/workflowInputsResourceMapping/GenericFunctions.ts (getCurrentWorkflowInputData),
 //   utils/workflow-backtracking.ts (findPairedItemThroughWorkflowData)
@@ -54,11 +54,11 @@ async function getWorkflowInfo(ctx: ExecContext, source: string, itemIndex = 0):
       }
       throw new NodeOperationError(ctx.node.name, (error as Error).message, { itemIndex });
     }
-    // Own message so the file content does not end up in error messages (like n8n)
+    // Own message so the file content does not end up in error messages (like the reference)
     return { workflowJson: jsonParse(text, { errorMessage: 'The file content is not valid JSON' }) };
   }
   if (source === 'url') {
-    // n8n helpers.request with json: true and gzip: true; error from status 400
+    // The reference helpers.request with json: true and gzip: true; error from status 400
     const workflowUrl = String(ctx.getParam('workflowUrl', itemIndex, ''));
     const res = await ctx.helpers.http.request({ method: 'GET', url: workflowUrl, signal: ctx.signal, headers: { accept: 'application/json,text/*;q=0.99', 'accept-encoding': 'gzip, deflate' } });
     const body = res.body.toString('utf8');
@@ -110,8 +110,8 @@ function findPairedItemThroughWorkflowData(runData: RunData, lastNode: string | 
 const generatePairedItemData = (length: number): PairedItem[] => Array.from({ length }, (_v, item) => ({ item }));
 
 // Parameters like packages/nodes-base/nodes/ExecuteWorkflow/ExecuteWorkflow/ExecuteWorkflow.node.ts.
-// workflowId from 1.1 is a workflowSelector in n8n (resource locator with the modes list and id).
-// workflowInputs is a resourceMapper in n8n ({ mappingMode, value, schema, ... }); here as a JSON object.
+// workflowId from 1.1 is a workflowSelector in the reference (resource locator with the modes list and id).
+// workflowInputs is a resourceMapper in the reference ({ mappingMode, value, schema, ... }); here as a JSON object.
 const parameters: ParamSchema[] = [
   { name: 'operation', label: 'Operation', type: 'hidden', noExpression: true, default: 'call_workflow' },
   {

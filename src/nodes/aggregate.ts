@@ -1,5 +1,5 @@
 // Aggregate, n8n-nodes-base.aggregate (typeVersion 1)
-// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/Transform/Aggregate (Aggregate.node.ts, utils.ts)
+// Rebuilt after the reference version 1.123.0, packages/nodes-base/nodes/Transform/Aggregate (Aggregate.node.ts, utils.ts)
 import lodash from 'lodash';
 import type { NodeType } from './types.js';
 import type { ParamSchema } from './params.js';

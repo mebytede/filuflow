@@ -1,5 +1,5 @@
 // Waiting executions (M13): Wait "On Webhook Call" with resuming via $execution.resumeUrl, response modes,
-// errors like n8n (404, 409), authentication, cancellation, resuming after a restart at the due time, persistent
+// errors like the reference (404, 409), authentication, cancellation, resuming after a restart at the due time, persistent
 // static data, behavior without a server.
 import { afterEach, describe, expect, it } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -109,7 +109,7 @@ describe('Wait "On Webhook Call"', () => {
     expect(done.runData!.After[0].data.main![0]![0].json).toEqual({ result: 42, waited: { factor: 2 } });
     expect(done.waitTill).toBeUndefined();
 
-    // Afterwards: 409 like n8n
+    // Afterwards: 409 like the reference
     const again = await s.app.inject({ method: 'POST', url: `/webhook-waiting/${id}`, payload: {} });
     expect(again.statusCode).toBe(409);
     expect(again.json().message).toBe(`The execution "${id} has finished already.`);

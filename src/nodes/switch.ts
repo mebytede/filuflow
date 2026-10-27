@@ -1,5 +1,5 @@
 // Switch, n8n-nodes-base.switch (typeVersion 3 to 3.4)
-// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/Switch/V3/SwitchV3.node.ts
+// Rebuilt after the reference version 1.123.0, packages/nodes-base/nodes/Switch/V3/SwitchV3.node.ts
 import type { NodeType } from './types.js';
 import type { Item, WorkflowNode } from '../types.js';
 import { NodeOperationError } from '../errors.js';
@@ -29,7 +29,7 @@ function configuredOutputs(node: WorkflowNode): number {
 }
 
 /**
- * Output names for the editor, like configuredOutputs in SwitchV3.node.ts (n8n 1.123.0): rule with
+ * Output names for the editor, like configuredOutputs in SwitchV3.node.ts (reference version 1.123.0): rule with
  * outputKey (rename) or index, fallback output renameFallbackOutput or "Fallback".
  */
 function outputNames(node: WorkflowNode): string[] {
@@ -46,7 +46,7 @@ function outputNames(node: WorkflowNode): string[] {
 const LOOSE_TYPE_DESCRIPTION = 'If the type of a value does not match the comparison, it is converted (e.g. "false" or 0 to false)';
 
 // Parameters as in packages/nodes-base/nodes/Switch/V3/SwitchV3.node.ts (looseTypeValidationProperty from utils/descriptions.ts).
-// n8n loads fallbackOutput dynamically (getFallbackOutputOptions: none, extra, then one entry per rule with the index as
+// The reference loads fallbackOutput dynamically (getFallbackOutputOptions: none, extra, then one entry per rule with the index as
 // value); here fixed to none, extra and the indexes 0 to 9.
 const parameters: ParamSchema[] = [
   {

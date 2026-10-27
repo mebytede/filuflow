@@ -1,5 +1,5 @@
 // When Executed by Another Workflow, n8n-nodes-base.executeWorkflowTrigger (typeVersion 1, 1.1)
-// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/ExecuteWorkflow/ExecuteWorkflowTrigger
+// Rebuilt after the reference version 1.123.0, packages/nodes-base/nodes/ExecuteWorkflow/ExecuteWorkflowTrigger
 // v1: data is passed through. v1.1: default "workflowInputs" (only defined fields, missing = null).
 import lodash from 'lodash';
 import type { NodeType } from './types.js';
@@ -8,7 +8,7 @@ import { jsonParse } from './shared/utils.js';
 import type { ParamSchema } from './params.js';
 
 // Parameters like packages/nodes-base/nodes/ExecuteWorkflow/ExecuteWorkflowTrigger/ExecuteWorkflowTrigger.node.ts
-// and utils/workflowInputsResourceMapping/constants.ts (TYPE_OPTIONS). n8n checks the version with { eq: 1 }.
+// and utils/workflowInputsResourceMapping/constants.ts (TYPE_OPTIONS). The reference checks the version with { eq: 1 }.
 const parameters: ParamSchema[] = [
   { name: 'events', label: 'Events', type: 'hidden', noExpression: true, default: 'worklfow_call' },
   {

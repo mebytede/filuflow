@@ -1,9 +1,9 @@
 // Chat models with the format of the OpenAI Chat Completions (M26):
-//   Groq as in n8n 1.123.0 LmChatGroq (ChatGroq from @langchain/groq 1.0.2: invocationParams with stop: [],
+//   Groq as in the reference version 1.123.0 LmChatGroq (ChatGroq from @langchain/groq 1.0.2: invocationParams with stop: [],
 //   max_completion_tokens, temperature default 0.7, convertMessagesToGroqParams)
 //   Azure OpenAI as in LmChatAzureOpenAi (AzureChatOpenAI from @langchain/openai 1.1.3: utils/azure.js getEndpoint,
 //   header api-key, query api-version)
-// DeepSeek and OpenRouter use ChatOpenAI with their own base URL in n8n and need no class of their own.
+// DeepSeek and OpenRouter use ChatOpenAI with their own base URL in the reference and need no class of their own.
 import type { ExecContext } from '../../nodes/types.js';
 import type { ChatMessage } from '../messages.js';
 import type { ModelCallOptions } from './base.js';
@@ -13,7 +13,7 @@ export class GroqChatModel extends OpenAiChatModel {
   override readonly provider = 'groq';
 
   constructor(ctx: ExecContext, opts: OpenAiOptions) {
-    // ChatGroq: temperature = 0.7 if n8n passes no value
+    // ChatGroq: temperature = 0.7 if the reference passes no value
     super(ctx, { ...opts, temperature: opts.temperature ?? 0.7, baseURL: opts.baseURL ?? 'https://api.groq.com/openai/v1' });
   }
 

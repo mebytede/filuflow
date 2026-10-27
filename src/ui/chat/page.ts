@@ -1,5 +1,5 @@
 // Hosted chat page of the Chat Trigger (public, "Hosted Chat" mode). The settings come as JSON from the
-// page (#chat-config). Messages go as JSON to the message URL, as with the n8n chat widget:
+// page (#chat-config). Messages go as JSON to the message URL, as with the reference chat widget:
 // { action: "sendMessage", sessionId, chatInput }; earlier messages with { action: "loadPreviousSession", sessionId }.
 import { ChatView, readChunks, replyText, type ChatMessage, type StreamSink } from './view.js';
 
@@ -39,7 +39,7 @@ async function request(body: Record<string, unknown>): Promise<Response> {
   return fetch(url.pathname + url.search, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
 }
 
-/** Read a streamed reply (n8n @n8n/chat sendMessageStreaming) */
+/** Read a streamed reply (like sendMessageStreaming in @n8n/chat) */
 async function postStreaming(body: Record<string, unknown>, sink: StreamSink): Promise<null> {
   const res = await request(body);
   if (!res.ok || !res.body) throw new Error(`Error sending the message: ${await res.text()}`);
@@ -67,7 +67,7 @@ const initial: ChatMessage[] = (config.initialMessages ?? '')
   .map((text) => ({ from: 'bot' as const, text }));
 
 /**
- * Chat with response nodes (n8n: WebSocket /chat): the first message starts the execution, after that
+ * Chat with response nodes (reference: WebSocket /chat): the first message starts the execution, after that
  * /chat/<id>/events delivers the nodes' messages, replies go as POST to /chat/<id>.
  */
 let channel: { executionId: string; source: EventSource; waiting: boolean } | undefined;

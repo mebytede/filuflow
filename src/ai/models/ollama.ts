@@ -1,4 +1,4 @@
-// Ollama Chat Model as in n8n 1.123.0 LmChatOllama with ChatOllama from @langchain/ollama 1.0.2
+// Ollama Chat Model as in the reference version 1.123.0 LmChatOllama with ChatOllama from @langchain/ollama 1.0.2
 // (dist/chat_models.js: invocationParams, _generate via _streamResponseChunks; dist/utils.js: convertToOllamaMessages,
 // convertOllamaMessagesToLangChain). Own implementation of the observable behavior. ChatOllama always calls
 // POST <baseUrl>/api/chat with stream: true and reads the response as JSON lines.
@@ -17,9 +17,9 @@ export interface OllamaOptions {
   modelOptions: Record<string, unknown>;
 }
 
-/** Map n8n options (ChatOllamaInput) to the fields of invocationParams.options */
+/** Map the node options (ChatOllamaInput) to the fields of invocationParams.options */
 export function ollamaModelOptions(o: Record<string, unknown>): Record<string, unknown> {
-  // n8n names the options useMLock/useMMap, ChatOllama reads useMlock/useMmap: so they do not arrive
+  // The reference names the options useMLock/useMMap, ChatOllama reads useMlock/useMmap: so they do not arrive
   return {
     num_ctx: o.numCtx,
     num_batch: o.numBatch,

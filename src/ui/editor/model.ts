@@ -1,5 +1,5 @@
 // Changes to the workflow JSON in the editor: nodes, connections, renaming.
-// Format like n8n: connections[source][type][output] = [{ node, type, index }].
+// Format like the common workflow format: connections[source][type][output] = [{ node, type, index }].
 import type { Connection, Workflow, WorkflowNode } from '../types.js';
 
 export interface Edge {
@@ -69,7 +69,7 @@ export function removeEdge(wf: Workflow, e: Edge): void {
   cleanupConnections(wf);
 }
 
-/** Remove empty entries at the end (n8n stores empty outputs between used ones as []) */
+/** Remove empty entries at the end (the reference stores empty outputs between used ones as []) */
 function cleanupConnections(wf: Workflow): void {
   for (const [from, byType] of Object.entries(wf.connections)) {
     for (const [type, outputs] of Object.entries(byType)) {
@@ -162,7 +162,7 @@ export function findNode(wf: Workflow, name: string): WorkflowNode | undefined {
   return wf.nodes.find((n) => n.name === name);
 }
 
-/** Snippet for copying: nodes and the connections between them (same format as n8n) */
+/** Snippet for copying: nodes and the connections between them (common workflow format) */
 export function extractSnippet(wf: Workflow, names: Set<string>): Pick<Workflow, 'nodes' | 'connections'> {
   const nodes = cloneWorkflow(wf.nodes.filter((n) => names.has(n.name)));
   const snippet: Pick<Workflow, 'nodes' | 'connections'> = { nodes, connections: {} };

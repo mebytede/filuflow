@@ -1,4 +1,4 @@
-// Golden tests: filuflow against results from real n8n (fixtures/<name>/expected.json).
+// Golden tests: filuflow against results from the real reference implementation (fixtures/<name>/expected.json).
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -15,7 +15,7 @@ import { startMockServer } from '../../scripts/mock-server.mjs';
 const FIXTURES = join(__dirname, '..', '..', 'fixtures');
 let server: Server & { requests: Array<Record<string, unknown>> };
 
-/** Compare logged requests (mocks with "log": true) with the ones recorded from n8n (requests.json) */
+/** Compare logged requests (mocks with "log": true) with the ones recorded from the reference implementation (requests.json) */
 function expectRequests(dir: string, name: string): void {
   const file = join(dir, 'requests.json');
   if (!existsSync(file)) return;
@@ -26,7 +26,7 @@ function expectRequests(dir: string, name: string): void {
 }
 
 beforeAll(async () => {
-  // 'ja' is the value the fixtures were recorded with in n8n (scripts/record-expected.sh)
+  // 'ja' is the value the fixtures were recorded with in the reference implementation (scripts/record-expected.sh)
   process.env.FL_COMPAT = 'ja';
   server = (await startMockServer(FIXTURES, 18089)) as typeof server;
 });
@@ -38,7 +38,7 @@ const fixtures = readdirSync(FIXTURES).filter(
   (n) => n !== 'real' && existsSync(join(FIXTURES, n, 'workflow.json')) && existsSync(join(FIXTURES, n, 'expected.json')) && !existsSync(join(FIXTURES, n, 'webhook.json')),
 );
 
-describe('Compatibility with n8n', () => {
+describe('Compatibility with the reference', () => {
   for (const name of fixtures) {
     it(name, async () => {
       const dir = join(FIXTURES, name);

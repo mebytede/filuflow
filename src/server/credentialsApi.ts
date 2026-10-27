@@ -19,7 +19,7 @@ import {
   type OAuth2TokenStore,
 } from '../credentials/oauth2.js';
 import { createHash, randomBytes } from 'node:crypto';
-import { readN8nExport } from '../credentials/n8nCipher.js';
+import { readCredentialExport } from '../credentials/importCipher.js';
 import { connectedOAuth1TokenData, oauth1AccessToken, oauth1AuthorizationUrl, oauth1TokenKey } from '../credentials/oauth1.js';
 
 export interface CredentialsApiOptions {
@@ -70,7 +70,7 @@ export function startOAuth(o: OAuthSupport, credentials: CredentialProvider, nam
   if (!entry) throw new Error(`Credential "${name}" not found`);
   if (!isOAuthCodeCredential(entry)) throw new Error('Only OAuth2 credentials with grant type "Authorization Code" or "PKCE" can be connected');
   const raw = credentials.resolve(entry);
-  // Like n8n getAuthUri: for service types the type's fixed scope applies, not a stored one
+  // Like the reference getAuthUri: for service types the type's fixed scope applies, not a stored one
   if (raw.scope !== undefined && !OAUTH2_EDITABLE_SCOPE.includes(entry.type!)) delete raw.scope;
   const data = applySchemaDefaults(entry.type!, raw);
   const state = base64url(randomBytes(24));
@@ -316,7 +316,7 @@ export async function registerCredentialsApi(api: FastifyInstance, o: Credential
       if (missing.length) return reply.code(400).send({ message: `Required fields missing: ${missing.map((f) => f.label).join(', ')}` });
     }
 
-    // Token data from an n8n export is kept when editing
+    // Token data from an exported file is kept when editing
     if (!keep.includes('oauthTokenData')) keep.push('oauthTokenData');
     let saved;
     try {
@@ -331,14 +331,14 @@ export async function registerCredentialsApi(api: FastifyInstance, o: Credential
     return { name: saved.name, id: saved.id, type: saved.type };
   });
 
-  // Import of an n8n export (n8n export:credentials, also encrypted with the n8n key); IDs are kept so that
+  // Import of an exported file (CLI command export:credentials, also encrypted with the key of the source instance); IDs are kept so that
   // imported workflows find their credentials via { id, name }. Existing names are only replaced with overwrite.
   api.post(`${o.prefix}/import`, async (request, reply) => {
     if (!layered) return reply.code(409).send({ message: 'Credentials of this instance are not writable' });
-    const body = (request.body ?? {}) as { credentials?: unknown; n8nKey?: unknown; overwrite?: unknown };
+    const body = (request.body ?? {}) as { credentials?: unknown; importKey?: unknown; overwrite?: unknown };
     let entries;
     try {
-      entries = readN8nExport(body.credentials, typeof body.n8nKey === 'string' && body.n8nKey ? body.n8nKey : undefined);
+      entries = readCredentialExport(body.credentials, typeof body.importKey === 'string' && body.importKey ? body.importKey : undefined);
     } catch (error) {
       return reply.code(400).send({ message: (error as Error).message });
     }
@@ -362,7 +362,7 @@ export async function registerCredentialsApi(api: FastifyInstance, o: Credential
       }
     }
     // Log names and types, never values
-    o.logger?.info({ imported: imported.length, skipped: skipped.length }, 'Credentials imported from n8n');
+    o.logger?.info({ imported: imported.length, skipped: skipped.length }, 'Credentials imported from an exported file');
     if (imported.length) await o.workflows().revalidate();
     return { imported, skipped };
   });

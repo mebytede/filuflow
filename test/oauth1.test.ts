@@ -205,7 +205,7 @@ describe('OAuth1 connect', () => {
 
     const run = (await call(s, 'POST', '/api/workflows/api/run')).json();
     expect(run.runData.API[0].data.main[0][0].json).toEqual({ ok: true });
-    // Like n8n: only Authorization and the content type of the body, own headers are dropped
+    // Like the reference: only Authorization and the content type of the body, own headers are dropped
     expect(apiCalls).toEqual([{ ok: true, contentType: 'application/x-www-form-urlencoded', custom: undefined }]);
     // Token not in the detail view
     expect((await call(s, 'GET', '/api/credentials/Service')).body).not.toContain(ACCESS.secret);

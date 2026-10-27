@@ -77,7 +77,7 @@ export const mapi = {
   deleteWorkerCredential: (id: string, name: string) => request<void>('DELETE', `/api/admin/workers/${e(id)}/credentials/${e(name)}`),
   setWorkerCredentialAccess: (id: string, name: string, projects: string[] | null) =>
     request<{ name: string; projects: string[] | null }>('PUT', `/api/admin/workers/${e(id)}/credentials/${e(name)}/access`, { projects }),
-  importWorkerCredentials: (id: string, body: { credentials: unknown; n8nKey?: string; overwrite?: boolean }) =>
+  importWorkerCredentials: (id: string, body: { credentials: unknown; importKey?: string; overwrite?: boolean }) =>
     request<CredentialImportResult>('POST', `/api/admin/workers/${e(id)}/credentials/import`, body),
   workerVariables: (id: string) => request<{ data: VariableEntry[] }>('GET', `/api/admin/workers/${e(id)}/variables`).then((r) => r.data),
   setWorkerVariable: (id: string, key: string, body: { value: string; rename?: string; create?: boolean }) => request<VariableEntry>('PUT', `/api/admin/workers/${e(id)}/variables/${e(key)}`, body),

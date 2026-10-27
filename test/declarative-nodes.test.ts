@@ -1,4 +1,4 @@
-// M29: declarative nodes from n8n packages (routing instead of execute) like n8n RoutingNode: requestDefaults with
+// M29: declarative nodes from packages in the community node format (routing instead of execute) like the reference RoutingNode: requestDefaults with
 // $credentials, routing.request/send/output on parameters and option values, preSend and postReceive (functions and
 // built-in actions), pagination (offset, generic), collections, binary responses, errors, Request Options.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -98,7 +98,7 @@ async function run(parameters: Record<string, unknown>, options?: Parameters<typ
 
 describe('Declarative nodes', () => {
   it('loads the node with its credential and adds the Request Options', () => {
-    expect(reports[0]).toMatchObject({ kind: 'n8n-package', nodes: ['n8n-nodes-wetter.wetter'], credentials: ['wetterApi'], errors: [] });
+    expect(reports[0]).toMatchObject({ kind: 'package', nodes: ['n8n-nodes-wetter.wetter'], credentials: ['wetterApi'], errors: [] });
     const described = nodeTypeList(registry).find((t) => t.type === 'n8n-nodes-wetter.wetter')!;
     expect(described.parameters!.map((p) => p.name)).toContain('requestOptions');
     expect(described.parameters!.find((p) => p.name === 'requestOptions')!.children!.map((c) => c.name)).toEqual(['batching', 'allowUnauthorizedCerts', 'proxy', 'timeout']);

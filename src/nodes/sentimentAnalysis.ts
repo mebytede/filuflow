@@ -1,6 +1,6 @@
 // Sentiment Analysis, @n8n/n8n-nodes-langchain.sentimentAnalysis (typeVersion 1, 1.1)
-// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/chains/SentimentAnalysis/SentimentAnalysis.node.ts.
-// As in n8n the prompt contains tabs (batch path four, sequential path three).
+// Rebuilt after the reference version 1.123.0, packages/@n8n/nodes-langchain/nodes/chains/SentimentAnalysis/SentimentAnalysis.node.ts.
+// As in the reference the prompt contains tabs (batch path four, sequential path three).
 import type { ExecContext, NodeType } from './types.js';
 import type { Item, WorkflowNode } from '../types.js';
 import { NodeOperationError } from '../errors.js';
@@ -107,7 +107,7 @@ async function analyze(ctx: ExecContext, model: ChatModel, i: number, categories
           { kind: 'min', value: 0, inclusive: true },
           { kind: 'max', value: 1, inclusive: true },
         ],
-        // Part of the schema sent to the model, identical to n8n (golden test 18-ai-chains)
+        // Part of the schema sent to the model, identical to the reference (golden test 18-ai-chains)
         description: 'Strength score for sentiment in relation to the category',
       },
       confidence: {

@@ -61,13 +61,12 @@ Go through these in order. Paths refer to the repository page on github.com unle
 1. **About text and topics** (repository main page, gear icon next to "About"):
    - Description:
      > Self-hosted workflow engine with a browser editor: webhooks, schedules, forms, chat, AI agents and RAG,
-     > traceable runs, master and workers for many tenants. Runs workflows in the n8n format without changes.
-     > Independent project, not affiliated with n8n GmbH.
+     > traceable runs, master and workers for many tenants. Runs exported workflows in the common JSON format unchanged.
 
-     (257 characters)
+     (217 characters)
    - Website: leave empty or `https://github.com/mebytede/filuflow#readme`
-   - Topics: `workflow-engine`, `workflow-automation`, `automation`, `low-code`, `self-hosted`, `n8n`, `webhooks`,
-     `ai-agents`, `multi-tenant`, `typescript`, `nodejs`
+   - Topics: `workflow-engine`, `workflow-automation`, `automation`, `low-code`, `self-hosted`, `webhooks`, `ai-agents`,
+     `multi-tenant`, `typescript`, `nodejs`, `community-nodes`
    - Tick "Releases" and "Packages" under "Include in the home page"; untick "Deployments" if unused.
 2. **Branch ruleset for `main`** (Settings, Rules, Rulesets, "New ruleset", "New branch ruleset"):
    - Name `main`, enforcement status "Active", target branches "Include default branch"
@@ -89,7 +88,7 @@ Go through these in order. Paths refer to the repository page on github.com unle
    protection": Enable). Free for public repositories. Check the "Secret scanning" alerts under Security once after
    enabling, because the existing history is scanned as well.
 5. **Dependabot** (same page): enable "Dependency graph", "Dependabot alerts" and "Dependabot security updates".
-   Version updates come from `.github/dependabot.yml` (weekly, minor and patch grouped; the libraries pinned to the n8n
+   Version updates come from `.github/dependabot.yml` (weekly, minor and patch grouped; the libraries pinned to the
    reference versions are ignored on purpose).
 6. **CodeQL default setup** (same page, "Code scanning", "CodeQL analysis", "Set up", "Default"): languages
    JavaScript/TypeScript and GitHub Actions, query suite "Default", then "Enable CodeQL".

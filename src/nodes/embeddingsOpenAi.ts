@@ -1,5 +1,5 @@
 // Embeddings OpenAI, @n8n/n8n-nodes-langchain.embeddingsOpenAi (typeVersion 1 to 1.2)
-// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/embeddings/EmbeddingsOpenAI/EmbeddingsOpenAi.node.ts:
+// Rebuilt after the reference version 1.123.0, packages/@n8n/nodes-langchain/nodes/embeddings/EmbeddingsOpenAI/EmbeddingsOpenAi.node.ts:
 // OpenAIEmbeddings with model, apiKey, ...options; base URL from options.baseURL or the credential; timeout -1 = none.
 import type { NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
@@ -10,7 +10,7 @@ const model = (dflt: string): Omit<ParamSchema, 'show' | 'hide'> => ({
   label: 'Model',
   type: 'string',
   default: dflt,
-  description: 'Embedding model; n8n loads the choices via API, enter it directly here',
+  description: 'Embedding model; the reference loads the choices via API, enter it directly here',
 });
 
 const parameters: ParamSchema[] = [

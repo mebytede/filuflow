@@ -1,5 +1,5 @@
 // OpenAI Chat Model, @n8n/n8n-nodes-langchain.lmChatOpenAi (typeVersion 1 to 1.3)
-// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/llms/LMChatOpenAi/LmChatOpenAi.node.ts
+// Rebuilt after the reference version 1.123.0, packages/@n8n/nodes-langchain/nodes/llms/LMChatOpenAi/LmChatOpenAi.node.ts
 // Chat Completions API and from v1.3 (default) the Responses API with built-in tools (M26).
 import type { NodeType } from './types.js';
 import type { WorkflowNode } from '../types.js';
@@ -12,13 +12,13 @@ function responsesApiEnabled(node: WorkflowNode): boolean {
   return node.typeVersion >= 1.3 && node.parameters.responsesApiEnabled !== false;
 }
 
-// Parameters like LmChatOpenAi.node.ts (properties, n8n 1.123.0). n8n loads the model via API (loadOptions or
+// Parameters like LmChatOpenAi.node.ts (properties, reference version 1.123.0). The reference loads the model via API (loadOptions or
 // searchModels); here it is a free input.
 // Deviations, because the editor knows no nested paths in "/name" and no regex:
 // - The notices about JSON responses (INCLUDE_JSON_WARNING, visible for /options.responseFormat or
 //   /options.textFormat.textOptions.type = json_object) and about "Base URL" (/options.baseURL) are in the
 //   description of the affected options.
-// - n8n shows reasoningEffort via a regex on the model name. Up to v1.1 here via prefix (o1, o3 to o9, gpt-5, hence also
+// - The reference shows reasoningEffort via a regex on the model name. Up to v1.1 here via prefix (o1, o3 to o9, gpt-5, hence also
 //   for o1-mini); from v1.2 the model is a resource locator, there the option is always visible.
 const JSON_WARNING = 'For JSON, the prompt must contain the word "json".';
 const REASONING_MODELS = ['o1', 'o3', 'o4', 'o5', 'o6', 'o7', 'o8', 'o9', 'gpt-5'].map((prefix) => ({ _cnd: { startsWith: prefix } }));
@@ -206,7 +206,7 @@ const parameters: ParamSchema[] = [
             label: 'Text',
             children: [
               {
-                // Default '' like n8n (not among its options); here as its own option so it stays selectable
+                // Default '' like the reference (not among its options); here as its own option so it stays selectable
                 name: 'type',
                 label: 'Type',
                 type: 'options',
@@ -382,7 +382,7 @@ const parameters: ParamSchema[] = [
   },
 ];
 
-/** n8n jsonParse with errorMessage */
+/** Reference: jsonParse with errorMessage */
 function parseJson(nodeName: string, value: unknown, errorMessage: string): unknown {
   if (typeof value !== 'string') return value;
   try {
@@ -403,7 +403,7 @@ const toArray = (text: string) =>
     .map((e) => e.trim())
     .filter(Boolean);
 
-/** common.ts formatBuiltInTools (n8n 1.123.0 LMChatOpenAi) */
+/** common.ts formatBuiltInTools (reference version 1.123.0, LMChatOpenAi) */
 export function formatBuiltInTools(nodeName: string, builtIn: Record<string, unknown>): Array<Record<string, unknown>> {
   const tools: Array<Record<string, unknown>> = [];
   const web = builtIn.webSearch as Record<string, unknown> | undefined;
@@ -437,7 +437,7 @@ export function prepareAdditionalResponsesParams(nodeName: string, options: Reco
   if (options.conversationId) body.conversation = options.conversationId;
   if (options.metadata) body.metadata = parseJson(nodeName, options.metadata, 'Failed to parse metadata');
   if (options.promptConfig) {
-    // fixedCollection without multipleValues: object; the n8n default is a list
+    // fixedCollection without multipleValues: object; the reference default is a list
     const raw = (options.promptConfig as { promptOptions?: unknown }).promptOptions;
     const prompt = ((Array.isArray(raw) ? raw[0] : raw) ?? {}) as { promptId?: string; version?: string; variables?: string };
     body.prompt = removeEmpty({

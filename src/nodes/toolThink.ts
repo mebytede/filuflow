@@ -1,5 +1,5 @@
 // Think Tool, @n8n/n8n-nodes-langchain.toolThink (typeVersion 1, 1.1)
-// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/tools/ToolThink/ToolThink.node.ts: DynamicTool that
+// Rebuilt after the reference version 1.123.0, packages/@n8n/nodes-langchain/nodes/tools/ToolThink/ToolThink.node.ts: DynamicTool that
 // returns the input unchanged; name "thinking_tool" (v1) or derived from the node name (from v1.1).
 import type { NodeType } from './types.js';
 import type { Item } from '../types.js';

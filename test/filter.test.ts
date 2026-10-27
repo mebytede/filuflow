@@ -1,4 +1,4 @@
-// Filter operators against an oracle table from real n8n (scripts/record-filter-table.sh).
+// Filter operators against an oracle table from the real reference implementation (scripts/record-filter-table.sh).
 import { beforeAll, describe, expect, it } from 'vitest';
 import { Settings } from 'luxon';
 import { readFileSync } from 'node:fs';
@@ -15,13 +15,13 @@ interface Case {
 const dec = (v: unknown) => (v && typeof v === 'object' && (v as { __undef?: boolean }).__undef ? undefined : v);
 const cases = JSON.parse(gunzipSync(readFileSync(join(__dirname, 'oracle', 'filter-table.json.gz'))).toString('utf8')) as Case[];
 
-describe('Filter operators (oracle n8n 1.123.0)', () => {
-  // The oracle ran with TZ=Europe/Berlin; like n8n, filuflow sets the luxon zone to the workflow time zone
+describe('Filter operators (oracle: reference version 1.123.0)', () => {
+  // The oracle ran with TZ=Europe/Berlin; like the reference, filuflow sets the luxon zone to the workflow time zone
   beforeAll(() => {
     Settings.defaultZone = 'Europe/Berlin';
   });
 
-  it(`match n8n in all ${cases.length} cases`, () => {
+  it(`match the reference in all ${cases.length} cases`, () => {
     const mismatches: string[] = [];
     for (const c of cases) {
       const condition = { ...c.condition, leftValue: dec(c.condition.leftValue), rightValue: dec(c.condition.rightValue) };

@@ -1,5 +1,5 @@
 // Golden tests for webhook fixtures (fixtures/<name>/webhook.json): filuflow serve against
-// responses and executions from real n8n (scripts/record-webhook.sh).
+// responses and executions from the real reference implementation (scripts/record-webhook.sh).
 import { describe, expect, it } from 'vitest';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
@@ -17,7 +17,7 @@ const fixtures = readdirSync(FIXTURES).filter(
   (n) => existsSync(join(FIXTURES, n, 'webhook.json')) && existsSync(join(FIXTURES, n, 'expected.json')),
 );
 
-describe('Webhook compatibility with n8n', () => {
+describe('Webhook compatibility with the reference', () => {
   for (const name of fixtures) {
     it(name, async () => {
       const dir = join(FIXTURES, name);

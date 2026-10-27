@@ -1,13 +1,13 @@
-// Python in the Code node (language "python") with Pyodide (CPython as WebAssembly), like n8n 1.123.0:
+// Python in the Code node (language "python") with Pyodide (CPython as WebAssembly), like the reference version 1.123.0:
 //   packages/nodes-base/nodes/Code/Pyodide.ts (LoadPyodide: one instance per process, blocks after loading)
 //   packages/nodes-base/nodes/Code/PythonSandbox.ts (context with "_" instead of "$", code in "async def __main()",
 //   jsproxy_typedict, loadPackagesFromImports, result with toJs, error message starting at the error type)
-// Pyodide version as in n8n (packages/nodes-base/package.json: "pyodide": "0.28.0").
+// Pyodide version as in the reference (packages/nodes-base/package.json: "pyodide": "0.28.0").
 //
-// Own additions: timeout (n8n has none in Pyodide mode) via Pyodide's interrupt buffer. A
+// Own additions: timeout (the reference has none in Pyodide mode) via Pyodide's interrupt buffer. A
 // watchdog thread sets it when time is up; Python then aborts with KeyboardInterrupt, even if the main thread
 // is stuck in a loop. Runs are executed one after another because the instance is shared.
-// Security: no access to Node.js (no require, no process); the "js" module is blocked as in n8n.
+// Security: no access to Node.js (no require, no process); the "js" module is blocked as in the reference.
 // This is a convenience, not a security boundary (docs/SECURITY.md).
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
@@ -39,7 +39,7 @@ export class PythonTimeoutError extends Error {
   }
 }
 
-/** Error from Python: message starting at the error type (n8n PythonSandbox.getPrettyError) */
+/** Error from Python: message starting at the error type (reference: PythonSandbox.getPrettyError) */
 export class PythonCodeError extends Error {
   constructor(
     message: string,
@@ -86,7 +86,7 @@ function getWatchdog(): Worker {
   return watchdog;
 }
 
-/** Storage for packages loaded on demand (numpy etc.); n8n uses its storage directory for this */
+/** Storage for packages loaded on demand (numpy etc.); the reference uses its storage directory for this */
 function packageCacheDir(): string {
   const dir = process.env.FILUFLOW_PYTHON_PACKAGES_DIR ?? join(homedir(), '.cache', 'filuflow', 'pyodide');
   try {
@@ -103,7 +103,7 @@ async function load(): Promise<PyodideLike> {
   const mod = (await import('pyodide')) as unknown as { loadPyodide(options: Record<string, unknown>): Promise<PyodideLike> };
   // jsglobals: what Python would see via the "js" module (only until the block below, for Pyodide itself)
   const py = await mod.loadPyodide({ indexURL, packageCacheDir: packageCacheDir(), jsglobals: { Object, console, fetch, AbortController, AbortSignal } });
-  // Blocks like n8n (Pyodide.ts), plus pyodide_js; then protect the event loop against escaped interrupts
+  // Blocks like the reference (Pyodide.ts), plus pyodide_js; then protect the event loop against escaped interrupts
   await py.runPythonAsync(`
 import os
 
@@ -159,7 +159,7 @@ export interface PythonRunOptions {
 export function runPython(code: string, o: PythonRunOptions): Promise<unknown> {
   return serialized(async () => {
     const py = await getPyodide();
-    // n8n: jsproxy_typedict so that JS objects can be used like dicts in Python (item.json['x'] and item.json.x)
+    // Reference: jsproxy_typedict so that JS objects can be used like dicts in Python (item.json['x'] and item.json.x)
     await py.runPythonAsync('jsproxy_typedict[0] = type(Object.new().as_object_map())');
     await py.loadPackagesFromImports(code);
 

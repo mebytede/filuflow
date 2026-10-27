@@ -1,5 +1,5 @@
 // OAuth2, credential type oAuth2Api: grants "clientCredentials", "authorizationCode" and "pkce".
-// Rebuilt after n8n 1.123.0:
+// Rebuilt after the reference version 1.123.0:
 //   packages/core/.../utils/request-helper-functions.ts (createOAuth2Client, requestOAuth2)
 //   packages/@n8n/client-oauth2/src (credentials-flow.ts, code-flow.ts getUri/getToken, client-oauth2.ts
 //   accessTokenRequest, client-oauth2-token.ts sign/refresh, utils.ts auth/getRequestOptions, constants.ts)
@@ -8,7 +8,7 @@
 // Field names as in packages/nodes-base/credentials/OAuth2Api.credentials.ts:
 //   grantType, accessTokenUrl, clientId, clientSecret, scope, authentication ("header" | "body"),
 //   additionalBodyProperties
-// n8n stores the token in the credential and uses it until the API answers with 401; then it fetches a
+// The reference stores the token in the credential and uses it until the API answers with 401; then it fetches a
 // new token and repeats the request once. filuflow keeps the token in memory and, in the server, additionally in the
 // database (setOAuth2TokenStore) so that it survives a restart.
 import { createHash } from 'node:crypto';
@@ -28,7 +28,7 @@ export interface OAuth2Token {
 
 const cache = new Map<string, OAuth2Token>();
 
-/** Persistent token storage (server: SQLite, encrypted with FILUFLOW_ENCRYPTION_KEY); n8n stores them in the credential */
+/** Persistent token storage (server: SQLite, encrypted with FILUFLOW_ENCRYPTION_KEY); the reference stores them in the credential */
 export interface OAuth2TokenStore {
   get<T = unknown>(key: string): T | undefined;
   set(key: string, value: unknown): void;
@@ -159,7 +159,7 @@ async function fetchToken(ctx: ExecContext, cred: Record<string, unknown>): Prom
   }
   const headers: Record<string, string> = {};
   const body: Record<string, unknown> = { grant_type: 'client_credentials', ...additionalBody(cred) };
-  // n8n: scopes = (scope ?? '').split(' '), so "scope" is always set (possibly empty)
+  // Reference: scopes = (scope ?? '').split(' '), so "scope" is always set (possibly empty)
   body.scope = String(cred.scope ?? '').split(' ').join(' ');
   if ((cred.authentication ?? 'header') === 'body') {
     body.client_id = clientId;
@@ -175,7 +175,7 @@ async function fetchToken(ctx: ExecContext, cred: Record<string, unknown>): Prom
   }
 }
 
-/** Redirect URI as in n8n: <base>/rest/oauth2-credential/callback */
+/** Redirect URI as in the reference: <base>/rest/oauth2-credential/callback */
 export const OAUTH2_CALLBACK_PATH = 'rest/oauth2-credential/callback';
 
 /** CodeFlow.getUri with the options from oauth2-credential.controller.ts (scope default "openid", authQueryParameters, PKCE) */
@@ -231,7 +231,7 @@ export async function exchangeAuthorizationCode(
 }
 
 /**
- * Extra options of requestOAuth2 (n8n IOAuth2Options): force the token type, token from another field of the
+ * Extra options of requestOAuth2 (reference: IOAuth2Options): force the token type, token from another field of the
  * token data, omit "Bearer", token additionally in a custom header, client data in the body on refresh,
  * different status code for expired tokens
  */
@@ -317,7 +317,7 @@ export async function refreshOAuth2Token(
   return { ...data, ...fresh };
 }
 
-/** Token data of a connected credential: stored (server) or from the credential (n8n export) */
+/** Token data of a connected credential: stored (server) or from the credential (exported file) */
 export function connectedTokenData(cred: Record<string, unknown>, ref?: { name: string; id?: string }): Record<string, unknown> | undefined {
   const stored = ref ? tokenStore?.get<Record<string, unknown>>(oauth2TokenKey(ref)) : undefined;
   if (stored && Object.keys(stored).length) return stored;
@@ -379,7 +379,7 @@ async function loadOAuth2Token(ctx: ExecContext, cred: Record<string, unknown>, 
 
 /**
  * Sign the request like requestOAuth2: ClientOAuth2Token.sign, then keepBearer and keyToIncludeInAccessTokenHeader.
- * After a refresh n8n only re-signs and sets the extra header with the previous token (previous).
+ * After a refresh the reference only re-signs and sets the extra header with the previous token (previous).
  */
 export function signOAuth2Request(request: HttpRequest, token: OAuth2Token, nodeName: string, options?: OAuth2RequestOptions, previous?: OAuth2Token): HttpRequest {
   const signed = signRequest(request, token, nodeName);

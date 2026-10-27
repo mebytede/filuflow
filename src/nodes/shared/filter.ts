@@ -1,6 +1,6 @@
 // Filter condition format for IF, Filter and Switch.
-// Rebuilt after n8n 1.123.0 packages/workflow/src/node-parameters/filter-parameter.ts
-// Note: n8n has no `break` after number/dateTime/boolean/array; unknown operations
+// Rebuilt after the reference version 1.123.0, packages/workflow/src/node-parameters/filter-parameter.ts
+// Note: the reference has no `break` after number/dateTime/boolean/array; unknown operations
 // fall through to the next type stage. This is rebuilt the same way here via `stages`.
 import type { DateTime } from 'luxon';
 import { validateFieldType, type ValidationResult } from './utils.js';
@@ -180,9 +180,9 @@ export function executeFilterCondition(
     return false;
   }
 
-  // In n8n number → dateTime → boolean → array → object fall through without `break`.
+  // In the reference number → dateTime → boolean → array → object fall through without `break`.
   // Each stage returns a result or NEXT (= continue with the next stage).
-  // Results can also be undefined (n8n: `case 'true': return left;`).
+  // Results can also be undefined (reference: `case 'true': return left;`).
   const NEXT = Symbol('next');
   const stages: Record<string, () => boolean | undefined | typeof NEXT> = {
     number: () => {

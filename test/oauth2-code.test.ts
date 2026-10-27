@@ -1,4 +1,4 @@
-// OAuth2 with authorization code and PKCE (M14) against a simulated provider: authorization URL like n8n, redirect to
+// OAuth2 with authorization code and PKCE (M14) against a simulated provider: authorization URL like the reference, redirect to
 // /rest/oauth2-credential/callback, code exchange, token stored permanently, refresh after 401, PKCE (code_challenge
 // S256 and code_verifier), invalid state, disconnect.
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -130,7 +130,7 @@ describe('OAuth2 Authorization Code', () => {
     const notYet = (await call(s, 'POST', '/api/workflows/api/run')).json();
     expect(notYet.runData.API[0].error.message).toBe('OAuth credentials not connected');
 
-    // Authorization URL like n8n (CodeFlow.getUri)
+    // Authorization URL like the reference (CodeFlow.getUri)
     const { url } = (await call(s, 'POST', '/api/credentials/Calendar/oauth2/auth', {})).json();
     const auth = new URL(url);
     expect(auth.origin + auth.pathname).toBe('https://provider.example/authorize');

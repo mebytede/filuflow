@@ -282,7 +282,7 @@ export const de: Record<string, string> = {
   'An execution is already running': 'Es läuft bereits eine Ausführung',
   'Paste JSON': 'JSON einfügen',
   'Paste nodes': 'Knoten einfügen',
-  'JSON from n8n (copied nodes or a whole workflow). The nodes are inserted into this workflow.': 'JSON aus n8n (kopierte Knoten oder ganzer Workflow). Die Knoten werden in diesen Workflow eingefügt.',
+  'JSON in the common workflow format (copied nodes or a whole workflow). The nodes are inserted into this workflow.': 'JSON im gängigen Workflow-Format (kopierte Knoten oder ganzer Workflow). Die Knoten werden in diesen Workflow eingefügt.',
   'Insert': 'Einfügen',
   'e.g. Europe/Berlin (empty: server default)': 'z. B. Europe/Berlin (leer: Server-Default)',
   'ID or name of the error workflow': 'ID oder Name des Fehler-Workflows',

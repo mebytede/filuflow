@@ -1,5 +1,5 @@
 // Global helper functions in expressions.
-// Rebuilt after n8n 1.123.0 packages/workflow/src/extensions/extended-functions.ts
+// Rebuilt after the reference version 1.123.0 packages/workflow/src/extensions/extended-functions.ts
 import { ExpressionError, ExpressionExtensionError } from '../errors.js';
 
 const numberList = (start: number, end: number): number[] => {
@@ -19,7 +19,7 @@ const zip = (keys: unknown[], values: unknown[]): Record<string, unknown> => {
   return out;
 };
 
-/** n8n array average: sum / length, empty array → 0 */
+/** Reference: array average: sum / length, empty array → 0 */
 const average = (...args: number[]): number => {
   if (args.length === 0) return 0;
   return args.reduce((a, b) => a + b, 0) / args.length;

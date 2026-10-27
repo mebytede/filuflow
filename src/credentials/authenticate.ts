@@ -1,8 +1,8 @@
 // Authentication of a request with a credential (M25): for HTTP Request with "Predefined Credential Type",
-// helpers.httpRequestWithAuthentication in the Code node and nodes from plugins. n8n describes this per credential type in
+// helpers.httpRequestWithAuthentication in the Code node and nodes from plugins. The reference describes this per credential type in
 // ICredentialType.authenticate, either generic ({ headers, qs, body, auth } with expressions over $credentials) or as a function
 // (packages/core/src/execution-engine/node-execution-context/utils/request-helper-functions.ts). The built-in types
-// below are rebuilt from the credential files of n8n 1.123.0 (source location per entry); plugins add their own.
+// below are rebuilt from the credential files of the reference version 1.123.0 (source location per entry); plugins add their own.
 
 import { CREDENTIAL_REF, credentialRefOf } from './store.js';
 import { applySchemaDefaults } from './defaults.js';
@@ -91,7 +91,7 @@ const BUILTIN: Record<string, AuthDefinition> = {
   notionApi: {
     authenticate: (c, o) => {
       const headers: Record<string, unknown> = { ...(o.headers ?? {}), Authorization: `Bearer ${String(c.apiKey)} ` };
-      // n8n checks 'Notion-Version'; filuflow's HTTP Request may lowercase header names, hence case-insensitive
+      // The reference checks 'Notion-Version'; filuflow's HTTP Request may lowercase header names, hence case-insensitive
       if (!Object.keys(headers).some((k) => k.toLowerCase() === 'notion-version')) headers['Notion-Version'] = '2022-02-22';
       return { ...o, headers };
     },
@@ -140,7 +140,7 @@ export function hasAuthentication(type: string): boolean {
   return !!def && !def.passive;
 }
 
-/** Type from a plugin without authenticate: n8n (credentialsHelper.authenticate) then leaves the request unchanged */
+/** Type from a plugin without authenticate: the reference (credentialsHelper.authenticate) then leaves the request unchanged */
 export function hasPassiveAuthentication(type: string): boolean {
   return !!definition(type)?.passive;
 }
@@ -151,7 +151,7 @@ export function authenticatedTypes(): string[] {
 }
 
 /**
- * Fill in field defaults, as n8n does when loading a credential: fields of the type description including inherited and
+ * Fill in field defaults, as the reference does when loading a credential: fields of the type description including inherited and
  * hidden ones (M28, src/credentials/defaults.ts), plus the defaults of the authentication (empty values count as missing)
  */
 export function withCredentialDefaults(type: string, data: Record<string, unknown>): Record<string, unknown> {

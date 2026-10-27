@@ -1,5 +1,5 @@
 // Summarize, n8n-nodes-base.summarize (typeVersion 1, 1.1)
-// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/Transform/Summarize (Summarize.node.ts, utils.ts)
+// Rebuilt after the reference version 1.123.0, packages/nodes-base/nodes/Transform/Summarize (Summarize.node.ts, utils.ts)
 import lodash from 'lodash';
 import type { NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
@@ -136,7 +136,7 @@ function toArray(r: Nested): Result[] {
 }
 
 // Parameters as in Summarize.node.ts (properties) and utils.ts (NUMERICAL_AGGREGATIONS = average, sum).
-// "field" and "fieldsToSplitBy" are defined several times as in n8n, only with different text depending on visibility.
+// "field" and "fieldsToSplitBy" are defined several times as in the reference, only with different text depending on visibility.
 const parameters: ParamSchema[] = [
   {
     name: 'fieldsToSummarize',

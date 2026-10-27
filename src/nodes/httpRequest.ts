@@ -1,5 +1,5 @@
 // HTTP Request, n8n-nodes-base.httpRequest (typeVersion 3, 4, 4.1, 4.2, 4.3)
-// Rebuilt after n8n 1.123.0:
+// Rebuilt after the reference version 1.123.0:
 //   packages/nodes-base/nodes/HttpRequest/V3/HttpRequestV3.node.ts, GenericFunctions.ts, V3/utils/*
 //   packages/core/.../utils/request-helper-functions.ts (parseRequestObject, proxyRequestToAxios)
 //   packages/workflow/src/errors/node-api.error.ts (error messages per status code)
@@ -112,7 +112,7 @@ function toNodeApiError(node: WorkflowNode, error: unknown, itemIndex: number): 
 }
 
 /**
- * Query serialization: n8n sets axios.defaults.paramsSerializer to
+ * Query serialization: the reference sets axios.defaults.paramsSerializer to
  * qs.stringify(params, { arrayFormat: 'indices' }) (request-helper-functions.ts);
  * the option queryParameterArrays selects "repeat" or "brackets".
  */
@@ -122,7 +122,7 @@ function serializeParams(params: Record<string, unknown>, arrayFormat?: string):
   return qs.stringify(params, { arrayFormat: 'indices' });
 }
 
-/** n8n parseContentDisposition */
+/** Reference: parseContentDisposition */
 function contentDispositionFilename(header: string | string[] | undefined): string | undefined {
   if (!header) return undefined;
   let value = Array.isArray(header) ? header[0] : header;
@@ -190,9 +190,9 @@ interface RequestSpec {
   oauth2Token?: OAuth2Token;
   /** httpDigestAuth: authenticate only after the challenge (sendImmediately: false) */
   digest?: { user: string; password: string };
-  /** Request for $request in pagination expressions (n8n requestOptions) */
+  /** Request for $request in pagination expressions (reference: requestOptions) */
   info: Record<string, unknown>;
-  /** n8n `simple: false` */
+  /** Reference: `simple: false` */
   neverError: boolean;
   json: boolean;
   url: string;
@@ -215,7 +215,7 @@ function credentialTypesFor(node: WorkflowNode): string[] {
 
 const SUPPORTED_GENERIC = new Set(['httpBasicAuth', 'httpBearerAuth', 'httpHeaderAuth', 'httpQueryAuth', 'httpCustomAuth', 'httpDigestAuth', 'oAuth2Api', 'oAuth1Api']);
 
-/** Parts of a request that pagination overrides per page (n8n PaginationOptions.request) */
+/** Parts of a request that pagination overrides per page (reference: PaginationOptions.request) */
 interface PaginationRequest {
   url?: string;
   qs?: Record<string, unknown>;
@@ -417,7 +417,7 @@ async function buildRequest(ctx: ExecContext, itemIndex: number, items: Item[], 
       throw new NodeOperationError(node.name, `Credential type "${type}" is not supported`, { itemIndex });
     }
   } else if (authentication === 'predefinedCredentialType') {
-    // n8n HttpRequestV3: requestWithAuthentication with the type's ICredentialType.authenticate, for OAuth2 types
+    // Reference: HttpRequestV3: requestWithAuthentication with the type's ICredentialType.authenticate, for OAuth2 types
     // requestOAuth2 (token, retry after 401), for OAuth1 requestOAuth1 (M25)
     const type = ctx.getParam<string>('nodeCredentialType', 0, '');
     const cred = withCredentialDefaults(type, await ctx.getCredentials(type, itemIndex));
@@ -465,7 +465,7 @@ async function buildRequest(ctx: ExecContext, itemIndex: number, items: Item[], 
     else if (!hasHeader(headers, 'content-type') && typeof bodyObject !== 'string') headers['content-type'] = 'application/json';
   }
 
-  // Redirects (n8n: v4+ follows by default)
+  // Redirects (reference: v4+ follows by default)
   const redirect = options.redirect;
   const defaultRedirect = version >= 4 && redirect === undefined;
   let follow = false;
@@ -515,8 +515,8 @@ async function buildRequest(ctx: ExecContext, itemIndex: number, items: Item[], 
 }
 
 /**
- * n8n 1.123.0 request-helper-functions.ts requestOAuth1: signs with oauth_token and oauth_token_secret from the
- * token data, signature over the query (contained in finalUrl) and form fields. n8n replaces all headers with the
+ * Reference version 1.123.0, request-helper-functions.ts requestOAuth1: signs with oauth_token and oauth_token_secret from the
+ * token data, signature over the query (contained in finalUrl) and form fields. The reference replaces all headers with the
  * Authorization header; the HTTP library then sets the body's content type, here it is kept.
  */
 function signOAuth1Request(request: HttpRequest, cred: Record<string, unknown>, form: Record<string, unknown> | undefined, nodeName: string): HttpRequest {
@@ -705,7 +705,7 @@ export const httpRequestNode: NodeType = {
   type: 'n8n-nodes-base.httpRequest',
   displayName: 'HTTP Request',
   versions: [3, 4, 4.1, 4.2, 4.3],
-  // Parameters like n8n V3/Description.ts (mainProperties), see shared/httpRequestParams.ts
+  // Parameters like the reference V3/Description.ts (mainProperties), see shared/httpRequestParams.ts
   parameters: httpRequestParameters,
   outputs: () => 1,
   credentialTypes: credentialTypesFor,
@@ -729,7 +729,7 @@ export const httpRequestNode: NodeType = {
     const items = ctx.items;
     const errorItems: Record<number, string> = {};
     const promises: Array<Promise<{ responses: HttpResponse[]; spec: RequestSpec }>> = [];
-    // Pagination applies to all items (n8n reads it with index 0 and raw expressions)
+    // Pagination applies to all items (the reference reads it with index 0 and raw expressions)
     const pagination = ctx.getParam<PaginationParameters | null>('options.pagination.pagination', 0, null, { rawExpressions: true });
     const paginated = !!pagination && !!pagination.paginationMode && pagination.paginationMode !== 'off';
     const fileResult = ctx.getParam<string>('options.response.response.responseFormat', 0, 'autodetect') === 'file';
@@ -749,7 +749,7 @@ export const httpRequestNode: NodeType = {
           continue;
         }
         const spec = await buildRequest(ctx, itemIndex, items);
-        // oAuth2Api: on 401 fetch a new token and retry once (n8n requestOAuth2); digest after the challenge
+        // oAuth2Api: on 401 fetch a new token and retry once (reference: requestOAuth2); digest after the challenge
         const p = sendRequest(ctx, spec).then((response) => {
           if (response.statusCode >= 400 && !spec.neverError) {
             let errBody: unknown = response.body.toString('utf8');
@@ -831,7 +831,7 @@ export const httpRequestNode: NodeType = {
             newItem.json = fullResponse
               ? { headers: full.headers, statusCode: full.statusCode, statusMessage: full.statusMessage }
               : items[itemIndex].json;
-            // n8n prepareBinaryData with IncomingMessage: file name from Content-Disposition or URL path,
+            // Reference: prepareBinaryData with IncomingMessage: file name from Content-Disposition or URL path,
             // directory = full response URL
             let filePath = contentDispositionFilename(response.headers['content-disposition']);
             if (!filePath) {
@@ -891,7 +891,7 @@ export const httpRequestNode: NodeType = {
         returnItems.push({ json: { error: (error as Error).message }, pairedItem: { item: itemIndex } });
       }
     }
-    // n8n replaceNullValues
+    // Reference: replaceNullValues
     return [returnItems.map((item) => (item.json === null ? { ...item, json: {} } : item))];
   },
 };

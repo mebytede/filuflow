@@ -1,5 +1,5 @@
 // Expressions in the parameters of the Webhook node (path, httpMethod, responseMode, responseData, options ...).
-// Modeled on n8n 1.123.0: packages/cli/src/webhooks/webhook.service.ts getNodeWebhooks evaluates path and httpMethod
+// Modeled on the reference version 1.123.0: packages/cli/src/webhooks/webhook.service.ts getNodeWebhooks evaluates path and httpMethod
 // with getSimpleParameterValue(node, ..., 'internal', {}), i.e. without items; packages/cli/src/webhooks/webhook-helpers.ts
 // executeWebhook likewise evaluates responseMode and responseData without items. So $parameter, $vars,
 // $env, $now, $workflow and similar are available, but not $json.

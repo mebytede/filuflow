@@ -1,6 +1,6 @@
-// Form for node parameters. n8n describes parameters in its own code (INodeProperties); filuflow does not know these
+// Form for node parameters. The reference describes parameters in its own code (INodeProperties); filuflow does not know these
 // descriptions, so the form edits the parameter tree directly: texts, numbers, yes/no, objects
-// and lists. Texts with a leading "=" are expressions (as in n8n).
+// and lists. Texts with a leading "=" are expressions (as in the reference).
 import { h } from '../dom.js';
 import { t } from '../i18n.js';
 import { icon } from '../icons.js';

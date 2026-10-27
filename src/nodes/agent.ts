@@ -1,5 +1,5 @@
 // AI Agent, @n8n/n8n-nodes-langchain.agent (Tools Agent, typeVersion 2 to 3)
-// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/agents/Agent:
+// Rebuilt after the reference version 1.123.0, packages/@n8n/nodes-langchain/nodes/agents/Agent:
 //   V2/AgentV2.node.ts (2, 2.1, 2.2: AgentExecutor, tools directly), V3/AgentV3.node.ts (3: tools via the engine)
 // The logic lives in src/ai/agent.ts. typeVersion 1.x (agent types like ReAct, SQL) is not supported.
 import type { NodeIssue, NodeType } from './types.js';
@@ -58,7 +58,7 @@ const enableStreamingOption: ParamSchema = {
 
 // Parameters like V2/AgentV2.node.ts (2, 2.1, 2.2) and V3/AgentV3.node.ts (3), options from
 // agents/ToolsAgent/V2/description.ts and agents/ToolsAgent/V3/description.ts. The callouts are missing.
-// n8n separates the options in V2 with "hide/show @version < 2.2"; since V2 and V3 are described together here,
+// The reference separates the options in V2 with "hide/show @version < 2.2"; since V2 and V3 are described together here,
 // the versions are stated explicitly in the rule.
 const parameters: ParamSchema[] = [
   promptTypeParam,

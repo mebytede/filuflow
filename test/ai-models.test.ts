@@ -1,4 +1,4 @@
-// M26: more chat models like n8n 1.123.0 and the LangChain packages there (Groq, Mistral, Ollama, DeepSeek, OpenRouter,
+// M26: more chat models like the reference version 1.123.0 and the LangChain packages there (Groq, Mistral, Ollama, DeepSeek, OpenRouter,
 // Azure OpenAI) plus the Think Tool. A fake HTTP client checks URL, headers and body and plays through a
 // tool call with an answer (Agent V2.2).
 import { describe, expect, it } from 'vitest';

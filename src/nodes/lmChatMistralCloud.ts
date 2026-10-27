@@ -1,5 +1,5 @@
 // Mistral Cloud Chat Model, @n8n/n8n-nodes-langchain.lmChatMistralCloud (typeVersion 1)
-// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/llms/LmChatMistralCloud/LmChatMistralCloud.node.ts:
+// Rebuilt after the reference version 1.123.0, packages/@n8n/nodes-langchain/nodes/llms/LmChatMistralCloud/LmChatMistralCloud.node.ts:
 // ChatMistralAI with ...options (safeMode is deprecated there and has no effect, randomSeed becomes random_seed).
 import type { NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
@@ -20,7 +20,7 @@ const parameters: ParamSchema[] = [
       { name: 'temperature', label: 'Sampling Temperature', type: 'number', default: 0.7, min: 0, max: 1, precision: 1 },
       { name: 'maxRetries', label: 'Max Retries', type: 'number', default: 2 },
       { name: 'topP', label: 'Top P', type: 'number', default: 1, min: 0, max: 1, precision: 1 },
-      { name: 'safeMode', label: 'Safe Mode', type: 'boolean', default: false, description: 'Whether a safety prompt is put in front of every conversation (ignored by n8n)' },
+      { name: 'safeMode', label: 'Safe Mode', type: 'boolean', default: false, description: 'Whether a safety prompt is put in front of every conversation (ignored by the reference)' },
       { name: 'randomSeed', label: 'Random Seed', type: 'number', description: 'Seed for random sampling; a fixed value makes results reproducible' },
     ],
   },
@@ -41,7 +41,7 @@ export const lmChatMistralCloudNode: NodeType = {
   },
   async supplyData(ctx, itemIndex) {
     const credentials = await ctx.getCredentials('mistralCloudApi', itemIndex);
-    // n8n: default options only if "options" is missing entirely
+    // Reference: default options only if "options" is missing entirely
     const options = ctx.getParam<Record<string, unknown>>('options', itemIndex, { maxRetries: 2, topP: 1, temperature: 0.7, maxTokens: -1, safeMode: false });
     return new MistralChatModel(ctx, {
       apiKey: String(credentials.apiKey ?? ''),

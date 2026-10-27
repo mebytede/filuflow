@@ -1,5 +1,5 @@
 // Structured Output Parser, @n8n/n8n-nodes-langchain.outputParserStructured (typeVersion 1 to 1.3)
-// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/output_parser/OutputParserStructured
+// Rebuilt after the reference version 1.123.0, packages/@n8n/nodes-langchain/nodes/output_parser/OutputParserStructured
 // Auto-fix (autoFix) is not supported yet (validate reports it).
 import type { NodeIssue, NodeType } from './types.js';
 import { NodeOperationError } from '../errors.js';

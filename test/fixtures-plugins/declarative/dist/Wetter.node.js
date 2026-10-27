@@ -1,5 +1,5 @@
 'use strict';
-// Declarative node (without execute) in the style of the n8n template "n8n-nodes-starter": requests, parameters,
+// Declarative node (without execute) in the style of the template "n8n-nodes-starter": requests, parameters,
 // pagination and post-processing are defined in the description.
 async function addTrace(requestOptions) {
   requestOptions.headers = { ...(requestOptions.headers || {}), 'X-Trace': `item-${this.getItemIndex()}-${this.getNodeParameter('resource')}` };

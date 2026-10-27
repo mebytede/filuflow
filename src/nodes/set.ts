@@ -1,5 +1,5 @@
 // Edit Fields (Set), n8n-nodes-base.set
-// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/Set:
+// Rebuilt after the reference version 1.123.0, packages/nodes-base/nodes/Set:
 //   v1/SetV1.node.ts (typeVersion 1, 2), v2/SetV2.node.ts + manual.mode.ts + raw.mode.ts +
 //   helpers/utils.ts (typeVersion 3 to 3.4).
 import lodash from 'lodash';
@@ -174,7 +174,7 @@ function validateEntry(
   return { name, value: result.newValue ?? null };
 }
 
-/** The Set node takes expressions raw and evaluates each {{ }} separately (n8n resolveRawData) */
+/** The Set node takes expressions raw and evaluates each {{ }} separately (reference: resolveRawData) */
 function resolveRawData(ctx: ExecContext, rawData: string, i: number): string {
   let out = rawData;
   for (const resolvable of getResolvables(rawData)) {
@@ -276,7 +276,7 @@ export async function executeManual(
     return returnItem;
   } catch (error) {
     if (ctx.continueOnFail()) {
-      // n8n puts pairedItem into json here (a bug); adopted deliberately
+      // The reference puts pairedItem into json here (a bug); adopted deliberately
       return { json: { error: (error as Error).message, pairedItem: { item: i } } };
     }
     throw new NodeOperationError(node.name, (error as Error).message, {
@@ -348,7 +348,7 @@ async function executeV2(ctx: ExecContext): Promise<Item[][]> {
 }
 
 // Parameters as in v1/SetV1.node.ts (typeVersion 1, 2) and v2/SetV2.node.ts, v2/manual.mode.ts and v2/raw.mode.ts
-// (typeVersion 3 to 3.4). n8n describes both variants separately; here the "@version" rule separates them. Where n8n
+// (typeVersion 3 to 3.4). The reference describes both variants separately; here the "@version" rule separates them. Where the reference
 // uses "hide @version [3, 3.1, 3.2]", the equivalent "show @version >= 3.3" is used here.
 const V1: DisplayRule = { '@version': [1, 2] };
 const V3: DisplayRule = { '@version': [{ _cnd: { gte: 3 } }] };

@@ -1,5 +1,5 @@
 // Information Extractor, @n8n/n8n-nodes-langchain.informationExtractor (typeVersion 1 to 1.2)
-// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/chains/InformationExtractor
+// Rebuilt after the reference version 1.123.0, packages/@n8n/nodes-langchain/nodes/chains/InformationExtractor
 //   (InformationExtractor.node.ts, processItem.ts, helpers.ts makeZodSchemaFromAttributes, constants.ts)
 import type { NodeType } from './types.js';
 import type { Item } from '../types.js';
@@ -146,7 +146,7 @@ export const informationExtractorNode: NodeType = {
     } else {
       schema = jsonSchemaToZod(JSON.parse(ctx.getParam<string>('inputSchema', 0, '')) as Record<string, unknown>);
     }
-    // n8n always uses the OutputFixingParser here
+    // The reference always uses the OutputFixingParser here
     const parser = new LangChainStructuredParser(schema);
 
     const processItem = async (itemIndex: number) => {

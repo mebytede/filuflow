@@ -2,21 +2,22 @@
 
 ## What this is
 filuflow is a product of its own: workflow engine, browser editor, CLI, server with webhooks and schedules, AI nodes and
-multi-user / multi-tenant operation (master and workers). Workflows use the n8n workflow format (`executionOrder: "v1"`).
+multi-user / multi-tenant operation (master and workers). Workflows use the common workflow JSON format (nodes, connections, `typeVersion`, `executionOrder: "v1"`).
 The scope is open; the specification with milestones and planned work is in `docs/SPEC.md`. Read it before any work.
 
 ## Guardrails
-- **n8n workflows keep working.** Nodes in n8n format behave as in n8n (golden tests in `fixtures/`), so exported workflows run without changes. Own features beyond that are explicitly welcome.
-- **The n8n source code is the reference** (`github.com/n8n-io/n8n`, mainly `packages/workflow`, `packages/core`, `packages/nodes-base`, `packages/@n8n/nodes-langchain`). Use it to understand parameter schemas and behavior. **Do not copy code** (Sustainable Use License): rebuild the behavior, write your own implementation.
-- **Do not guess.** If a parameter name, default or behavior is unclear, look it up in the n8n source and note the location (file, node version) as a comment above the implementation.
+- **Exported workflows keep working.** Nodes in the common workflow format behave as in the reference implementation (golden tests in `fixtures/`), so exported workflows and community node packages run without changes. Own features beyond that are explicitly welcome.
+- **Reference implementation:** the source of the npm packages `n8n-workflow`, `n8n-core`, `n8n-nodes-base` and `@n8n/n8n-nodes-langchain` in the reference version 1.123.0 (nodes-base 1.121.0). Use it to understand parameter schemas and behavior. **Do not copy code** (Sustainable Use License): rebuild the behavior, write your own implementation.
+- **Do not guess.** If a parameter name, default or behavior is unclear, look it up in the reference source and note the location (package, version, file, node version) as a comment above the implementation, e.g. `Reference: n8n-nodes-base 1.121.0, nodes/Set/v2/SetV2.node.ts`.
 - **Unknown node types or versions** never lead to silent misbehavior: `validate` reports them, `run` stops before starting with a clear list.
+- **Neutral naming.** Do not use the reference product's name in prose, UI, messages, docs, comments or tests; only technical identifiers that the format or packages require may contain it (node and credential type strings, package names, format-defined keys).
 - **Small steps.** Per milestone: implement, tests green, update `docs/STATUS.md`, then move on.
 
 ## Stack
 - Node.js 22 LTS, TypeScript (strict), ESM
 - Package manager: npm
 - Tests: vitest
-- Date/time: luxon (n8n uses luxon, `$now` must be a luxon `DateTime`)
+- Date/time: luxon (the reference uses luxon, `$now` must be a luxon `DateTime`)
 - Persistence: SQLite via `better-sqlite3`
 - HTTP server: fastify
 - Cron: croner

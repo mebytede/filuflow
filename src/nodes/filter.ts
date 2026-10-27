@@ -1,6 +1,6 @@
 // Filter, n8n-nodes-base.filter (typeVersion 2 to 2.3)
-// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/Filter/V2/FilterV2.node.ts
-// n8n returns two arrays (kept, discarded) although the node has only one output; adopted.
+// Rebuilt after the reference version 1.123.0, packages/nodes-base/nodes/Filter/V2/FilterV2.node.ts
+// The reference returns two arrays (kept, discarded) although the node has only one output; adopted.
 import type { NodeType } from './types.js';
 import type { Item } from '../types.js';
 import { NodeOperationError } from '../errors.js';

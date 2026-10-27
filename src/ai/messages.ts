@@ -26,7 +26,7 @@ export interface ChatMessage {
   /** ai: raw data of the provider (e.g. content blocks from Anthropic) */
   raw?: unknown;
   /**
-   * ai: representation as LangChain AIMessage (content and kwargs of the serialization), as n8n outputs it in
+   * ai: representation as LangChain AIMessage (content and kwargs of the serialization), as the reference outputs it in
    * intermediateSteps and uses it for the agent's log
    */
   lc?: { content: unknown; kwargs: Record<string, unknown> };

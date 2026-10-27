@@ -1,11 +1,11 @@
 // Parameters of the HTTP Request (n8n-nodes-base.httpRequest, typeVersion 3, 4, 4.1, 4.2, 4.3) for the editor form.
-// Rebuilt after n8n 1.123.0:
+// Rebuilt after the reference version 1.123.0:
 //   packages/nodes-base/nodes/HttpRequest/V3/Description.ts (mainProperties, the same for all versions 3 to 4.3,
 //   only difference in options.redirect: followRedirects default false up to v3, true from v4)
 //   packages/nodes-base/nodes/HttpRequest/V3/HttpRequestV3.node.ts (version [3, 4, 4.1, 4.2, 4.3])
 //   packages/nodes-base/credentials/Http*Auth.credentials.ts, OAuth1Api/OAuth2Api (genericAuth: true)
 // Not included: pure UI elements (preBuiltAgentsCallout, curlImport, infoMessage about the browser console), the
-// credential field sslCertificate and the optimizeResponse parameters, which n8n only shows when used as a tool ('@tool').
+// credential field sslCertificate and the optimizeResponse parameters, which the reference only shows when used as a tool ('@tool').
 import type { ParamSchema } from '../params.js';
 
 /** Choice "Using Fields Below / Using JSON" (specifyQuery, specifyHeaders, specifyBody for JSON) */
@@ -106,7 +106,7 @@ export const httpRequestParameters: ParamSchema[] = [
     ],
   },
   {
-    // n8n: type credentialsSelect (extends:oAuth2Api, extends:oAuth1Api, has:authenticate); filuflow knows the
+    // Reference: type credentialsSelect (extends:oAuth2Api, extends:oAuth1Api, has:authenticate); filuflow knows the
     // authentication of the types in src/credentials/authenticate.ts and from plugins, validate reports others
     name: 'nodeCredentialType',
     label: 'Credential Type',
@@ -125,7 +125,7 @@ export const httpRequestParameters: ParamSchema[] = [
     show: { nodeCredentialType: ['googleApi'] },
   },
   {
-    // n8n: type credentialsSelect (has:genericAuth); validate reports types filuflow does not support
+    // Reference: type credentialsSelect (has:genericAuth); validate reports types filuflow does not support
     name: 'genericAuthType',
     label: 'Generic Auth Type',
     type: 'options',
@@ -214,7 +214,7 @@ export const httpRequestParameters: ParamSchema[] = [
       { value: 'form-urlencoded', label: 'Form Urlencoded' },
       { value: 'multipart-form-data', label: 'Form-Data' },
       { value: 'json', label: 'JSON' },
-      { value: 'binaryData', label: 'n8n Binary File' },
+      { value: 'binaryData', label: 'Binary File' },
       { value: 'raw', label: 'Raw' },
     ],
     description: 'Format of the body',
@@ -250,7 +250,7 @@ export const httpRequestParameters: ParamSchema[] = [
             type: 'options',
             default: 'formData',
             options: [
-              { value: 'formBinaryData', label: 'n8n Binary File' },
+              { value: 'formBinaryData', label: 'Binary File' },
               { value: 'formData', label: 'Form Data' },
             ],
           },
@@ -281,7 +281,7 @@ export const httpRequestParameters: ParamSchema[] = [
   },
   nameValueCollection('bodyParameters', 'Body Parameters', { sendBody: [true], contentType: ['form-urlencoded'], specifyBody: ['keypair'] }, true),
   {
-    // n8n shows this field without a condition on contentType
+    // The reference shows this field without a condition on contentType
     name: 'body',
     label: 'Body',
     type: 'string',

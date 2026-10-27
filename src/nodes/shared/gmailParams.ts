@@ -1,12 +1,12 @@
 // Parameters of the Gmail node (typeVersion 2 to 2.2) like n8n-nodes-base 1.121.0 nodes/Google/Gmail/v2/GmailV2.node.js
 // (authentication, resource), MessageDescription.js, LabelDescription.js, DraftDescription.js, ThreadDescription.js and
 // utils/sendAndWait/utils.js getSendAndWaitProperties (operation sendAndWait, v2.1 and later).
-// Differences in the description only (values and structure as in n8n):
-// - n8n loads labels, thread messages and aliases via API (loadOptions getLabels, getThreadMessages, getGmailAliases).
-//   Here label IDs are a JSON list (type json, value is an array as in n8n), message ID and alias are free text.
+// Differences in the description only (values and structure as in the reference):
+// - The reference loads labels, thread messages and aliases via API (loadOptions getLabels, getThreadMessages, getGmailAliases).
+//   Here label IDs are a JSON list (type json, value is an array as in the reference), message ID and alias are free text.
 // Gmail Trigger (M41, typeVersion 1 to 1.3): GmailTrigger.node.js of the same version, see gmailTriggerParameters.
 // - The callout "Sort your Gmail inbox using our pre-built" (template advertisement) is left out; hints are part of the
-//   description where n8n has no description.
+//   description where the reference has no description.
 import type { ParamSchema } from '../params.js';
 import { formFieldsDefinitionParams } from './formParams.js';
 import { pollTimesParam } from './polling.js';
@@ -195,10 +195,10 @@ const limitWaitTimeParam: ParamSchema = {
 
 const sendAndWaitAttribution: ParamSchema = {
   name: 'appendAttribution',
-  label: 'Append n8n Attribution',
+  label: 'Append Attribution',
   type: 'boolean',
   default: true,
-  description: 'Whether the message ends with the line "This message was sent automatically with n8n"',
+  description: 'Whether the message ends with an attribution line',
 };
 
 const buttonStyle = (name: string, label: string, defaultValue: string, show: ParamSchema['show']): ParamSchema => ({
@@ -271,7 +271,7 @@ const sendAndWaitBase: ParamSchema[] = [
       { name: 'responseFormTitle', label: 'Response Form Title', type: 'string', default: '', description: 'Heading of the response form' },
       { name: 'responseFormDescription', label: 'Response Form Description', type: 'string', default: '', description: 'Text below the heading of the response form' },
       { name: 'responseFormButtonLabel', label: 'Response Form Button Label', type: 'string', default: 'Submit' },
-      // n8n uses its CSS variables as the default (Form/cssVariables.ts); the filuflow form pages do not use them (see formCustomCssParam)
+      // The reference uses its CSS variables as the default (Form/cssVariables.ts); the filuflow form pages do not use them (see formCustomCssParam)
       { name: 'responseFormCustomCss', label: 'Response Form Custom Styling', type: 'code', language: 'css', rows: 10, default: '', description: 'Custom CSS that replaces the default look of the response form' },
       limitWaitTimeParam,
       sendAndWaitAttribution,
@@ -449,7 +449,7 @@ export const gmailParameters: ParamSchema[] = [
     placeholder: 'Add option',
     show: on('message', 'send', 'reply'),
     children: [
-      { name: 'appendAttribution', label: 'Append n8n Attribution', type: 'boolean', default: true, description: 'Whether the email ends with the line “This email was sent automatically with n8n”' },
+      { name: 'appendAttribution', label: 'Append Attribution', type: 'boolean', default: true, description: 'Whether the email ends with an attribution line' },
       attachmentsParam('Attachment Field Name', 'data'),
       bccParam,
       ccParam,
@@ -565,7 +565,7 @@ export const gmailParameters: ParamSchema[] = [
 
 // -------------------------------------------------------------------------------------------------------------------
 // Gmail Trigger (GmailTrigger.node.js, n8n-nodes-base 1.121.0): "Poll Times" first like every poll node
-// (commonPollingParameters). The output pane hint of n8n is a notice here. Label IDs as in the Gmail node.
+// (commonPollingParameters). The output pane hint of the reference is a notice here. Label IDs as in the Gmail node.
 // -------------------------------------------------------------------------------------------------------------------
 
 export const gmailTriggerParameters: ParamSchema[] = [

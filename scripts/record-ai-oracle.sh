@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Oracle for AI helper functions: runs n8n code (n8n-nodes-langchain) in the container and stores
+# Oracle for AI helper functions: runs reference code (n8n-nodes-langchain) in the container and stores
 # the results in test/oracle/ai-table.json.gz (schema from example, format instructions, parser results).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-N8N_IMAGE="${N8N_IMAGE:-n8nio/n8n:1.123.0}"
+REFERENCE_IMAGE="${REFERENCE_IMAGE:-n8nio/n8n:1.123.0}"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/filuflow-ai-oracle.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 node -e '
@@ -61,6 +61,6 @@ const err = (e) => ({ error: e.message, reason: e.context?.outputParserFailReaso
 })();
 JS
 chmod -R 777 "$WORK"
-docker run --rm -v "$WORK:/data" --entrypoint node "$N8N_IMAGE" /data/run.js
+docker run --rm -v "$WORK:/data" --entrypoint node "$REFERENCE_IMAGE" /data/run.js
 gzip -c "$WORK/out.json" > "$ROOT/test/oracle/ai-table.json.gz"
 echo "written: test/oracle/ai-table.json.gz"

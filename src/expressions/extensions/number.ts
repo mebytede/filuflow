@@ -1,5 +1,5 @@
 // Extension functions for numbers.
-// Behavior rebuilt after n8n 1.123.0 packages/workflow/src/extensions/number-extensions.ts
+// Behavior rebuilt after the reference version 1.123.0 packages/workflow/src/extensions/number-extensions.ts
 import { DateTime } from 'luxon';
 import { ExpressionExtensionError } from '../../errors.js';
 import type { ExtensionFunction, ExtensionMap } from './types.js';

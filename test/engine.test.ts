@@ -74,7 +74,7 @@ describe('Engine v1 order', () => {
     expect(exec.runData.Merge[0].source).toEqual([{ previousNode: 'A' }, { previousNode: 'B2' }]);
   });
 
-  it('runs Merge with only one filled input at the end (n8n v1)', async () => {
+  it('runs Merge with only one filled input at the end (execution order v1)', async () => {
     const { exec } = await run(
       wf(
         [
@@ -255,7 +255,7 @@ describe('Paired items and expressions', () => {
     ]);
   });
 
-  it('reports missing paired items like n8n', async () => {
+  it('reports missing paired items like the reference', async () => {
     const { exec } = await run(
       wf(
         [
@@ -331,7 +331,7 @@ describe('Paired items and expressions', () => {
   });
 });
 
-// Execution order v0 according to n8n 1.123.0 packages/core/src/execution-engine/workflow-execute.ts (isLegacyExecutionOrder)
+// Execution order v0 according to the reference version 1.123.0 packages/core/src/execution-engine/workflow-execute.ts (isLegacyExecutionOrder)
 describe('Engine v0 order', () => {
   const v0 = { settings: { executionOrder: 'v0' as const } };
 
@@ -346,7 +346,7 @@ describe('Engine v0 order', () => {
     ];
     const links: Array<[string, string]> = [['Start', 'Bottom'], ['Start', 'Top'], ['Start', 'Middle'], ['Top', 'TopChild'], ['Start', 'Left']];
     expect((await run(wf(nodes, links, v0))).order).toEqual(['Start', 'Bottom', 'Top', 'Middle', 'Left', 'TopChild']);
-    // a missing setting counts as v0, as in n8n
+    // a missing setting counts as v0, as in the reference
     expect((await run(wf(nodes, links, { settings: {} }))).order).toEqual(['Start', 'Bottom', 'Top', 'Middle', 'Left', 'TopChild']);
   });
 

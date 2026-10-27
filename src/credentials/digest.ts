@@ -1,5 +1,5 @@
 // HTTP Digest Auth (credential type httpDigestAuth: user, password) for the HTTP Request node.
-// n8n 1.123.0 HttpRequestV3.node.ts sets `auth: { user, pass, sendImmediately: false }` and leaves the flow to the
+// The reference version 1.123.0 HttpRequestV3.node.ts sets `auth: { user, pass, sendImmediately: false }` and leaves the flow to the
 // "request" library: first send without authentication, on 401 with "WWW-Authenticate: Digest" compute the response and
 // send again (qop "auth", nc 00000001, random cnonce). Own implementation per RFC 7616 (MD5, MD5-sess,
 // additionally SHA-256 and SHA-256-sess).

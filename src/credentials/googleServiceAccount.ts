@@ -6,8 +6,8 @@
 //   credentials/GoogleApi.credentials.js authenticate (HTTP Request with "Set up for use in HTTP Request node": own
 //   scopes separated by commas, spaces or line breaks; private key with "\n" escapes),
 //   utils/utilities.js formatPrivateKey (key pasted in one line).
-// Deviations, both without effect on the result: n8n puts the whole private key into the "kid" header of the JWT;
-// filuflow never sends the key and leaves "kid" out. n8n requests a new token for every API call; filuflow keeps the
+// Deviations, both without effect on the result: the reference puts the whole private key into the "kid" header of the JWT;
+// filuflow never sends the key and leaves "kid" out. The reference requests a new token for every API call; filuflow keeps the
 // token until shortly before it expires.
 import { createHash, createSign } from 'node:crypto';
 import type { HttpClient } from '../http.js';
@@ -111,7 +111,7 @@ export interface ServiceAccountCredentials {
 }
 
 /**
- * Access token for a service account and the given scopes. n8n uses the delegated email whenever it is set (the
+ * Access token for a service account and the given scopes. The reference uses the delegated email whenever it is set (the
  * "Impersonate a User" switch only shows the field), filuflow does the same.
  */
 export async function getGoogleAccessToken(http: HttpClient, credentials: ServiceAccountCredentials, scopes: string[], o: { signal?: AbortSignal; privateKey?: string } = {}): Promise<string> {
@@ -126,7 +126,7 @@ export async function getGoogleAccessToken(http: HttpClient, credentials: Servic
   try {
     assertion = signServiceAccountJwt(privateKey, { email, delegatedEmail, scope });
   } catch (error) {
-    // n8n: ERR_OSSL_PEM_NO_START_LINE and similar end up as an authorization error
+    // Reference: ERR_OSSL_PEM_NO_START_LINE and similar end up as an authorization error
     throw new GoogleTokenError(`The private key of the service account could not be used: ${(error as Error).message}`, 401, undefined);
   }
   const res = await http.request({

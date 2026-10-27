@@ -1,5 +1,5 @@
 // Extension functions for date values (luxon DateTime and JS Date).
-// Behavior rebuilt after n8n 1.123.0 packages/workflow/src/extensions/date-extensions.ts and utils.ts
+// Behavior rebuilt after the reference version 1.123.0 packages/workflow/src/extensions/date-extensions.ts and utils.ts
 import { DateTime, type DateTimeUnit, type DurationLike, type LocaleOptions } from 'luxon';
 import { ExpressionExtensionError } from '../../errors.js';
 import type { ExtensionFunction, ExtensionMap } from './types.js';
@@ -29,7 +29,7 @@ function toDateTime(d: string | D): DateTime {
   return DateTime.fromJSDate(d);
 }
 
-/** n8n convertToDateTime */
+/** Reference: convertToDateTime */
 function convertToDateTime(value: unknown): DateTime | undefined {
   if (typeof value === 'string') {
     const c = DateTime.fromJSDate(new Date(value));

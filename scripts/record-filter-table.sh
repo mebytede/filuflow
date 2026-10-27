@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Generates test/oracle/filter-table.json: results of n8n executeFilterCondition (n8n-workflow from the
-# pinned n8n image) for all cases from scripts/oracle-cases.mjs.
+# Generates test/oracle/filter-table.json: results of executeFilterCondition of the reference (n8n-workflow from the
+# pinned reference image) for all cases from scripts/oracle-cases.mjs.
 set -euo pipefail
-N8N_IMAGE="${N8N_IMAGE:-n8nio/n8n:1.123.0}"
+REFERENCE_IMAGE="${REFERENCE_IMAGE:-n8nio/n8n:1.123.0}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WORK="$(mktemp -d)"; chmod 777 "$WORK"; trap 'rm -rf "$WORK"' EXIT
 node --input-type=module -e "
@@ -24,7 +24,7 @@ const out = cases.map((c) => {
 });
 fs.writeFileSync('/data/results.json', JSON.stringify(out));
 JS
-docker run --rm -v "$WORK:/data" -e TZ=Europe/Berlin -e GENERIC_TIMEZONE=Europe/Berlin --entrypoint node "$N8N_IMAGE" /data/run.cjs
+docker run --rm -v "$WORK:/data" -e TZ=Europe/Berlin -e GENERIC_TIMEZONE=Europe/Berlin --entrypoint node "$REFERENCE_IMAGE" /data/run.cjs
 mkdir -p "$ROOT/test/oracle"
 node -e "
 const fs=require('fs');

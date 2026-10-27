@@ -1,5 +1,5 @@
 // Binary data. Small files (<= 1 MB) are stored as base64 in the item, larger ones in the file store.
-// Field names and formats as in n8n 1.123.0:
+// Field names and formats as in the reference version 1.123.0:
 //   packages/core/src/execution-engine/node-execution-context/utils/binary-helper-functions.ts
 //   packages/core/src/binary-data/binary-data.service.ts (fileSize via pretty-bytes)
 import { mkdir, readFile, writeFile, rm } from 'node:fs/promises';
@@ -43,7 +43,7 @@ export function extensionForMime(mimeType: string): string | undefined {
   return EXT_BY_MIME[mimeType.split(';')[0].trim().toLowerCase()];
 }
 
-/** n8n fileTypeFromMimeType */
+/** Reference: fileTypeFromMimeType */
 export function fileTypeFromMimeType(mimeType: string): string | undefined {
   if (mimeType.startsWith('application/json')) return 'json';
   if (mimeType.startsWith('text/html')) return 'html';
@@ -66,7 +66,7 @@ export function prettyBytes(size: number): string {
 
 export interface PrepareOptions {
   /**
-   * Like n8n copyBinaryFile (webhook uploads): keep the file name unchanged,
+   * Like the reference copyBinaryFile (webhook uploads): keep the file name unchanged,
    * extension only from the MIME type, no directory
    */
   copy?: boolean;

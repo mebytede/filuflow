@@ -1,5 +1,5 @@
 // Crypto, n8n-nodes-base.crypto (typeVersion 1)
-// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/Crypto/Crypto.node.ts
+// Rebuilt after the reference version 1.123.0, packages/nodes-base/nodes/Crypto/Crypto.node.ts
 import { createHash, createHmac, createSign, getHashes, randomBytes, randomUUID, type BinaryToTextEncoding } from 'node:crypto';
 import lodash from 'lodash';
 import type { NodeType } from './types.js';
@@ -8,7 +8,7 @@ import type { Item } from '../types.js';
 import { NodeOperationError } from '../errors.js';
 import { deepCopy } from './shared/utils.js';
 
-// Parameters like Crypto.node.ts (properties). The algorithms for "sign" come, as in n8n, from getHashes() without the ones
+// Parameters like Crypto.node.ts (properties). The algorithms for "sign" come, as in the reference, from getHashes() without the ones
 // excluded there (unsupportedAlgorithms).
 const unsupportedAlgorithms = ['RSA-MD4', 'RSA-MDC2', 'md4', 'md4WithRSAEncryption', 'mdc2', 'mdc2WithRSA'];
 const supportedAlgorithms = getHashes()
@@ -239,7 +239,7 @@ export const cryptoNode: NodeType = {
           pairedItem: { item: i },
         };
         if (item.binary !== undefined && !binaryProcessed) newItem.binary = item.binary;
-        // n8n: set(newItem, ['json', dataPropertyName]) treats the name as a single key
+        // Reference: set(newItem, ['json', dataPropertyName]) treats the name as a single key
         lodash.set(newItem, ['json', dataPropertyName], newValue);
         out.push(newItem);
       } catch (error) {

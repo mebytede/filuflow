@@ -1,5 +1,5 @@
-// M24: plugin interface. filuflow plugins (ES module with API), nodes in n8n format from a folder (CUSTOM.<name>)
-// and from a package (<package>.<name>), credential types with generic authentication, defaults as in n8n,
+// M24: plugin interface. filuflow plugins (ES module with API), nodes in the community node format from a folder (CUSTOM.<name>)
+// and from a package (<package>.<name>), credential types with generic authentication, defaults as in the reference,
 // versioned nodes, unsupported nodes, CLI and editor API.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createServer as createHttpServer, type Server } from 'node:http';
@@ -68,24 +68,27 @@ describe('Loading', () => {
         kind: 'filuflow',
         nodes: ['beispiel.zaehler'],
         credentials: ['beispielApi'],
-        errors: ['type name "n8n-nodes-base.set" is reserved for n8n', 'invalid type name "ohnepunkt" (format: <package>.<name>)'],
+        errors: ['type name "n8n-nodes-base.set" is reserved for built-in node types', 'invalid type name "ohnepunkt" (format: <package>.<name>)'],
       },
       {
-        kind: 'n8n-custom',
+        kind: 'custom',
         nodes: ['CUSTOM.greeter'],
         credentials: ['demoApi'],
-        errors: ['Modell.node.js: AI sub-nodes from n8n packages are not supported yet'],
+        errors: ['Modell.node.js: AI sub-nodes from packages in the community node format are not supported yet'],
       },
-      { kind: 'n8n-package', nodes: ['n8n-nodes-demo.splitter'], credentials: [], errors: [] },
+      { kind: 'package', nodes: ['n8n-nodes-demo.splitter'], credentials: [], errors: [] },
       { kind: 'filuflow', nodes: [], credentials: [], errors: ['Path not found'] },
     ]);
     // Loading again: the types already exist
     return loadPlugins([join(FIXTURES, 'package')], registry).then((again) => expect(again[0].errors).toEqual(['Node type "n8n-nodes-demo.splitter" already exists']));
   });
 
-  it('reads paths from FILUFLOW_CUSTOM_EXTENSIONS or N8N_CUSTOM_EXTENSIONS', () => {
-    expect(pluginPathsFromEnv({ N8N_CUSTOM_EXTENSIONS: '/a;/b' })).toEqual(expect.arrayContaining(['/a', '/b']));
-    expect(pluginPathsFromEnv({ FILUFLOW_CUSTOM_EXTENSIONS: '/c', N8N_CUSTOM_EXTENSIONS: '/a' })).toEqual(expect.arrayContaining(['/c']));
+  it('reads paths from FILUFLOW_CUSTOM_EXTENSIONS (not from N8N_CUSTOM_EXTENSIONS)', () => {
+    expect(pluginPathsFromEnv({ FILUFLOW_CUSTOM_EXTENSIONS: '/a;/b' })).toEqual(expect.arrayContaining(['/a', '/b']));
+    const both = pluginPathsFromEnv({ FILUFLOW_CUSTOM_EXTENSIONS: '/c', N8N_CUSTOM_EXTENSIONS: '/a' });
+    expect(both).toEqual(expect.arrayContaining(['/c']));
+    expect(both).not.toContain('/a');
+    expect(pluginPathsFromEnv({ N8N_CUSTOM_EXTENSIONS: '/a;/b' })).not.toEqual(expect.arrayContaining(['/a']));
   });
 
   it('describes plugin nodes for the editor and credentials for the form', () => {
@@ -121,7 +124,7 @@ describe('Execution', () => {
     ]);
   });
 
-  it('n8n node: defaults as in n8n, expressions, versions, collections, errors with continueOnFail', async () => {
+  it('Package node: defaults as in the reference, expressions, versions, collections, errors with continueOnFail', async () => {
     const greeter = (version: number, parameters: Record<string, unknown> = {}, extra: Partial<WorkflowNode> = {}): WorkflowNode => ({
       id: 'g',
       name: 'Greeter',
@@ -131,7 +134,7 @@ describe('Execution', () => {
       parameters,
       ...extra,
     });
-    // Without stored parameters (like an n8n export with defaults): name from the default expression
+    // Without stored parameters (like an exported workflow with defaults): name from the default expression
     let exec = await run(chain(items([{ name: 'Ada' }]), greeter(1)));
     expect(output(exec, 'Greeter')).toEqual([{ text: 'Hello Ada' }]);
     expect(exec.runData!.Greeter[0].data!.main![0]![0].pairedItem).toEqual({ item: 0 });
@@ -145,7 +148,7 @@ describe('Execution', () => {
     expect(output(exec, 'Greeter')).toEqual([{ error: 'Name missing' }, { text: 'Hello Bo' }]);
   });
 
-  it('n8n node: request with a credential from a plugin (generic authentication, hidden defaults)', async () => {
+  it('Package node: request with a credential from a plugin (generic authentication, hidden defaults)', async () => {
     const credentials = new StaticCredentialProvider([{ name: 'Demo', type: 'demoApi', data: { apiKey: 'secret-42' } }]);
     const node: WorkflowNode = {
       id: 'g',
@@ -194,7 +197,7 @@ describe('Command line', () => {
       expect(list.filter((t) => t.source).map((t) => t.type)).toEqual(['CUSTOM.greeter', 'n8n-nodes-demo.splitter']);
       const wf = join(dir, 'wf.json');
       writeFileSync(wf, JSON.stringify(chain(items([{ name: 'Ada' }]), { id: 'g', name: 'Greeter', type: 'CUSTOM.greeter', typeVersion: 2, position: [400, 0], parameters: {} })));
-      const result = JSON.parse(cli(['run', wf, '--json', '--only-last'], { N8N_CUSTOM_EXTENSIONS: join(FIXTURES, 'custom') })) as unknown;
+      const result = JSON.parse(cli(['run', wf, '--json', '--only-last'], { FILUFLOW_CUSTOM_EXTENSIONS: join(FIXTURES, 'custom') })) as unknown;
       expect(JSON.stringify(result)).toContain('Hello Ada!');
     } finally {
       rmSync(dir, { recursive: true, force: true });

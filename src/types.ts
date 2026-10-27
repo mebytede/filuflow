@@ -1,6 +1,6 @@
 // Data model according to docs/SPEC.md section 1.
-// The structures match n8n exports and n8n `runData`
-// (packages/workflow/src/interfaces.ts, n8n 1.123.0).
+// The structures match exported workflows and the reference `runData`
+// (packages/workflow/src/interfaces.ts, the reference version 1.123.0).
 
 export type ConnectionType =
   | 'main'
@@ -136,6 +136,6 @@ export interface Execution {
   runData: RunData;
   lastNodeExecuted?: string;
   error?: SerializedError;
-  /** Status "waiting": resume at this point in time at the latest (ISO); 3000-01-01 = indefinitely (n8n WAIT_INDEFINITELY) */
+  /** Status "waiting": resume at this point in time at the latest (ISO); 3000-01-01 = indefinitely (reference: WAIT_INDEFINITELY) */
   waitTill?: string;
 }

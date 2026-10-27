@@ -1,5 +1,5 @@
 // Graph helpers on top of a workflow.
-// Behavior rebuilt after n8n 1.123.0:
+// Behavior rebuilt after the reference version 1.123.0:
 //   packages/workflow/src/workflow.ts (getNodeConnectionIndexes, getStartNode)
 //   packages/workflow/src/common/get-connected-nodes.ts (order of parents)
 //   packages/workflow/src/common/map-connections-by-destination.ts
@@ -35,7 +35,7 @@ export class WorkflowGraph {
     return Object.hasOwn(this.nodes, name) ? this.nodes[name] : null;
   }
 
-  /** Number of main inputs according to connections (n8n: connectionsByDestinationNode[x].main.length) */
+  /** Number of main inputs according to connections (reference: connectionsByDestinationNode[x].main.length) */
   mainInputCount(name: string): number {
     return this.byDestination[name]?.main?.length ?? 0;
   }
@@ -50,7 +50,7 @@ export class WorkflowGraph {
 
   /**
    * Via which output `parentName` is connected (directly or indirectly) to `nodeName`.
-   * Backward breadth-first search like n8n getNodeConnectionIndexes.
+   * Backward breadth-first search like the reference getNodeConnectionIndexes.
    */
   getNodeConnectionIndexes(
     nodeName: string,
@@ -82,7 +82,7 @@ export class WorkflowGraph {
 
   /** Sub-nodes attached to `name` via an ai_* connection (source = sub-node). */
   /**
-   * n8n Workflow.getHighestNode: topmost active predecessors via main (for ensureInputData). Like n8n, the node itself
+   * Reference: Workflow.getHighestNode: topmost active predecessors via main (for ensureInputData). Like the reference, the node itself
    * only counts with disabled === false.
    */
   getHighestNode(name: string, connectionIndex?: number, checked: string[] = []): string[] {

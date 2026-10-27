@@ -1,8 +1,8 @@
 // Gmail, n8n-nodes-base.gmail (typeVersion 2, 2.1, 2.2; version 1 is not supported and reported by the validator)
-// Rebuilt after n8n-nodes-base 1.121.0 (n8n 1.123.0) nodes/Google/Gmail/v2/GmailV2.node.js (execute), with
+// Rebuilt after n8n-nodes-base 1.121.0 (reference version 1.123.0) nodes/Google/Gmail/v2/GmailV2.node.js (execute), with
 // GenericFunctions.js, utils/replyToEmail.js, v2/utils/draft.js (src/nodes/shared/gmail.ts) and
 // utils/sendAndWait (src/nodes/shared/sendAndWait.ts). Parameters: src/nodes/shared/gmailParams.ts.
-// Version differences as in n8n: 2.1 adds "Send and Wait for Response" and the default of "Append n8n Attribution"
+// Version differences as in the reference: 2.1 adds "Send and Wait for Response" and the default of "Append Attribution"
 // (not applied by filuflow, see docs/DECISIONS.md); 2.2 replies to the Reply-To header when the message has one.
 import type { ExecContext, NodeIssue, NodeType } from './types.js';
 import type { Item, WorkflowNode } from '../types.js';
@@ -123,7 +123,7 @@ async function executeItem(ctx: ExecContext, resource: string, operation: string
       const returnAll = ctx.getParam<boolean>('returnAll', i, false);
       const options = ctx.getParam<Json>('options', i, {});
       const filters = ctx.getParam<Json>('filters', i, {});
-      // As in n8n the options (attachment prefix, download) end up in the query, and the same query object is used
+      // As in the reference the options (attachment prefix, download) end up in the query, and the same query object is used
       // for the list and for every single message
       const qs: Json = {};
       Object.assign(qs, prepareQuery(ctx, filters, i), options);

@@ -1,4 +1,4 @@
-// Extension function: (value, arguments) => result, like n8n `functions[name](value, args)`.
+// Extension function: (value, arguments) => result, like the reference `functions[name](value, args)`.
 export type ExtensionFunction = (value: never, args: unknown[]) => unknown;
 
 export interface ExtensionMap {

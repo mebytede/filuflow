@@ -209,7 +209,7 @@ describe('Execution-Log', () => {
 });
 
 describe('Webhook CORS', () => {
-  it('sets Access-Control headers like n8n', async () => {
+  it('sets Access-Control headers like the reference', async () => {
     const hook = n('Hook', 'n8n-nodes-base.webhook', 2, [0, 0], { path: 'cors', httpMethod: 'POST', options: { allowedOrigins: 'https://a.example,https://b.example' } });
     await start([wf('c', [hook], ['Hook'], { active: true })]);
     const pre = await server!.app.inject({

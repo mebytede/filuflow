@@ -1,5 +1,5 @@
 // Simple Vector Store, @n8n/n8n-nodes-langchain.vectorStoreInMemory (typeVersion 1 to 1.3)
-// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/vector_store/VectorStoreInMemory/VectorStoreInMemory.node.ts
+// Rebuilt after the reference version 1.123.0, packages/@n8n/nodes-langchain/nodes/vector_store/VectorStoreInMemory/VectorStoreInMemory.node.ts
 // with shared/createVectorStoreNode (modes load, insert, retrieve, retrieve-as-tool; operations/*.ts) and
 // MemoryManager/MemoryVectorStoreManager.ts. Up to v1.1 the key is "<workflow ID>__<memoryKey>", from v1.2 the value of the
 // resource locator (shared across workflows); from v1.3 the tool is named after the node. Rerankers are not supported yet.
@@ -164,7 +164,7 @@ export const vectorStoreInMemoryNode: NodeType = {
       return [out];
     }
     if (m === 'retrieve-as-tool') {
-      // handleRetrieveAsToolExecuteOperation (Agent V3); without metadata the field is called pageContent, as in n8n
+      // handleRetrieveAsToolExecuteOperation (Agent V3); without metadata the field is called pageContent, as in the reference
       const out: Item[] = [];
       for (let i = 0; i < items.length; i++) {
         const query = typeof items[i].json.input === 'string' ? (items[i].json.input as string) : undefined;

@@ -157,7 +157,7 @@ jobs:
             type=raw,value=latest,enable=${{ needs.prepare.outputs.prerelease == 'false' }}
           labels: |
             org.opencontainers.image.title=filuflow
-            org.opencontainers.image.description=Self-hosted workflow engine with a browser editor, compatible with the n8n workflow format
+            org.opencontainers.image.description=Self-hosted workflow engine with a browser editor, compatible with the common workflow JSON format
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.url=https://github.com/${{ github.repository }}
             org.opencontainers.image.licenses=AGPL-3.0-or-later

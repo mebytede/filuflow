@@ -75,7 +75,7 @@ function sidebarFooter(): Array<Node | null> {
   const info = catalog?.info;
   return [
     h('div', { class: 'foot-row' }, icon('server', 16), t('Instance {name}', { name: info?.instance ?? '' })),
-    h('div', null, t('Compatible with n8n 1.123')),
+    h('div', null, t('Workflow format 1.123')),
     info?.imprintUrl || info?.privacyUrl
       ? h(
           'div',

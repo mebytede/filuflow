@@ -1,30 +1,30 @@
 // filuflow credentials encrypt <credentials.json> [--out <file>]
 // filuflow credentials decrypt <credentials.json> [--out <file>]
 // filuflow credentials check [<credentials.json>]
-// filuflow credentials import <n8n-export.json> [--n8n-key <key>] [--out <file> | --managed <file>]
+// filuflow credentials import <export.json> [--import-key <key>] [--out <file> | --managed <file>]
 // Key from FILUFLOW_ENCRYPTION_KEY (AES-256-GCM, key = SHA-256 of the value).
 import { parseArgs } from 'node:util';
 import { readFile, writeFile } from 'node:fs/promises';
 import { StaticCredentialProvider, decryptCredentialsFile, encryptCredentialsFile, loadDefaultCredentials } from '../credentials/store.js';
 import { LayeredCredentialProvider } from '../credentials/managed.js';
-import { n8nKeyFromEnv, readN8nExport } from '../credentials/n8nCipher.js';
+import { importKeyFromEnv, readCredentialExport } from '../credentials/importCipher.js';
 
 const USAGE = `Usage:
   filuflow credentials encrypt <credentials.json> [--out <file>]     encrypt the values of each entry
   filuflow credentials decrypt <credentials.json> [--out <file>]     decrypt for editing
   filuflow credentials check [<credentials.json>]                    load, check env references, list names
-  filuflow credentials import <n8n-export.json> [--n8n-key <k>] [--out <file> | --managed <file>]
-                                         import an export from "n8n export:credentials" (also encrypted)
+  filuflow credentials import <export.json> [--import-key <k>] [--out <file> | --managed <file>]
+                                         import an export from "export:credentials" (also encrypted)
 
 Without --out, output goes to stdout. Key: FILUFLOW_ENCRYPTION_KEY.
-import: n8n key from --n8n-key or N8N_ENCRYPTION_KEY; output in filuflow format (encrypted with FILUFLOW_ENCRYPTION_KEY)
+import: key of the source instance from --import-key or FILUFLOW_IMPORT_ENCRYPTION_KEY; output in filuflow format (encrypted with FILUFLOW_ENCRYPTION_KEY)
 or with --managed into the interface's file (credentials.managed.json), IDs are preserved.
 `;
 
 export async function cmdCredentials(args: string[]): Promise<number> {
   let parsed;
   try {
-    parsed = parseArgs({ args, allowPositionals: true, options: { out: { type: 'string' }, 'n8n-key': { type: 'string' }, managed: { type: 'string' } } });
+    parsed = parseArgs({ args, allowPositionals: true, options: { out: { type: 'string' }, 'import-key': { type: 'string' }, managed: { type: 'string' } } });
   } catch (error) {
     process.stderr.write(`${(error as Error).message}\n\n${USAGE}`);
     return 1;
@@ -53,7 +53,7 @@ export async function cmdCredentials(args: string[]): Promise<number> {
   }
   if (sub === 'import' && file) {
     try {
-      const entries = readN8nExport(JSON.parse(await readFile(file, 'utf8')) as unknown, values['n8n-key'] ?? n8nKeyFromEnv());
+      const entries = readCredentialExport(JSON.parse(await readFile(file, 'utf8')) as unknown, values['import-key'] ?? importKeyFromEnv());
       if (values.managed) {
         const layered = await new LayeredCredentialProvider(new StaticCredentialProvider(), values.managed).load();
         for (const e of entries) {

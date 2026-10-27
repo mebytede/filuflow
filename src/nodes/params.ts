@@ -1,10 +1,10 @@
 // Description of a node type's parameters for the forms in the editor (M19).
-// The format is our own simplified version of the n8n parameter description (INodeProperties in
-// packages/workflow/src/interfaces.ts): same parameter names, defaults and visibility rules as n8n, so that
+// The format is our own simplified version of the reference parameter description (INodeProperties in
+// packages/workflow/src/interfaces.ts): same parameter names, defaults and visibility rules as the reference, so that
 // saved workflows have the same structure. The description only drives the form; execution still reads the
 // parameters itself (with the same defaults).
 
-/** Condition in a visibility rule (n8n displayOptions with _cnd) */
+/** Condition in a visibility rule (reference: displayOptions with _cnd) */
 export interface ParamCondition {
   gte?: number;
   gt?: number;
@@ -18,7 +18,7 @@ export interface ParamCondition {
 }
 
 /**
- * Visibility like n8n displayOptions.show/hide: the key is a parameter on the same level, with a leading "/"
+ * Visibility like the reference displayOptions.show/hide: the key is a parameter on the same level, with a leading "/"
  * a top-level parameter, "@version" the typeVersion. Values are allowed values or { _cnd: condition }.
  */
 export type DisplayRule = Record<string, Array<string | number | boolean | null | { _cnd: ParamCondition }>>;
@@ -48,12 +48,12 @@ export type ParamType =
   | 'hidden';
 
 export interface ParamSchema {
-  /** Name in the parameter object (as in n8n) */
+  /** Name in the parameter object (as in the reference) */
   name: string;
   /** Label in the form (English, translated in the interface) */
   label: string;
   type: ParamType;
-  /** Default as in n8n */
+  /** Default as in the reference */
   default?: unknown;
   description?: string;
   placeholder?: string;

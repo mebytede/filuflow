@@ -1,4 +1,4 @@
-// M30: install, update and remove community packages like n8n (npm pack, extract, npm install without scripts)
+// M30: install, update and remove community packages like the reference (npm pack, extract, npm install without scripts)
 // against a local npm registry; loading at runtime and after a restart, name checks, packages without nodes,
 // disabled installation.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -29,7 +29,7 @@ function publish(name: string, version: string, change: (dir: string) => void = 
   cpSync(FIXTURE, pkgDir, { recursive: true });
   const pkgFile = join(pkgDir, 'package.json');
   const pkg = JSON.parse(readFileSync(pkgFile, 'utf8')) as Record<string, unknown>;
-  // filuflow removes devDependencies before npm install, like n8n
+  // filuflow removes devDependencies before npm install, like the reference
   writeFileSync(pkgFile, JSON.stringify({ ...pkg, name, version, devDependencies: { 'does-not-exist': '9.9.9' } }));
   change(pkgDir);
   const file = join(work, 'package.tgz');
@@ -113,7 +113,7 @@ const call = (s: FiluflowServer, method: 'GET' | 'POST' | 'PATCH' | 'DELETE', ur
   s.app.inject({ method, url, headers: { 'x-api-key': KEY }, ...(payload ? { payload } : {}) });
 
 describe('Package names', () => {
-  it('checks names and versions like n8n', () => {
+  it('checks names and versions like the reference', () => {
     expect(parseNpmPackageName('n8n-nodes-weather')).toEqual({ packageName: 'n8n-nodes-weather' });
     expect(parseNpmPackageName('n8n-nodes-weather@1.2.3')).toEqual({ packageName: 'n8n-nodes-weather', version: '1.2.3' });
     expect(parseNpmPackageName('@acme/n8n-nodes-crm@2.0.0-beta.1')).toEqual({ packageName: '@acme/n8n-nodes-crm', scope: '@acme', version: '2.0.0-beta.1' });
@@ -141,7 +141,7 @@ describe('Community packages', () => {
         installedNodes: [{ type: 'n8n-nodes-weather.wetter', name: 'Weather' }],
         installedCredentials: ['wetterApi'],
       });
-      // Layout like n8n: <folder>/node_modules/<package>, dependencies in <folder>/package.json, without devDependencies
+      // Layout like the reference: <folder>/node_modules/<package>, dependencies in <folder>/package.json, without devDependencies
       const pkg = JSON.parse(readFileSync(join(nodesDir, 'node_modules', 'n8n-nodes-weather', 'package.json'), 'utf8')) as Record<string, unknown>;
       expect(pkg.devDependencies).toBeUndefined();
       expect(JSON.parse(readFileSync(join(nodesDir, 'package.json'), 'utf8'))).toMatchObject({ dependencies: { 'n8n-nodes-weather': '1.0.0' } });

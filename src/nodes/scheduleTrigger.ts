@@ -1,9 +1,9 @@
 // Schedule Trigger, n8n-nodes-base.scheduleTrigger (typeVersion 1, 1.1, 1.2, 1.3)
-// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/Schedule (ScheduleTrigger.node.ts,
+// Rebuilt after the reference version 1.123.0, packages/nodes-base/nodes/Schedule (ScheduleTrigger.node.ts,
 // GenericFunctions.ts: toCronExpression, intervalToRecurrence, recurrenceCheck, validateInterval).
-// n8n uses moment-timezone and the "cron" package; here luxon and croner (same 6-field syntax).
+// The reference uses moment-timezone and the "cron" package; here luxon and croner (same 6-field syntax).
 // The server registers the cron expressions; during execution the node passes the time data through.
-// Without server data (e.g. filuflow run) it creates the data for "now" like n8n in manual mode.
+// Without server data (e.g. filuflow run) it creates the data for "now" like the reference in manual mode.
 import { randomInt } from 'node:crypto';
 import { DateTime } from 'luxon';
 import { Cron } from 'croner';
@@ -31,7 +31,7 @@ export interface ScheduleRule {
   recurrence: RecurrenceRule;
 }
 
-/** Defaults of the displayed sub-fields (n8n fills them in via getNodeParameters) */
+/** Defaults of the displayed sub-fields (the reference fills them in via getNodeParameters) */
 function withDefaults(raw: Record<string, unknown>): ScheduleInterval {
   const field = (raw.field as string | undefined) ?? 'days';
   const d = (key: string, value: unknown) => (raw[key] === undefined ? value : raw[key]);
@@ -86,7 +86,7 @@ export function validateInterval(nodeName: string, itemIndex: number, interval: 
   if (message) throw new NodeOperationError(nodeName, 'Invalid interval', { itemIndex, description: message });
 }
 
-/** toCronExpression: random second as in n8n, so that not all workflows start at the same time */
+/** toCronExpression: random second as in the reference, so that not all workflows start at the same time */
 export function toCronExpression(interval: ScheduleInterval): string {
   if (interval.field === 'cronExpression') return interval.expression;
   if (interval.field === 'seconds') return `*/${interval.secondsInterval} * * * * *`;
@@ -195,7 +195,7 @@ export function scheduleItemJson(timezone: string, now: DateTime<boolean> = Date
   };
 }
 
-// Parameters as in n8n ScheduleTrigger.node.ts (properties, identical in all versions)
+// Parameters as in the reference ScheduleTrigger.node.ts (properties, identical in all versions)
 const HOURS = Array.from({ length: 24 }, (_v, h) => ({ value: h, label: h === 0 ? 'Midnight' : h === 12 ? 'Noon' : h < 12 ? `${h}am` : `${h - 12}pm` }));
 const parameters: ParamSchema[] = [
   {

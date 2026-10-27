@@ -84,13 +84,13 @@ export function validateWorkflow(input: unknown, options: ValidateOptions): Vali
     add({ severity: 'warning', code: 'json.structure', message: '"name" is missing', path: 'name' });
   }
 
-  // Execution order: like n8n (isLegacyExecutionOrder), everything except "v1" counts as v0
+  // Execution order: like the reference (isLegacyExecutionOrder), everything except "v1" counts as v0
   const order = wf.settings?.executionOrder;
   if (order === undefined) {
     add({
       severity: 'warning',
       code: 'settings.executionOrder.missing',
-      message: 'settings.executionOrder is missing; like in n8n, the workflow runs with the legacy order "v0". Set "v1" for new workflows.',
+      message: 'settings.executionOrder is missing; like in the reference implementation, the workflow runs with the legacy order "v0". Set "v1" for new workflows.',
       path: 'settings.executionOrder',
     });
   } else if (order === 'v0') {

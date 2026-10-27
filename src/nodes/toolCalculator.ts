@@ -1,5 +1,5 @@
 // Calculator, @n8n/n8n-nodes-langchain.toolCalculator (typeVersion 1)
-// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/tools/ToolCalculator/ToolCalculator.node.ts
+// Rebuilt after the reference version 1.123.0, packages/@n8n/nodes-langchain/nodes/tools/ToolCalculator/ToolCalculator.node.ts
 // Tool name = node name; for the calculation see src/ai/calculator.ts.
 import type { NodeType } from './types.js';
 import type { Item } from '../types.js';
@@ -10,7 +10,7 @@ import type { ParamSchema } from './params.js';
 const DESCRIPTION =
   'Useful for getting the result of a math expression. The input to this tool should be a valid mathematical expression that could be executed by a simple calculator.';
 
-// Parameters as in ToolCalculator.node.ts (n8n 1.123.0): only the connection hint (getConnectionHintNoticeField)
+// Parameters as in ToolCalculator.node.ts (reference version 1.123.0): only the connection hint (getConnectionHintNoticeField)
 const parameters: ParamSchema[] = [
   { name: 'notice', label: 'Connect this node to an AI agent.', type: 'notice', default: '' },
 ];

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Converts fixtures/<name>/credentials.json (filuflow format { "<Name>": { id, type, data } })
 // into the import format of `n8n import:credentials` (array with id, name, type, data unencrypted).
-// Usage: node scripts/credentials-to-n8n.mjs <credentials.json> <output.json>
+// Usage: node scripts/credentials-to-reference.mjs <credentials.json> <output.json>
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const [, , input, output] = process.argv;

@@ -1,7 +1,7 @@
-// Embeddings for vector stores (M27). OpenAI as in n8n 1.123.0 EmbeddingsOpenAi with OpenAIEmbeddings from
+// Embeddings for vector stores (M27). OpenAI as in the reference version 1.123.0 EmbeddingsOpenAi with OpenAIEmbeddings from
 // @langchain/openai 1.1.3 (dist/embeddings.js: batches by batchSize, replace line breaks with spaces,
 // dimensions, encoding_format). Without a setting the OpenAI SDK requests base64 and converts the response to numbers.
-// Log on the embeddings node like n8n logWrapper: embedDocuments { documents } -> { response }, embedQuery { query }.
+// Log on the embeddings node like the reference logWrapper: embedDocuments { documents } -> { response }, embedQuery { query }.
 import type { ExecContext } from '../nodes/types.js';
 import { LlmHttpError } from './models/base.js';
 import { NodeApiError } from '../errors.js';

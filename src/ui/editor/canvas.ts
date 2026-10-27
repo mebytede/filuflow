@@ -1,5 +1,5 @@
 // Editor drawing area (SVG): nodes, ports, connections, selection, moving, connecting, zoom.
-// Positions as in n8n: node.position = top left corner in world coordinates. Appearance per the filuflow design:
+// Positions as in the reference editor: node.position = top left corner in world coordinates. Appearance per the filuflow design:
 // nodes 176 x 104 with a 3 px header bar in the category color, status in the footer, square ports, edges
 // orthogonal with 8 px corner radius, no grid, no arrowheads.
 import { s, clear } from '../dom.js';

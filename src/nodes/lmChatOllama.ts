@@ -1,5 +1,5 @@
 // Ollama Chat Model, @n8n/n8n-nodes-langchain.lmChatOllama (typeVersion 1)
-// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/llms/LMChatOllama/LmChatOllama.node.ts and
+// Rebuilt after the reference version 1.123.0, packages/@n8n/nodes-langchain/nodes/llms/LMChatOllama/LmChatOllama.node.ts and
 // LMOllama/description.ts: ChatOllama with ...options, baseUrl from the credential, format "default" becomes undefined,
 // Authorization only with an API key.
 import type { NodeType } from './types.js';
@@ -32,8 +32,8 @@ const parameters: ParamSchema[] = [
       { name: 'penalizeNewline', label: 'Penalize Newlines', type: 'boolean', default: true },
       { name: 'presencePenalty', label: 'Presence Penalty', type: 'number', default: 0 },
       { name: 'repeatPenalty', label: 'Repetition Penalty', type: 'number', default: 1 },
-      { name: 'useMLock', label: 'Use Memory Locking', type: 'boolean', default: false, description: 'Has no effect in n8n (different field name in ChatOllama)' },
-      { name: 'useMMap', label: 'Memory Mapping', type: 'boolean', default: true, description: 'Has no effect in n8n (different field name in ChatOllama)' },
+      { name: 'useMLock', label: 'Use Memory Locking', type: 'boolean', default: false, description: 'Has no effect in the reference (different field name in ChatOllama)' },
+      { name: 'useMMap', label: 'Memory Mapping', type: 'boolean', default: true, description: 'Has no effect in the reference (different field name in ChatOllama)' },
       { name: 'vocabOnly', label: 'Load Vocabulary Only', type: 'boolean', default: false },
       {
         name: 'format',

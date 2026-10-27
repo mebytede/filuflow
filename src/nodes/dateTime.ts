@@ -1,6 +1,6 @@
 // Date & Time, n8n-nodes-base.dateTime (typeVersion 2)
-// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/DateTime/V2 (DateTimeV2.node.ts, GenericFunctions.ts)
-// n8n parses date strings with moment(date); rebuilt here with luxon in the system time zone
+// Rebuilt after the reference version 1.123.0, packages/nodes-base/nodes/DateTime/V2 (DateTimeV2.node.ts, GenericFunctions.ts)
+// The reference parses date strings with moment(date); rebuilt here with luxon in the system time zone
 // (ISO 8601, then RFC 2822, then Date.parse), see parseLikeMoment.
 import { DateTime, type DateTimeUnit, type DurationUnit } from 'luxon';
 import type { ExecContext, NodeType } from './types.js';

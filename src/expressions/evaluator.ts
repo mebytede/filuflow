@@ -1,6 +1,6 @@
 // Evaluation of expressions in a node:vm context with a timeout.
 //
-// Semantics after n8n 1.123.0 (packages/workflow/src/expression.ts) and @n8n/tournament 1.0.6:
+// Semantics after the reference version 1.123.0 (packages/workflow/src/expression.ts) and @n8n/tournament 1.0.6:
 // - If the value consists of exactly one {{ }} part, the raw value is returned.
 // - Otherwise the parts are concatenated (Array.join, null/undefined become "").
 // - Errors in parts with property access/calls are swallowed (part = undefined),
@@ -28,7 +28,7 @@ function sanitizer(value: unknown): unknown {
   return value;
 }
 
-/** Allowed and blocked global names (n8n Expression.initializeGlobalContext) */
+/** Allowed and blocked global names (reference: Expression.initializeGlobalContext) */
 export function globalContext(): Record<string, unknown> {
   const data: Record<string, unknown> = {};
   for (const name of [
@@ -137,7 +137,7 @@ export function createScope(data: Record<string, unknown>): object {
     },
     get(target, key) {
       if (key === Symbol.unscopables) return undefined;
-      // The data object (n8n proxy) reports every name as present via `has`,
+      // The data object (reference: proxy) reports every name as present via `has`,
       // so only an actually set value counts.
       const value = Reflect.get(target, key);
       if (value !== undefined) return value;
@@ -156,7 +156,7 @@ export interface EvaluateOptions {
 
 /**
  * Evaluates a template (expression without a leading `=`).
- * Corresponds to n8n resolveSimpleParameterValue + renderExpression.
+ * Corresponds to the reference resolveSimpleParameterValue + renderExpression.
  */
 export function evaluateTemplate(template: string, data: Record<string, unknown>, options: EvaluateOptions = {}): unknown {
   if (!template) return template;

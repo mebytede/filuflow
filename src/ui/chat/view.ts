@@ -21,7 +21,7 @@ export interface ChatViewOptions {
   actions?: HTMLElement[];
 }
 
-/** Target for streamed replies: a separate message per node and run (like @n8n/chat) */
+/** Target for streamed replies: a separate message per node and run (like the reference chat widget) */
 export interface StreamSink {
   begin(key: string): void;
   chunk(key: string, text: string): void;
@@ -29,7 +29,7 @@ export interface StreamSink {
   error(text: string): void;
 }
 
-/** Reads JSON lines (n8n StructuredChunk) from a streamed reply */
+/** Reads JSON lines (StructuredChunk of the reference) from a streamed reply */
 export async function readChunks(body: ReadableStream<Uint8Array>, sink: StreamSink): Promise<boolean> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
@@ -41,7 +41,7 @@ export async function readChunks(body: ReadableStream<Uint8Array>, sink: StreamS
     try {
       chunk = JSON.parse(line) as typeof chunk;
     } catch {
-      // Lines without JSON count as text, as in the n8n widget
+      // Lines without JSON count as text, as in the reference widget
       chunk = { type: 'item', content: line };
     }
     const key = `${chunk.metadata?.nodeId ?? ''}:${chunk.metadata?.runIndex ?? 0}`;
@@ -70,7 +70,7 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
   return e;
 }
 
-/** A workflow's reply as text: output, text, message (like @n8n/chat), otherwise JSON */
+/** A workflow's reply as text: output, text, message (like the reference chat widget), otherwise JSON */
 export function replyText(json: unknown): string {
   if (json === undefined || json === null) return '';
   if (typeof json === 'string') return json;

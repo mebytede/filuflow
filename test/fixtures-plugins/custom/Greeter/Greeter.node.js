@@ -1,4 +1,4 @@
-// Example of a node in n8n format (CommonJS, like compiled community nodes), uses the n8n-workflow package
+// Example of a node in the community node format (CommonJS, like compiled community nodes), uses the n8n-workflow package
 'use strict';
 const { NodeOperationError, NodeConnectionTypes } = require('n8n-workflow');
 

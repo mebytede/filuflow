@@ -1,4 +1,4 @@
-// Shared helpers for nodes, rebuilt after n8n 1.123.0
+// Shared helpers for nodes, rebuilt after the reference version 1.123.0
 //   packages/workflow/src/utils.ts (deepCopy, jsonParse)
 //   packages/workflow/src/type-validation.ts (validateFieldType)
 //   packages/nodes-base/utils/utilities.ts (getResolvables, sanitizeDataPathKey)
@@ -13,7 +13,7 @@ export class ApplicationError extends Error {
   }
 }
 
-/** n8n deepCopy: objects with toJSON (Date, DateTime) become their JSON value */
+/** Reference: deepCopy: objects with toJSON (Date, DateTime) become their JSON value */
 export function deepCopy<T>(source: T, hash = new WeakMap<object, unknown>()): T {
   if (typeof source !== 'object' || source === null || typeof source === 'function') return source;
   const src = source as unknown as { toJSON?: () => unknown };
@@ -191,7 +191,7 @@ function isObject(v: unknown): boolean {
   return v !== null && typeof v === 'object' && !Array.isArray(v);
 }
 
-/** n8n validateFieldType */
+/** Reference: validateFieldType */
 export function validateFieldType(
   fieldName: string,
   value: unknown,
@@ -267,7 +267,7 @@ export function validateFieldType(
   }
 }
 
-/** n8n getResolvables: all {{ … }} occurrences */
+/** Reference: getResolvables: all {{ … }} occurrences */
 export function getResolvables(expression: string): string[] {
   if (!expression) return [];
   const out: string[] = [];
@@ -277,7 +277,7 @@ export function getResolvables(expression: string): string[] {
   return out;
 }
 
-/** n8n sanitizeDataPathKey */
+/** Reference: sanitizeDataPathKey */
 export function sanitizeDataPathKey(item: Record<string, unknown>, key: string): string {
   if (item[key] !== undefined) return key;
   if ((key.startsWith("['") && key.endsWith("']")) || (key.startsWith('["') && key.endsWith('"]'))) {
@@ -287,7 +287,7 @@ export function sanitizeDataPathKey(item: Record<string, unknown>, key: string):
   return key;
 }
 
-/** Values for output (JSON compatible) as n8n stores them */
+/** Values for output (JSON compatible) as the reference stores them */
 export function toJsonValue<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }

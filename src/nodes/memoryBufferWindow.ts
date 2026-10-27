@@ -1,5 +1,5 @@
 // Simple Memory, @n8n/n8n-nodes-langchain.memoryBufferWindow (typeVersion 1 to 1.3)
-// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/memory/MemoryBufferWindow/MemoryBufferWindow.node.ts
+// Rebuilt after the reference version 1.123.0, packages/@n8n/nodes-langchain/nodes/memory/MemoryBufferWindow/MemoryBufferWindow.node.ts
 // and utils/helpers.ts getSessionId. Storage: see src/ai/memory.ts.
 import type { NodeType } from './types.js';
 import { NodeOperationError } from '../errors.js';
@@ -7,8 +7,8 @@ import { BufferWindowMemory } from '../ai/memory.js';
 import type { ParamSchema } from './params.js';
 
 // Parameters as in MemoryBufferWindow.node.ts (properties) and memory/descriptions.ts (sessionIdOption,
-// expressionSessionKeyProperty(1.3), sessionKeyProperty, contextWindowLengthProperty), n8n 1.123.0.
-// In n8n "Session Key From Previous Node" is locked (disabledOptions); here it is a normal text field.
+// expressionSessionKeyProperty(1.3), sessionKeyProperty, contextWindowLengthProperty), reference version 1.123.0.
+// In the reference "Session Key From Previous Node" is locked (disabledOptions); here it is a normal text field.
 const parameters: ParamSchema[] = [
   { name: 'notice', label: 'Connect this node to an AI agent.', type: 'notice', default: '' },
   {

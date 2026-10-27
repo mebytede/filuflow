@@ -1,6 +1,6 @@
 // XML, n8n-nodes-base.xml (typeVersion 1)
-// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/Xml/Xml.node.ts (xml2js as in n8n)
-// Note: with continueOnFail n8n discards the error item (it is not output); adopted as is.
+// Rebuilt after the reference version 1.123.0, packages/nodes-base/nodes/Xml/Xml.node.ts (xml2js as in the reference)
+// Note: with continueOnFail the reference discards the error item (it is not output); adopted as is.
 import { Builder, Parser } from 'xml2js';
 import type { NodeType } from './types.js';
 import type { ParamSchema } from './params.js';

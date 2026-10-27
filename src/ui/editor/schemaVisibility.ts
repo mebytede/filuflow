@@ -1,5 +1,5 @@
 // Visibility and defaults of the parameter description (M19), without DOM so tests can check them directly.
-// Like n8n displayParameter (packages/workflow/src/node-helpers.ts): show requires one of the values to match, hide
+// Like displayParameter in the reference (packages/workflow/src/node-helpers.ts): show requires one of the values to match, hide
 // hides as soon as one matches; "@version" checks the typeVersion, "/name" a top-level parameter.
 import type { DisplayRule, ParamCondition, ParamSchema } from '../types.js';
 
@@ -83,7 +83,7 @@ export function visibleDefs(level: Level, root: Level, version: number): ParamSc
   return out;
 }
 
-/** Default for a new entry of a group: all visible fields with a default (like n8n when adding) */
+/** Default for a new entry of a group: all visible fields with a default (like the reference when adding) */
 export function entryDefaults(children: ParamSchema[], root: Level, version: number): Values {
   const values: Values = {};
   const level = { values, defs: children };

@@ -1,6 +1,6 @@
 // Code Tool, @n8n/n8n-nodes-langchain.toolCode (typeVersion 1 to 1.3)
-// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/tools/ToolCode/ToolCode.node.ts
-// JavaScript or Python (Pyodide, like n8n via PythonSandbox.runCode); the variable `query` holds the input.
+// Rebuilt after the reference version 1.123.0, packages/@n8n/nodes-langchain/nodes/tools/ToolCode/ToolCode.node.ts
+// JavaScript or Python (Pyodide, like the reference via PythonSandbox.runCode); the variable `query` holds the input.
 // The result must be a string or a number.
 import type { ExecContext, NodeIssue, NodeType } from './types.js';
 import type { Item } from '../types.js';
@@ -54,7 +54,7 @@ function getTool(ctx: ExecContext, itemIndex: number, log: boolean): ToolInstanc
 }
 
 // Parameters as in ToolCode.node.ts (properties) and utils/descriptions.ts (schemaTypeField, buildJsonSchemaExampleField,
-// buildJsonSchemaExampleNotice, buildInputSchemaField), n8n 1.123.0. The notice pointing to an n8n template
+// buildJsonSchemaExampleNotice, buildInputSchemaField), reference version 1.123.0. The notice pointing to a template of the reference
 // (noticeTemplateExample) is omitted because filuflow has no templates.
 const CODE_HINT = 'The input is available in the "query" variable; return a single string.';
 const SHOW_SCHEMA = { specifyInputSchema: [true] };
@@ -72,7 +72,7 @@ const parameters: ParamSchema[] = [
     show: { '@version': [1.1] },
   },
   {
-    // Not in n8n: from v1.2 n8n hides "name", but exported workflows often still contain it.
+    // Not in the reference: from v1.2 the reference hides "name", but exported workflows often still contain it.
     // Only visible when set, so the value does not go unnoticed.
     name: 'name',
     label: 'Name (not used)',

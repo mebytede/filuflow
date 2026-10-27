@@ -1,5 +1,5 @@
 // Character Text Splitter, @n8n/n8n-nodes-langchain.textSplitterCharacterTextSplitter (typeVersion 1)
-// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/text_splitters/TextSplitterCharacterTextSplitter.
+// Rebuilt after the reference version 1.123.0, packages/@n8n/nodes-langchain/nodes/text_splitters/TextSplitterCharacterTextSplitter.
 // Logging as in logWrapper (splitText: { textSplitter } -> { response }).
 import type { ExecContext, NodeType } from './types.js';
 import type { ParamSchema } from './params.js';

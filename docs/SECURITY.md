@@ -7,25 +7,25 @@ A malicious workflow can break out of the vm context. Anyone who wants to run th
 
 Still:
 - Expressions run with a timeout (default 1000 ms), code nodes with a timeout (default 60 s, `FILUFLOW_CODE_TIMEOUT_MS`).
-- Python (Pyodide) runs as WebAssembly in the server process. As in n8n, the Python module `js` (access to JavaScript) and
+- Python (Pyodide) runs as WebAssembly in the server process. As in the reference implementation, the Python module `js` (access to JavaScript) and
   `os.system` are blocked, additionally `pyodide_js`; the file system is a separate in-memory one, not the server's. Anyone
   who sets out to do so can bypass the blocks (e.g. via Pyodide's internal modules); they prevent accidents, not attacks. The
   time limit is enforced by a separate thread via Pyodide's interrupt buffer, even for infinite loops. Runs are sequential;
   while Python is computing, the server's other tasks wait (as with JavaScript in the Code node).
 - Python (Native) starts a separate process with the server's privileges. Before starting, filuflow checks the code like
-  the n8n task runner: imports only from the allowlists (default: none), no relative or dynamic imports, no attributes such
+  the reference implementation's task runner: imports only from the allowlists (default: none), no relative or dynamic imports, no attributes such
   as `__class__` or `__globals__`; builtins such as `eval`, `exec`, `open`, `getattr` are missing. The process gets an empty
   environment (no server keys), unless `FILUFLOW_PYTHON_ENV_ACCESS=true`. With allowed modules such as `os` or `subprocess`
   the code has full access to the system; that is a deliberate decision by the operator.
-- In the sandbox context there is no `process` and no `import()`. As in n8n, `require` only loads allowed modules
+- In the sandbox context there is no `process` and no `import()`. As in the reference implementation, `require` only loads allowed modules
   (`NODE_FUNCTION_ALLOW_BUILTIN`, `NODE_FUNCTION_ALLOW_EXTERNAL` or `FILUFLOW_FUNCTION_ALLOW_*`, default: none); any
   other request ends with "Module 'x' is disallowed". With allowed modules such as `fs` or `child_process` the code has
   the server's privileges; that is a deliberate decision by the operator.
-- Execute Workflow with the source "Local File" reads arbitrary server files, as in n8n. This can be restricted with
+- Execute Workflow with the source "Local File" reads arbitrary server files, as in the reference implementation. This can be restricted with
   `FILUFLOW_RESTRICT_FILE_ACCESS_TO` (directories separated by ";"); symlinks are resolved in the process. The source
   "URL" loads via the server's HTTP client.
 - Merge via SQL (alasql) cannot read or write files: alasql's file functions and sources are blocked
-  (like n8n).
+  (like the reference implementation).
 - `$env` only returns allowed environment variables (`FILUFLOW_ENV_ALLOW`, default: prefix `FL_`).
 - Chat with response nodes: the channel (`/chat/<id>/events`) and replies (`POST /chat/<id>`) are reachable without
   login like the chat page, but only with the sessionId the execution was started with. Anyone who knows the execution ID
@@ -34,15 +34,15 @@ Still:
   SQLite. Logs only name the keys. Secrets belong in credentials.
 - "Wait for test call" runs a state from the editor on the next call of the test URL. Only someone with the API key may
   do this (or in the master, someone with edit permission in the project); the test URLs themselves are reachable without
-  login, as in n8n.
+  login, as in the reference implementation.
 - Credential values are never logged and not stored in the execution log.
 - The REST API is protected with `FILUFLOW_API_KEY`. Without a key set, the API is locked (except `/healthz` and webhooks).
 - The API key comparison is constant-time. Webhooks are reachable without an API key; their authentication comes from the Webhook node
   (Basic, Header, Bearer, JWT) with credentials from `credentials.json`.
 - The Docker container runs as user `node` (not root).
-- Request bodies are limited to `FILUFLOW_PAYLOAD_SIZE_MAX` MB (default 16, like n8n).
+- Request bodies are limited to `FILUFLOW_PAYLOAD_SIZE_MAX` MB (default 16, like the reference implementation).
 - AI agents let the model call tools: the HTTP Request Tool sends requests with values from the model (with
-  authentication, a placeholder in the domain is forbidden, as in n8n), the Workflow Tool starts sub-workflows, the
+  authentication, a placeholder in the domain is forbidden, as in the reference implementation), the Workflow Tool starts sub-workflows, the
   Code Tool runs its code in the same sandbox as the Code node (same timeout). LLM responses are not
   trustworthy; tools should only be connected with the privileges the agent really needs.
 - Model API keys come from credentials and are masked like all secret fields.
@@ -51,8 +51,8 @@ Still:
   create, change, delete and run workflows, including code nodes with arbitrary code; the key must be protected accordingly.
   For access from the network, put a reverse proxy with HTTPS in front. With `FILUFLOW_UI=false` the interface is disabled.
 - Credentials in the interface: reading returns name, ID, type, the public fields (e.g. header name, client ID, URL) and the
-  names of the secret fields that are set, never their values. Secret are the fields with `typeOptions.password` of the n8n
-  credential types, the JSON of Custom Auth and, for unknown types, fields whose name looks like password, secret, token, key
+  names of the secret fields that are set, never their values. Secret are the fields with `typeOptions.password` of the
+  credential type definitions, the JSON of Custom Auth and, for unknown types, fields whose name looks like password, secret, token, key
   or value. When editing, the interface lists in `keep` the secret fields that should remain unchanged; the server only keeps them
   if the type is the same. Data is stored in `credentials.managed.json` (file mode 0600, replaced atomically, with
   `FILUFLOW_ENCRYPTION_KEY` AES-256-GCM encrypted per entry). Without a key the values are stored in plain text in the file; the
@@ -67,14 +67,14 @@ Still:
 - OAuth1: same procedure with `/rest/oauth1-credential/callback`; the one-time `state` is in the redirect URL,
   which filuflow registers with the provider as `oauth_callback`. Access token and token secret are stored encrypted in the
   worker's database like OAuth2 tokens.
-- Import from n8n: the n8n key is only used for decryption, never stored or logged. The import response
+- Import of exported credentials: the source instance's encryption key is only used for decryption, never stored or logged. The import response
   only names names. Entries from `credentials.json` are never overwritten.
 - Sharing with projects (master): a credential with sharing can only be used in the named projects; the
   master rejects workflows of other projects on create, save and run. Sharing protects against
   accidental use; anyone allowed to write code nodes in the project can still reach the worker's files
   and environment (see below).
 - Forms: the pages under `/form/` and `/form-waiting/` run without scripts (CSP `script-src 'none'`). Descriptions
-  and custom HTML are reduced to allowed tags (like n8n: text, lists, tables, links, images, videos, iframes in
+  and custom HTML are reduced to allowed tags (like the reference implementation: text, lists, tables, links, images, videos, iframes in
   a sandbox), links and sources only via http(s). Anyone who knows the address of a follow-up page can fill it out; for
   confidential processes use Basic auth on the Form Trigger.
 - Chat Trigger: a public chat is reachable without login, unless the node requires Basic auth. Every message
@@ -90,11 +90,11 @@ Still:
 
 ## Gmail (M40)
 The service account key (`googleApi`) stays on the server: it only signs the JWT for the token request and is never
-sent (n8n puts it into the JWT header). Access tokens are kept in memory until shortly before they expire.
+sent (the reference implementation puts it into the JWT header). Access tokens are kept in memory until shortly before they expire.
 The links in "Send and Wait for Response" emails are signed with HMAC-SHA256 (secret from
-`FILUFLOW_HMAC_SIGNATURE_SECRET`, `N8N_HMAC_SIGNATURE_SECRET` or generated and stored in the database); a changed link
+`FILUFLOW_HMAC_SIGNATURE_SECRET` or generated and stored in the database); a changed link
 (e.g. `approved=false` instead of `true`) is rejected with 401, link previews of bots do not count as an answer. Anyone
-who has the email can answer, as in n8n.
+who has the email can answer, as in the reference implementation.
 
 ## Supervisor (M35)
 The Supervisor sends data to the configured model, i.e. to that model's provider. What goes out:
@@ -123,12 +123,12 @@ error occurs very frequently.
 
 ## Simple Vector Store (M27)
 The Simple Vector Store keeps documents and embeddings in the process's memory, shared across all workflows of this
-process with the same key (from v1.2 without workflow ID, like n8n). Workflows on a worker can therefore read and overwrite
+process with the same key (from v1.2 without workflow ID, like the reference implementation). Workflows on a worker can therefore read and overwrite
 the data of other workflows on the same worker. Confidential content therefore belongs in its own keys or on
 separate workers; nothing is stored permanently.
 
 ## Plugins (M24)
-Plugins (own modules and nodes in n8n format) run without a sandbox in the filuflow process, with all privileges of the process
+Plugins (own modules and nodes in the community node format) run without a sandbox in the filuflow process, with all privileges of the process
 (files, network, environment, credentials of other workflows). Like workflows, they are considered trusted: only put packages from
 known sources into the plugin folders and keep these folders writable only by operators. Credential values reach
 plugins only via `getCredentials` of the respective node; in logs and executions they are masked as usual.

@@ -1,5 +1,5 @@
 // HTML, n8n-nodes-base.html (typeVersion 1, 1.1, 1.2)
-// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/Html (Html.node.ts, utils.ts)
+// Rebuilt after the reference version 1.123.0, packages/nodes-base/nodes/Html (Html.node.ts, utils.ts)
 import * as cheerio from 'cheerio';
 import { convert } from 'html-to-text';
 import lodash from 'lodash';

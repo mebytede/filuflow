@@ -1,14 +1,14 @@
 // Google Gemini Chat Model, @n8n/n8n-nodes-langchain.lmChatGoogleGemini (typeVersion 1)
-// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/llms/LmChatGoogleGemini/LmChatGoogleGemini.node.ts
+// Rebuilt after the reference version 1.123.0, packages/@n8n/nodes-langchain/nodes/llms/LmChatGoogleGemini/LmChatGoogleGemini.node.ts
 // Sub-node: supplies a chat model that the parent node calls via ai_languageModel.
 import type { NodeType } from './types.js';
 import { GeminiChatModel } from '../ai/models/gemini.js';
 import type { ParamSchema } from './params.js';
 
 // Parameters like LmChatGoogleGemini.node.ts (properties) and gemini-common/additional-options.ts as well as
-// gemini-common/safety-options.ts (getAdditionalOptions without thinking budget, n8n 1.123.0).
-// n8n loads the models via API (loadOptions); here the model is a free input.
-// The category default (HARM_CATEGORY_UNSPECIFIED) is missing from the n8n options; here it is its own option.
+// gemini-common/safety-options.ts (getAdditionalOptions without thinking budget, reference version 1.123.0).
+// The reference loads the models via API (loadOptions); here the model is a free input.
+// The category default (HARM_CATEGORY_UNSPECIFIED) is missing from the reference options; here it is its own option.
 const parameters: ParamSchema[] = [
   { name: 'notice', label: 'Connect this node to an AI chain or an AI agent.', type: 'notice', default: '' },
   {

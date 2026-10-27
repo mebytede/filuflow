@@ -1,8 +1,8 @@
 // Chat with response nodes (Chat Trigger responseMode "responseNodes", human in the loop).
-// Flow as in n8n 1.123.0 packages/cli/src/chat/chat-service.ts and utils.ts: the chat page connects to an
+// Flow as in the reference version 1.123.0 packages/cli/src/chat/chat-service.ts and utils.ts: the chat page connects to an
 // execution, the server sends the message of the waiting node (sendMessage on the item), resumes immediately
 // ("continue") for Respond to Webhook and "Wait for reply: off", and otherwise with the user's next message. When the
-// execution ends, the channel closes. n8n uses a WebSocket under /chat; filuflow uses Server-Sent Events towards
+// execution ends, the channel closes. The reference uses a WebSocket under /chat; filuflow uses Server-Sent Events towards
 // the page (GET /chat/<id>/events) and POST /chat/<id> for replies. Access only with the execution's sessionId.
 import type { Execution, Item, Workflow, WorkflowNode } from '../types.js';
 import type { ExecutionStore } from './store.js';
@@ -56,7 +56,7 @@ interface Session {
   stream: ChunkStream;
   timer: NodeJS.Timeout;
   processing: boolean;
-  /** Node waiting for a reply from the user (n8n nodeWaitingForChatResponse) */
+  /** Node waiting for a reply from the user (reference: nodeWaitingForChatResponse) */
   waitingNode?: string;
 }
 
@@ -64,7 +64,7 @@ export interface ChatSessionsOptions {
   manager: ExecutionManager;
   store: ExecutionStore;
   logger: Logger;
-  /** Polling interval (n8n CHECK_FOR_RESPONSE_INTERVAL 3000 ms) */
+  /** Polling interval (reference: CHECK_FOR_RESPONSE_INTERVAL 3000 ms) */
   pollMs?: number;
 }
 

@@ -1,12 +1,12 @@
 // JSON Schema tools for the AI nodes, without zod and LangChain.
-// Rebuilt after n8n 1.123.0:
+// Rebuilt after the reference version 1.123.0:
 //   packages/@n8n/nodes-langchain/utils/schemaParsing.ts (generateSchemaFromExample, makeAllPropertiesRequired)
 //   npm generate-schema 2.6.0 (json): schema from an example JSON
 //   packages/@n8n/json-schema-to-zod (JSON Schema -> zod)
 //   npm zod-to-json-schema 3.23.3 (zod -> JSON Schema, $ref for sub-schemas used more than once)
 //   npm zod 3 (validation: remove unknown keys, key order of the schema, defaults)
 // The internal model `ZType` represents the zod types that json-schema-to-zod produces. With it,
-// format instructions (zodToJsonSchema) and parser results (schema.parse) can be produced as in n8n.
+// format instructions (zodToJsonSchema) and parser results (schema.parse) can be produced as in the reference.
 // Checked against the oracle test/oracle/ai-table.json.gz (scripts/record-ai-oracle.sh).
 
 export type JsonSchema = Record<string, unknown>;

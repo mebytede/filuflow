@@ -1,5 +1,5 @@
 // Webhook registry and request handling.
-// Modeled on n8n 1.123.0:
+// Modeled on the reference version 1.123.0:
 //   packages/cli/src/webhooks/webhook.service.ts (findStaticWebhook, findDynamicWebhook, getWebhookMethods)
 //   packages/cli/src/webhooks/live-webhooks.ts (executeWebhook: path parameters)
 //   packages/cli/src/webhooks/webhook-helpers.ts (executeWebhook: response modes)
@@ -51,7 +51,7 @@ export interface RegisteredWebhook extends WebhookDescription {
   webhookPath: string;
   staticSegments: string[];
   pathLength: number;
-  /** Webhook of a node from an n8n package (M32): name from description.webhooks */
+  /** Webhook of a node from a package in the community node format (M32): name from description.webhooks */
   packageWebhook?: string;
 }
 
@@ -70,7 +70,7 @@ export interface HttpResponse {
   statusCode: number;
   headers: Record<string, string>;
   body?: string | Buffer;
-  /** Write directly (n8n res.writeHead/res.end): do not add default headers such as Content-Type */
+  /** Write directly (reference: res.writeHead/res.end): do not add default headers such as Content-Type */
   raw?: boolean;
   /** Streamed response: parts are written as soon as they arrive (raw) */
   stream?: AsyncIterable<string>;
@@ -106,7 +106,7 @@ export class ChunkStream implements AsyncIterable<string> {
   }
 }
 
-/** Headers of a streamed response as in n8n (Webhook.node.ts, ChatTrigger.node.ts) */
+/** Headers of a streamed response as in the reference (Webhook.node.ts, ChatTrigger.node.ts) */
 const STREAM_HEADERS = { 'content-type': 'application/json; charset=utf-8', 'transfer-encoding': 'chunked', 'cache-control': 'no-cache', connection: 'keep-alive' };
 
 const WEBHOOK_SANDBOX_CSP =
@@ -154,7 +154,7 @@ export class WebhookRegistry {
     this.dynamicHooks.length = 0;
   }
 
-  /** Registers all webhook nodes of a workflow; on a conflict nothing (as n8n does on activation) */
+  /** Registers all webhook nodes of a workflow; on a conflict nothing (as the reference does on activation) */
   add(workflow: Workflow): RegisteredWebhook[] {
     const hooks: RegisteredWebhook[] = [];
     for (const node of workflow.nodes) {
@@ -197,7 +197,7 @@ export class WebhookRegistry {
       } catch (error) {
         throw new WebhookConflictError(`Webhook "${node.name}": path or method cannot be evaluated: ${(error as Error).message}`);
       }
-      // n8n getNodeWebhooks skips the webhook if the path is undefined; here a clear activation error
+      // Reference: getNodeWebhooks skips the webhook if the path is undefined; here a clear activation error
       if (resolved.parameters.path === undefined || resolved.parameters.path === null) {
         if (node.parameters.path !== undefined) throw new WebhookConflictError(`Webhook "${node.name}": path or method cannot be evaluated: the path expression returns no value`);
       }
@@ -352,7 +352,7 @@ export interface WebhookServiceOptions {
   store?: ExecutionStore;
   /** $vars for expressions in webhook parameters */
   vars?: Record<string, unknown>;
-  /** Node types, for webhook nodes from n8n packages (M32) */
+  /** Node types, for webhook nodes from packages in the community node format (M32) */
   registry?: NodeRegistry;
   /** Save static data (after registering webhooks with the service) */
   saveStaticData?: (workflow: Workflow, mode: string) => void;
@@ -384,7 +384,7 @@ export class WebhookService {
     this.test = new WebhookRegistry(this.resolveNode, this.packageHookResolver);
   }
 
-  /** getNodeWebhooks for nodes from n8n packages */
+  /** getNodeWebhooks for nodes from packages in the community node format */
   private readonly packageHookResolver: PackageHookResolver = (workflow, node) => {
     const type = this.options.registry?.getVersioned(node.type, node.typeVersion);
     if (!type?.packageWebhooks) return undefined;
@@ -430,7 +430,7 @@ export class WebhookService {
 
   /**
    * Waits for the next call to a test URL of the workflow and runs exactly this (possibly unsaved) version for it,
-   * like "Execute workflow" with a test webhook in the n8n editor. A new call for the same workflow replaces
+   * like "Execute workflow" with a test webhook in the reference editor. A new call for the same workflow replaces
    * the old one. Returns the started execution or undefined (timed out, canceled, replaced).
    */
   listen(workflow: Workflow, timeoutMs: number): { promise: Promise<ActiveExecution | undefined>; cancel(): void } {
@@ -439,7 +439,7 @@ export class WebhookService {
     const registry = new WebhookRegistry(this.resolveNode, this.packageHookResolver);
     const hooks = registry.add(workflow);
     if (!hooks.length) throw new WebhookConflictError('The workflow has no webhook, form or chat trigger');
-    // Package nodes with webhookMethods: register the test webhook with the service and deregister it after waiting (n8n
+    // Package nodes with webhookMethods: register the test webhook with the service and deregister it after waiting (reference:
     // test-webhooks.ts needsWebhook/deactivateWebhooks)
     const registered = hooks.some((h) => h.packageWebhook)
       ? this.runPackageLifecycle(workflow, 'create', true).catch((error: unknown) => {
@@ -504,7 +504,7 @@ export class WebhookService {
     const original = workflow.nodes.find((n) => n.name === hook.node)!;
     if (original.type === CHAT_TRIGGER_TYPE) return this.handleChat(test, workflow, original, { ...request, params });
     if (hook.packageWebhook) return this.handlePackage(test, hook, original, { ...request, params }, path);
-    // Evaluate expressions in the parameters per call (n8n executeWebhook, without items)
+    // Evaluate expressions in the parameters per call (reference: executeWebhook, without items)
     let node: WorkflowNode;
     try {
       node = resolveWebhookNode(workflow, original, this.options.vars);
@@ -555,7 +555,7 @@ export class WebhookService {
     );
   }
 
-  /** webhook-helpers.ts executeWebhook for webhook nodes from n8n packages (M32) */
+  /** webhook-helpers.ts executeWebhook for webhook nodes from packages in the community node format (M32) */
   private async handlePackage(test: boolean, hook: RegisteredWebhook, node: WorkflowNode, request: IncomingWebhookRequest, path: string): Promise<HttpResponse> {
     const workflow = hook.workflow;
     const type = this.options.registry!.getVersioned(node.type, node.typeVersion)!;
@@ -625,7 +625,7 @@ export class WebhookService {
 
   /**
    * Response to a submitted form. The pages are plain HTML forms: redirects are sent as 303
-   * (n8n uses 307 with a script in the page). Modes: onReceived (immediately), lastNode (after the end), responseNode
+   * (the reference uses 307 with a script in the page). Modes: onReceived (immediately), lastNode (after the end), responseNode
    * (Respond to Webhook with formSubmittedText or redirectURL), next (follow-up page: redirect of the Form node,
    * otherwise after the end to the execution's page).
    */
@@ -736,7 +736,7 @@ export class WebhookService {
       return this.formMessage(500, 'No Respond to Webhook node found in the workflow', 'Insert a Respond to Webhook node to your workflow to respond to the form submission or choose another option for the “Respond When” parameter');
     }
     if (respondConnected && node.typeVersion > 2.1) {
-      return this.formMessage(500, 'The "Respond to Webhook" node is not supported in workflows initiated by the "n8n Form Trigger"', 'To configure your response, add an "n8n Form" node and set the "Page Type" to "Form Ending"');
+      return this.formMessage(500, 'The "Respond to Webhook" node is not supported in workflows initiated by the "Form Trigger"', 'To configure your response, add a "Form" node and set the "Page Type" to "Form Ending"');
     }
     if (respondConnected && responseMode !== 'responseNode') {
       return this.formMessage(500, 'Unused Respond to Webhook node found in the workflow', 'Set the “Respond When” parameter to “Using Respond to Webhook Node” or remove the Respond to Webhook node');
@@ -810,11 +810,11 @@ export class WebhookService {
       .find((n) => isCompletion(n) && !!runData[n!.name]);
   }
 
-  /** Follow-up pages, Wait "On Form Submitted" and completion: /form-waiting/<executionId>[/n8n-execution-status] */
+  /** Follow-up pages, Wait "On Form Submitted" and completion: /form-waiting/<executionId>[/execution-status] */
   async handleWaitingForm(executionId: string, suffix: string, request: Omit<IncomingWebhookRequest, 'params'>): Promise<HttpResponse> {
     const method = request.method.toUpperCase();
     const stored = this.options.store?.get(executionId);
-    if (suffix === 'n8n-execution-status') {
+    if (suffix === 'execution-status') {
       let status = stored?.status ?? 'null';
       if (status === 'waiting') {
         const record = this.options.store!.loadResume(executionId);
@@ -847,7 +847,7 @@ export class WebhookService {
     const isWaitForm = node.type === WAIT_NODE_TYPE && p.resume === 'form';
     if (node.type === FORM_NODE_TYPE && (p.operation ?? 'page') === 'completion') {
       const response = await this.completionResponse(workflow, node, record.runData);
-      // n8n resumes the execution after showing the completion page (POST from the page); here directly
+      // The reference resumes the execution after showing the completion page (POST from the page); here directly
       try {
         this.options.manager.resume(executionId);
       } catch (error) {
@@ -922,7 +922,7 @@ export class WebhookService {
   }
 
   /**
-   * Resuming a waiting execution via $execution.resumeUrl (n8n waiting-webhooks.ts): the last
+   * Resuming a waiting execution via $execution.resumeUrl (reference: waiting-webhooks.ts): the last
    * executed node must be a Wait node with resume "webhook", a matching method and a matching webhookSuffix.
    */
   async handleWaiting(executionId: string, suffix: string, request: Omit<IncomingWebhookRequest, 'params'>): Promise<HttpResponse> {
@@ -988,7 +988,7 @@ export class WebhookService {
   }
 
   /**
-   * Resume of a node with operation "sendAndWait" (n8n waiting-webhooks.ts with sendAndWaitWebhook): signature check
+   * Resume of a node with operation "sendAndWait" (reference: waiting-webhooks.ts with sendAndWaitWebhook): signature check
    * (401), "no action required" page once the execution no longer waits for this node, otherwise approval or form
    */
   private async handleSendAndWait(executionId: string, node: WorkflowNode, request: Omit<IncomingWebhookRequest, 'params'>): Promise<HttpResponse> {
@@ -1051,7 +1051,7 @@ export class WebhookService {
       else respondEarly ??= r;
     };
     if (opts.responseMode === 'streaming') {
-      // Respond immediately with headers, then one JSON line per part (n8n workflow-runner.ts: sendChunk handler);
+      // Respond immediately with headers, then one JSON line per part (reference: workflow-runner.ts: sendChunk handler);
       // the response ends with the execution (active-executions.ts finalizeExecution)
       const stream = new ChunkStream();
       const entry = start({ sendChunk: (chunk) => stream.push(`${JSON.stringify(chunk)}\n`) });
@@ -1104,7 +1104,7 @@ export class WebhookService {
       return expressResponse(500, headers, { message: 'Error in workflow' }, false);
     }
     if (opts.responseMode === 'responseNode') {
-      // n8n waits indefinitely for the Respond node here; filuflow responds so that the request does not hang
+      // The reference waits indefinitely for the Respond node here; filuflow responds so that the request does not hang
       return expressResponse(200, headers, { message: 'Workflow executed successfully but no Respond to Webhook node was executed' }, false);
     }
     if (task === undefined) {
@@ -1127,7 +1127,7 @@ export class WebhookService {
       const name = opts.responseBinaryPropertyName;
       const ref = item.binary[name];
       if (!ref) return errorResponse(new OperationalError(`The binary property '${name}' which should be returned does not exist`), headers);
-      // n8n sends inline binary data here via res.json (serialized Buffer); filuflow sends the bytes with their MIME type
+      // The reference sends inline binary data here via res.json (serialized Buffer); filuflow sends the bytes with their MIME type
       const content = await this.options.binary.getBuffer(ref);
       return { statusCode: opts.responseCode, headers: { ...headers, 'content-type': ref.mimeType }, body: content };
     }

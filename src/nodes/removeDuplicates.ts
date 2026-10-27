@@ -1,5 +1,5 @@
 // Remove Duplicates, n8n-nodes-base.removeDuplicates (typeVersion 1, 1.1, 2)
-// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/Transform/RemoveDuplicates (utils.ts, v1, v2)
+// Rebuilt after the reference version 1.123.0, packages/nodes-base/nodes/Transform/RemoveDuplicates (utils.ts, v1, v2)
 // v2: only operation "removeDuplicateInputItems"; deduplication across previous executions is not supported.
 import lodash from 'lodash';
 import type { ExecContext, NodeType } from './types.js';

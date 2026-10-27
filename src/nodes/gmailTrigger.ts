@@ -1,9 +1,9 @@
 // Gmail Trigger, n8n-nodes-base.gmailTrigger (typeVersion 1, 1.1, 1.2, 1.3), a built-in poll node (M41).
-// Rebuilt after n8n-nodes-base 1.121.0 (n8n 1.123.0) nodes/Google/Gmail/GmailTrigger.node.js (poll) with the helpers of
+// Rebuilt after n8n-nodes-base 1.121.0 (reference version 1.123.0) nodes/Google/Gmail/GmailTrigger.node.js (poll) with the helpers of
 // GenericFunctions.js shared with the Gmail node (src/nodes/shared/gmail.ts). Activation, "Poll Times" and the manual
 // run come from the generic mechanism for built-in poll nodes (src/nodes/shared/polling.ts). Own implementation.
 //
-// Poll logic as in n8n:
+// Poll logic as in the reference:
 // - State in the node's static data; from typeVersion 1.1 nested once more under the node name
 //   (staticData["node:<name>"]["<name>"]), version 1 directly in staticData["node:<name>"].
 // - Active: lastTimeChecked is set to now on the first poll; the query asks for messages after lastTimeChecked
@@ -51,7 +51,7 @@ export async function pollGmail({ ctx, manual }: PollRun): Promise<Item[][] | nu
   const startDate = state.lastTimeChecked ?? now;
 
   const simple = ctx.getParam<boolean>('simple', 0, true);
-  // "Options" is hidden while "Simplify" is on, and n8n drops hidden parameters
+  // "Options" is hidden while "Simplify" is on, and the reference drops hidden parameters
   const options = simple ? {} : ctx.getParam<Json>('options', 0, {});
   const filters = ctx.getParam<Json>('filters', 0, {});
   let responseData: Item[] = [];

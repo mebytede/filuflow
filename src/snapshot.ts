@@ -54,7 +54,7 @@ export function executionToSnapshot(exec: Execution): ExecutionSnapshot {
       .map((e) => e.name),
     nodes,
   };
-  // JSON round trip: luxon DateTime → ISO, undefined is dropped (like n8n when saving)
+  // JSON round trip: luxon DateTime → ISO, undefined is dropped (like the reference when saving)
   return JSON.parse(JSON.stringify(snapshot)) as ExecutionSnapshot;
 }
 

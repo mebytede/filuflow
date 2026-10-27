@@ -1,5 +1,5 @@
 // Shared parameter descriptions of the form nodes (Form Trigger, Form) for the editor forms.
-// After n8n 1.123.0 packages/nodes-base/nodes/Form/common.descriptions.ts (webhookPath, formTitle, formDescription,
+// After the reference version 1.123.0 packages/nodes-base/nodes/Form/common.descriptions.ts (webhookPath, formTitle, formDescription,
 // formFields, formRespondMode, respondWithOptions, appendAttributionToForm) and Form.node.ts (formFieldsProperties).
 import type { ParamSchema } from '../params.js';
 
@@ -331,17 +331,17 @@ export const respondWithOptionsParam: ParamSchema = {
   ],
 };
 
-/** Append n8n Attribution (appendAttributionToForm) */
+/** Append Attribution (appendAttributionToForm) */
 export const appendAttributionParam: ParamSchema = {
   name: 'appendAttribution',
-  label: 'Append n8n Attribution',
+  label: 'Append Attribution',
   type: 'boolean',
   default: true,
-  description: 'Whether the footer link “Form automated with n8n” appears below the form',
+  description: 'Whether an attribution footer link appears below the form',
 };
 
 /**
- * Custom Form Styling (customCss). Deviation: n8n uses its CSS variables as the default (Form/cssVariables.ts).
+ * Custom Form Styling (customCss). Deviation: the reference uses its CSS variables as the default (Form/cssVariables.ts).
  * The filuflow pages do not use these variables, and the template is not copied; the default is therefore empty.
  */
 export const formCustomCssParam: ParamSchema = {

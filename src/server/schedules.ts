@@ -1,5 +1,5 @@
 // Scheduled starts for active workflows with a Schedule Trigger.
-// Modeled on n8n 1.123.0 packages/core/src/execution-engine/scheduled-task-manager.ts
+// Modeled on the reference version 1.123.0 packages/core/src/execution-engine/scheduled-task-manager.ts
 // (registerCron, deregisterCrons) using croner instead of "cron".
 import { Cron } from 'croner';
 import type { Workflow } from '../types.js';

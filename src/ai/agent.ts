@@ -1,5 +1,5 @@
 // AI Agent (Tools Agent) without LangChain.
-// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain:
+// Rebuilt after the reference version 1.123.0 packages/@n8n/nodes-langchain:
 //   nodes/agents/Agent/agents/ToolsAgent/common.ts (prepareMessages, getTools, getAgentStepsParser,
 //     handleAgentFinishOutput, extractBinaryMessages, getChatModel)
 //   nodes/agents/Agent/agents/ToolsAgent/V2/execute.ts (AgentExecutor: tools are called directly)
@@ -180,7 +180,7 @@ async function invokeWithFallback(setup: AgentSetup, messages: ChatMessage[], to
 }
 
 /**
- * Streaming as in n8n ToolsAgent V2 execute.ts / V3 runAgent.ts: from typeVersion 2.1, when the response is streamed and
+ * Streaming as in the reference ToolsAgent V2 execute.ts / V3 runAgent.ts: from typeVersion 2.1, when the response is streamed and
  * options.enableStreaming is not turned off
  */
 function streamingEnabled(ctx: ExecContext): boolean {
@@ -225,7 +225,7 @@ function handleAgentFinishOutput(finish: AgentFinish): AgentFinish {
   return finish;
 }
 
-/** n8n jsonParse: JSON.parse that throws on error */
+/** Reference: jsonParse: JSON.parse that throws on error */
 function jsonParse(text: unknown): unknown {
   return JSON.parse(String(text));
 }
@@ -340,7 +340,7 @@ async function runBatches<T>(
   for (let i = 0; i < items.length; i += batchSize) {
     const batch = items.slice(i, i + batchSize);
     const results = await Promise.allSettled(batch.map((_item, b) => run(i + b)));
-    // Only to check whether an output parser is connected (n8n: getOptionalOutputParser(ctx, 0) after the batch)
+    // Only to check whether an output parser is connected (reference: getOptionalOutputParser(ctx, 0) after the batch)
     const outputParser = await getOutputParser(ctx, 0);
     results.forEach((result, b) => {
       const itemIndex = i + b;
