@@ -88,6 +88,14 @@ Still:
 - The pages send a Content Security Policy (`script-src 'self'`, no `eval`, no third-party sources), `X-Content-Type-Options`
   and `frame-ancestors 'none'`. Static paths outside `dist/ui` are rejected.
 
+## Gmail (M40)
+The service account key (`googleApi`) stays on the server: it only signs the JWT for the token request and is never
+sent (n8n puts it into the JWT header). Access tokens are kept in memory until shortly before they expire.
+The links in "Send and Wait for Response" emails are signed with HMAC-SHA256 (secret from
+`FILUFLOW_HMAC_SIGNATURE_SECRET`, `N8N_HMAC_SIGNATURE_SECRET` or generated and stored in the database); a changed link
+(e.g. `approved=false` instead of `true`) is rejected with 401, link previews of bots do not count as an answer. Anyone
+who has the email can answer, as in n8n.
+
 ## Supervisor (M35)
 The Supervisor sends data to the configured model, i.e. to that model's provider. What goes out:
 - always: the workflow structure (nodes, parameters, connections, settings), error messages, status and runtimes

@@ -55,6 +55,8 @@ export class TriggerActivations {
       throw error;
     }
     this.active.set(TriggerActivations.key(workflow), started);
+    // ActiveWorkflowManager.add: static data is saved after a successful activation (e.g. the first poll time)
+    this.o.saveStaticData(workflow, 'trigger');
     this.o.logger.info({ workflow: workflow.name, triggers: started.map((a) => a.node) }, 'Package triggers activated');
     return started.map((a) => a.node);
   }
@@ -101,8 +103,10 @@ export class TriggerActivations {
         this.activateNode(workflow, node)
           .then((entry) => {
             const now = this.active.get(TriggerActivations.key(workflow));
-            if (now) now.push(entry);
-            else void this.closeNode(entry);
+            if (now) {
+              now.push(entry);
+              this.o.saveStaticData(workflow, 'trigger');
+            } else void this.closeNode(entry);
             this.o.logger.info({ workflow: workflow.name, node: node.name }, 'Trigger reactivated');
           })
           .catch((error: unknown) => {

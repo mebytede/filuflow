@@ -5,6 +5,7 @@ import { de as master } from './ui-master.js';
 import { de as nodesA } from './params-nodes-a.js';
 import { de as nodesB } from './params-nodes-b.js';
 import { de as nodesC } from './params-nodes-c.js';
+import { de as nodesGmail } from './params-nodes-gmail.js';
 import { de as credentials } from './params-credentials.js';
 
-export const de: Record<string, string> = { ...nodesA, ...nodesB, ...nodesC, ...credentials, ...master, ...editor, ...app };
+export const de: Record<string, string> = { ...nodesA, ...nodesB, ...nodesC, ...nodesGmail, ...credentials, ...master, ...editor, ...app };

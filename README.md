@@ -30,8 +30,8 @@ and respond. Every run is logged and can be traced node by node.
 |---|---|
 | **Browser editor** | Add and connect nodes, parameters as a form or JSON, undo and redo, test run with the current state |
 | **Traceable runs** | Status and duration on every node, the path taken highlighted, "Last run" with timeline, execution log in SQLite |
-| **Triggers** | Webhooks with response nodes and authentication, schedules, error workflows, calls from other workflows, REST API |
-| **Nodes** | Set, filter, sort, summarize, branch (If, Switch), merge, loops, code (JavaScript and Python), HTTP (with pagination, Digest auth, client certificates), HTML, XML, date, crypto |
+| **Triggers** | Webhooks with response nodes and authentication, schedules, polling (Gmail Trigger, poll nodes from packages), error workflows, calls from other workflows, REST API |
+| **Nodes** | Set, filter, sort, summarize, branch (If, Switch), merge, loops, code (JavaScript and Python), HTTP (with pagination, Digest auth, client certificates), HTML, XML, date, crypto, Gmail (messages, labels, drafts, threads, send and wait for approval) and Gmail Trigger |
 | **AI** | AI Agent with tools, LLM Chain, extraction, classification, sentiment analysis; models from OpenAI, Anthropic, Google Gemini, Azure, Mistral, Groq, DeepSeek, OpenRouter and Ollama; embeddings, vector stores and Q&A Chain (RAG) |
 | **Supervisor** | a model keeps an eye on the workflows: fixed rules, analysis of failed runs, daily report, improvements as a validated proposal with diff, conversation in the editor, also in the master per worker; a human decides |
 | **Credentials** | create and edit in the interface (forms per type) or maintain as a file, encrypted with AES-256-GCM, values from environment variables; secret values never appear in logs or the interface |

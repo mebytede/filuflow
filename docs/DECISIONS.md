@@ -503,3 +503,50 @@ users; switching reloads the page so that no view keeps texts in the old languag
 The Supervisor writes analyses, proposals and reports in the language from its settings (one per installation or
 worker, since several people read them); the conversation in the editor uses the language of the person's interface.
 
+## Gmail node (M40)
+The Gmail node builds and parses MIME messages itself (`src/nodes/shared/mime.ts`) instead of adding nodemailer and
+mailparser (the libraries n8n uses) as runtime dependencies. The node needs only a small part of them: single part,
+multipart/alternative and multipart/mixed with attachments, encoded words, RFC 2231 file names, quoted-printable and
+base64, address lists, and on the reading side the fields n8n's `parseRawEmail` takes over. Both directions are checked
+against the real libraries in the versions of n8n 1.123.0 with a recorded oracle (`test/oracle/gmail-mime.json`,
+`scripts/gmail-mime-oracle.mjs`). Known gaps: `textAsHtml` links only URLs with a scheme, `www.` addresses and email
+addresses (mailparser also links bare domains and @mentions), and named HTML entities there cover Latin-1 and the
+HTML 4 special characters.
+
+The service account (credential type `googleApi`) signs its JWT with `node:crypto` (RS256); no JWT library is needed.
+Two deliberate differences to n8n: n8n puts the whole private key into the `kid` header of the JWT, filuflow never sends
+the key; and filuflow keeps the access token until shortly before it expires instead of requesting a new one for every
+API call. Neither changes what the node returns.
+
+n8n appends "This email was sent automatically with n8n" with a link to n8n.io to sent emails (option "Append n8n
+Attribution", on by default from typeVersion 2.1) and to "Send and Wait" emails. filuflow is not n8n and does not
+advertise it: the option is accepted and kept in the workflow, but nothing is appended (as with the attribution of the
+forms). The "Send and Wait" email and its pages use filuflow's own HTML with the same texts and buttons.
+
+"Send and Wait for Response" uses the existing waiting executions (M13). The resume links are signed like n8n
+(HMAC-SHA256 over host, path and query, parameter `signature`); the secret comes from `FILUFLOW_HMAC_SIGNATURE_SECRET`
+or `N8N_HMAC_SIGNATURE_SECRET`, otherwise the server generates one and keeps it in its database so that links in sent
+emails stay valid after a restart. The values the form pages need (title, description, fields) are resolved when the
+email is sent and stored in the node context of the waiting execution, so the webhook does not have to evaluate
+expressions without the execution's data.
+
+n8n loads labels, aliases and thread messages for its option lists via the API. filuflow's forms have no dynamic option
+lists yet, so label IDs are a JSON list (stored as an array, as in n8n) and alias and message ID are text fields; the node
+also accepts label IDs as JSON text or comma separated text.
+
+## Built-in poll nodes (M41)
+Poll nodes from n8n packages (M31) already had activation with "Poll Times", the first poll on activation and the
+manual run, but bound to n8n's `poll()` with `this` as PollContext. Built-in nodes now get the same behavior from
+`src/nodes/shared/polling.ts`: `pollingTrigger(poll)` returns the trigger methods (`activate`, `execute`, no inputs)
+for a plain function `poll({ ctx, manual })`, and `pollTimesParam` is the "Poll Times" form. The cron conversion, the
+interval check and the polling loop live there once and the package adapter uses them too, so both kinds behave the
+same; a test keeps the built-in form equal to the one package nodes get. The Gmail Trigger is the first user; Slack or
+Outlook triggers only need their `poll` function and parameters. No new service is needed: the server's existing
+trigger activations (`src/server/activations.ts`) start every node type that has `activate`.
+
+Manual runs of poll and trigger nodes work on a copy of the static data. n8n runs a test execution on its own
+Workflow instance and does not save its static data; in filuflow's server the in-memory static data is shared with the
+active workflow, so without the copy a test run of the Gmail Trigger would move the active trigger's window. The copy
+still starts from the stored values, so like n8n a test run does not return a message that the active trigger already
+counts as a possible duplicate. After a successful activation the static data is saved (as n8n does in
+`ActiveWorkflowManager.add`), so the first poll time survives a restart even before the first execution.

@@ -422,7 +422,7 @@ async function buildRequest(ctx: ExecContext, itemIndex: number, items: Item[], 
     const type = ctx.getParam<string>('nodeCredentialType', 0, '');
     const cred = withCredentialDefaults(type, await ctx.getCredentials(type, itemIndex));
     if (hasAuthentication(type)) {
-      const authed = await authenticateRequest(type, cred, { url, method, headers, qs: qsParams, body: bodyObject });
+      const authed = await authenticateRequest(type, cred, { url, method, headers, qs: qsParams, body: bodyObject }, { http: ctx.helpers.http, signal: ctx.signal });
       headers = Object.fromEntries(Object.entries(authed.headers ?? {}).filter(([, v]) => v !== undefined && v !== null).map(([k, v]) => [k, String(v)]));
       qsParams = authed.qs as typeof qsParams;
       if (authed.body !== bodyObject) bodyObject = authed.body as typeof bodyObject;

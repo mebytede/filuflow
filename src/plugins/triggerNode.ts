@@ -3,11 +3,13 @@
 //   minute), triggers-and-pollers.ts runTrigger/runPoll, workflow-execute.ts executePollNode/executeTriggerNode
 //   (manual run: poll once or wait for the first emit, then closeFunction), poll-context.ts and
 //   trigger-context.ts (getActivationMode, __emit/emit, helpers with createDeferredPromise and registerCron),
-//   nodes-loader/constants.ts commonPollingParameters and n8n-workflow cron.ts toCronExpression.
+//   nodes-loader/constants.ts commonPollingParameters. Poll Times, toCronExpression and the polling loop are shared
+//   with the built-in poll nodes (src/nodes/shared/polling.ts).
 import { Cron } from 'croner';
 import type { Activation, ActivationHandle, ExecContext } from '../nodes/types.js';
 import type { Item, NodeOutput } from '../types.js';
 import { executeFunctions } from './n8nNode.js';
+import { isManualRun, pollTimesToCron, startPolling, withDetachedStaticData, type TriggerTime } from '../nodes/shared/polling.js';
 import type { N8nNodeDescription, N8nProperty } from './n8nDescription.js';
 
 type Emit = (data: Item[][]) => void;
@@ -88,33 +90,6 @@ export function withPollTimes(description: N8nNodeDescription): N8nNodeDescripti
   return { ...description, properties: [POLL_TIMES, ...description.properties] };
 }
 
-export interface TriggerTime {
-  mode: string;
-  hour?: number;
-  minute?: number;
-  dayOfMonth?: number;
-  weekday?: string;
-  value?: number;
-  unit?: string;
-  cronExpression?: string;
-}
-
-/** cron.ts toCronExpression (with a random second like n8n, so that not all polls start at the same time) */
-export function toCronExpression(item: TriggerTime, random: (max: number) => number = (max) => Math.floor(Math.random() * max)): string {
-  const second = random(60);
-  if (item.mode === 'everyMinute') return `${second} * * * * *`;
-  if (item.mode === 'everyHour') return `${second} ${item.minute} * * * *`;
-  if (item.mode === 'everyX') {
-    if (item.unit === 'minutes') return `${second} */${item.value} * * * *`;
-    const minute = random(60);
-    if (item.unit === 'hours') return `${second} ${minute} */${item.value} * * *`;
-  }
-  if (item.mode === 'everyDay') return `${second} ${item.minute} ${item.hour} * * *`;
-  if (item.mode === 'everyWeek') return `${second} ${item.minute} ${item.hour} * * ${item.weekday}`;
-  if (item.mode === 'everyMonth') return `${second} ${item.minute} ${item.hour} ${item.dayOfMonth} * *`;
-  return String(item.cronExpression ?? '').trim();
-}
-
 /** createDeferredPromise from n8n-workflow */
 function createDeferredPromise<T>(): { promise: Promise<T>; resolve: (v: T) => void; reject: (e: unknown) => void } {
   let resolve!: (v: T) => void;
@@ -158,23 +133,7 @@ export async function activateTrigger(impl: N8nTriggerImpl, a: Activation): Prom
   if (impl.poll) {
     const fns = contextFunctions(a.ctx, description, { activation: 'activate', emit: (d) => a.emit(d), emitError: (e) => a.emitError(e), schedule: (e, r) => a.schedule(e, r) });
     const pollTimes = (fns.getNodeParameter as (n: string) => { item?: TriggerTime[] })('pollTimes');
-    const expressions = (pollTimes.item ?? []).map((item) => toCronExpression(item));
-    const executeTrigger = async (testing = false) => {
-      try {
-        const response = await impl.poll!.call(fns);
-        if (response !== null && response !== undefined) a.emit(response);
-      } catch (error) {
-        if (testing) throw error;
-        a.emitError(error as Error);
-      }
-    };
-    // Like n8n: first poll immediately, errors prevent the activation
-    await executeTrigger(true);
-    for (const expression of expressions) {
-      if (expression.split(' ').at(0)?.includes('*')) throw new Error('The polling interval is too short. It has to be at least a minute.');
-      a.schedule(expression, () => executeTrigger());
-    }
-    return {};
+    return startPolling(a, pollTimesToCron(pollTimes), () => impl.poll!.call(fns));
   }
   const fns = contextFunctions(a.ctx, description, {
     activation: 'activate',
@@ -191,9 +150,10 @@ export async function activateTrigger(impl: N8nTriggerImpl, a: Activation): Prom
  * Execution of the node: in a manual run (editor, CLI without input) poll once or wait for the first emit,
  * otherwise pass on the data of the trigger
  */
-export async function executeTrigger(impl: N8nTriggerImpl, ctx: ExecContext): Promise<NodeOutput | null> {
-  const manual = ctx.mode === 'manual' || (ctx.mode === 'cli' && ctx.triggerData === undefined);
-  if (!manual) return ctx.inputs.length ? ctx.inputs : [[]];
+export async function executeTrigger(impl: N8nTriggerImpl, runCtx: ExecContext): Promise<NodeOutput | null> {
+  if (!isManualRun(runCtx)) return runCtx.inputs.length ? runCtx.inputs : [[]];
+  // Manual runs work on a copy of the static data (n8n does not save it in manual mode)
+  const ctx = withDetachedStaticData(runCtx);
   const description = withPollTimes(impl.description);
   const jobs: Cron[] = [];
   const schedule = (expression: string, run: () => void) => {
@@ -234,3 +194,5 @@ export async function executeTrigger(impl: N8nTriggerImpl, ctx: ExecContext): Pr
     await response.closeFunction?.();
   }
 }
+
+export { toCronExpression, type TriggerTime } from '../nodes/shared/polling.js';

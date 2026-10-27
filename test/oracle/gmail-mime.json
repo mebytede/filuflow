@@ -1,0 +1,590 @@
+{
+ "parse": [
+  {
+   "name": "plain ascii",
+   "raw": "From: Alice <alice@example.com>\r\nTo: bob@example.com\r\nSubject: Hello\r\nDate: Tue, 01 Sep 2026 10:00:00 +0200\r\nMessage-ID: <abc@example.com>\r\n\r\nHello Bob,\r\nsee you.\r\n",
+   "expected": {
+    "json": {
+     "headers": {
+      "from": "From: Alice <alice@example.com>",
+      "to": "To: bob@example.com",
+      "subject": "Subject: Hello",
+      "date": "Date: Tue, 01 Sep 2026 10:00:00 +0200",
+      "message-id": "Message-ID: <abc@example.com>"
+     },
+     "text": "Hello Bob,\nsee you.\n",
+     "textAsHtml": "<p>Hello Bob,<br/>see you.</p>",
+     "subject": "Hello",
+     "date": "2026-09-01T08:00:00.000Z",
+     "to": {
+      "value": [
+       {
+        "address": "bob@example.com",
+        "name": ""
+       }
+      ],
+      "html": "<span class=\"mp_address_group\"><a href=\"mailto:bob@example.com\" class=\"mp_address_email\">bob@example.com</a></span>",
+      "text": "bob@example.com"
+     },
+     "from": {
+      "value": [
+       {
+        "address": "alice@example.com",
+        "name": "Alice"
+       }
+      ],
+      "html": "<span class=\"mp_address_group\"><span class=\"mp_address_name\">Alice</span> &lt;<a href=\"mailto:alice@example.com\" class=\"mp_address_email\">alice@example.com</a>&gt;</span>",
+      "text": "\"Alice\" <alice@example.com>"
+     },
+     "messageId": "<abc@example.com>",
+     "html": false
+    },
+    "attachments": []
+   }
+  },
+  {
+   "name": "alternative quoted-printable latin1",
+   "raw": "From: =?ISO-8859-1?Q?J=F6rg_M=FCller?= <joerg@example.de>\r\nTo: \"Doe, John\" <john@example.com>, Group: a@b.de, c@d.de;\r\nCc: x@example.com\r\nCc: y@example.com\r\nSubject: =?UTF-8?B?R3LDvMOfZQ==?= =?UTF-8?B?IGF1cyBCZXJsaW4=?=\r\nDate: Wed, 02 Sep 2026 08:30:00 +0000\r\nReferences: <r1@x> <r2@x>\r\nIn-Reply-To: r2@x\r\nMIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary=\"b1\"\r\n\r\npreamble\r\n--b1\r\nContent-Type: text/plain; charset=ISO-8859-1\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nSch=F6ne Gr=FC=DFe =\r\naus Berlin   \r\nhttps://example.com/a?b=3Dc und www.example.org.\r\n--b1\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<p>Sch&ouml;ne Gr&uuml;&szlig;e</p>\r\n--b1--\r\nepilogue\r\n",
+   "expected": {
+    "json": {
+     "headers": {
+      "from": "From: =?ISO-8859-1?Q?J=F6rg_M=FCller?= <joerg@example.de>",
+      "to": "To: \"Doe, John\" <john@example.com>, Group: a@b.de, c@d.de;",
+      "cc": "Cc: y@example.com",
+      "subject": "Subject: =?UTF-8?B?R3LDvMOfZQ==?= =?UTF-8?B?IGF1cyBCZXJsaW4=?=",
+      "date": "Date: Wed, 02 Sep 2026 08:30:00 +0000",
+      "references": "References: <r1@x> <r2@x>",
+      "in-reply-to": "In-Reply-To: r2@x",
+      "mime-version": "MIME-Version: 1.0",
+      "content-type": "Content-Type: multipart/alternative; boundary=\"b1\""
+     },
+     "html": "<p>Sch&ouml;ne Gr&uuml;&szlig;e</p>",
+     "text": "Schöne Grüße aus Berlin\nhttps://example.com/a?b=c und www.example.org.",
+     "textAsHtml": "<p>Sch&ouml;ne Gr&uuml;&szlig;e aus Berlin<br/><a href=\"https://example.com/a?b=c\">https://example.com/a?b=c</a> und <a href=\"http://www.example.org\">www.example.org</a>.</p>",
+     "subject": "Grüße aus Berlin",
+     "references": [
+      "<r1@x>",
+      "<r2@x>"
+     ],
+     "date": "2026-09-02T08:30:00.000Z",
+     "to": {
+      "value": [
+       {
+        "address": "john@example.com",
+        "name": "Doe, John"
+       },
+       {
+        "name": "Group",
+        "group": [
+         {
+          "address": "a@b.de",
+          "name": ""
+         },
+         {
+          "address": "c@d.de",
+          "name": ""
+         }
+        ]
+       }
+      ],
+      "html": "<span class=\"mp_address_group\"><span class=\"mp_address_name\">Doe, John</span> &lt;<a href=\"mailto:john@example.com\" class=\"mp_address_email\">john@example.com</a>&gt;</span>, <span class=\"mp_address_group\"><span class=\"mp_address_name\">Group: </span><span class=\"mp_address_group\"><a href=\"mailto:a@b.de\" class=\"mp_address_email\">a@b.de</a></span>, <span class=\"mp_address_group\"><a href=\"mailto:c@d.de\" class=\"mp_address_email\">c@d.de</a></span>;</span>",
+      "text": "\"Doe, John\" <john@example.com>, \"Group\": a@b.de, c@d.de;"
+     },
+     "from": {
+      "value": [
+       {
+        "address": "joerg@example.de",
+        "name": "Jörg Müller"
+       }
+      ],
+      "html": "<span class=\"mp_address_group\"><span class=\"mp_address_name\">J&#xF6;rg M&#xFC;ller</span> &lt;<a href=\"mailto:joerg@example.de\" class=\"mp_address_email\">joerg@example.de</a>&gt;</span>",
+      "text": "\"Jörg Müller\" <joerg@example.de>"
+     },
+     "cc": [
+      {
+       "value": [
+        {
+         "address": "x@example.com",
+         "name": ""
+        }
+       ],
+       "html": "<span class=\"mp_address_group\"><a href=\"mailto:x@example.com\" class=\"mp_address_email\">x@example.com</a></span>",
+       "text": "x@example.com"
+      },
+      {
+       "value": [
+        {
+         "address": "y@example.com",
+         "name": ""
+        }
+       ],
+       "html": "<span class=\"mp_address_group\"><a href=\"mailto:y@example.com\" class=\"mp_address_email\">y@example.com</a></span>",
+       "text": "y@example.com"
+      }
+     ],
+     "inReplyTo": "<r2@x>"
+    },
+    "attachments": []
+   }
+  },
+  {
+   "name": "mixed with attachments and related image",
+   "raw": "From: sender@example.com\r\nTo: r@example.com\r\nSubject: Report\r\nDate: Thu, 03 Sep 2026 12:00:00 +0000\r\nContent-Type: multipart/mixed; boundary=\"outer\"\r\n\r\n--outer\r\nContent-Type: multipart/related; boundary=\"rel\"\r\n\r\n--rel\r\nContent-Type: text/html; charset=utf-8\r\nContent-Transfer-Encoding: base64\r\n\r\nPHA+SW1hZ2U6IDxpbWcgc3JjPSJjaWQ6bG9nbzEiPjwvcD4=\r\n--rel\r\nContent-Type: image/png\r\nContent-ID: <logo1>\r\nContent-Transfer-Encoding: base64\r\n\r\niVBORw0KGgo=\r\n--rel--\r\n--outer\r\nContent-Type: application/octet-stream\r\nContent-Disposition: attachment;\r\n filename*0*=utf-8''Bericht%20f%C3%BCr;\r\n filename*1*=%20M%C3%A4rz.pdf\r\nContent-Transfer-Encoding: base64\r\n\r\nJVBERi0xLjQ=\r\n--outer\r\nContent-Type: text/plain; name=\"=?UTF-8?Q?notiz_=C3=A4.txt?=\"\r\nContent-Disposition: attachment\r\n\r\nplain attachment\r\n--outer--\r\n",
+   "expected": {
+    "json": {
+     "headers": {
+      "from": "From: sender@example.com",
+      "to": "To: r@example.com",
+      "subject": "Subject: Report",
+      "date": "Date: Thu, 03 Sep 2026 12:00:00 +0000",
+      "content-type": "Content-Type: multipart/mixed; boundary=\"outer\""
+     },
+     "html": "<p>Image: <img src=\"data:image/png;base64,iVBORw0KGgo=\"></p>",
+     "subject": "Report",
+     "date": "2026-09-03T12:00:00.000Z",
+     "to": {
+      "value": [
+       {
+        "address": "r@example.com",
+        "name": ""
+       }
+      ],
+      "html": "<span class=\"mp_address_group\"><a href=\"mailto:r@example.com\" class=\"mp_address_email\">r@example.com</a></span>",
+      "text": "r@example.com"
+     },
+     "from": {
+      "value": [
+       {
+        "address": "sender@example.com",
+        "name": ""
+       }
+      ],
+      "html": "<span class=\"mp_address_group\"><a href=\"mailto:sender@example.com\" class=\"mp_address_email\">sender@example.com</a></span>",
+      "text": "sender@example.com"
+     }
+    },
+    "attachments": [
+     {
+      "contentType": "image/png",
+      "content": "iVBORw0KGgo="
+     },
+     {
+      "filename": "Bericht für März.pdf",
+      "contentType": "application/pdf",
+      "content": "JVBERi0xLjQ="
+     },
+     {
+      "filename": "notiz ä.txt",
+      "contentType": "text/plain",
+      "content": "cGxhaW4gYXR0YWNobWVudA=="
+     }
+    ]
+   }
+  },
+  {
+   "name": "html only",
+   "raw": "From: news@example.com\r\nTo: me@example.com\r\nSubject: News\r\nDate: Fri, 04 Sep 2026 06:00:00 +0000\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<h1>Title</h1><p>First &amp; second</p><ul><li>one</li><li>two</li></ul>\r\n",
+   "expected": {
+    "json": {
+     "headers": {
+      "from": "From: news@example.com",
+      "to": "To: me@example.com",
+      "subject": "Subject: News",
+      "date": "Date: Fri, 04 Sep 2026 06:00:00 +0000",
+      "content-type": "Content-Type: text/html; charset=utf-8"
+     },
+     "html": "<h1>Title</h1><p>First &amp; second</p><ul><li>one</li><li>two</li></ul>\n",
+     "text": "TITLE\n\nFirst & second\n\n * one\n * two",
+     "textAsHtml": "<p>TITLE</p><p>First &amp; second</p><p> * one<br/> * two</p>",
+     "subject": "News",
+     "date": "2026-09-04T06:00:00.000Z",
+     "to": {
+      "value": [
+       {
+        "address": "me@example.com",
+        "name": ""
+       }
+      ],
+      "html": "<span class=\"mp_address_group\"><a href=\"mailto:me@example.com\" class=\"mp_address_email\">me@example.com</a></span>",
+      "text": "me@example.com"
+     },
+     "from": {
+      "value": [
+       {
+        "address": "news@example.com",
+        "name": ""
+       }
+      ],
+      "html": "<span class=\"mp_address_group\"><a href=\"mailto:news@example.com\" class=\"mp_address_email\">news@example.com</a></span>",
+      "text": "news@example.com"
+     }
+    },
+    "attachments": []
+   }
+  },
+  {
+   "name": "mixed text and html without alternative",
+   "raw": "From: a@example.com\r\nTo: b@example.com\r\nSubject: Two parts\r\nDate: Sat, 05 Sep 2026 06:00:00 +0000\r\nContent-Type: multipart/mixed; boundary=\"m\"\r\n\r\n--m\r\nContent-Type: text/plain\r\n\r\nFirst <part> & more\r\n\r\nmail me: me@example.com\r\n--m\r\nContent-Type: text/html\r\n\r\n<b>Second</b>\r\n--m--\r\n",
+   "expected": {
+    "json": {
+     "headers": {
+      "from": "From: a@example.com",
+      "to": "To: b@example.com",
+      "subject": "Subject: Two parts",
+      "date": "Date: Sat, 05 Sep 2026 06:00:00 +0000",
+      "content-type": "Content-Type: multipart/mixed; boundary=\"m\""
+     },
+     "html": "<p>First &lt;part&gt; &amp; more</p><p>mail me: <a href=\"mailto:me@example.com\">me@example.com</a></p><br/>\n<b>Second</b>",
+     "text": "First <part> & more\n\nmail me: me@example.com\nSecond",
+     "textAsHtml": "<p>First &lt;part&gt; &amp; more</p><p>mail me: <a href=\"mailto:me@example.com\">me@example.com</a></p><br/>\n<p>Second</p>",
+     "subject": "Two parts",
+     "date": "2026-09-05T06:00:00.000Z",
+     "to": {
+      "value": [
+       {
+        "address": "b@example.com",
+        "name": ""
+       }
+      ],
+      "html": "<span class=\"mp_address_group\"><a href=\"mailto:b@example.com\" class=\"mp_address_email\">b@example.com</a></span>",
+      "text": "b@example.com"
+     },
+     "from": {
+      "value": [
+       {
+        "address": "a@example.com",
+        "name": ""
+       }
+      ],
+      "html": "<span class=\"mp_address_group\"><a href=\"mailto:a@example.com\" class=\"mp_address_email\">a@example.com</a></span>",
+      "text": "a@example.com"
+     }
+    },
+    "attachments": []
+   }
+  },
+  {
+   "name": "flowed and embedded message",
+   "raw": "From: a@example.com\r\nTo: b@example.com\r\nSubject: Fwd: Hi\r\nDate: Sun, 06 Sep 2026 06:00:00 +0000\r\nContent-Type: multipart/mixed; boundary=\"f\"\r\n\r\n--f\r\nContent-Type: text/plain; charset=utf-8; format=flowed; delsp=yes\r\n\r\nThis is a long line that  \r\nwas wrapped by the client.\r\n Stuffed line\r\n--f\r\nContent-Type: message/rfc822\r\nContent-Disposition: inline\r\n\r\nFrom: c@example.com\r\nTo: a@example.com\r\nSubject: Hi\r\nDate: Mon, 31 Aug 2026 06:00:00 +0000\r\n\r\nInner text\r\n--f--\r\n",
+   "expected": {
+    "json": {
+     "headers": {
+      "from": "From: a@example.com",
+      "to": "To: b@example.com",
+      "subject": "Subject: Fwd: Hi",
+      "date": "Date: Sun, 06 Sep 2026 06:00:00 +0000",
+      "content-type": "Content-Type: multipart/mixed; boundary=\"f\""
+     },
+     "text": "This is a long line that was wrapped by the client.\nStuffed line\n\nFrom: c@example.com\nSubject: Hi\nDate: Mon, 31 Aug 2026 06:00:00 GMT\nTo: a@example.com\n\nInner text",
+     "textAsHtml": "<p>This is a long line that was wrapped by the client.<br/>Stuffed line</p><br/>\n<p>From: <a href=\"mailto:c@example.com\">c@example.com</a><br/>Subject: Hi<br/>Date: Mon, 31 Aug 2026 06:00:00 GMT<br/>To: <a href=\"mailto:a@example.com\">a@example.com</a></p><br/>\n<p>Inner text</p>",
+     "subject": "Fwd: Hi",
+     "date": "2026-09-06T06:00:00.000Z",
+     "to": {
+      "value": [
+       {
+        "address": "b@example.com",
+        "name": ""
+       }
+      ],
+      "html": "<span class=\"mp_address_group\"><a href=\"mailto:b@example.com\" class=\"mp_address_email\">b@example.com</a></span>",
+      "text": "b@example.com"
+     },
+     "from": {
+      "value": [
+       {
+        "address": "a@example.com",
+        "name": ""
+       }
+      ],
+      "html": "<span class=\"mp_address_group\"><a href=\"mailto:a@example.com\" class=\"mp_address_email\">a@example.com</a></span>",
+      "text": "a@example.com"
+     },
+     "html": false
+    },
+    "attachments": []
+   }
+  },
+  {
+   "name": "raw utf-8 header and folded subject",
+   "raw": "From: Zoë <zoe@example.com>\r\nTo: undisclosed-recipients:;\r\nSubject: A very long subject line that has been folded\r\n by the sending client\r\nDate: Mon, 07 Sep 2026 06:00:00 +0000\r\nX-Custom: one\r\nX-Custom: two\r\n\r\nBody äöü\r\n",
+   "expected": {
+    "json": {
+     "headers": {
+      "from": "From: ZoÃ« <zoe@example.com>",
+      "to": "To: undisclosed-recipients:;",
+      "subject": "Subject: A very long subject line that has been folded\r\n by the sending client",
+      "date": "Date: Mon, 07 Sep 2026 06:00:00 +0000",
+      "x-custom": "X-Custom: two"
+     },
+     "text": "Body äöü\n",
+     "textAsHtml": "<p>Body &auml;&ouml;&uuml;</p>",
+     "subject": "A very long subject line that has been folded by the sending client",
+     "date": "2026-09-07T06:00:00.000Z",
+     "to": {
+      "value": [
+       {
+        "name": "undisclosed-recipients",
+        "group": []
+       }
+      ],
+      "html": "<span class=\"mp_address_group\"><span class=\"mp_address_name\">undisclosed-recipients: </span>;</span>",
+      "text": "\"undisclosed-recipients\": ;"
+     },
+     "from": {
+      "value": [
+       {
+        "address": "zoe@example.com",
+        "name": "Zoë"
+       }
+      ],
+      "html": "<span class=\"mp_address_group\"><span class=\"mp_address_name\">Zo&#xEB;</span> &lt;<a href=\"mailto:zoe@example.com\" class=\"mp_address_email\">zoe@example.com</a>&gt;</span>",
+      "text": "\"Zoë\" <zoe@example.com>"
+     },
+     "html": false
+    },
+    "attachments": []
+   }
+  }
+ ],
+ "compose": [
+  {
+   "name": "text with cc and bcc",
+   "options": {
+    "from": "",
+    "to": "<a@example.com>, <b@example.com>, ",
+    "cc": "<c@example.com>, ",
+    "bcc": "<d@example.com>, ",
+    "replyTo": "",
+    "subject": "Plain",
+    "text": "Hello\nWorld",
+    "html": ""
+   },
+   "expected": {
+    "json": {
+     "text": "Hello\nWorld\n",
+     "textAsHtml": "<p>Hello<br/>World</p>",
+     "subject": "Plain",
+     "to": {
+      "value": [
+       {
+        "address": "a@example.com",
+        "name": ""
+       },
+       {
+        "address": "b@example.com",
+        "name": ""
+       }
+      ],
+      "html": "<span class=\"mp_address_group\"><a href=\"mailto:a@example.com\" class=\"mp_address_email\">a@example.com</a></span>, <span class=\"mp_address_group\"><a href=\"mailto:b@example.com\" class=\"mp_address_email\">b@example.com</a></span>",
+      "text": "a@example.com, b@example.com"
+     },
+     "cc": {
+      "value": [
+       {
+        "address": "c@example.com",
+        "name": ""
+       }
+      ],
+      "html": "<span class=\"mp_address_group\"><a href=\"mailto:c@example.com\" class=\"mp_address_email\">c@example.com</a></span>",
+      "text": "c@example.com"
+     },
+     "bcc": {
+      "value": [
+       {
+        "address": "d@example.com",
+        "name": ""
+       }
+      ],
+      "html": "<span class=\"mp_address_group\"><a href=\"mailto:d@example.com\" class=\"mp_address_email\">d@example.com</a></span>",
+      "text": "d@example.com"
+     },
+     "html": false
+    },
+    "attachments": []
+   }
+  },
+  {
+   "name": "html with sender name",
+   "options": {
+    "from": "Nathan <me@example.com>",
+    "to": "<a@example.com>, ",
+    "cc": "",
+    "bcc": "",
+    "replyTo": "<reply@example.com>, ",
+    "subject": "Grüße aus München",
+    "text": "",
+    "html": "<p>Hallo <b>Welt</b> äöü</p>"
+   },
+   "expected": {
+    "json": {
+     "html": "<p>Hallo <b>Welt</b> äöü</p>\n",
+     "text": "Hallo Welt äöü",
+     "textAsHtml": "<p>Hallo Welt &auml;&ouml;&uuml;</p>",
+     "subject": "Grüße aus München",
+     "to": {
+      "value": [
+       {
+        "address": "a@example.com",
+        "name": ""
+       }
+      ],
+      "html": "<span class=\"mp_address_group\"><a href=\"mailto:a@example.com\" class=\"mp_address_email\">a@example.com</a></span>",
+      "text": "a@example.com"
+     },
+     "from": {
+      "value": [
+       {
+        "address": "me@example.com",
+        "name": "Nathan"
+       }
+      ],
+      "html": "<span class=\"mp_address_group\"><span class=\"mp_address_name\">Nathan</span> &lt;<a href=\"mailto:me@example.com\" class=\"mp_address_email\">me@example.com</a>&gt;</span>",
+      "text": "\"Nathan\" <me@example.com>"
+     },
+     "replyTo": {
+      "value": [
+       {
+        "address": "reply@example.com",
+        "name": ""
+       }
+      ],
+      "html": "<span class=\"mp_address_group\"><a href=\"mailto:reply@example.com\" class=\"mp_address_email\">reply@example.com</a></span>",
+      "text": "reply@example.com"
+     }
+    },
+    "attachments": []
+   }
+  },
+  {
+   "name": "reply with attachments",
+   "options": {
+    "from": "",
+    "to": "Bob <bob@example.com>, <carol@example.com>",
+    "cc": "",
+    "bcc": "",
+    "subject": "Re: Report",
+    "inReplyTo": "<orig@example.com>",
+    "references": "<orig@example.com>",
+    "text": "Thanks, attached.\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "html": "",
+    "attachments": [
+     {
+      "name": "data.csv",
+      "content": "YSxiCjEsMgo=",
+      "type": "text/csv"
+     },
+     {
+      "name": "Übersicht März.pdf",
+      "content": "JVBERi0xLjQgZmFrZQ==",
+      "type": "application/pdf"
+     }
+    ]
+   },
+   "expected": {
+    "json": {
+     "text": "Thanks, attached.\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+     "textAsHtml": "<p>Thanks, attached.<br/>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</p>",
+     "subject": "Re: Report",
+     "references": "<orig@example.com>",
+     "to": {
+      "value": [
+       {
+        "address": "bob@example.com",
+        "name": "Bob"
+       },
+       {
+        "address": "carol@example.com",
+        "name": ""
+       }
+      ],
+      "html": "<span class=\"mp_address_group\"><span class=\"mp_address_name\">Bob</span> &lt;<a href=\"mailto:bob@example.com\" class=\"mp_address_email\">bob@example.com</a>&gt;</span>, <span class=\"mp_address_group\"><a href=\"mailto:carol@example.com\" class=\"mp_address_email\">carol@example.com</a></span>",
+      "text": "\"Bob\" <bob@example.com>, carol@example.com"
+     },
+     "inReplyTo": "<orig@example.com>",
+     "html": false
+    },
+    "attachments": [
+     {
+      "filename": "data.csv",
+      "contentType": "text/csv",
+      "content": "YSxiCjEsMgo="
+     },
+     {
+      "filename": "Übersicht März.pdf",
+      "contentType": "application/pdf",
+      "content": "JVBERi0xLjQgZmFrZQ=="
+     }
+    ]
+   }
+  },
+  {
+   "name": "only one attachment",
+   "options": {
+    "from": "",
+    "to": "<a@example.com>, ",
+    "cc": "",
+    "bcc": "",
+    "subject": "File",
+    "text": "",
+    "html": "",
+    "attachments": [
+     {
+      "name": "unknown",
+      "content": "AAECAw=="
+     }
+    ]
+   },
+   "expected": {
+    "json": {
+     "subject": "File",
+     "to": {
+      "value": [
+       {
+        "address": "a@example.com",
+        "name": ""
+       }
+      ],
+      "html": "<span class=\"mp_address_group\"><a href=\"mailto:a@example.com\" class=\"mp_address_email\">a@example.com</a></span>",
+      "text": "a@example.com"
+     },
+     "html": false
+    },
+    "attachments": [
+     {
+      "filename": "unknown",
+      "contentType": "application/octet-stream",
+      "content": "AAECAw=="
+     }
+    ]
+   }
+  },
+  {
+   "name": "empty message",
+   "options": {
+    "from": "",
+    "to": "<a@example.com>, ",
+    "cc": "",
+    "bcc": "",
+    "subject": "",
+    "text": "",
+    "html": ""
+   },
+   "expected": {
+    "json": {
+     "to": {
+      "value": [
+       {
+        "address": "a@example.com",
+        "name": ""
+       }
+      ],
+      "html": "<span class=\"mp_address_group\"><a href=\"mailto:a@example.com\" class=\"mp_address_email\">a@example.com</a></span>",
+      "text": "a@example.com"
+     },
+     "html": false
+    },
+    "attachments": []
+   }
+  }
+ ]
+}

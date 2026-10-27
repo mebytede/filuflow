@@ -7,7 +7,7 @@ import { icon } from '../icons.js';
 import { iconButton } from '../shell.js';
 import { nodeLook } from './nodeStyle.js';
 
-const GROUP_ORDER = ['Trigger', 'Core', 'AI', 'AI: Sub-nodes', 'Extensions', 'Other'];
+const GROUP_ORDER = ['Trigger', 'Core', 'Services', 'AI', 'AI: Sub-nodes', 'Extensions', 'Other'];
 
 export function palette(types: NodeTypeInfo[], onAdd: (type: string) => void, onClose: () => void): HTMLElement {
   const search = h('input', { type: 'search', class: 'palette-search', placeholder: tr('Search nodes'), 'aria-label': tr('Search nodes') });
