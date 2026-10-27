@@ -17,7 +17,7 @@ export interface HttpRequest {
   /** Proxy URL, overrides environment variables */
   proxy?: string;
   signal?: AbortSignal;
-  /** Custom TLS data (HTTP Request "SSL Certificates", n8n agentOptions): CA replaces the default CAs */
+  /** Custom TLS data (HTTP Request "SSL Certificates", reference: agentOptions): CA replaces the default CAs */
   tls?: { ca?: string; cert?: string; key?: string; passphrase?: string };
   /**
    * Partial responses while reading the body (streaming, e.g. server-sent events from AI models). The complete body is

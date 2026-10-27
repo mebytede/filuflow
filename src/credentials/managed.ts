@@ -27,7 +27,7 @@ function stored(e: CredentialEntry): Record<string, unknown> {
   return { ...(e.id ? { id: e.id } : {}), ...(e.type ? { type: e.type } : {}), data: e.data };
 }
 
-/** IDs as in n8n: 16 characters of letters and digits */
+/** IDs as in the reference: 16 characters of letters and digits */
 export function newCredentialId(): string {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   return [...randomBytes(16)].map((b) => alphabet[b % alphabet.length]).join('');

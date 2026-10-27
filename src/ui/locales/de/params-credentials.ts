@@ -139,7 +139,7 @@ export const de: Record<string, string> = {
   'Set up for use in HTTP Request node': 'Für den HTTP-Request-Knoten einrichten',
   'Scope(s)': 'Scope(s)',
   'The HTTP Request node needs the scopes listed here; other nodes add their scopes on their own': 'Im HTTP-Request-Knoten müssen Sie die Scopes selbst angeben. In anderen Knoten werden sie automatisch ergänzt',
-  // Node and credential types from n8n packages (src/plugins/n8nDescription.ts)
-  'Please enter values that n8n loads at runtime directly.': 'Werte, die n8n zur Laufzeit lädt, bitte direkt eintragen.',
-  'From an n8n package.': 'Aus einem n8n-Paket.',
+  // Node and credential types from packages in the community node format (src/plugins/n8nDescription.ts)
+  'Please enter values that the reference loads at runtime directly.': 'Werte, die die Referenz zur Laufzeit lädt, bitte direkt eintragen.',
+  'From a package in the community node format.': 'Aus einem Paket im Community-Knotenformat.',
 };

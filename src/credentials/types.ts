@@ -1,5 +1,5 @@
 // Description of the credential types for the form in the web interface and for deciding which fields are secret.
-// Field names, defaults, options and visibility as in n8n 1.123.0:
+// Field names, defaults, options and visibility as in the reference version 1.123.0:
 //   packages/nodes-base/credentials/HttpHeaderAuth.credentials.ts, HttpBasicAuth.credentials.ts,
 //   HttpQueryAuth.credentials.ts, HttpBearerAuth.credentials.ts, HttpCustomAuth.credentials.ts,
 //   JwtAuth.credentials.ts, OAuth2Api.credentials.ts, OpenAiApi.credentials.ts, HttpDigestAuth.credentials.ts,
@@ -11,7 +11,7 @@
 
 import { OAUTH2_SERVICE_TYPES } from './oauth2Types.js';
 
-// "hidden": fixed field without input (n8n type "hidden"), the default applies on load, values starting with "=" are expressions over $self
+// "hidden": fixed field without input (reference: type "hidden"), the default applies on load, values starting with "=" are expressions over $self
 export type CredentialFieldKind = 'string' | 'password' | 'text' | 'options' | 'boolean' | 'json' | 'hidden';
 
 export interface CredentialField {
@@ -21,7 +21,7 @@ export interface CredentialField {
   default?: string | boolean;
   required?: boolean;
   options?: Array<{ value: string; label: string }>;
-  /** Visible when every listed field has one of the values (n8n displayOptions.show) */
+  /** Visible when every listed field has one of the values (reference: displayOptions.show) */
   show?: Record<string, Array<string | boolean>>;
   placeholder?: string;
   hint?: string;
@@ -34,13 +34,13 @@ export interface CredentialTypeSchema {
   label: string;
   description: string;
   fields: CredentialField[];
-  /** Extended types (n8n ICredentialType.extends): their fields come first, own fields with the same name replace them */
+  /** Extended types (reference: ICredentialType.extends): their fields come first, own fields with the same name replace them */
   extends?: string[];
 }
 
 const opt = (...values: string[]) => values.map((v) => ({ value: v, label: v }));
 
-/** Regions of n8n 1.123.0 packages/nodes-base/credentials/GoogleApi.credentials.ts (name, area, location) */
+/** Regions of the reference version 1.123.0 packages/nodes-base/credentials/GoogleApi.credentials.ts (name, area, location) */
 const GOOGLE_REGIONS: Array<[string, string, string]> = [
   ['africa-south1', 'Africa', 'Johannesburg'],
   ['asia-east1', 'Asia Pacific', 'Changhua County'],
@@ -245,7 +245,7 @@ export const CREDENTIAL_TYPES: CredentialTypeSchema[] = [
     ],
   },
   {
-    // n8n 1.123.0 packages/nodes-base/credentials/OAuth1Api.credentials.ts
+    // The reference version 1.123.0 packages/nodes-base/credentials/OAuth1Api.credentials.ts
     name: 'oAuth1Api',
     label: 'OAuth1 API',
     description: 'OAuth 1.0a for the HTTP Request node (request token, authorization, access token).',
@@ -268,7 +268,7 @@ export const CREDENTIAL_TYPES: CredentialTypeSchema[] = [
       },
     ],
   },
-  // Services for HTTP Request with "Predefined Credential Type" (M25), fields as in n8n 1.123.0
+  // Services for HTTP Request with "Predefined Credential Type" (M25), fields as in the reference version 1.123.0
   // packages/nodes-base/credentials/GithubApi, NotionApi, AirtableTokenApi, SlackApi, StripeApi, HubspotAppToken
   {
     name: 'githubApi',
@@ -334,7 +334,7 @@ export const CREDENTIAL_TYPES: CredentialTypeSchema[] = [
       ...customHeader(),
     ],
   },
-  // AI providers (M26), fields as in n8n 1.123.0 packages/@n8n/nodes-langchain/credentials/GroqApi, MistralCloudApi,
+  // AI providers (M26), fields as in the reference version 1.123.0 packages/@n8n/nodes-langchain/credentials/GroqApi, MistralCloudApi,
   // OllamaApi, DeepSeekApi, OpenRouterApi and AzureOpenAiApi
   {
     name: 'groqApi',
@@ -390,7 +390,7 @@ export const CREDENTIAL_TYPES: CredentialTypeSchema[] = [
     ],
   },
   {
-    // n8n 1.123.0 packages/nodes-base/credentials/GoogleApi.credentials.ts (service account, M40); the notice
+    // The reference version 1.123.0 packages/nodes-base/credentials/GoogleApi.credentials.ts (service account, M40); the notice
     // "httpWarning" is the hint of the scope field here
     name: 'googleApi',
     label: 'Google Service Account API',
@@ -453,7 +453,7 @@ export function unregisterCredentialType(name: string): void {
 }
 
 /**
- * Fields including inherited ones, like n8n CredentialsHelper.getCredentialsProperties with NodeHelpers.mergeNodeProperties:
+ * Fields including inherited ones, like the reference CredentialsHelper.getCredentialsProperties with NodeHelpers.mergeNodeProperties:
  * first the fields of the extended types, then the own ones; a field with the same name replaces the inherited one in place.
  */
 function mergedFields(schema: CredentialTypeSchema, seen: Set<string>): CredentialField[] {
@@ -512,7 +512,7 @@ export function isOAuth1Type(name: string | undefined): boolean {
 
 /**
  * Types whose stored scope applies when connecting; for all other OAuth2 types the fixed scope of the type applies
- * (n8n 1.123.0 packages/cli/src/constants.ts GENERIC_OAUTH2_CREDENTIALS_WITH_EDITABLE_SCOPE, used in
+ * (the reference version 1.123.0 packages/cli/src/constants.ts GENERIC_OAUTH2_CREDENTIALS_WITH_EDITABLE_SCOPE, used in
  * oauth2-credential.controller.ts getAuthUri)
  */
 export const OAUTH2_EDITABLE_SCOPE = ['oAuth2Api', 'googleOAuth2Api', 'microsoftOAuth2Api', 'highLevelOAuth2Api', 'mcpOAuth2Api'];
@@ -527,8 +527,8 @@ export function credentialTypeCatalog(): Array<CredentialTypeSchema & { oauth?: 
 }
 
 /**
- * Heuristic for types without a description (custom types, n8n types without a schema here): field names that
- * typically carry typeOptions.password in n8n.
+ * Heuristic for types without a description (custom types, plugin types without a schema here): field names that
+ * typically carry typeOptions.password in the reference.
  */
 export const SECRET_KEY = /pass|secret|token|value|json|private|apikey|api_key/i;
 export const PUBLIC_KEY = /^(publicKey|keyType|tokenType|accessTokenUrl|authUrl|grantType)$/;

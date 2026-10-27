@@ -1,5 +1,5 @@
 // Manual Trigger, n8n-nodes-base.manualTrigger
-// Outside manual mode n8n passes the start data through (workflow-execute.ts executeTriggerNode);
+// Outside manual mode the reference passes the start data through (workflow-execute.ts executeTriggerNode);
 // in manual mode the trigger returns [{ json: {} }]. filuflow: CLI input or [{ json: {} }].
 import type { NodeType } from './types.js';
 import type { ParamSchema } from './params.js';

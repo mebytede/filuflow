@@ -1,4 +1,4 @@
-// n8n packages/nodes-base/nodes/Transform/utils/utils.ts (prepareFieldsArray)
+// reference: packages/nodes-base/nodes/Transform/utils/utils.ts (prepareFieldsArray)
 import { NodeOperationError } from '../../errors.js';
 
 export function prepareFieldsArray(fields: string | string[], fieldName = 'Fields'): string[] {

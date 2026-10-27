@@ -1,5 +1,5 @@
 // Form built from the parameter description of a node type (M19, description in src/nodes/params.ts).
-// Visibility like n8n displayParameter (packages/workflow/src/node-helpers.ts): show requires one of the values to
+// Visibility like displayParameter in the reference (packages/workflow/src/node-helpers.ts): show requires one of the values to
 // match, hide hides as soon as one matches; "@version" checks the typeVersion, "/name" a top-level parameter.
 // Unset parameters show their default; a value is only written on a change.
 import { h } from '../dom.js';
@@ -74,7 +74,7 @@ function toExpression(io: FieldIo, ctx: SchemaFormContext): void {
 
 function textInput(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext): HTMLElement {
   const value = io.get();
-  // JSON fields with an object value (e.g. workflowInputs, n8n resourceMapper): show as JSON and store as an object
+  // JSON fields with an object value (e.g. workflowInputs, resourceMapper): show as JSON and store as an object
   const objectValue = def.type === 'json' && value !== null && typeof value === 'object';
   const text = value === undefined || value === null ? '' : objectValue ? JSON.stringify(value, null, 2) : String(value);
   const multiline = (def.rows ?? 1) > 1 || def.type === 'json' || def.type === 'code' || text.includes('\n');
@@ -272,7 +272,7 @@ function assignmentsInput(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext)
     const value = h('textarea', { class: `param-input param-text${isExpr(a.value) ? ' expr' : ''}`, rows: 1, spellcheck: false, placeholder: tr('Value'), disabled: ctx.readonly, 'aria-label': tr('Field {n}: value', { n: i + 1 }) });
     value.value = a.value === undefined || a.value === null ? '' : typeof a.value === 'object' ? JSON.stringify(a.value) : String(a.value);
     value.addEventListener('input', () => {
-      // n8n stores fixed values per type: number, boolean, otherwise text
+      // The reference stores fixed values per type: number, boolean, otherwise text
       const t = value.value;
       if (!t.startsWith('=') && a.type === 'number' && t.trim() !== '' && !Number.isNaN(Number(t))) a.value = Number(t);
       else if (!t.startsWith('=') && a.type === 'boolean' && (t === 'true' || t === 'false')) a.value = t === 'true';
@@ -300,7 +300,7 @@ function assignmentsInput(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext)
 // ---------------------------------------------------------------------------------------------
 // Conditions (If, Filter, Switch: filter)
 
-/** Operators like n8n packages/frontend/editor-ui/src/components/FilterConditions/constants.ts */
+/** Operators like the reference: packages/frontend/editor-ui/src/components/FilterConditions/constants.ts */
 const OPERATORS: Array<{ type: string; label: string; ops: Array<[string, string, boolean?]> }> = [
   {
     type: 'string',
@@ -405,7 +405,7 @@ interface Condition {
   operator: { type: string; operation: string; singleValue?: boolean; rightType?: string; name?: string };
 }
 
-/** n8n filter options per node (IfV2/FilterV2/SwitchV3: typeOptions.filter) */
+/** Filter options per node (IfV2/FilterV2/SwitchV3: typeOptions.filter) */
 function filterOptions(root: Values, nodeType: string, version: number): Values {
   const isSwitch = nodeType === 'n8n-nodes-base.switch';
   const looseFrom = isSwitch ? 3.1 : 2.1;
@@ -526,7 +526,7 @@ function fieldFor(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext, root: L
 
 function fieldRow(def: ParamSchema, level: Level, ctx: SchemaFormContext, root: Level, path: string, removable?: () => void): HTMLElement {
   if (def.type === 'notice') return h('div', { class: 'info-box param-notice' }, tl(def.label));
-  // Starter code (n8n sets it in the editor, the parameter default is empty): also store the visible code, otherwise
+  // Starter code (the reference sets it in the editor, the parameter default is empty): also store the visible code, otherwise
   // an empty field would run
   if (def.type === 'code' && level.values[def.name] === undefined && typeof def.default === 'string' && def.default && !ctx.readonly) {
     level.values[def.name] = def.default;
@@ -667,7 +667,7 @@ export function schemaForm(params: Values, schema: ParamSchema[], ctx: SchemaFor
   );
 }
 
-/** Update filter options after changes to ignoreCase or looseTypeValidation (like the n8n editor) */
+/** Update filter options after changes to ignoreCase or looseTypeValidation (like the reference editor) */
 export function syncFilterOptions(params: Values, schema: ParamSchema[], nodeType: string, version: number): void {
   const options = filterOptions(params, nodeType, version);
   const walk = (values: Values, defs: ParamSchema[]) => {

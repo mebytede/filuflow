@@ -465,7 +465,7 @@ export class Editor {
     if (text) this.pasteText(text);
   }
 
-  /** Paste an n8n snippet ({ nodes, connections }) or a complete workflow */
+  /** Paste a snippet in the common workflow format ({ nodes, connections }) or a complete workflow */
   pasteText(text: string): boolean {
     let data: unknown;
     try {
@@ -551,7 +551,7 @@ export class Editor {
   }
 
   /**
-   * Test run. With destination only up to this node (n8n "Execute step"): the node and its predecessors run,
+   * Test run. With destination only up to this node (like "Execute step" in the reference editor): the node and its predecessors run,
    * the start is a trigger among the predecessors.
    */
   async run(destination?: string): Promise<void> {
@@ -631,7 +631,7 @@ export class Editor {
   private listening?: AbortController;
 
   /**
-   * Wait for the next call of a test URL (n8n "Listen for test event"): the server executes exactly this state,
+   * Wait for the next call of a test URL (like "Listen for test event" in the reference editor): the server executes exactly this state,
    * including unsaved changes; the result appears as after a test run. Calling again stops waiting.
    */
   async listen(): Promise<void> {
@@ -674,7 +674,7 @@ export class Editor {
 
   /**
    * Chat drawer: every message starts a test run from the Chat Trigger with { sessionId, action, chatInput }
-   * (like the chat in the n8n editor); the answer is the first item of the last executed node.
+   * (like the chat in the reference editor); the answer is the first item of the last executed node.
    */
   /** Open or close the supervisor drawer (replaces an open chat drawer) */
   private toggleSupervisor(): void {
@@ -773,7 +773,7 @@ export class Editor {
 
   private async importDialog(): Promise<void> {
     const ta = h('textarea', { class: 'param-input json-editor', rows: 14, spellcheck: false, placeholder: '{ "nodes": [...], "connections": {...} }', 'aria-label': t('Paste JSON') });
-    const text = await dialog<string>(t('Paste nodes'), h('div', { class: 'form' }, h('p', { class: 'muted' }, t('JSON from n8n (copied nodes or a whole workflow). The nodes are inserted into this workflow.')), ta), {
+    const text = await dialog<string>(t('Paste nodes'), h('div', { class: 'form' }, h('p', { class: 'muted' }, t('JSON in the common workflow format (copied nodes or a whole workflow). The nodes are inserted into this workflow.')), ta), {
       confirm: t('Insert'),
       wide: true,
       onConfirm: () => ta.value.trim() || undefined,

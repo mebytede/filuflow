@@ -70,10 +70,10 @@ body:
       label: Environment
       description: Operating system, Node.js version (when not using Docker), browser for interface problems.
   - type: textarea
-    id: n8n
+    id: reference-difference
     attributes:
-      label: Difference from n8n
-      description: If filuflow behaves differently from n8n, name the n8n version and paste what n8n returns.
+      label: Difference from the reference implementation
+      description: If an exported workflow behaves differently in filuflow, name the reference version you compared with and paste what it returns.
   - type: textarea
     id: logs
     attributes:

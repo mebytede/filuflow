@@ -11,7 +11,7 @@ maintainers) and keeps the review effort manageable. This may change later; this
 
 What helps a lot instead:
 - **Bug reports** and **feature requests** as [issues](https://github.com/mebytede/filuflow/issues/new/choose)
-- reports about **n8n workflows that behave differently** in filuflow (see below)
+- reports about **exported workflows that behave differently** in filuflow than in the reference implementation (see below)
 - **security reports**, privately, as described in [SECURITY.md](SECURITY.md)
 
 You are of course free to fork filuflow under the terms of its license ([AGPL-3.0-or-later](LICENSE)).
@@ -23,7 +23,7 @@ Please search the existing issues first. A good report contains:
 - Node.js version and operating system when not using the Docker image
 - what you did, what you expected, what happened instead
 - a minimal workflow (JSON) that shows the problem, and input data if needed
-- for differences from n8n: the n8n version you compared with and the output n8n produces
+- for differences from the reference implementation: the reference version you compared with and the output it produces
 - relevant log lines (`FILUFLOW_LOG_LEVEL=debug` gives more detail)
 
 Remove credentials, tokens, personal data and internal URLs from workflows and logs before posting them. For anything
@@ -39,7 +39,7 @@ cd filuflow
 npm ci
 npm run lint         # eslint and TypeScript
 npm test             # unit tests, comparison tables, browser tests (Chromium)
-npm run test:compat  # golden tests against recorded n8n results in fixtures/
+npm run test:compat  # golden tests against recorded reference results in fixtures/
 npm run build        # CLI, server and interface to dist/
 npx filuflow serve --dir ./workflows --port 5678
 ```
@@ -52,8 +52,8 @@ is built with `docker build -t filuflow .`. Installation options are described i
 The rules for the code base are in [CLAUDE.md](CLAUDE.md) (language, stack, conventions, security model) and in the
 documents under [docs/](docs/): [SPEC.md](docs/SPEC.md) (specification and milestones), [STATUS.md](docs/STATUS.md)
 (state per milestone), [DECISIONS.md](docs/DECISIONS.md) (decisions and dependencies) and
-[SECURITY.md](docs/SECURITY.md) (security model). In short: TypeScript strict with ESM, English code and docs, n8n
-behavior is rebuilt from the n8n source as a reference without copying code, unknown node types or versions are always
+[SECURITY.md](docs/SECURITY.md) (security model). In short: TypeScript strict with ESM, English code and docs, the
+reference behavior is rebuilt from the reference source without copying code, unknown node types or versions are always
 reported, and every change comes with tests.
 
 ## License headers

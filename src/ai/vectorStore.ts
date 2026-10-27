@@ -1,4 +1,4 @@
-// In-memory vector store (M27) as in n8n 1.123.0 VectorStoreInMemory with MemoryVectorStoreManager
+// In-memory vector store (M27) as in the reference version 1.123.0 VectorStoreInMemory with MemoryVectorStoreManager
 // (store per memoryKey for the whole process, "Clear Store" deletes before inserting) and MemoryVectorStore from
 // @langchain/classic 1.0.5 (cosine similarity, sorting with the same comparison, the first k hits).
 import type { Document } from './documents.js';

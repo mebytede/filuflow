@@ -1,5 +1,5 @@
 // Variables for $vars: entries from vars.json (FILUFLOW_VARS, maintained by hand, read-only) and entries
-// maintained in the interface in the SQLite table kv. Rules for keys and values as in n8n 1.123.0
+// maintained in the interface in the SQLite table kv. Rules for keys and values as in the reference version 1.123.0
 // packages/@n8n/api-types/src/dto/variables/base.dto.ts: keys [A-Za-z0-9_], at most 50 characters, values are
 // strings with at most 1000 characters.
 import type { FastifyInstance } from 'fastify';

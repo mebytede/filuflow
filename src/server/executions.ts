@@ -1,8 +1,8 @@
 // Execution management for the server: queue with concurrency limit (SPEC 8),
 // execution log, cancellation, error workflows and waiting executions (M13).
-// Waiting executions modeled on n8n 1.123.0 packages/cli/src/wait-tracker.ts (every 60 s fetch the executions
+// Waiting executions modeled on the reference version 1.123.0 packages/cli/src/wait-tracker.ts (every 60 s fetch the executions
 // due within the next 70 s and resume them at that time) and waiting-webhooks.ts (resume via webhook).
-// Error workflows modeled on n8n 1.123.0
+// Error workflows modeled on the reference version 1.123.0
 //   packages/cli/src/execution-lifecycle/execute-error-workflow.ts (conditions, error data)
 //   packages/cli/src/workflows/workflow-execution.service.ts executeErrorWorkflow (start node, mode "error")
 import { randomUUID } from 'node:crypto';
@@ -57,7 +57,7 @@ export interface ExecutionManagerOptions {
   /** Concurrent executions (default 5) */
   concurrency?: number;
   findWorkflow(id: string): Workflow | undefined;
-  /** n8n getWebhookBaseUrl, for execution.url in the error data */
+  /** Reference: getWebhookBaseUrl, for execution.url in the error data */
   baseUrl: string;
   staticData(workflow: Workflow): Record<string, Record<string, unknown>>;
   /** After an execution: save static data if it has changed */
@@ -125,7 +125,7 @@ export class ExecutionManager {
 
   /**
    * Resume a waiting execution (time reached or webhook). webhookData becomes the output of the waiting
-   * node; without it, the node passes on its input data. Errors as in n8n waiting-webhooks.ts (404, 409).
+   * node; without it, the node passes on its input data. Errors as in the reference waiting-webhooks.ts (404, 409).
    */
   resume(id: string, o: { webhookData?: Item[][]; chatMessage?: Item; hooks?: RunHooks } = {}): ActiveExecution {
     if (this.active.has(id)) throw new ResumeError(`The execution "${id}" is running already.`, 409);
@@ -331,7 +331,7 @@ export class ExecutionManager {
     this.runErrorWorkflow(workflow, errorData, execution.mode);
   }
 
-  /** Error of a trigger without an execution (M31): error data { trigger: { error, mode }, workflow } as in n8n */
+  /** Error of a trigger without an execution (M31): error data { trigger: { error, mode }, workflow } as in the reference */
   executeTriggerErrorWorkflow(workflow: Workflow, error: Error, mode: ExecutionMode): void {
     this.runErrorWorkflow(workflow, { trigger: { error: serializeError(error), mode }, workflow: { id: workflow.id, name: workflow.name } }, mode);
   }
@@ -357,13 +357,13 @@ export class ExecutionManager {
       target = workflow;
     }
     if (!target) return;
-    // n8n takes the last Error Trigger in node order
+    // The reference takes the last Error Trigger in node order
     const startNode = [...target.nodes].reverse().find((n) => n.type === ERROR_TRIGGER_TYPE);
     if (!startNode) {
       this.options.logger.error(`Calling Error Workflow for "${workflowId}". Could not find "${ERROR_TRIGGER_TYPE}" in workflow "${target.id}"`);
       return;
     }
-    // JSON round trip as when saving in n8n (undefined fields are dropped)
+    // JSON round trip as when saving in the reference (undefined fields are dropped)
     const json = JSON.parse(JSON.stringify(errorData)) as Record<string, unknown>;
     this.start({ workflow: target, mode: 'error', startNodeName: startNode.name, triggerItems: [{ json }] });
   }

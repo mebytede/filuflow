@@ -207,7 +207,7 @@ export async function credentialFormDialog(backend: CredentialFormBackend, o: Cr
     if (!rows.childElementCount) addRow();
     fieldsBox.replaceChildren(
       h('div', { class: 'field' }, h('span', null, t('Fields')), rows, h('button', { type: 'button', class: 'btn btn-small', onclick: () => addRow() }, t('Add field'))),
-      h('p', { class: 'muted small' }, t('Field names as in the n8n credential type, e.g. apiKey or accessToken. Values are always strings.')),
+      h('p', { class: 'muted small' }, t('Field names as in the reference credential type, e.g. apiKey or accessToken. Values are always strings.')),
     );
     collect = () => {
       const data: Record<string, unknown> = {};

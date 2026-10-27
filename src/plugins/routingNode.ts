@@ -1,5 +1,5 @@
-// Declarative nodes from n8n packages (M29): nodes without execute describe their requests in the description
-// (requestDefaults, routing on parameters and option values, requestOperations). Behavior as in n8n 1.123.0
+// Declarative nodes from packages in the community node format (M29): nodes without execute describe their requests in the description
+// (requestDefaults, routing on parameters and option values, requestOperations). Behavior as in the reference version 1.123.0
 // (n8n-core 1.122.0) packages/core/src/execution-engine/routing-node.ts (runNode, getRequestOptionsFromParameters,
 // makeRequest, runPostReceiveAction, postProcessResponseData) and packages/core/src/nodes-loader/directory-loader.ts
 // (applyDeclarativeNodeOptionParameters); own implementation.
@@ -47,7 +47,7 @@ interface FullResponse {
 
 const emptyResult = (): ResultOptions => ({ options: { qs: {}, body: {}, headers: {} }, preSend: [], postReceive: [], requestOperations: {} });
 
-/** Is the node declarative (no execute, no trigger, no webhooks)? n8n runs such nodes via RoutingNode */
+/** Is the node declarative (no execute, no trigger, no webhooks)? The reference runs such nodes via RoutingNode */
 export function isDeclarative(node: { execute?: unknown; trigger?: unknown; poll?: unknown; webhook?: unknown; supplyData?: unknown; description: N8nNodeDescription }): boolean {
   const d = node.description;
   if (node.execute || node.trigger || node.poll || node.webhook || node.supplyData || d.polling || d.webhooks?.length) return false;
@@ -168,7 +168,7 @@ export async function runRoutingNode(ctx: ExecContext, rawDescription: N8nNodeDe
   const optionsFrom = (thisArgs: Values, prop: Omit<N8nProperty, 'type'> & { type?: string; value?: unknown }, itemIndex: number, path: string, keys: Values): ResultOptions | undefined => {
     const out = emptyResult();
     let basePath = path ? `${path}.` : '';
-    // n8n always checks visibility against the top-level parameters
+    // The reference always checks visibility against the top-level parameters
     if (!isDisplayed(prop.displayOptions, params, params, version)) return undefined;
     const routing = prop.routing as
       | {
@@ -285,7 +285,7 @@ export async function runRoutingNode(ctx: ExecContext, rawDescription: N8nNodeDe
         return [{ json: value(p.value, itemIndex, { $response: response, $value: parameterValue, $version: version }) as Values }];
       case 'sort': {
         const key = String(p.key);
-        // a.json[key]?.toString().toLowerCase() ?? '' as in n8n
+        // a.json[key]?.toString().toLowerCase() ?? '' as in the reference
         const text = (item: Item) => {
           const v = item.json[key];
           return v === undefined || v === null ? '' : String(v).toLowerCase();

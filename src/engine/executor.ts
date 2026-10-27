@@ -1,6 +1,6 @@
 // Execution of a workflow in v1 order.
 //
-// Rebuilt after n8n 1.123.0 packages/core/src/execution-engine/workflow-execute.ts:
+// Rebuilt after the reference version 1.123.0 packages/core/src/execution-engine/workflow-execute.ts:
 //   processRunExecutionData (main loop), addNodeToBeExecuted (stack/waiting),
 //   runNode, handleNodeErrorOutput, assignPairedItems.
 // v1: children are put on the stack via unshift, sorted by position
@@ -62,14 +62,14 @@ export interface RunHooks {
   /** responseMode=responseNode: send the response immediately */
   sendResponse?(response: WebhookResponse): void;
   /**
-   * Streaming (n8n hook sendChunk): only set when the response is streamed (Webhook or Chat Trigger with
+   * Streaming (reference: hook sendChunk): only set when the response is streamed (Webhook or Chat Trigger with
    * responseMode "streaming")
    */
   sendChunk?(chunk: StructuredChunk): void;
 }
 
 export type ChunkType = 'begin' | 'item' | 'end' | 'error';
-/** n8n StructuredChunk (packages/workflow/src/interfaces.ts), written into the response as a JSON line */
+/** Reference: StructuredChunk (packages/workflow/src/interfaces.ts), written into the response as a JSON line */
 export interface StructuredChunk {
   type: ChunkType;
   content?: string;
@@ -110,16 +110,16 @@ export interface ExecutorOptions {
   sleep?: (ms: number) => Promise<void>;
   /** Execution may wait persistently (server); otherwise Wait nodes wait in-process or report an error */
   canWait?: boolean;
-  /** Resuming a waiting execution (n8n WorkflowExecute with runExecutionData) */
+  /** Resuming a waiting execution (reference: WorkflowExecute with runExecutionData) */
   resume?: ResumeData;
   /**
-   * Only execute up to this node (editor "Execute up to here", n8n destinationNode): only the node and its
+   * Only execute up to this node (editor "Execute up to here", reference: destinationNode): only the node and its
    * predecessors run, children outside of that are not scheduled.
    */
   destinationNode?: string;
 }
 
-/** Saved state of a waiting execution (n8n runExecutionData.executionData, JSON-serializable) */
+/** Saved state of a waiting execution (reference: runExecutionData.executionData, JSON-serializable) */
 export interface ExecutorState {
   version: 1;
   startedAt: string;
@@ -137,16 +137,16 @@ export interface ResumeData {
   /** Data for the waiting node (webhook request); without it, the node passes on its input data */
   webhookData?: Array<Item[] | null>;
   /**
-   * Response from the chat (n8n chat-execution-manager.ts runNode): the waiting node builds its output from it with
+   * Response from the chat (reference: chat-execution-manager.ts runNode): the waiting node builds its output from it with
    * onMessage; without onMessage the item itself is the output
    */
   chatMessage?: Item;
 }
 
-/** n8n WAIT_INDEFINITELY */
+/** Reference: WAIT_INDEFINITELY */
 export const WAIT_INDEFINITELY = new Date('3000-01-01T00:00:00.000Z');
 
-/** n8n ITaskMetadata (only the fields for engine requests) */
+/** Reference: ITaskMetadata (only the fields for engine requests) */
 interface StackMetadata {
   /** Tool execution for an agent: keep sourceOverwrite of the pairedItems */
   preserveSourceOverwrite?: boolean;
@@ -216,7 +216,7 @@ export class WorkflowExecutor {
   /** destinationNode: the destination node and its predecessors */
   private readonly allowedNodes?: Set<string>;
   /**
-   * Execution order v0 (n8n isLegacyExecutionOrder: everything except "v1"): breadth-first instead of depth-first, missing
+   * Execution order v0 (reference: isLegacyExecutionOrder: everything except "v1"): breadth-first instead of depth-first, missing
    * predecessors of nodes with multiple inputs are executed as well, input data only from input 1.
    */
   private readonly legacyOrder: boolean;
@@ -234,7 +234,7 @@ export class WorkflowExecutor {
   private stoppedAt?: Date;
   private error?: SerializedError;
   private webhookResponseSent = false;
-  /** n8n node.rewireOutputLogTo: output of tool nodes is stored under this connection type */
+  /** Reference: node.rewireOutputLogTo: output of tool nodes is stored under this connection type */
   private readonly rewireOutputLogTo = new Map<string, string>();
 
   constructor(options: ExecutorOptions) {
@@ -326,7 +326,7 @@ export class WorkflowExecutor {
   }
 
   /**
-   * Restore the state and resume the waiting node (n8n handleWaitingState and WaitingWebhooks):
+   * Restore the state and resume the waiting node (reference: handleWaitingState and WaitingWebhooks):
    * the node on top of the stack is disabled (passes on its input data, or the webhook's data for a webhook),
    * its last run is removed so that it does not appear twice.
    */
@@ -398,7 +398,7 @@ export class WorkflowExecutor {
     if (!provider || !entry) {
       throw new NodeOperationError(node.name, `Credentials "${ref.name}" for type "${type}" not found`, { itemIndex });
     }
-    // Defaults of the type (including inherited and hidden fields) like n8n getDecrypted with applyDefaultsAndOverwrites
+    // Defaults of the type (including inherited and hidden fields) like the reference getDecrypted with applyDefaultsAndOverwrites
     const data = applySchemaDefaults(type, provider.resolve(entry));
     // Identity for persistently stored OAuth2 tokens (not enumerable, does not appear in data or logs)
     Object.defineProperty(data, CREDENTIAL_REF, { value: { name: entry.name, ...(entry.id ? { id: entry.id } : {}), type }, enumerable: false });
@@ -417,7 +417,7 @@ export class WorkflowExecutor {
     });
   }
 
-  /** n8n ExecuteContext.isStreaming: hook present and mode allows streaming */
+  /** Reference: ExecuteContext.isStreaming: hook present and mode allows streaming */
   isStreaming(): boolean {
     return !!this.options.hooks?.sendChunk && ['manual', 'webhook', 'integrated'].includes(this.mode);
   }
@@ -433,7 +433,7 @@ export class WorkflowExecutor {
   }
 
   /**
-   * Request a sub-node (n8n get-input-connection-data.ts): call the sub-node's supplyData.
+   * Request a sub-node (reference: get-input-connection-data.ts): call the sub-node's supplyData.
    * Errors are shown on the sub-node; the parent node gets "Error in sub-node <Name>".
    */
   async supplySubNode(node: WorkflowNode, parent: NodeExecutionContext, connectionType: string, itemIndex: number): Promise<unknown> {
@@ -458,7 +458,7 @@ export class WorkflowExecutor {
     }
   }
 
-  /** n8n SupplyDataContext.addExecutionDataFunctions: run of a sub-node in runData */
+  /** Reference: SupplyDataContext.addExecutionDataFunctions: run of a sub-node in runData */
   recordSubNodeTask(
     type: 'input' | 'output',
     node: WorkflowNode,
@@ -594,7 +594,7 @@ export class WorkflowExecutor {
     };
   }
 
-  /** Main loop (n8n processRunExecutionData) */
+  /** Main loop (reference: processRunExecutionData) */
   private async processStack(): Promise<SerializedError | undefined> {
     let executionError: SerializedError | undefined;
 
@@ -630,7 +630,7 @@ export class WorkflowExecutor {
       if (executionData.runIndex !== undefined) runIndex = executionData.runIndex;
       else if (Object.hasOwn(this.runData, node.name)) runIndex = this.runData[node.name].length;
 
-      // Endless loop: the same node comes up again without progress (n8n currentExecutionTry)
+      // Endless loop: the same node comes up again without progress (reference: currentExecutionTry)
       const currentExecutionTry = `${node.name}:${runIndex}`;
       if (currentExecutionTry === this.lastExecutionTry) {
         throw new FiluflowError('Stopped execution because it seems to be in an endless loop');
@@ -640,7 +640,7 @@ export class WorkflowExecutor {
         continue executionLoop;
       }
 
-      // Resumed agents do not trigger the hook again (n8n AI-1414)
+      // Resumed agents do not trigger the hook again (reference: AI-1414)
       if (!executionData.metadata?.nodeWasResumed) this.options.hooks?.nodeExecuteBefore?.(node.name);
 
       let maxTries = 1;
@@ -695,7 +695,7 @@ export class WorkflowExecutor {
           }
 
           if (nodeSuccessData === null && !this.waitTill) {
-            // Node ran but returned nothing: branch ends, no runData entry (like n8n)
+            // Node ran but returned nothing: branch ends, no runData entry (like the reference)
             continue executionLoop;
           }
           break;
@@ -724,7 +724,7 @@ export class WorkflowExecutor {
       if (executionError !== undefined) {
         taskData.error = executionError;
         taskData.executionStatus = 'error';
-        // Also write the error into a streamed response (n8n workflow-execute.ts: sendChunk "error")
+        // Also write the error into a streamed response (reference: workflow-execute.ts: sendChunk "error")
         this.options.hooks?.sendChunk?.({
           type: 'error',
           content: executionError.description === undefined || executionError.description === null ? undefined : String(executionError.description),
@@ -768,7 +768,7 @@ export class WorkflowExecutor {
       this.options.hooks?.nodeExecuteAfter?.(node.name, list[runIndex] ?? taskData);
 
       if (this.waitTill) {
-        // Node back on the stack so the execution continues here when resumed (n8n workflow-execute.ts)
+        // Node back on the stack so the execution continues here when resumed (reference: workflow-execute.ts)
         this.stack.unshift(executionData);
         break;
       }
@@ -791,7 +791,7 @@ export class WorkflowExecutor {
             }
           }
         }
-        // n8n v1: top-left first (comparison function deliberately kept unchanged); v0 in connection order
+        // Reference: v1: top-left first (comparison function deliberately kept unchanged); v0 in connection order
         if (!this.legacyOrder) nodesToAdd.sort((a, b) => {
           if (a.position[1] < b.position[1]) return 1;
           if (a.position[1] > b.position[1]) return -1;
@@ -867,7 +867,7 @@ export class WorkflowExecutor {
     ws[runIndex] = { main: new Array(numberOfConnections).fill(null) };
   }
 
-  /** Assemble responses to an earlier EngineRequest (n8n processRunExecutionData, subNodeExecutionData) */
+  /** Assemble responses to an earlier EngineRequest (reference: processRunExecutionData, subNodeExecutionData) */
   private buildEngineResponse(executionData: StackItem): EngineResponse | undefined {
     const sub = executionData.metadata?.subNodeExecutionData;
     if (!sub) return undefined;
@@ -880,7 +880,7 @@ export class WorkflowExecutor {
   }
 
   /**
-   * n8n requests-response.ts handleRequest and WorkflowExecute.handleEngineRequest:
+   * Reference: requests-response.ts handleRequest and WorkflowExecute.handleEngineRequest:
    * per action, create a placeholder run on the tool node and put the tool node with the agent's input data
    * (plus tool arguments) on the stack; the requesting node behind it for resuming.
    */
@@ -917,7 +917,7 @@ export class WorkflowExecutor {
       ];
       const nodeRunData = (this.runData[node.name] ??= []);
       const nodeRunIndex = nodeRunData.length;
-      // Placeholder like n8n (without executionStatus; completed when the tool is executed)
+      // Placeholder like the reference (without executionStatus; completed when the tool is executed)
       nodeRunData.push({ source: [], executionIndex: 0, executionTime: 0, startTime: 0, data: {} } as unknown as TaskData);
       toExecute.push({
         connection: { node: node.name, index: 0 },
@@ -943,7 +943,7 @@ export class WorkflowExecutor {
     for (const n of toExecute) this.addNodeToBeExecuted(n.connection, 0, n.parentNode, n.parentOutputData, runIndex, n.nodeRunIndex, n.metadata);
   }
 
-  /** n8n addNodeToBeExecuted (v1 path) */
+  /** Reference: addNodeToBeExecuted (v1 path) */
   private addNodeToBeExecuted(
     connection: { node: string; index: number },
     outputIndex: number,
@@ -1015,13 +1015,13 @@ export class WorkflowExecutor {
     });
   }
 
-  /** n8n runPartialWorkflow2 enqueueFn: v1 unshift (depth-first), v0 push (breadth-first) */
+  /** Reference: runPartialWorkflow2 enqueueFn: v1 unshift (depth-first), v0 push (breadth-first) */
   private enqueue(item: StackItem): void {
     if (this.legacyOrder) this.stack.push(item);
     else this.stack.unshift(item);
   }
 
-  /** n8n incomingConnectionIsEmpty */
+  /** Reference: incomingConnectionIsEmpty */
   private incomingConnectionIsEmpty(connections: Array<{ node: string; index: number }>, runIndex: number): boolean {
     for (const c of connections) {
       const data = this.runData[c.node]?.[runIndex]?.data?.main?.[c.index];
@@ -1032,7 +1032,7 @@ export class WorkflowExecutor {
 
   /**
    * v0: a node with multiple inputs waits for the first time; predecessors of the other inputs that have not run yet and
-   * are not scheduled yet are put on the stack (n8n addNodeToBeExecuted, branch !nodeWasWaiting)
+   * are not scheduled yet are put on the stack (reference: addNodeToBeExecuted, branch !nodeWasWaiting)
    */
   private forceInputNodes(target: string, parentNodeName: string, outputIndex: number, nodeSuccessData: NodeOutput, runIndex: number): void {
     const checkOutputNodes: string[] = [];
@@ -1085,7 +1085,7 @@ export class WorkflowExecutor {
   }
 
   /**
-   * n8n ensureInputData: inputs without an active predecessor do not count; in v0 a node goes back on the stack
+   * Reference: ensureInputData: inputs without an active predecessor do not count; in v0 a node goes back on the stack
    * as long as data of an input is missing
    */
   private ensureInputData(executionData: StackItem): boolean {
@@ -1101,7 +1101,7 @@ export class WorkflowExecutor {
     return true;
   }
 
-  /** n8n runNode: returns null if the node has no data */
+  /** Reference: runNode: returns null if the node has no data */
   private async runNode(executionData: StackItem, runIndex: number, engineResponse?: EngineResponse): Promise<NodeOutput | null | EngineRequest> {
     const node = executionData.node;
     const inputData = executionData.data;
@@ -1151,7 +1151,7 @@ export class WorkflowExecutor {
 
   /**
    * Context of a node without a running execution (M31): activated trigger and poll nodes use it to read parameters,
-   * credentials and static data like in n8n PollContext/TriggerContext (without input data)
+   * credentials and static data like in the reference PollContext/TriggerContext (without input data)
    */
   contextFor(nodeName: string): ExecContext {
     const node = this.graph.getNode(nodeName);
@@ -1166,7 +1166,7 @@ export class WorkflowExecutor {
     });
   }
 
-  /** n8n handleNodeErrorOutput: erroneous items go to the last output */
+  /** Reference: handleNodeErrorOutput: erroneous items go to the last output */
   private handleNodeErrorOutput(executionData: StackItem, nodeSuccessData: NodeOutput, runIndex: number): void {
     const outputCount = this.mainOutputCount(executionData.node);
     const errorItems: Item[] = [];
@@ -1223,7 +1223,7 @@ export class WorkflowExecutor {
     nodeSuccessData[outputCount - 1] = errorItems;
   }
 
-  /** n8n assignPairedItems */
+  /** Reference: assignPairedItems */
   private assignPairedItems(nodeSuccessData: NodeOutput | null | undefined, executionData: StackItem): NodeOutput | null {
     if (nodeSuccessData?.length) {
       const main = executionData.data.main;

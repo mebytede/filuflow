@@ -499,7 +499,7 @@ export async function workerPage(id: string): Promise<HTMLElement> {
             { class: 'page-head' },
             h('h2', null, t('Credentials on the worker')),
             h('div', { class: 'spacer' }),
-            list.writable === false ? null : action(t('Import from n8n'), async () => {
+            list.writable === false ? null : action(t('Import from export file'), async () => {
               if (await importCredentialsDialog((b) => mapi.importWorkerCredentials(id, b))) void loadCredentials();
             }),
             list.writable === false ? null : action(t('Add credential'), () => edit()),

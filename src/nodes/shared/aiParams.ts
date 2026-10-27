@@ -1,8 +1,8 @@
 // Shared parameter descriptions of the AI nodes (Agent, Chains, Structured Output Parser) for the editor forms.
-// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/utils/descriptions.ts (promptTypeOptions, textInput,
+// Rebuilt after the reference version 1.123.0, packages/@n8n/nodes-langchain/utils/descriptions.ts (promptTypeOptions, textInput,
 // textFromPreviousNode, textFromGuardrailsNode, schemaTypeField, buildJsonSchemaExampleField,
 // buildJsonSchemaExampleNotice, buildInputSchemaField) and utils/sharedFields.ts (getBatchingOptionFields).
-// Callout fields and links to n8n templates are not included, they store no value.
+// Callout fields and links to the reference templates are not included, they store no value.
 import type { DisplayRule, ParamOption, ParamSchema } from '../params.js';
 
 /** promptTypeOptions: source of the prompt (default "auto") */
@@ -22,7 +22,7 @@ export const promptTypeParam: ParamSchema = {
   ],
 };
 
-/** textFromGuardrailsNode (locked in n8n for promptType "guardrails") */
+/** textFromGuardrailsNode (locked in the reference for promptType "guardrails") */
 export const textFromGuardrailsParam: ParamSchema = {
   name: 'text',
   label: 'Prompt (User Message)',
@@ -33,7 +33,7 @@ export const textFromGuardrailsParam: ParamSchema = {
   description: 'Comes from the guardrailsInput field of the connected Guardrails node',
 };
 
-/** textFromPreviousNode (locked in n8n for promptType "auto") */
+/** textFromPreviousNode (locked in the reference for promptType "auto") */
 export const textFromPreviousNodeParam: ParamSchema = {
   name: 'text',
   label: 'Prompt (User Message)',

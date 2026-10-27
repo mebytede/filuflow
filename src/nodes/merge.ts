@@ -1,8 +1,8 @@
 // Merge, n8n-nodes-base.merge (typeVersion 3 to 3.2)
-// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/Merge/v3:
+// Rebuilt after the reference version 1.123.0, packages/nodes-base/nodes/Merge/v3:
 //   actions/versionDescription.ts (requiredInputs), actions/router.ts, actions/mode/*.ts,
 //   helpers/utils.ts (findMatches, mergeMatched, selectMergeMethod), helpers/descriptions.ts
-//   actions/mode/combineBySql.ts with alasql 4.4.0 (same version as n8n), alasql file access blocked
+//   actions/mode/combineBySql.ts with alasql 4.4.0 (same version as the reference), alasql file access blocked
 import { randomUUID } from 'node:crypto';
 import lodash from 'lodash';
 import alasql from 'alasql';
@@ -328,7 +328,7 @@ type AlaSql = Omit<typeof alasql, 'Database'> & {
 const sql = alasql as unknown as AlaSql;
 type AlaDb = { exec(query: string): unknown; tables: Record<string, { data: unknown[] }> };
 
-/** Block file access from within SQL (n8n disableAlasqlFileAccess) */
+/** Block file access from within SQL (reference: disableAlasqlFileAccess) */
 function disableAlasqlFileAccess(): void {
   const disabled = () => {
     throw new Error('File access operations are disabled for security reasons');
@@ -340,12 +340,12 @@ function disableAlasqlFileAccess(): void {
   }
 }
 
-/** n8n getResolvables: all {{ … }} in the text */
+/** Reference: getResolvables: all {{ … }} in the text */
 function getResolvables(expression: string): string[] {
   return expression ? [...expression.matchAll(/({{[\s\S]*?}})/g)].map((m) => m[1]) : [];
 }
 
-/** n8n modifySelectQuery: with a custom column list, add the pairedItem columns of the tables used */
+/** Reference: modifySelectQuery: with a custom column list, add the pairedItem columns of the tables used */
 function modifySelectQuery(userQuery: string, inputLength: number): string {
   const selectMatch = userQuery.match(/SELECT\s+(.+?)\s+FROM/i);
   if (!selectMatch) return userQuery;
@@ -357,7 +357,7 @@ function modifySelectQuery(userQuery: string, inputLength: number): string {
   return userQuery.replace(selectMatch[0], `SELECT ${columns} FROM`);
 }
 
-/** n8n rowToExecutionData: columns "pairedItem…" become pairedItem */
+/** Reference: rowToExecutionData: columns "pairedItem…" become pairedItem */
 function rowToExecutionData(data: Json): Item {
   const pairedItem: PairedItem[] = [];
   const json: Json = {};
@@ -381,7 +381,7 @@ function combineBySql(ctx: ExecContext, inputs: Item[][]): Item[][] {
   for (const resolvable of getResolvables(query)) query = query.replace(resolvable, String(ctx.evaluateExpression(resolvable, 0)));
   const isSelect = node.typeVersion >= 3.1 ? query.toLowerCase().startsWith('select') : false;
   const successIfEmpty = node.typeVersion <= 3.1 ? true : options.emptyQueryResult === 'success';
-  // Separate database per run; n8n uses the node ID, a suffix prevents collisions between parallel runs
+  // Separate database per run; the reference uses the node ID, a suffix prevents collisions between parallel runs
   const dbId = `${node.id ?? node.name}-${randomUUID()}`;
 
   const createTables = (db: AlaDb, rows: (input: Item[], index: number) => unknown[]) => {
@@ -396,7 +396,7 @@ function combineBySql(ctx: ExecContext, inputs: Item[][]): Item[][] {
   };
 
   if (isSelect) {
-    // With pairedItem per row (executeSelectWithMappedPairedItems); on errors, as in n8n, fall back to the path below
+    // With pairedItem per row (executeSelectWithMappedPairedItems); on errors, as in the reference, fall back to the path below
     try {
       const db = new sql.Database(dbId);
       try {
@@ -455,8 +455,8 @@ function inputCount(node: WorkflowNode): number {
 
 // Parameters as in packages/nodes-base/nodes/Merge/v3/actions/mode/*.ts and helpers/descriptions.ts (updateDisplayOptions
 // appends the mode condition to every property).
-// n8n loads resolveClash and useDataOfInput dynamically (methods/loadOptions.ts: getResolveClashOptions, getInputs);
-// here they are fixed lists, resolveClash in two variants depending on numberInputs. The default of resolveClash in n8n is ''
+// The reference loads resolveClash and useDataOfInput dynamically (methods/loadOptions.ts: getResolveClashOptions, getInputs);
+// here they are fixed lists, resolveClash in two variants depending on numberInputs. The default of resolveClash in the reference is ''
 // (no option); it is omitted here, the value comes from the default of clashHandling.
 
 const numberInputsParam = (show: ParamSchema['show']): ParamSchema => ({
@@ -788,7 +788,7 @@ export const mergeNode: NodeType = {
   inputs: inputCount,
   requiredInputs: (node) => ((node.parameters.mode ?? 'append') === 'chooseBranch' ? [0, 1] : 1),
   async execute(ctx) {
-    // n8n getNodeInputsData: as many inputs as configured, missing ones are empty
+    // Reference: getNodeInputsData: as many inputs as configured, missing ones are empty
     const count = inputCount(ctx.node);
     const inputs: Item[][] = Array.from({ length: count }, (_v, i) => ctx.inputs[i] ?? []);
     let mode = ctx.getParam<string>('mode', 0, 'append');

@@ -756,7 +756,7 @@ export interface ParsedAttachment {
   related?: boolean;
 }
 
-/** Result like mailparser simpleParser (subset that n8n uses) */
+/** Result like mailparser simpleParser (subset that the reference uses) */
 export interface ParsedMail {
   headerLines: HeaderLine[];
   html: string | false;

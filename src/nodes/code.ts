@@ -1,5 +1,5 @@
 // Code, n8n-nodes-base.code (typeVersion 1, 2): JavaScript, Python (Pyodide) and Python (Native).
-// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/Code:
+// Rebuilt after the reference version 1.123.0, packages/nodes-base/nodes/Code:
 //   Code.node.ts, JavaScriptSandbox.ts, PythonSandbox.ts, PythonTaskRunnerSandbox.ts (PYTHON_TEXT_KEYS),
 //   Sandbox.ts, result-validation.ts, utils.ts (standardizeOutput), JsCodeValidator.ts, ExecutionError.ts,
 //   ValidationError.ts, packages/core/.../utils/normalize-items.ts
@@ -18,7 +18,7 @@ export const CODE_TIMEOUT_MS = Number(process.env.FILUFLOW_CODE_TIMEOUT_MS ?? 60
 
 const REQUIRED_N8N_ITEM_KEYS = new Set(['json', 'binary', 'pairedItem', 'error', 'index']);
 
-/** n8n result-validation.ts TextKeys: JavaScript says "object", Python says "dictionary" */
+/** Reference: result-validation.ts TextKeys: JavaScript says "object", Python says "dictionary" */
 interface TextKeys {
   singular: string;
   plural: string;
@@ -44,7 +44,7 @@ class CodeValidationError extends Error {
   }
 }
 
-/** n8n ExecutionError: message and line number from the stack */
+/** Reference: ExecutionError: message and line number from the stack */
 class CodeExecutionError extends Error {
   description: string | null = null;
   itemIndex?: number;
@@ -96,7 +96,7 @@ function isTraversable(v: unknown): v is Record<string, unknown> {
   return isObject(v) && typeof v.toJSON !== 'function' && Object.keys(v).length > 0;
 }
 
-/** n8n standardizeOutput: non-standard objects (Date, RegExp …) converted to strings at any depth */
+/** Reference: standardizeOutput: non-standard objects (Date, RegExp …) converted to strings at any depth */
 export function standardizeOutput(output: Record<string, unknown>): Record<string, unknown> {
   const rec = (obj: Record<string, unknown>, known = new WeakSet<object>()): Record<string, unknown> => {
     for (const [key, value] of Object.entries(obj)) {
@@ -110,7 +110,7 @@ export function standardizeOutput(output: Record<string, unknown>): Record<strin
   return rec(output);
 }
 
-/** n8n normalizeItems */
+/** Reference: normalizeItems */
 export function normalizeItems(data: unknown): Item[] {
   let list: unknown[];
   if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
@@ -240,14 +240,14 @@ function validateNoDisallowedMethodsInRunForEach(code: string, itemIndex: number
   }
 }
 
-/** n8n getSandboxContext: { $getNodeParameter, $getWorkflowStaticData, helpers, ...dataProxy } */
+/** Reference: getSandboxContext: { $getNodeParameter, $getWorkflowStaticData, helpers, ...dataProxy } */
 export function sandboxContext(ctx: ExecContext, index: number): Record<string, unknown> {
   const proxy = ctx.getDataProxy(index, { cloneInput: true });
-  // n8n getSandboxContext: { $getNodeParameter, $getWorkflowStaticData, helpers, ...dataProxy }
+  // Reference: getSandboxContext: { $getNodeParameter, $getWorkflowStaticData, helpers, ...dataProxy }
   const context: Record<string, unknown> = {
     $getNodeParameter: (name: string, itemIndex = index, fallback?: unknown) => ctx.getParam(name, itemIndex, fallback),
     $getWorkflowStaticData: (type: 'global' | 'node') => ctx.getStaticData(type),
-    // Like n8n: the node's this.helpers (httpRequest, httpRequestWithAuthentication, binary data …) plus normalizeItems
+    // Like the reference: the node's this.helpers (httpRequest, httpRequestWithAuthentication, binary data …) plus normalizeItems
     helpers: { ...executeHelpers(ctx), normalizeItems },
     ...proxy,
   };
@@ -291,7 +291,7 @@ export function buildContext(ctx: ExecContext, index: number, mode: string, logs
 
 export async function runInSandbox(ctx: ExecContext, code: string, context: Record<string, unknown>): Promise<unknown> {
   const vmContext = vm.createContext(context, { codeGeneration: { strings: false, wasm: false }, name: `filuflow-code:${ctx.node.name}` });
-  // One line of prefix so line numbers in the stack match the code (like n8n "module.exports = async function() {…")
+  // One line of prefix so line numbers in the stack match the code (like the reference "module.exports = async function() {…")
   const script = new vm.Script(`(async function() {${code}\n})()`, { filename: 'Code' });
   let timer: NodeJS.Timeout | undefined;
   try {
@@ -321,9 +321,9 @@ function mapItemsNotDefined(code: string, error: unknown, name: 'items' | 'item'
 
 const LANGUAGES = ['javaScript', 'python', 'pythonNative'];
 
-/** n8n NodesConfig.pythonEnabled (N8N_PYTHON_ENABLED): Python can be disabled */
+/** Reference: NodesConfig.pythonEnabled (here FILUFLOW_PYTHON_ENABLED): Python can be disabled */
 function pythonEnabled(): boolean {
-  const value = process.env.FILUFLOW_PYTHON_ENABLED ?? process.env.N8N_PYTHON_ENABLED;
+  const value = process.env.FILUFLOW_PYTHON_ENABLED;
   return value !== 'false';
 }
 
@@ -336,7 +336,7 @@ function wrapCodeError(node: { name: string }, error: unknown): Error {
 }
 
 /**
- * Python like n8n Code.node.ts: "python" with Pyodide (context with "_" instead of "$", one run per item),
+ * Python like the reference Code.node.ts: "python" with Pyodide (context with "_" instead of "$", one run per item),
  * "pythonNative" in a separate Python process (only _items or _item, one process for all items).
  * Results are checked by the same validation as for JavaScript, with "dictionary" instead of "object".
  */
@@ -345,7 +345,7 @@ async function executePython(ctx: ExecContext, language: 'python' | 'pythonNativ
   if (!pythonEnabled()) {
     throw new NodeOperationError(
       node.name,
-      'This instance disallows Python execution because it has the environment variable `N8N_PYTHON_ENABLED` set to `false`. To restore Python execution, remove this environment variable or set it to `true` and restart the instance.',
+      'This instance disallows Python execution because it has the environment variable `FILUFLOW_PYTHON_ENABLED` set to `false`. To restore Python execution, remove this environment variable or set it to `true` and restart the instance.',
     );
   }
   const mode = ctx.getParam<string>('mode', 0, 'runOnceForAllItems') as 'runOnceForAllItems' | 'runOnceForEachItem';
@@ -405,10 +405,10 @@ async function executePython(ctx: ExecContext, language: 'python' | 'pythonNativ
 }
 
 // Parameters like Code.node.ts (mode, language) and descriptions/JavascriptCodeDescription.ts and
-// descriptions/PythonCodeDescription.ts. In n8n the default of jsCode/pythonCode is empty; the editor sets the starter code
+// descriptions/PythonCodeDescription.ts. In the reference the default of jsCode/pythonCode is empty; the editor sets the starter code
 // from CODE_PLACEHOLDERS (packages/frontend/editor-ui/src/features/shared/editors/components/CodeNodeEditor/
 // constants.ts) per language and mode. Here that starter code is the default. That is why pythonCode, unlike in
-// n8n, is described separately for python and pythonNative (same visibility, different starter code).
+// the reference, is described separately for python and pythonNative (same visibility, different starter code).
 const JS_ALL_ITEMS = `// Loop over input items and add a new field called 'myNewField' to the JSON of each one
 for (const item of $input.all()) {
   item.json.myNewField = 1;

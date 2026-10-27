@@ -53,7 +53,7 @@ export interface ServerOptions {
   binary?: BinaryStore;
   http?: HttpClient;
   logger?: Logger;
-  /** Maximum request size in MB (n8n N8N_PAYLOAD_SIZE_MAX, default 16) */
+  /** Maximum request size in MB (FILUFLOW_PAYLOAD_SIZE_MAX, default 16) */
   payloadSizeMaxMb?: number;
   watch?: boolean;
   /** Directory of the built web interface; false disables it (default: dist/ui) */
@@ -149,7 +149,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
     }
     return data;
   };
-  // n8n saves static data after executions outside manual mode (saveStaticData)
+  // The reference saves static data after executions outside manual mode (saveStaticData)
   const saveStaticData = (wf: { id?: string; name: string }, mode: string) => {
     if (mode === 'manual') return;
     const key = wf.id ?? wf.name;
@@ -174,7 +174,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
   }
   setSignatureSecret(hmacSecret);
   const variables = new VariableStore(kvStore, options.vars);
-  // OAuth2 with Authorization Code and OAuth1: callback as in n8n under the public base URL
+  // OAuth2 with Authorization Code and OAuth1: callback as in the reference under the public base URL
   const oauth: OAuthSupport = {
     store: kvStore,
     http: options.http ?? new UndiciHttpClient(),
@@ -288,7 +288,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
     logger: false,
     bodyLimit,
     exposeHeadRoutes: false,
-    // Express "extended" query parser as in n8n (abstract-server.ts: app.set('query parser', 'extended'))
+    // Express "extended" query parser as in the reference (abstract-server.ts: app.set('query parser', 'extended'))
     routerOptions: { querystringParser: (str: string) => qs.parse(str, { allowPrototypes: true }) as Record<string, unknown> },
   });
 
@@ -338,7 +338,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
   if (options.uiDir !== false) registerUi(app, options.uiDir);
   else registerChatAssets(app);
 
-  // Webhooks: read the body raw (gzip/deflate as in n8n rawBodyReader), parsing happens in the Webhook node
+  // Webhooks: read the body raw (gzip/deflate as in the reference rawBodyReader), parsing happens in the Webhook node
   await app.register(async (scope) => {
     scope.removeAllContentTypeParsers();
     scope.addContentTypeParser('*', { parseAs: 'buffer', bodyLimit }, (request, body, done) => {

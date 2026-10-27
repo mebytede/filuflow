@@ -1,6 +1,6 @@
 // Text Classifier, @n8n/n8n-nodes-langchain.textClassifier (typeVersion 1, 1.1)
-// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/chains/TextClassifier
-//   (TextClassifier.node.ts, processItem.ts, constants.ts). As in n8n, the prompt contains tabs.
+// Rebuilt after the reference version 1.123.0, packages/@n8n/nodes-langchain/nodes/chains/TextClassifier
+//   (TextClassifier.node.ts, processItem.ts, constants.ts). As in the reference, the prompt contains tabs.
 import type { NodeType } from './types.js';
 import type { Item, WorkflowNode } from '../types.js';
 import { NodeOperationError } from '../errors.js';

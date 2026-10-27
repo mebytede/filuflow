@@ -152,7 +152,7 @@ export function checkWorkflow(o: ObservedWorkflow, ctx: RuleContext): RuleFindin
     if (!t || !t.versions.includes(node.typeVersion)) continue;
     const latest = Math.max(...t.versions);
     if (node.typeVersion < latest) {
-      out.push({ ...base, rule: 'outdated-version', severity: 'info', nodeName: node.name, key: String(node.typeVersion), title: 'Older node version', detail: `"${node.name}" uses version ${node.typeVersion} of ${t.displayName}, the latest is ${latest}. Older versions keep working as in n8n; new nodes get the latest version.` });
+      out.push({ ...base, rule: 'outdated-version', severity: 'info', nodeName: node.name, key: String(node.typeVersion), title: 'Older node version', detail: `"${node.name}" uses version ${node.typeVersion} of ${t.displayName}, the latest is ${latest}. Older versions keep working unchanged; new nodes get the latest version.` });
     }
   }
   if (o.active) {

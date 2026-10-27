@@ -92,7 +92,7 @@ export interface RunOptions {
   destinationNode?: string;
 }
 
-/** Start node for sub-workflows (n8n findSubworkflowStart): executeWorkflowTrigger, otherwise a start type */
+/** Start node for sub-workflows (reference: findSubworkflowStart): executeWorkflowTrigger, otherwise a start type */
 const STARTING_NODE_TYPES = ['n8n-nodes-base.manualTrigger', 'n8n-nodes-base.executeWorkflowTrigger', 'n8n-nodes-base.errorTrigger', 'n8n-nodes-base.start'];
 
 function findSubworkflowStart(workflow: Workflow): string {

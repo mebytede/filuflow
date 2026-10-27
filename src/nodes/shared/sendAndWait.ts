@@ -1,13 +1,13 @@
 // "Send and Wait for Response" (Gmail operation sendAndWait, M40). Behavior as in n8n-nodes-base 1.121.0
 // utils/sendAndWait/utils.js (getSendAndWaitConfig, createEmail, sendAndWaitWebhook), configureWaitTillDate.util.js,
 // n8n-core 1.122.0 node-execution-context.js getSignedResumeUrl with utils/signature-helpers.js (HMAC-SHA256 over
-// host, path and query, query parameter "signature") and n8n 1.123.0 webhooks/waiting-webhooks.ts (signature check,
+// host, path and query, query parameter "signature") and the reference version 1.123.0, webhooks/waiting-webhooks.ts (signature check,
 // page "no action required" for finished executions).
 // The node sends the email and waits; $execution.resumeUrl/<node ID>?approved=true|false&signature=... resumes it with
 // { data: { approved } }, a form ("Free Text", "Custom Form") with { data: { text } } or { data: { <fields> } }.
-// Differences: the email and the pages use filuflow's own HTML (n8n's templates are not copied, the texts are the same);
+// Differences: the email and the pages use filuflow's own HTML (the reference's templates are not copied, the texts are the same);
 // the parameters the pages need are resolved when the email is sent and kept in the node context of the waiting
-// execution (n8n evaluates them again in the webhook).
+// execution (the reference evaluates them again in the webhook).
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { ExecContext } from '../types.js';
 import type { Item } from '../../types.js';
@@ -27,9 +27,9 @@ export const SEND_AND_WAIT_CONTEXT_KEY = 'sendAndWait';
 
 let secret: string | undefined;
 
-/** Secret for the URL signatures: FILUFLOW_HMAC_SIGNATURE_SECRET, N8N_HMAC_SIGNATURE_SECRET, set by the server or random */
+/** Secret for the URL signatures: FILUFLOW_HMAC_SIGNATURE_SECRET, set by the server or random */
 export function signatureSecret(): string {
-  const fromEnv = process.env.FILUFLOW_HMAC_SIGNATURE_SECRET || process.env.N8N_HMAC_SIGNATURE_SECRET;
+  const fromEnv = process.env.FILUFLOW_HMAC_SIGNATURE_SECRET;
   if (fromEnv) return fromEnv;
   secret ??= randomBytes(32).toString('hex');
   return secret;
@@ -71,7 +71,7 @@ export function verifyResumeSignature(baseUrl: string, path: string, query: Reco
 // Email and wait time
 // ---------------------------------------------------------------------------------------------------------------
 
-/** n8n utilities escapeHtml (despite its name it turns the entities &amp; &lt; &gt; &#39; &quot; back into characters) */
+/** Reference: utilities escapeHtml (despite its name it turns the entities &amp; &lt; &gt; &#39; &quot; back into characters) */
 function unescapeEntities(text: string): string {
   const map: Record<string, string> = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&#39;': "'", '&quot;': '"' };
   return text ? text.replace(/&amp;|&lt;|&gt;|&#39;|&quot;/g, (m) => map[m]) : '';
@@ -110,7 +110,7 @@ function emailBody(title: string, message: string, buttons: string): string {
 
 /**
  * getSendAndWaitConfig and createEmail: one recipient, subject and message, buttons with signed resume URLs
- * (approve, approve and decline, or "Respond" for the forms). The n8n attribution is not added (docs/DECISIONS.md).
+ * (approve, approve and decline, or "Respond" for the forms). The attribution of the reference is not added (docs/DECISIONS.md).
  */
 export function createSendAndWaitEmail(ctx: ExecContext): Email {
   const to = String(ctx.getParam('sendTo', 0, '') ?? '').trim();

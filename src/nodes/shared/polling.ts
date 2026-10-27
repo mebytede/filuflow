@@ -1,5 +1,5 @@
 // Polling triggers, shared by built-in poll nodes (Gmail Trigger, M41; planned: Slack, Outlook) and poll nodes from
-// n8n packages (src/plugins/triggerNode.ts, M31). Behavior as in n8n 1.123.0 (n8n-core 1.122.0):
+// community node packages (src/plugins/triggerNode.ts, M31). Behavior as in the reference version 1.123.0 (n8n-core 1.122.0):
 //   nodes-loader/constants.ts commonPollingParameters ("Poll Times", default every minute),
 //   n8n-workflow cron.ts toCronExpression (random second so that not all polls start at the same time),
 //   active-workflows.ts activatePolling (first poll on activation, errors of that poll prevent the activation,
@@ -46,8 +46,8 @@ export function pollTimesToCron(pollTimes: unknown): string[] {
 
 /**
  * activatePolling: first poll right away (an error there prevents the activation), then one cron job per poll
- * time. As in n8n the interval check runs after the first poll, and an expression whose seconds field contains "*"
- * is rejected (a list or range of seconds such as "0-59" passes the check, as in n8n).
+ * time. As in the reference the interval check runs after the first poll, and an expression whose seconds field contains "*"
+ * is rejected (a list or range of seconds such as "0-59" passes the check, as in the reference).
  */
 export async function startPolling(a: Activation, expressions: string[], poll: () => Promise<Item[][] | null | undefined>): Promise<ActivationHandle> {
   const executeTrigger = async (testing = false) => {
@@ -73,7 +73,7 @@ export function isManualRun(ctx: ExecContext): boolean {
 }
 
 /**
- * Context whose static data is a copy. n8n runs a manual execution on its own Workflow instance and does not save its
+ * Context whose static data is a copy. The reference runs a manual execution on its own Workflow instance and does not save its
  * static data, so a test run never changes what the active trigger remembers (e.g. the last poll time).
  */
 export function withDetachedStaticData(ctx: ExecContext): ExecContext {
@@ -92,7 +92,7 @@ export function withDetachedStaticData(ctx: ExecContext): ExecContext {
 
 export interface PollRun {
   ctx: ExecContext;
-  /** n8n getMode() === 'manual' */
+  /** Reference: getMode() === 'manual' */
   manual: boolean;
 }
 

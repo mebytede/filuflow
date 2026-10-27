@@ -1,8 +1,8 @@
-// Defaults of a credential on load (M28), as in n8n 1.123.0 CredentialsHelper.applyDefaultsAndOverwrites
+// Defaults of a credential on load (M28), as in the reference version 1.123.0 CredentialsHelper.applyDefaultsAndOverwrites
 // (packages/cli/src/credentials-helper.ts): NodeHelpers.getNodeParameters fills missing values of visible fields
 // (including inherited and hidden ones) with their default, then expressions with $self (the values of the credential)
 // are evaluated. filuflow evaluates expressions only in hidden fields: they come from the type description or from
-// an n8n export; entered values (e.g. a password that starts with "=") stay unchanged.
+// an exported file; entered values (e.g. a password that starts with "=") stay unchanged.
 import vm from 'node:vm';
 import { credentialType, isFieldVisible } from './types.js';
 

@@ -1,5 +1,5 @@
 // Find $fromAI placeholders in node parameters and build the argument schema of a tool from them.
-// Rebuilt after n8n 1.123.0 packages/workflow/src/from-ai-parse-utils.ts
+// Rebuilt after the reference version 1.123.0 packages/workflow/src/from-ai-parse-utils.ts
 // (extractFromAICalls, parseArguments, parseDefaultValue, generateZodSchema, traverseNodeParameters)
 // and packages/@n8n/nodes-langchain/utils/fromAIToolFactory.ts (extractFromAIParameters, createZodSchemaFromArgs).
 import type { ZType } from './schema.js';

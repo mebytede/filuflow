@@ -476,8 +476,8 @@ export class Panel {
   }
 
   /**
-   * Pin test data (n8n pinData): during a test run the items count as output 0 of the node, the node itself does not run.
-   * As in n8n only JSON, no binary data.
+   * Pin test data (pinData): during a test run the items count as output 0 of the node, the node itself does not run.
+   * As in the reference only JSON, no binary data.
    */
   private pinBar(node: WorkflowNode, runItems: Item[] | undefined): HTMLElement {
     const pinned = this.host.workflow().pinData?.[node.name] as Item[] | undefined;

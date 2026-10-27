@@ -1,8 +1,8 @@
-// OpenAI Responses API as in n8n 1.123.0 (LmChatOpenAi v1.3 with responsesApiEnabled) and @langchain/openai 1.1.3:
+// OpenAI Responses API as in the reference version 1.123.0 (LmChatOpenAi v1.3 with responsesApiEnabled) and @langchain/openai 1.1.3:
 //   dist/chat_models/responses.js (invocationParams, _generate, _reduceChatOpenAITools)
 //   dist/converters/responses.js (convertMessagesToResponsesInput, convertResponsesMessageToAIMessage,
 //   convertResponsesUsageToUsageMetadata)
-// Own implementation of the observable behavior. n8n passes built-in tools (web search, file search, code interpreter) on as
+// Own implementation of the observable behavior. The reference passes built-in tools (web search, file search, code interpreter) on as
 // metadata of the model; only Tools Agent V3 appends them to the tools (createAgentSequence getAllTools).
 import type { ExecContext } from '../../nodes/types.js';
 import type { ChatMessage, ContentPart, ToolCall } from '../messages.js';
@@ -62,7 +62,7 @@ export class OpenAiResponsesModel extends ChatModel {
     super(ctx, opts.model, { model: opts.model, temperature: opts.temperature, maxTokens: opts.maxTokens, topP: opts.topP });
   }
 
-  /** Built-in tools from the model metadata (n8n model.metadata.tools) */
+  /** Built-in tools from the model metadata (reference: model.metadata.tools) */
   get builtInTools(): Array<Record<string, unknown>> {
     return this.opts.builtInTools ?? [];
   }
@@ -227,7 +227,7 @@ export class OpenAiResponsesModel extends ChatModel {
       },
     };
     const raw: ResponsesRaw = { responses: { id: messageId, ...(reasoning ? { reasoning } : {}), functionCallIds, toolOutputs } };
-    // With the Responses API usage is only in llmOutput.estimatedTokenUsage; n8n's tracing therefore estimates
+    // With the Responses API usage is only in llmOutput.estimatedTokenUsage; the reference tracing therefore estimates
     return {
       message: { role: 'ai', content: text, toolCalls, raw, lc: { content, kwargs: lcKwargs } },
       text,

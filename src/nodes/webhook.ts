@@ -1,5 +1,5 @@
 // Webhook, n8n-nodes-base.webhook (typeVersion 1, 1.1, 2, 2.1)
-// Rebuilt after n8n 1.123.0:
+// Rebuilt after the reference version 1.123.0:
 //   packages/nodes-base/nodes/Webhook/Webhook.node.ts, utils.ts, description.ts, error.ts
 //   packages/cli/src/webhooks/webhook-helpers.ts (parseRequestBody), middlewares/body-parser.ts
 //   packages/cli/src/webhooks/webhook.service.ts (getNodeWebhooks: path, methods)
@@ -89,7 +89,7 @@ export class WebhookAuthorizationError extends Error {
   }
 }
 
-/** n8n WorkflowConfigurationError: the message is passed through to the caller */
+/** Reference: WorkflowConfigurationError: the message is passed through to the caller */
 export class WebhookConfigurationError extends NodeOperationError {}
 
 type Params = Record<string, unknown>;
@@ -109,7 +109,7 @@ function httpMethods(node: WorkflowNode): string[] {
   return String(m || 'GET').split(',').map((s) => s.trim()).filter(Boolean);
 }
 
-/** Path like n8n getNodeWebhooks/getNodeWebhookPath (isFullPath = true) */
+/** Path like the reference getNodeWebhooks/getNodeWebhookPath (isFullPath = true) */
 export function webhookPath(node: WorkflowNode): { path: string; isDynamic: boolean } {
   let path = String((node.parameters as Params).path ?? '');
   if (path.startsWith('/')) path = path.slice(1);
@@ -131,7 +131,7 @@ export function describeWebhooks(node: WorkflowNode): WebhookDescription[] {
   }));
 }
 
-/** n8n getResponseCode */
+/** Reference: getResponseCode */
 function getResponseCode(p: Params): number {
   if (p.responseCode) return Number(p.responseCode);
   const values = ((p.options as Params | undefined)?.responseCode as Params | undefined)?.values as
@@ -151,7 +151,7 @@ export function responseOptions(node: WorkflowNode): WebhookResponseOptions {
   if (responseMode === 'lastNode') responseData = (p.responseData as string | undefined) ?? 'firstEntryJson';
   else if (p.responseData) responseData = p.responseData as string;
   if (!responseData && responseMode === 'onReceived' && options.responseData) responseData = options.responseData as string;
-  // noResponseBody is only visible with onReceived (otherwise discarded by n8n)
+  // noResponseBody is only visible with onReceived (otherwise discarded by the reference)
   if (!responseData && options.noResponseBody && responseMode === 'onReceived') responseData = 'noData';
   // v1/1.1: responseCode is a separate parameter (default 200, hidden with responseNode)
   const codeParams = { ...p };
@@ -255,7 +255,7 @@ async function parseMultipart(req: IncomingWebhookRequest): Promise<{ data: Reco
 }
 
 /**
- * webhook-helpers.ts parseRequestBody for nodes from n8n packages (M32): multipart as { data, files }, otherwise by
+ * webhook-helpers.ts parseRequestBody for nodes from community node packages (M32): multipart as { data, files }, otherwise by
  * content type; from node version 2 only JSON, text, form and XML. undefined without a readable body.
  */
 export async function parseRequestBodyForNode(req: IncomingWebhookRequest, version: number, binaryData = false): Promise<unknown> {
@@ -421,7 +421,7 @@ export async function handleWebhookRequest(ctx: WebhookHandleContext): Promise<W
     ipWhitelist?: string;
   };
 
-  // displayOptions of the options collection (n8n getNodeParameters, options sorted by display name):
+  // displayOptions of the options collection (reference: getNodeParameters, options sorted by display name):
   // "No Response Body" only with onReceived; "Raw Body" hidden with noResponseBody (v1 also with binaryData)
   const noResponseBody = options.noResponseBody === true && (p.responseMode ?? 'onReceived') === 'onReceived';
   if (options.rawBody && (noResponseBody || (version === 1 && options.binaryData === true))) options.rawBody = false;
@@ -524,10 +524,10 @@ export async function handleWebhookRequest(ctx: WebhookHandleContext): Promise<W
   return { webhookResponse: options.responseData, workflowData: prepareOutput(item) };
 }
 
-// Parameters as in n8n Webhook.node.ts (properties) with description.ts (httpMethodsProperty, authenticationProperty,
+// Parameters as in the reference Webhook.node.ts (properties) with description.ts (httpMethodsProperty, authenticationProperty,
 // responseModeProperty, responseCodeProperty, responseDataProperty, responseBinaryPropertyNameProperty,
 // optionsProperty, responseCodeOption). responseMode exists twice: up to v2 without, from v2.1 with "streaming"
-// (responseModePropertyStreaming). Options in n8n order.
+// (responseModePropertyStreaming). Options in the order of the reference.
 const HTTP_METHODS = ['DELETE', 'GET', 'HEAD', 'PATCH', 'POST', 'PUT'].map((m) => ({ value: m, label: m }));
 const webhookParameters: ParamSchema[] = [
   {

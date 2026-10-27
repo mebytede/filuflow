@@ -1,5 +1,5 @@
 // Limit, n8n-nodes-base.limit (typeVersion 1)
-// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/Transform/Limit/Limit.node.ts
+// Rebuilt after the reference version 1.123.0, packages/nodes-base/nodes/Transform/Limit/Limit.node.ts
 import type { NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
 

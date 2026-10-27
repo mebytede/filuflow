@@ -1,9 +1,9 @@
-// Install, update and remove community packages (M30), as in n8n 1.123.0
+// Install, update and remove community packages (M30), as in the reference version 1.123.0
 // packages/cli/src/modules/community-packages/community-packages.service.ts: check the package name (n8n-nodes-..., optionally
 // with scope and version), check the version in the registry, `npm pack` into a download folder, extract to
 // <dir>/node_modules/<package>, remove dev/peer/optionalDependencies, `npm install` without scripts, load nodes;
 // if the package contains no nodes, it is removed again. The list of packages is in <dir>/filuflow-packages.json
-// (n8n: database table installed_packages), the dependencies in <dir>/package.json as in n8n.
+// (reference: database table installed_packages), the dependencies in <dir>/package.json as in the reference.
 import { execFile } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -48,7 +48,7 @@ export type ExecFn = (file: string, args: string[], options: { cwd: string; env?
 const defaultExec: ExecFn = (file, args, options) => promisify(execFile)(file, args, { ...options, maxBuffer: 20 * 1024 * 1024 }) as Promise<{ stdout: string; stderr: string }>;
 
 export interface CommunityPackagesOptions {
-  /** Folder of the installed packages (default ~/.filuflow/nodes, like ~/.n8n/nodes) */
+  /** Folder of the installed packages (default ~/.filuflow/nodes) */
   dir: string;
   registry: NodeRegistry;
   npmRegistry?: string;
@@ -65,9 +65,9 @@ export function defaultCommunityDir(env: NodeJS.ProcessEnv = process.env): strin
   return env.FILUFLOW_NODES_DIR || join(homedir(), '.filuflow', 'nodes');
 }
 
-/** Installation allowed? FILUFLOW_COMMUNITY_PACKAGES_ENABLED or N8N_COMMUNITY_PACKAGES_ENABLED (default on) */
+/** Installation allowed? FILUFLOW_COMMUNITY_PACKAGES_ENABLED (default on) */
 export function communityPackagesEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-  const v = env.FILUFLOW_COMMUNITY_PACKAGES_ENABLED ?? env.N8N_COMMUNITY_PACKAGES_ENABLED;
+  const v = env.FILUFLOW_COMMUNITY_PACKAGES_ENABLED;
   return v === undefined || !['false', '0', 'no'].includes(v.toLowerCase());
 }
 

@@ -1,5 +1,5 @@
-// n8n Form Trigger, n8n-nodes-base.formTrigger (typeVersion 1, 2, 2.1, 2.2, 2.3)
-// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/Form/FormTrigger.node.ts, v2/FormTriggerV2.node.ts and
+// Form Trigger, n8n-nodes-base.formTrigger (typeVersion 1, 2, 2.1, 2.2, 2.3)
+// Rebuilt after the reference version 1.123.0, packages/nodes-base/nodes/Form/FormTrigger.node.ts, v2/FormTriggerV2.node.ts and
 // utils/utils.ts formWebhook: form under /form/<path> (path: path, options.path or webhookId), GET shows the
 // page, POST starts the workflow with the input. Basic Auth from v2. Processing happens in the server
 // (src/server/webhooks.ts, src/nodes/shared/form.ts); here the node passes the data through.
@@ -25,7 +25,7 @@ export function formPath(node: WorkflowNode): string {
   return String(raw).replace(/^\/+|\/+$/g, '');
 }
 
-// Parameters like n8n v1/FormTriggerV1.node.ts (v1) and v2/FormTriggerV2.node.ts (v2 to 2.3) with the descriptions from
+// Parameters like the reference v1/FormTriggerV1.node.ts (v1) and v2/FormTriggerV2.node.ts (v2 to 2.3) with the descriptions from
 // common.descriptions.ts (see shared/formParams.ts). V1 has no authentication and only formSubmittedText as an option.
 const V1 = { '@version': [1] };
 const V2 = { '@version': [{ _cnd: { gte: 2 } }] };
@@ -121,7 +121,7 @@ const parameters: ParamSchema[] = [
 
 export const formTriggerNode: NodeType = {
   type: FORM_TRIGGER_TYPE,
-  displayName: 'n8n Form Trigger',
+  displayName: 'Form Trigger',
   versions: [1, 2, 2.1, 2.2, 2.3],
   parameters,
   isTrigger: true,

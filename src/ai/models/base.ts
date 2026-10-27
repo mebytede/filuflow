@@ -1,5 +1,5 @@
 // Common base of the chat models: call with tracing in the runData of the model node
-// (n8n packages/@n8n/nodes-langchain/nodes/llms/N8nLlmTracing.ts: handleLLMStart/handleLLMEnd/handleLLMError).
+// (reference: packages/@n8n/nodes-langchain/nodes/llms/N8nLlmTracing.ts: handleLLMStart/handleLLMEnd/handleLLMError).
 import type { ExecContext } from '../../nodes/types.js';
 import { NodeApiError, NodeOperationError } from '../../errors.js';
 import { getBufferString, type ChatMessage, type ToolCall } from '../messages.js';
@@ -17,9 +17,9 @@ export interface ModelCallOptions {
   signal?: AbortSignal;
   /** Index of the generation for tracing (agent: source in the parent run) */
   sourceRunIndex?: number;
-  /** Streaming: text chunks as soon as the model delivers them (n8n streamEvents, on_chat_model_stream) */
+  /** Streaming: text chunks as soon as the model delivers them (reference: streamEvents, on_chat_model_stream) */
   onToken?: (text: string) => void;
-  /** Send along the built-in tools of the model (n8n Tools Agent V3: model.metadata.tools) */
+  /** Send along the built-in tools of the model (reference: Tools Agent V3: model.metadata.tools) */
   includeBuiltInTools?: boolean;
 }
 
@@ -47,7 +47,7 @@ export class LlmHttpError extends Error {
   }
 }
 
-/** Rough token estimate (n8n uses tiktoken; only for tracing) */
+/** Rough token estimate (the reference uses tiktoken; only for tracing) */
 function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
@@ -58,7 +58,7 @@ export abstract class ChatModel {
   constructor(
     protected readonly ctx: ExecContext,
     readonly modelName: string,
-    /** For tracing (n8n: kwargs of the LangChain model) */
+    /** For tracing (reference: kwargs of the LangChain model) */
     protected readonly tracingOptions: Record<string, unknown>,
   ) {}
 

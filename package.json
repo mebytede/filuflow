@@ -1,7 +1,7 @@
 {
   "name": "filuflow",
   "version": "0.1.0",
-  "description": "Self-hosted workflow engine with a browser editor, webhooks, schedules, AI nodes and multi-tenant operation; runs workflows in the n8n format",
+  "description": "Self-hosted workflow engine with a browser editor, webhooks, schedules, AI nodes and multi-tenant operation; runs workflows in the common workflow JSON format without changes",
   "private": true,
   "type": "module",
   "license": "AGPL-3.0-or-later",
@@ -18,8 +18,7 @@
     "workflow",
     "workflow-engine",
     "automation",
-    "n8n",
-    "n8n-compatible",
+    "workflow-automation",
     "webhooks",
     "low-code",
     "self-hosted",

@@ -1,4 +1,4 @@
-// Poll and trigger nodes from n8n packages (M31). Behavior as in n8n 1.123.0 (n8n-core 1.122.0):
+// Poll and trigger nodes from packages in the community node format (M31). Behavior as in the reference version 1.123.0 (n8n-core 1.122.0):
 //   active-workflows.ts activatePolling (pollTimes as cron, first poll on activation, interval at least one
 //   minute), triggers-and-pollers.ts runTrigger/runPoll, workflow-execute.ts executePollNode/executeTriggerNode
 //   (manual run: poll once or wait for the first emit, then closeFunction), poll-context.ts and
@@ -152,7 +152,7 @@ export async function activateTrigger(impl: N8nTriggerImpl, a: Activation): Prom
  */
 export async function executeTrigger(impl: N8nTriggerImpl, runCtx: ExecContext): Promise<NodeOutput | null> {
   if (!isManualRun(runCtx)) return runCtx.inputs.length ? runCtx.inputs : [[]];
-  // Manual runs work on a copy of the static data (n8n does not save it in manual mode)
+  // Manual runs work on a copy of the static data (the reference does not save it in manual mode)
   const ctx = withDetachedStaticData(runCtx);
   const description = withPollTimes(impl.description);
   const jobs: Cron[] = [];

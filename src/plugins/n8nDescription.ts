@@ -1,5 +1,5 @@
-// Convert descriptions from n8n packages (INodeTypeDescription, INodeProperties, ICredentialType) into filuflow formats
-// and fill in defaults like n8n (M24). Behavior after n8n 1.123.0 packages/workflow/src/interfaces.ts and
+// Convert descriptions from packages in the community node format (INodeTypeDescription, INodeProperties, ICredentialType) into filuflow formats
+// and fill in defaults like the reference (M24). Behavior after the reference version 1.123.0 packages/workflow/src/interfaces.ts and
 // node-helpers.ts (displayParameter, getNodeParameters); own, simplified implementation.
 import type { DisplayRule, ParamSchema, ParamType } from '../nodes/params.js';
 import type { CredentialField, CredentialTypeSchema } from '../credentials/types.js';
@@ -64,11 +64,11 @@ const TYPE_MAP: Record<string, ParamType> = {
 export function propertiesToSchema(props: N8nProperty[]): ParamSchema[] {
   return props.map((p) => {
     const t = p.typeOptions ?? {};
-    // Option lists that n8n loads at runtime (loadOptionsMethod) become free input
+    // Option lists that the reference loads at runtime (loadOptionsMethod) become free input
     const dynamic = (p.type === 'options' || p.type === 'multiOptions') && (t.loadOptionsMethod || t.loadOptions);
     const type: ParamType = dynamic ? 'string' : (TYPE_MAP[p.type] ?? (p.type === 'credentialsSelect' ? 'string' : 'json'));
     const schema: ParamSchema = { name: p.name, label: p.displayName ?? p.name, type, ...(p.default !== undefined ? { default: p.default } : {}) };
-    const description = [p.description, dynamic ? 'Please enter values that n8n loads at runtime directly.' : undefined].filter(Boolean).join(' ');
+    const description = [p.description, dynamic ? 'Please enter values directly; this list is loaded at runtime in the original node.' : undefined].filter(Boolean).join(' ');
     if (description) schema.description = description;
     if (p.placeholder) schema.placeholder = p.placeholder;
     if (p.required) schema.required = true;
@@ -143,7 +143,7 @@ export function isDisplayed(options: N8nProperty['displayOptions'], values: Valu
 const copy = <T>(v: T): T => (v === undefined || v === null || typeof v !== 'object' ? v : (structuredClone(v) as T));
 
 /**
- * Parameters with defaults like n8n getNodeParameters: visible parameters without a value get their default (same name:
+ * Parameters with defaults like the reference getNodeParameters: visible parameters without a value get their default (same name:
  * the first visible one), entries of fixedCollections are filled with the defaults of their fields.
  */
 export function withDefaults(props: N8nProperty[], params: Values, version: number, root?: Values): Values {
@@ -210,7 +210,7 @@ export function credentialToSchema(c: N8nCredentialType): CredentialTypeSchema {
   return {
     name: c.name,
     label: c.displayName ?? c.name,
-    description: `From an n8n package${c.documentationUrl ? ` (${c.documentationUrl})` : ''}.`,
+    description: `From a package in the community node format${c.documentationUrl ? ` (${c.documentationUrl})` : ''}.`,
     fields,
     ...(c.extends?.length ? { extends: c.extends } : {}),
   };

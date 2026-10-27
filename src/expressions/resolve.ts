@@ -1,4 +1,4 @@
-// Recursive resolution of parameter values (n8n Expression.getParameterValue).
+// Recursive resolution of parameter values (reference: Expression.getParameterValue).
 import { DateTime } from 'luxon';
 import { ExpressionError } from '../errors.js';
 import { evaluateTemplate } from './evaluator.js';
@@ -53,7 +53,7 @@ export function containsExpression(value: unknown): boolean {
   return false;
 }
 
-/** n8n cleanupParameterData: nested luxon dates become strings */
+/** Reference: cleanupParameterData: nested luxon dates become strings */
 export function cleanupParameterData(input: unknown): void {
   if (typeof input !== 'object' || input === null) return;
   if (Array.isArray(input)) {

@@ -145,7 +145,7 @@ async function importDialog(): Promise<Workflow | null> {
   });
   return dialog<Workflow>(
     t('Import workflow'),
-    h('div', { class: 'form' }, h('p', { class: 'muted' }, t('Workflow JSON from n8n (export) or filuflow. The workflow is created inactive.')), file, ta),
+    h('div', { class: 'form' }, h('p', { class: 'muted' }, t('Exported workflow JSON (common workflow format or filuflow). The workflow is created inactive.')), file, ta),
     {
       confirm: t('Import'),
       wide: true,
@@ -193,13 +193,13 @@ export async function projectWorkflowsPage(projectId: string): Promise<HTMLEleme
     'div',
     { class: 'page-head', style: { marginBottom: '0' } },
     h('div', { class: 'spacer' }),
-    edit ? button(t('Import n8n export'), { icon: 'upload', onclick: () => void doImport() }) : null,
+    edit ? button(t('Import exported workflow'), { icon: 'upload', onclick: () => void doImport() }) : null,
     edit ? button(t('New workflow'), { icon: 'plus', variant: 'primary', onclick: () => void createNew() }) : null,
   );
   root.append(actions);
   if (!p.worker) root.append(h('div', { class: 'notice notice-warning', style: { marginTop: '24px' } }, t('No worker is assigned to this project. Workflows can be edited, but not executed or activated.')));
   if (!list.length) {
-    root.append(h('div', { class: 'empty' }, h('p', null, t('No workflows in this project yet. Create a workflow or import an n8n export.'))));
+    root.append(h('div', { class: 'empty' }, h('p', null, t('No workflows in this project yet. Create a workflow or import an exported workflow.'))));
     return root;
   }
   const { overview, error } = p.worker && can(p, 'execution.read') ? await mapi.projectOverview(p.id).catch((err: Error) => ({ overview: null, error: err.message })) : { overview: null, error: undefined };

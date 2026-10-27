@@ -1,4 +1,4 @@
-// Error classes. Names (`name`) match the n8n classes so that
+// Error classes. Names (`name`) match the reference classes so that
 // serialized errors look the same in runData (packages/workflow/src/errors).
 import type { SerializedError } from './types.js';
 
@@ -31,7 +31,7 @@ export class FiluflowError extends Error {
   }
 }
 
-/** Error while executing a node (n8n: NodeOperationError) */
+/** Error while executing a node (reference: NodeOperationError) */
 export class NodeOperationError extends FiluflowError {
   constructor(nodeName: string, message: string, options: FiluflowErrorOptions = {}) {
     super(message, options);
@@ -39,7 +39,7 @@ export class NodeOperationError extends FiluflowError {
   }
 }
 
-/** Error from a remote API (n8n: NodeApiError) */
+/** Error from a remote API (reference: NodeApiError) */
 export class NodeApiError extends NodeOperationError {
   httpCode?: string;
   constructor(nodeName: string, message: string, options: FiluflowErrorOptions & { httpCode?: string } = {}) {
@@ -56,7 +56,7 @@ export interface ExpressionErrorOptions extends FiluflowErrorOptions {
   type?: string;
 }
 
-/** Error in an expression (n8n: ExpressionError) */
+/** Error in an expression (reference: ExpressionError) */
 export class ExpressionError extends FiluflowError {
   parameter?: string;
   expression?: string;
@@ -70,7 +70,7 @@ export class ExpressionError extends FiluflowError {
   }
 }
 
-/** Error in an extension function (n8n: ExpressionExtensionError) */
+/** Error in an extension function (reference: ExpressionExtensionError) */
 export class ExpressionExtensionError extends ExpressionError {}
 
 export interface ValidationIssue {

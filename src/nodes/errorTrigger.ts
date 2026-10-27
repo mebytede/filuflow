@@ -1,7 +1,7 @@
 // Error Trigger, n8n-nodes-base.errorTrigger (typeVersion 1)
-// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/ErrorTrigger/ErrorTrigger.node.ts.
+// Rebuilt after the reference version 1.123.0, packages/nodes-base/nodes/ErrorTrigger/ErrorTrigger.node.ts.
 // The server starts the error workflow with the error data (execute-error-workflow.ts);
-// in manual mode without data the node returns sample data like n8n.
+// in manual mode without data the node returns sample data like the reference.
 import type { NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
 

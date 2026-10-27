@@ -1,5 +1,5 @@
 // Question and Answer Chain, @n8n/n8n-nodes-langchain.chainRetrievalQa (typeVersion 1 to 1.6)
-// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/chains/ChainRetrievalQA (ChainRetrievalQa.node.ts,
+// Rebuilt after the reference version 1.123.0, packages/@n8n/nodes-langchain/nodes/chains/ChainRetrievalQA (ChainRetrievalQa.node.ts,
 // processItem.ts, constants.ts): createRetrievalChain with createStuffDocumentsChain (documents joined with "\n\n" as {context}),
 // system prompt and question as messages; answer from v1.5 as { response }, before that { response: { text } }; from v1.6 in
 // batches (Promise.allSettled), errors with continueOnFail as there with the index within the batch.

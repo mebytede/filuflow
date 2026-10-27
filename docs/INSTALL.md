@@ -367,7 +367,7 @@ can be set per worker in the master.
 ## First steps after the installation
 
 **Single server.** Open the address and sign in with the API key (`FILUFLOW_API_KEY` in the env file). Create workflows
-in the editor, or copy exported n8n workflows into the workflow directory (`data/workflows` or
+in the editor, or copy exported workflow files into the workflow directory (`data/workflows` or
 `/var/lib/filuflow/workflows`); the server picks up changes automatically. Switch a workflow to **Active** to register
 its webhooks and schedules.
 

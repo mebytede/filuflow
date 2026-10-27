@@ -1,9 +1,9 @@
 // Respond to Chat, @n8n/n8n-nodes-langchain.chat (typeVersion 1), Human in the Loop
-// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/trigger/ChatTrigger/Chat.node.ts and util.ts
+// Rebuilt after the reference version 1.123.0, packages/@n8n/nodes-langchain/nodes/trigger/ChatTrigger/Chat.node.ts and util.ts
 // (configureWaitTillDate, configureInputs):
 //   - only with a Chat Trigger in mode "Hosted Chat" and responseMode "responseNodes"
 //   - stores the message as sendMessage on the item and lets the execution wait; the server sends it to the
-//     chat page and resumes with the user's reply (src/server/chatSessions.ts, n8n chat-service.ts)
+//     chat page and resumes with the user's reply (src/server/chatSessions.ts, the reference chat-service.ts)
 //   - waitUserReply: false resumes immediately; options.memoryConnection writes messages to the Simple Memory
 import type { ExecContext, NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
@@ -14,7 +14,7 @@ import type { BufferWindowMemory } from '../ai/memory.js';
 import { CHAT_TRIGGER_TYPE } from './chatTrigger.js';
 
 export const CHAT_NODE_TYPE = '@n8n/n8n-nodes-langchain.chat';
-/** n8n CHAT_WAIT_USER_REPLY */
+/** Reference: CHAT_WAIT_USER_REPLY */
 export const CHAT_WAIT_USER_REPLY = 'waitUserReply';
 
 const limitWaitTime: ParamSchema = {

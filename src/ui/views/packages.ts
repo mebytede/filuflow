@@ -30,7 +30,7 @@ export function installDialog(backend: PackageBackend, where = t('Install')): Pr
   const body = h(
     'div',
     { class: 'form' },
-    h('label', { class: 'field' }, h('span', null, t('Package name')), name, h('span', { class: 'muted small' }, t('npm package starting with n8n-nodes- (also @scope/n8n-nodes-…), as in n8n.'))),
+    h('label', { class: 'field' }, h('span', null, t('Package name')), name, h('span', { class: 'muted small' }, t('npm package starting with n8n-nodes- (also @scope/n8n-nodes-…), as in the community node package naming scheme.'))),
     h('label', { class: 'field' }, h('span', null, t('Version')), version, h('span', { class: 'muted small' }, t('Leave empty for the latest version.'))),
     h('p', { class: 'muted small' }, RISK()),
   );
@@ -128,7 +128,7 @@ export async function packagesView(onChange?: () => void): Promise<HTMLElement> 
       'p',
       { class: 'muted', style: { maxWidth: '760px', marginTop: '-8px' } },
       enabled
-        ? `${t('Nodes from n8n community packages are available in the palette right after installation (group "Extensions").')} ${RISK()}`
+        ? `${t('Nodes from community node packages are available in the palette right after installation (group "Extensions").')} ${RISK()}`
         : t('Installing packages is disabled (FILUFLOW_COMMUNITY_PACKAGES_ENABLED=false). Installed packages are still loaded.'),
     ),
     data.length

@@ -1,5 +1,5 @@
 // Data object with all expression variables ($json, $input, $('Node') …).
-// Behavior and error messages rebuilt after n8n 1.123.0
+// Behavior and error messages rebuilt after the reference version 1.123.0
 // packages/workflow/src/workflow-data-proxy.ts (WorkflowDataProxy.getDataProxy).
 import { DateTime, Duration, Interval, Settings } from 'luxon';
 import jmespath from 'jmespath';
@@ -45,7 +45,7 @@ export interface ProxyState {
   defaultReturnRunIndex?: number;
   /** Evaluates a parameter value (possibly an expression) in the same context */
   resolveParameter: (value: unknown, itemIndex: number, runIndex: number) => unknown;
-  /** Context of a node (n8n getContext('node')) */
+  /** Context of a node (reference: getContext('node')) */
   getNodeContext?: (nodeName: string) => Record<string, unknown>;
   selfData?: Record<string, unknown>;
   /** Arguments of a tool call for $fromAI (otherwise the item's input data) */
@@ -66,7 +66,7 @@ function normalizePairedItems(paired: Item['pairedItem'] | null | undefined): Pa
 type PairedItemMethod = 'pairedItem' | 'itemMatching' | 'item' | '$getPairedItem';
 
 export function createDataProxy(state: ProxyState): Record<string, unknown> {
-  // n8n workflow-data-proxy.ts handleFromAi: value from the tool arguments (also under "query"), otherwise the default
+  // Reference: workflow-data-proxy.ts handleFromAi: value from the tool arguments (also under "query"), otherwise the default
   const handleFromAi = (name: string, _description?: string, _type = 'string', defaultValue?: unknown): unknown => {
     if (!name || name === '') {
       throw new ExpressionError("Add a key, e.g. $fromAI('placeholder_name')", { nodeName: state.activeNodeName });
@@ -134,7 +134,7 @@ export function createDataProxy(state: ProxyState): Record<string, unknown> {
       nodeCause,
     });
 
-  // n8n getNodeExecutionData
+  // Reference: getNodeExecutionData
   const getNodeExecutionData = (nodeName: string, shortSyntax = false, outputIndex?: number, runIndex?: number): Item[] => {
     if (shortSyntax) return s.connectionInputData;
     if (!graph.getNode(nodeName)) {
@@ -219,7 +219,7 @@ export function createDataProxy(state: ProxyState): Record<string, unknown> {
     });
   };
 
-  // n8n nodeDataGetter
+  // Reference: nodeDataGetter
   const nodeDataGetter = (nodeName: string, shortSyntax = false, throwOnMissing = true) => {
     const node = graph.getNode(nodeName);
     const target: Record<string, unknown> = { binary: undefined, data: undefined, json: undefined };
@@ -328,7 +328,7 @@ export function createDataProxy(state: ProxyState): Record<string, unknown> {
     return jmespath.search(plain, query);
   };
 
-  // n8n getPairedItem
+  // Reference: getPairedItem
   const getTaskData = (source: SourceData): TaskData | undefined => s.runData[source.previousNode]?.[source.previousNodeRun || 0];
 
   const getNodeOutput = (taskData: TaskData | undefined, source: SourceData, nodeCause?: string): Item[] => {

@@ -4,15 +4,16 @@ filuflow is a standalone workflow platform: engine, browser editor, CLI, server 
 execution log, credentials, AI nodes, and multi-user and multi-tenant operation with master and workers. The scope is
 not limited; what is still missing is listed as planned work in section 11.
 
-Workflows use the n8n workflow format. Workflows that run in n8n (current 1.x) produce the same items at the same nodes
+Workflows use the common workflow JSON format (nodes, connections, `typeVersion`, `executionOrder: "v1"`). Workflows that
+run in the reference implementation (current 1.x) produce the same items at the same nodes
 in filuflow; the golden tests ensure this (section 9). The parameter details below are the starting point. Before
-implementing a node in n8n format, check it against `packages/nodes-base/nodes/<Node>/` in the n8n repo.
+implementing a node in the community node format, check it against `packages/nodes-base/nodes/<Node>/` in the reference source (package `n8n-nodes-base`).
 
 ---
 
 ## 1. Data model
 
-### 1.1 Workflow JSON (input, unchanged from n8n export)
+### 1.1 Workflow JSON (input, unchanged from an export)
 ```ts
 interface Workflow {
   id?: string; name: string; active?: boolean;
@@ -48,7 +49,7 @@ type NodeOutput = Item[][]; // index = output (IF: 0=true, 1=false)
 ```
 `BinaryRef`: `{ mimeType, fileName?, fileExtension?, fileSize?, data | id }`. Store binary data over 1 MB in a file store, with only the reference in the item.
 
-### 1.3 Execution result (compatible with n8n `runData`)
+### 1.3 Execution result (compatible with the reference `runData`)
 ```ts
 interface Execution {
   id: string; workflowName: string; mode: "manual" | "cli" | "webhook" | "trigger";
@@ -73,7 +74,7 @@ interface TaskData {
 3. Execution in **v1 order** (v0 is planned work, see section 11):
    - Stack-based: a node runs as soon as its input data is available. A branch is executed completely to the end before the next branch starts.
    - Order of parallel children: by canvas position (top before bottom, then left before right). Look up the exact sorting in `packages/core` (WorkflowExecute) and rebuild it.
-   - Nodes with multiple inputs (Merge): wait until no predecessor can deliver data anymore. If an input never received data, the node behaves like n8n v1 (look it up, write a test case for it).
+   - Nodes with multiple inputs (Merge): wait until no predecessor can deliver data anymore. If an input never received data, the node behaves like the reference v1 (look it up, write a test case for it).
 4. If a node delivers 0 items on an output, its successors do **not** run, unless `alwaysOutputData: true` (then an empty item `{json:{}}`).
 5. `pinData` for a node: the node is not executed, the pinned items count as its output (output 0).
 6. `disabled: true`: the node is passed through (input 0 goes unchanged to output 0).
@@ -89,7 +90,7 @@ interface TaskData {
 ### 2.2 Paired items
 Carry `pairedItem` along so that `$('Node').item` finds the item of an earlier node that belongs to the current item. Rules:
 - 1:1 nodes (Set, IF, Filter, HTTP per item): set `pairedItem = { item: i }` automatically if the node does not set one.
-- Code node: takes what the code returns; if it is missing and the number of items is equal, index mapping as a fallback; otherwise throw an error like n8n ("paired item data unavailable") on `.item` access.
+- Code node: takes what the code returns; if it is missing and the number of items is equal, index mapping as a fallback; otherwise throw an error like the reference ("paired item data unavailable") on `.item` access.
 - Aggregating nodes: array of source items.
 
 ### 2.3 Node interface
@@ -141,16 +142,16 @@ interface ExecContext {
 | `DateTime`, `Duration`, `Interval` | luxon classes |
 
 ### 3.3 Extension functions
-n8n adds methods to strings, numbers, arrays, objects and dates (e.g. `.isEmpty()`, `.toDateTime()`, `.extractDomain()`, `.toNumber()`, `.first()`, `.pluck()`, `.unique()`, `.sum()`, `.keys()`, `.format()`). Do **not** introduce these globally via prototype patching; instead, like n8n, redirect them to helper functions by rewriting the expression's AST (package `recast`/`acorn` or similar). Take the list and semantics from `packages/workflow/src/Extensions/` (rebuild the behavior, do not copy). Priority: the functions that appear in the fixtures; the rest step by step. Missing function = clear `ExpressionError` with the function name.
+The reference adds methods to strings, numbers, arrays, objects and dates (e.g. `.isEmpty()`, `.toDateTime()`, `.extractDomain()`, `.toNumber()`, `.first()`, `.pluck()`, `.unique()`, `.sum()`, `.keys()`, `.format()`). Do **not** introduce these globally via prototype patching; instead, like the reference, redirect them to helper functions by rewriting the expression's AST (package `recast`/`acorn` or similar). Take the list and semantics from `packages/workflow/src/Extensions/` (rebuild the behavior, do not copy). Priority: the functions that appear in the fixtures; the rest step by step. Missing function = clear `ExpressionError` with the function name.
 
 ### 3.4 Errors
-Error messages contain node name, parameter path, item index and the expression. Accessing nodes that have not been executed produces the same kind of error as in n8n.
+Error messages contain node name, parameter path, item index and the expression. Accessing nodes that have not been executed produces the same kind of error as in the reference.
 
 ---
 
 ## 4. Nodes
 
-Per node: check the supported versions against n8n and implement at least the current version **plus** the version that appears in the fixtures.
+Per node: check the supported versions against the reference and implement at least the current version **plus** the version that appears in the fixtures.
 
 ### 4.1 Milestone M3a: core
 | Type | Notes |
@@ -181,9 +182,9 @@ Per node: check the supported versions against n8n and implement at least the cu
 ### 4.3 Milestone M5: triggers (server)
 | Type | Notes |
 |---|---|
-| `n8n-nodes-base.webhook` (v2) | `httpMethod`, `path`, `responseMode: onReceived/lastNode/responseNode`, `responseCode`, `responseData`, `options.rawBody`, auth `none/basicAuth/headerAuth`. URL: `/webhook/<path>` (active) and `/webhook-test/<path>` (only during a running test). Item format like n8n: `{headers, params, query, body}` |
+| `n8n-nodes-base.webhook` (v2) | `httpMethod`, `path`, `responseMode: onReceived/lastNode/responseNode`, `responseCode`, `responseData`, `options.rawBody`, auth `none/basicAuth/headerAuth`. URL: `/webhook/<path>` (active) and `/webhook-test/<path>` (only during a running test). Item format like the reference: `{headers, params, query, body}` |
 | `n8n-nodes-base.respondToWebhook` | `respondWith: json/text/allIncomingItems/firstIncomingItem/noData/binary`, `responseCode`, headers |
-| `n8n-nodes-base.scheduleTrigger` (v1.2) | `rule.interval[]` with `field` seconds/minutes/hours/days/weeks/months/cronExpression; workflow time zone; output item with timestamp fields like n8n |
+| `n8n-nodes-base.scheduleTrigger` (v1.2) | `rule.interval[]` with `field` seconds/minutes/hours/days/weeks/months/cronExpression; workflow time zone; output item with timestamp fields like the reference |
 | `n8n-nodes-base.errorTrigger` | started when a workflow with `settings.errorWorkflow` fails |
 
 ### 4.4 Filter condition format (for IF, Filter, Switch)
@@ -202,7 +203,7 @@ Sub-nodes are connected **to** the parent node via `ai_*` connections (source = 
 - `informationExtractor`, `textClassifier`, `sentimentAnalysis`
 - `agent` (Tools Agent) with `toolCalculator`, `toolHttpRequest`, `toolCode`, `toolWorkflow`, `memoryBufferWindow`
 - `chatTrigger` and `chat` (human in the loop) with a chat view in the interface
-Output formats (`output`, `text` etc.) exactly like n8n.
+Output formats (`output`, `text` etc.) exactly like the reference.
 
 ---
 
@@ -210,7 +211,7 @@ Output formats (`output`, `text` etc.) exactly like n8n.
 - File `credentials.json` (or directory), key = credential **name** as in the workflow (`node.credentials.<type>.name`), fallback to ID.
 - Values may reference `{{ env.NAME }}` so that secrets stay in env/secret store.
 - Optionally encrypted with `FILUFLOW_ENCRYPTION_KEY` (AES-256-GCM).
-- Types: `httpHeaderAuth`, `httpBasicAuth`, `httpQueryAuth`, `httpBearerAuth`, `httpCustomAuth`, `jwtAuth`, `oAuth2Api` (all grant types), plus the credentials of the AI models and the service nodes. Field names as in n8n (`packages/nodes-base/credentials/`).
+- Types: `httpHeaderAuth`, `httpBasicAuth`, `httpQueryAuth`, `httpBearerAuth`, `httpCustomAuth`, `jwtAuth`, `oAuth2Api` (all grant types), plus the credentials of the AI models and the service nodes. Field names as in the reference (`packages/nodes-base/credentials/`).
 - Missing credentials: validation reports them before the run.
 
 ---
@@ -260,7 +261,7 @@ Engine order, expressions (including raw value vs. string), every node, filter o
 
 ### 9.2 Golden tests (`npm run test:compat`)
 - `fixtures/<name>/workflow.json`, optional `input.json`, `expected.json` (output items per node).
-- `expected.json` comes from **real n8n**: the script `scripts/record-expected.sh` starts n8n via Docker (`docker.n8n.io/n8nio/n8n`, version pinned), imports the workflow (`n8n import:workflow`), runs it (`n8n execute`, check the options of the pinned version) and saves the items. If Docker is missing in the environment: write the script anyway, have `expected.json` created by hand and note this in `docs/STATUS.md`.
+- `expected.json` comes from **the real reference implementation**: the script `scripts/record-expected.sh` starts the reference via Docker (`n8nio/n8n`, version pinned), imports the workflow (`n8n import:workflow`), runs it (`n8n execute`, check the options of the pinned version) and saves the items. If Docker is missing in the environment: write the script anyway, have `expected.json` created by hand and note this in `docs/STATUS.md`.
 - The comparison ignores volatile fields (timestamps, IDs), configurable per fixture in `fixtures/<name>/ignore.json`.
 - Fixtures for external HTTP calls: requests via a local mock server (or `undici` MockAgent) with recorded responses, so tests run offline.
 
@@ -294,28 +295,28 @@ Engine order, expressions (including raw value vs. string), every node, filter o
 | M9 | Master and worker: users, permissions, projects, tenants, SSO | Integration tests with real workers, OIDC against a simulated identity provider |
 | M10 | Name filuflow and design | Interface following the design handoff, old names still work |
 | M11 | Credentials in the interface | Create, edit, rename, delete with forms per type, on single server and in master; secret values never readable |
-| M12 | Python in the Code node | Pyodide and local interpreter, time limit, blocks like n8n, Code Tool with Python |
+| M12 | Python in the Code node | Pyodide and local interpreter, time limit, blocks like the reference, Code Tool with Python |
 | M13 | Waiting executions | Wait with resume via webhook and at a point in time, state in SQLite, static data and OAuth2 tokens persistent |
 | M14 | OAuth2 with sign-in | Authorization code and PKCE with redirect, refresh, single server and master |
-| M15 | HTTP Request extended | Pagination in all modes like n8n, Digest auth, client certificates |
-| M16 | Chat Trigger | Webhooks like n8n, hosted chat page, chat window in the editor, Basic auth, previous messages from memory |
+| M15 | HTTP Request extended | Pagination in all modes like the reference, Digest auth, client certificates |
+| M16 | Chat Trigger | Webhooks like the reference, hosted chat page, chat window in the editor, Basic auth, previous messages from memory |
 | M17 | Forms | Form Trigger, Form node with follow-up pages and completion, Wait via form |
 | M18 | Test data, variables, partial execution | pinData by click, Variables page, "Execute up to here", "Wait for test call", expressions in webhook parameters |
-| M19 | Parameter forms per node type | Form from the description per node type next to tree and JSON, visibility and defaults like n8n |
+| M19 | Parameter forms per node type | Form from the description per node type next to tree and JSON, visibility and defaults like the reference |
 | M20 | Node expansion | Merge via SQL, Execute Workflow from file and URL, require with allowlist, execution order v0 |
-| M21 | Streaming | Webhook, Respond to Webhook, Chat Trigger and AI Agent with streamed responses like n8n |
+| M21 | Streaming | Webhook, Respond to Webhook, Chat Trigger and AI Agent with streamed responses like the reference |
 | M22a | Chat with response nodes | Respond to Chat and Respond to Webhook in chat, waiting for the user's reply |
-| M22 | Credentials from n8n, sharing, OAuth1 | Import of encrypted n8n exports, sharing with projects in the master, OAuth1 with connect |
+| M22 | Imported credentials, sharing, OAuth1 | Import of encrypted exports, sharing with projects in the master, OAuth1 with connect |
 | M23 | Roles per workflow, central search | Own roles for individual workflows, sharing with guests, searching executions of all workers |
-| M24 | Plugin interface | Own nodes as JavaScript modules, nodes and credentials in n8n format (programmatic) |
-| M25 | Code helpers, predefined credentials | helpers in the Code node like n8n, HTTP Request with predefined credential types |
+| M24 | Plugin interface | Own nodes as JavaScript modules, nodes and credentials in the community node format (programmatic) |
+| M25 | Code helpers, predefined credentials | helpers in the Code node like the reference, HTTP Request with predefined credential types |
 | M26 | AI expansion | OpenAI Responses API, Groq, Mistral, Ollama, DeepSeek, OpenRouter, Azure OpenAI, Think Tool |
 | M27 | Embeddings and vector stores (RAG) | OpenAI Embeddings, Default Data Loader, Text Splitter, Simple Vector Store, Retriever, Q&A Chain, Vector Store Tool |
 | M28 | OAuth2 types of services | Credential types with extends and fixed values (Google, Microsoft, Slack, GitHub and others), connect, service quirks of requestOAuth2 |
-| M29 | Declarative nodes | Community nodes with requestDefaults and routing like n8n RoutingNode |
+| M29 | Declarative nodes | Community nodes with requestDefaults and routing like the reference RoutingNode |
 | M30 | Installing community packages | Install, update, remove from the interface and via API, also on the worker via the master |
-| M31 | Poll and trigger nodes from packages | Activation with Poll Times and emit like n8n, manual run, error workflow, restart after errors |
-| M32 | Webhook nodes from packages | Paths and response modes like n8n, WebhookContext, registration with the service (webhookMethods), test URL |
+| M31 | Poll and trigger nodes from packages | Activation with Poll Times and emit like the reference, manual run, error workflow, restart after errors |
+| M32 | Webhook nodes from packages | Paths and response modes like the reference, WebhookContext, registration with the service (webhookMethods), test URL |
 | M33 | Shared credentials | One credential in the master, distributed to multiple workers, with sync |
 | M34 | Custom roles | Roles with freely chosen permissions for projects and individual workflows |
 | M35 | Supervisor: Observe | Fixed rules, capturing and analyzing failed executions, "Supervisor" page with findings, reports and settings (section 12) |
@@ -324,9 +325,10 @@ Engine order, expressions (including raw value vs. string), every node, filter o
 | M38 | Supervisor in the master | Supervisor per worker via the master, proposals create versions in the master, permissions "View Supervisor" and "Accept proposals" |
 | M39 | English by default, German selectable | Code, docs, server, CLI and API messages in English; web interface in English with German as a per-browser option, including node and credential labels; Supervisor language setting |
 | M40 | Gmail node | All resources and operations of Gmail v2 to 2.2 with OAuth2 and service account, MIME messages with attachments, send and wait for a response |
-| M41 | Gmail Trigger | Polling trigger v1 to 1.3 with the Gmail filters, seen messages in static data like n8n; generic mechanism for built-in poll nodes (Poll Times, activation, manual run) |
+| M41 | Gmail Trigger | Polling trigger v1 to 1.3 with the Gmail filters, seen messages in static data like the reference; generic mechanism for built-in poll nodes (Poll Times, activation, manual run) |
 | M42 | Installation | `scripts/install.sh` for serve, master and worker with Docker or systemd, optional Caddy with Let's Encrypt, updates and uninstall; `docs/INSTALL.md` |
 | M43 | Public release preparation | AGPL-3.0-or-later license with third-party notices, community files (contributing, code of conduct, security policy, issue forms, Dependabot), release workflow with multi-arch images and GitHub releases from the changelog, `docs/RELEASING.md` with the GitHub settings checklist |
+| M44 | Neutral naming | The reference product's name removed from prose, interface, messages, docs, comments and tests; only technical identifiers required by the format or packages keep it; `N8N_*` environment aliases removed |
 
 After each milestone: update `docs/STATUS.md` (what works, what is missing) and make a commit with a meaningful message.
 
@@ -349,11 +351,11 @@ Open features, roughly ordered by benefit. Each is implemented like a milestone 
   Store, Retriever, Q&A Chain: M27)
 - Service nodes with their own OAuth flows (Slack, Microsoft 365 etc.) and more integrations; their poll triggers use the
   mechanism for built-in poll nodes (Gmail and Gmail Trigger: M40, M41)
-- Community nodes: AI sub-nodes from n8n packages (plugin interface and programmatic nodes: M24; declarative
+- Community nodes: AI sub-nodes from community node packages (plugin interface and programmatic nodes: M24; declarative
   nodes: M29; installation from the interface: M30; poll and trigger nodes: M31; webhook nodes: M32)
 
 ### 11.3 Credentials
-(Creating and editing in the interface: M11; import of encrypted n8n exports and sharing with projects in the master: M22;
+(Creating and editing in the interface: M11; import of encrypted exports and sharing with projects in the master: M22;
 shared credentials for multiple workers: M33)
 
 ### 11.4 Interface and master
@@ -413,4 +415,18 @@ Preparing the repository for publication on GitHub:
   itself after the tests): checks version, package.json and changelog, runs the CI checks, builds amd64 and arm64
   images with OCI labels (`X.Y.Z`, `X.Y`, `latest`) and creates the GitHub release with the changelog section.
 - `CHANGELOG.md` (Keep a Changelog), `docs/RELEASING.md` (procedure and one-time GitHub settings), README with badges,
-  status note, license and contributing sections and a note on the n8n trademark.
+  status note, license and contributing sections and a trademark note (removed again in M44).
+
+## Neutral naming (M44)
+filuflow keeps full compatibility with the common workflow JSON format and community node packages, but no longer uses
+the reference product's name:
+- Prose, interface texts, log, API, CLI and validator messages, docs, comments and test names describe the reference
+  neutrally ("the reference implementation", "the reference version 1.123.0", "exported workflows", "community node
+  packages").
+- Technical identifiers stay unchanged: node and credential type strings (`n8n-nodes-base.*`,
+  `@n8n/n8n-nodes-langchain.*`), npm package names (`n8n-workflow`, `n8n-core`, `n8n-nodes-base`, the community naming
+  scheme `n8n-nodes-*`), the `n8n` key in a community package's `package.json`, keys defined by the format and the
+  Docker image used by the recording scripts.
+- The `N8N_*` environment variable aliases are no longer read; only the `FILUFLOW_*` names apply.
+- Source references in comments name package, version and path, e.g. `Reference: n8n-nodes-base 1.121.0,
+  nodes/Set/v2/SetV2.node.ts`.

@@ -1,5 +1,5 @@
-// Initial values for newly inserted nodes. These are suggestions of the interface, not n8n defaults:
-// the node implementations handle missing parameters with the defaults from the n8n source code.
+// Initial values for newly inserted nodes. These are suggestions of the interface, not reference defaults:
+// the node implementations handle missing parameters with the defaults from the reference source code.
 import { newId } from './model.js';
 
 type Template = (version: number) => Record<string, unknown>;

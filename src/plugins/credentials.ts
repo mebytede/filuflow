@@ -1,5 +1,5 @@
 // Credential types from plugins (M24): form in the web interface, defaults of hidden fields and authentication
-// of requests via src/credentials/authenticate.ts (n8n ICredentialType.authenticate, generic or as a function).
+// of requests via src/credentials/authenticate.ts (reference: ICredentialType.authenticate, generic or as a function).
 import { registerCredentialType } from '../credentials/types.js';
 import { registerCredentialAuth, type AuthDefinition } from '../credentials/authenticate.js';
 import { credentialToSchema, type N8nCredentialType } from './n8nDescription.js';

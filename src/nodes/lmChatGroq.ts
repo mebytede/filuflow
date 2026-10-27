@@ -1,5 +1,5 @@
 // Groq Chat Model, @n8n/n8n-nodes-langchain.lmChatGroq (typeVersion 1)
-// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/llms/LmChatGroq/LmChatGroq.node.ts:
+// Rebuilt after the reference version 1.123.0, packages/@n8n/nodes-langchain/nodes/llms/LmChatGroq/LmChatGroq.node.ts:
 // ChatGroq with maxTokens = options.maxTokensToSample and temperature; request see src/ai/models/compatible.ts.
 import type { NodeType } from './types.js';
 import type { ParamSchema } from './params.js';

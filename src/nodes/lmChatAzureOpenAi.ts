@@ -1,5 +1,5 @@
 // Azure OpenAI Chat Model, @n8n/n8n-nodes-langchain.lmChatAzureOpenAi (typeVersion 1)
-// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/llms/LmChatAzureOpenAi (LmChatAzureOpenAi.node.ts,
+// Rebuilt after the reference version 1.123.0, packages/@n8n/nodes-langchain/nodes/llms/LmChatAzureOpenAi (LmChatAzureOpenAi.node.ts,
 // properties.ts, credentials/api-key.ts and oauth2.ts): deployment = model name, API key (azureOpenAiApi) or
 // Entra ID (azureEntraCognitiveServicesOAuth2Api) with a bearer token.
 import type { NodeType } from './types.js';

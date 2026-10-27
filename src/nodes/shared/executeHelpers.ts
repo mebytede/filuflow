@@ -1,5 +1,5 @@
-// helpers as in n8n IExecuteFunctions (M25): for the Code node (n8n getSandboxContext passes this.helpers through) and
-// for nodes from n8n packages (M24). Rebuilt after n8n 1.123.0
+// helpers as in the reference IExecuteFunctions (M25): for the Code node (reference: getSandboxContext passes this.helpers through) and
+// for nodes from community node packages (M24). Rebuilt after the reference version 1.123.0
 // packages/core/src/execution-engine/node-execution-context/utils/request-helper-functions.ts (httpRequest, request,
 // httpRequestWithAuthentication, requestWithAuthentication, requestOAuth2), utils/return-json-array.ts,
 // utils/construct-execution-metadata.ts and utils/binary-helper-functions.ts; own implementation.
@@ -13,7 +13,7 @@ import { authenticateRequest, hasAuthentication, hasPassiveAuthentication, withC
 import { getOAuth2Token, type OAuth2RequestOptions } from '../../credentials/oauth2.js';
 import { isOAuth2Type } from '../../credentials/types.js';
 
-/** HTTP error like n8n: status, response and message on the error */
+/** HTTP error like the reference: status, response and message on the error */
 function httpError(node: WorkflowNode, res: HttpResponse, body: unknown): NodeApiError {
   const error = new NodeApiError(node.name, `Request failed with status code ${res.statusCode}`, { httpCode: String(res.statusCode), description: typeof body === 'string' ? body : JSON.stringify(body) });
   Object.assign(error, { response: { status: res.statusCode, statusCode: res.statusCode, headers: res.headers, data: body, body }, statusCode: res.statusCode });

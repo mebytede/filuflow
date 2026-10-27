@@ -1,4 +1,4 @@
-// Structured Output Parser as in n8n 1.123.0:
+// Structured Output Parser as in the reference version 1.123.0:
 //   packages/@n8n/nodes-langchain/utils/output_parsers/N8nStructuredOutputParser.ts (wrapper "output", parse)
 //   @langchain/core StructuredOutputParser.getFormatInstructions (text of the format instruction)
 import { NodeOperationError } from '../errors.js';
@@ -78,7 +78,7 @@ export class StructuredOutputParser {
     return formatInstructionsFor(this.schema);
   }
 
-  /** Returns the result or throws NodeOperationError with a reason (n8n: context.outputParserFailReason) */
+  /** Returns the result or throws NodeOperationError with a reason (reference: context.outputParserFailReason) */
   parse(text: string): unknown {
     try {
       const jsonString = text.includes('```') ? text.split(/```(?:json)?/)[1] : text;

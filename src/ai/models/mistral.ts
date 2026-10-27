@@ -1,7 +1,7 @@
-// Mistral Cloud Chat Model as in n8n 1.123.0 LmChatMistralCloud with ChatMistralAI from @langchain/mistralai 1.0.1
+// Mistral Cloud Chat Model as in the reference version 1.123.0 LmChatMistralCloud with ChatMistralAI from @langchain/mistralai 1.0.1
 // (dist/chat_models.js: convertMessagesToMistralMessages, invocationParams, _generate, _convertDeltaToMessageChunk;
 // dist/utils.js: _convertToolCallIdToMistralCompatible). Own implementation of the observable behavior.
-// ChatMistralAI streams as soon as an AbortSignal is passed (shouldStream = options.signal ?? !!options.timeout); n8n
+// ChatMistralAI streams as soon as an AbortSignal is passed (shouldStream = options.signal ?? !!options.timeout); the reference
 // always passes one, so this always streams. The Mistral SDK writes the fields in snake_case.
 import type { ExecContext } from '../../nodes/types.js';
 import type { ChatMessage, ToolCall } from '../messages.js';

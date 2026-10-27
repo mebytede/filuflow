@@ -1,6 +1,6 @@
-// Encrypted credentials from n8n (n8n export:credentials without --decrypted, column data in the n8n database).
-// Format as in n8n 1.123.0 packages/core/src/encryption/cipher.ts: CryptoJS compatible, Base64 of "Salted__", 8 byte
-// salt and AES-256-CBC; key and IV via OpenSSL EVP_BytesToKey with MD5 from the n8n key and the salt.
+// Encrypted credentials from the reference implementation (CLI command export:credentials without --decrypted, column data in its database).
+// Format as in the reference version 1.123.0 packages/core/src/encryption/cipher.ts: CryptoJS compatible, Base64 of "Salted__", 8 byte
+// salt and AES-256-CBC; key and IV via OpenSSL EVP_BytesToKey with MD5 from the reference key and the salt.
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 
 const MAGIC = Buffer.from('Salted__', 'latin1');
@@ -18,26 +18,26 @@ function keyAndIv(secret: string, salt: Buffer): { key: Buffer; iv: Buffer } {
   return { key: all.subarray(0, 32), iv: all.subarray(32, 48) };
 }
 
-/** Decrypts a value from n8n; returns the JSON object of the credential data */
+/** Decrypts an exported encrypted value; returns the JSON object of the credential data */
 export function decryptN8nCredential(data: string, secret: string): Record<string, unknown> {
   const input = Buffer.from(data, 'base64');
-  if (input.length < 16 || !input.subarray(0, 8).equals(MAGIC)) throw new Error('Not an encrypted n8n value');
+  if (input.length < 16 || !input.subarray(0, 8).equals(MAGIC)) throw new Error('Not an encrypted credential value');
   const { key, iv } = keyAndIv(secret, input.subarray(8, 16));
   let text: string;
   try {
     const decipher = createDecipheriv('aes-256-cbc', key, iv);
     text = Buffer.concat([decipher.update(input.subarray(16)), decipher.final()]).toString('utf8');
   } catch {
-    throw new Error('Decryption failed: wrong n8n key (N8N_ENCRYPTION_KEY)?');
+    throw new Error('Decryption failed: wrong import key (FILUFLOW_IMPORT_ENCRYPTION_KEY)?');
   }
   try {
     return JSON.parse(text) as Record<string, unknown>;
   } catch {
-    throw new Error('Decrypted data is not JSON: wrong n8n key (N8N_ENCRYPTION_KEY)?');
+    throw new Error('Decrypted data is not JSON: wrong import key (FILUFLOW_IMPORT_ENCRYPTION_KEY)?');
   }
 }
 
-/** Encrypts like n8n (for tests and the export back to n8n) */
+/** Encrypts like the reference (for tests and exports in the same format) */
 export function encryptN8nCredential(data: Record<string, unknown>, secret: string): string {
   const salt = randomBytes(8);
   const { key, iv } = keyAndIv(secret, salt);
@@ -45,9 +45,9 @@ export function encryptN8nCredential(data: Record<string, unknown>, secret: stri
   return Buffer.concat([MAGIC, salt, cipher.update(JSON.stringify(data)), cipher.final()]).toString('base64');
 }
 
-/** n8n key from the environment (as in n8n: N8N_ENCRYPTION_KEY) */
+/** Encryption key of the source instance from the environment (FILUFLOW_IMPORT_ENCRYPTION_KEY) */
 export function n8nKeyFromEnv(env: NodeJS.ProcessEnv = process.env): string | undefined {
-  return env.FILUFLOW_N8N_ENCRYPTION_KEY || env.N8N_ENCRYPTION_KEY || undefined;
+  return env.FILUFLOW_IMPORT_ENCRYPTION_KEY || undefined;
 }
 
 export interface N8nExportEntry {
@@ -57,17 +57,17 @@ export interface N8nExportEntry {
   data: Record<string, unknown>;
 }
 
-/** Read the entries of an n8n export; decrypt encrypted data with the n8n key */
+/** Read the entries of an exported file; decrypt encrypted data with the reference key */
 export function readN8nExport(raw: unknown, secret?: string): N8nExportEntry[] {
   const list = Array.isArray(raw) ? raw : raw && typeof raw === 'object' && Array.isArray((raw as { data?: unknown }).data) ? (raw as { data: unknown[] }).data : undefined;
-  if (!list) throw new Error('Expected an n8n export (list of credentials)');
+  if (!list) throw new Error('Expected an exported file (list of credentials)');
   return list.map((item, i) => {
     const e = item as { id?: unknown; name?: unknown; type?: unknown; data?: unknown };
     if (typeof e?.name !== 'string' || !e.name) throw new Error(`Entry ${i + 1}: name missing`);
     if (typeof e.type !== 'string' || !e.type) throw new Error(`"${e.name}": type missing`);
     let data: Record<string, unknown>;
     if (typeof e.data === 'string') {
-      if (!secret) throw new Error(`"${e.name}" is encrypted: provide the n8n key (N8N_ENCRYPTION_KEY) or export with "n8n export:credentials --decrypted"`);
+      if (!secret) throw new Error(`"${e.name}" is encrypted: provide the import key (FILUFLOW_IMPORT_ENCRYPTION_KEY) or export with "export:credentials --decrypted"`);
       data = decryptN8nCredential(e.data, secret);
     } else if (e.data && typeof e.data === 'object' && !Array.isArray(e.data)) {
       data = e.data as Record<string, unknown>;

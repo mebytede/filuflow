@@ -26,7 +26,7 @@ body:
     attributes:
       label: Area
       options:
-        - Nodes (n8n compatibility)
+        - Nodes (workflow format compatibility)
         - Nodes (filuflow specific)
         - Editor and interface
         - Server, API, webhooks, schedules
@@ -37,10 +37,10 @@ body:
     validations:
       required: true
   - type: input
-    id: n8n-node
+    id: node-type
     attributes:
-      label: n8n node and version
-      description: If this is about an n8n node that filuflow does not support yet, its type and typeVersion.
+      label: Node type and version
+      description: If this is about a node type from exported workflows that filuflow does not support yet, its type and typeVersion.
       placeholder: "n8n-nodes-base.slack, typeVersion 2.3"
   - type: textarea
     id: alternatives

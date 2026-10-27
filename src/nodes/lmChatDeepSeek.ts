@@ -1,5 +1,5 @@
 // DeepSeek Chat Model, @n8n/n8n-nodes-langchain.lmChatDeepSeek (typeVersion 1)
-// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/llms/LmChatDeepSeek/LmChatDeepSeek.node.ts:
+// Rebuilt after the reference version 1.123.0, packages/@n8n/nodes-langchain/nodes/llms/LmChatDeepSeek/LmChatDeepSeek.node.ts:
 // ChatOpenAI with the base URL from the credential (deepSeekApi, default https://api.deepseek.com), ...options and
 // response_format in modelKwargs.
 import type { NodeType } from './types.js';

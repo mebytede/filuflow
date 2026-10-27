@@ -1,4 +1,4 @@
-// Calculator for the Calculator tool. n8n 1.123.0 uses the LangChain calculator (@langchain/community 1.0.5,
+// Calculator for the Calculator tool. The reference version 1.123.0 uses the LangChain calculator (@langchain/community 1.0.5,
 // tools/calculator.js), which calls math-expression-evaluator 2.0.7: Parser.eval(input).toString().
 // Same library, hence same syntax and same results (e.g. angles in degrees, 1/3 = 0.333333333333333).
 import mexp from 'math-expression-evaluator';

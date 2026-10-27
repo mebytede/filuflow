@@ -1,6 +1,6 @@
-// Replacement for the package "n8n-workflow" that n8n community nodes are compiled against (M24). Nodes import from it
+// Replacement for the package "n8n-workflow" that community node packages are compiled against (M24). Nodes import from it
 // mainly error classes, connection types and small helper functions; types disappear on compilation. Own
-// implementation after the behavior in n8n 1.123.0 packages/workflow/src (errors/node-operation.error.ts,
+// implementation after the behavior in the reference version 1.123.0 packages/workflow/src (errors/node-operation.error.ts,
 // errors/node-api.error.ts, interfaces.ts NodeConnectionTypes, utils.ts jsonParse/deepCopy/updateDisplayOptions).
 // If "n8n-workflow" is installed with the plugin itself, the node uses that package (see installN8nWorkflowShim).
 import { createRequire } from 'node:module';
@@ -29,7 +29,7 @@ export class NodeOperationError extends BaseNodeOperationError {
 }
 
 /**
- * new NodeApiError(node, errorResponse, options). n8n derives the message from many possible fields of the response and
+ * new NodeApiError(node, errorResponse, options). The reference derives the message from many possible fields of the response and
  * translates status codes into standard texts; simplified here: options.message, message, error.message, otherwise a standard text.
  */
 export class NodeApiError extends BaseNodeApiError {
@@ -138,7 +138,7 @@ let installed = false;
 
 /**
  * Make require('n8n-workflow') resolvable for plugins: if the package is installed with the plugin, that one applies; otherwise
- * resolution returns this replacement. n8n nodes are CommonJS, hence via Module._resolveFilename and the require cache.
+ * resolution returns this replacement. Community nodes are CommonJS, hence via Module._resolveFilename and the require cache.
  */
 export function installN8nWorkflowShim(): void {
   if (installed) return;

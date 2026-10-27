@@ -46,22 +46,22 @@ export async function connectOAuth(getUrl: () => Promise<{ url: string }>, onDon
 }
 
 /**
- * Import an n8n export (n8n export:credentials, also encrypted): choose a file, enter the n8n key.
+ * Import a credentials export of the reference (export:credentials, also encrypted): choose a file, enter the source key.
  * Returns true if anything was imported.
  */
 export async function importCredentialsDialog(importFn: (body: { credentials: unknown; n8nKey?: string; overwrite?: boolean }) => Promise<CredentialImportResult>): Promise<boolean> {
   const file = h('input', { type: 'file', accept: '.json,application/json', class: 'param-input', 'aria-label': t('Export file') });
-  const key = h('input', { type: 'password', class: 'param-input', autocomplete: 'off', 'aria-label': t('n8n key'), placeholder: 'N8N_ENCRYPTION_KEY' });
+  const key = h('input', { type: 'password', class: 'param-input', autocomplete: 'off', 'aria-label': t('Source encryption key') });
   const overwrite = h('input', { type: 'checkbox', 'aria-label': t('Replace existing') });
   const body = h(
     'div',
     { class: 'form' },
-    h('label', { class: 'field' }, h('span', null, t('Export file')), file, h('span', { class: 'muted small' }, t('Output of "n8n export:credentials --all --output=file.json", with or without --decrypted'))),
-    h('label', { class: 'field' }, h('span', null, t('n8n key')), key, h('span', { class: 'muted small' }, t('Only for encrypted exports: the value of N8N_ENCRYPTION_KEY (or "encryptionKey" in ~/.n8n/config) of the source instance. It is not stored.'))),
+    h('label', { class: 'field' }, h('span', null, t('Export file')), file, h('span', { class: 'muted small' }, t('Output of the reference CLI command "export:credentials --all --output=file.json", with or without --decrypted'))),
+    h('label', { class: 'field' }, h('span', null, t('Source encryption key')), key, h('span', { class: 'muted small' }, t('Only for encrypted exports: the encryption key of the source instance (its environment variable or "encryptionKey" in its config file). It is not stored.'))),
     h('label', { class: 'check' }, overwrite, h('span', null, t('Replace existing credentials from the interface'))),
   );
   let changed = false;
-  await dialog<boolean>(t('Import credentials from n8n'), body, {
+  await dialog<boolean>(t('Import credentials from an export'), body, {
     confirm: t('Import'),
     onConfirm: async () => {
       const chosen = file.files?.[0];
@@ -181,7 +181,7 @@ export async function credentialsView(): Promise<HTMLElement> {
       t('Credentials of this instance'),
       list.writable
         ? [
-            button(t('Import from n8n'), { icon: 'upload', onclick: async () => (await importCredentialsDialog((b) => api.importCredentials(b))) && void reload() }),
+            button(t('Import from export file'), { icon: 'upload', onclick: async () => (await importCredentialsDialog((b) => api.importCredentials(b))) && void reload() }),
             button(t('Add credential'), { icon: 'plus', variant: 'primary', onclick: () => void edit() }),
           ]
         : [],

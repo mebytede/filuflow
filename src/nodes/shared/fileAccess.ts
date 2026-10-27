@@ -1,12 +1,12 @@
 // Reading local files from nodes (Execute Workflow "Local File").
-// n8n reads there without restriction (ExecuteWorkflow/GenericFunctions.ts uses fs.readFile directly); filuflow also
-// allows limiting reads to directories: FILUFLOW_RESTRICT_FILE_ACCESS_TO (like n8n
-// N8N_RESTRICT_FILE_ACCESS_TO, several directories separated by ";"). Relative paths are resolved from the working directory.
+// The reference reads there without restriction (ExecuteWorkflow/GenericFunctions.ts uses fs.readFile directly); filuflow also
+// allows limiting reads to directories: FILUFLOW_RESTRICT_FILE_ACCESS_TO
+// (several directories separated by ";"). Relative paths are resolved from the working directory.
 import { realpath } from 'node:fs/promises';
 import { resolve, sep } from 'node:path';
 
 export function allowedDirectories(env: NodeJS.ProcessEnv = process.env): string[] {
-  const raw = env.FILUFLOW_RESTRICT_FILE_ACCESS_TO ?? env.N8N_RESTRICT_FILE_ACCESS_TO ?? '';
+  const raw = env.FILUFLOW_RESTRICT_FILE_ACCESS_TO ?? '';
   return raw
     .split(';')
     .map((d) => d.trim())

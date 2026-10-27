@@ -1,4 +1,4 @@
-// Loads workflow JSON files (n8n export) from disk.
+// Loads workflow JSON files (exported workflows) from disk.
 import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { Workflow } from './types.js';
@@ -11,7 +11,7 @@ export interface LoadedWorkflow {
 
 /**
  * Accepts a workflow object or an array with exactly one workflow
- * (this is how `n8n export:workflow` exports with `--all` or in some versions).
+ * (this is how the reference CLI command `export:workflow` exports with `--all` or in some versions).
  */
 export function parseWorkflow(raw: unknown, source = 'input'): Workflow {
   let value = raw;

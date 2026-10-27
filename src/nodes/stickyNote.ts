@@ -2,7 +2,7 @@
 import type { NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
 
-// Parameters as in packages/nodes-base/nodes/StickyNote/StickyNote.node.ts (content default verbatim as in n8n)
+// Parameters as in packages/nodes-base/nodes/StickyNote/StickyNote.node.ts (content default verbatim as in the reference)
 const parameters: ParamSchema[] = [
   {
     name: 'content',

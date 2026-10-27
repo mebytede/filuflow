@@ -1,12 +1,12 @@
 // OpenRouter Chat Model, @n8n/n8n-nodes-langchain.lmChatOpenRouter (typeVersion 1)
-// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/llms/LmChatOpenRouter/LmChatOpenRouter.node.ts:
+// Rebuilt after the reference version 1.123.0, packages/@n8n/nodes-langchain/nodes/llms/LmChatOpenRouter/LmChatOpenRouter.node.ts:
 // ChatOpenAI with the base URL from the credential (openRouterApi, default https://openrouter.ai/api/v1).
 import type { ExecContext, NodeType } from './types.js';
 import { OpenAiChatModel, type OpenAiOptions } from '../ai/models/openai.js';
 import type { ChatModel } from '../ai/models/base.js';
 import { compatibleOptions, MODEL_NOTICE, modelParam } from './shared/chatModelParams.js';
 
-/** supplyData of DeepSeek and OpenRouter (same structure in n8n) */
+/** supplyData of DeepSeek and OpenRouter (same structure in the reference) */
 export async function compatibleSupplyData(ctx: ExecContext, itemIndex: number, credentialType: string, defaultUrl: string, create: (opts: OpenAiOptions) => ChatModel): Promise<ChatModel> {
   const credentials = await ctx.getCredentials(credentialType, itemIndex);
   const options = ctx.getParam<Record<string, unknown>>('options', itemIndex, {});

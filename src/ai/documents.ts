@@ -1,4 +1,4 @@
-// Documents for vector stores and retrieval (M27), behavior as the LangChain packages in n8n 1.123.0:
+// Documents for vector stores and retrieval (M27), behavior as the LangChain packages in the reference version 1.123.0:
 //   @langchain/core 1.1.0 documents (Document: pageContent, metadata, id)
 //   @langchain/classic 1.0.5 document_loaders/fs/text.js (TextLoader) and json.js (JSONLoader with jsonpointer)
 //   @langchain/textsplitters 1.0.1 text_splitter.js (TextSplitter, CharacterTextSplitter, RecursiveCharacterTextSplitter)
@@ -81,7 +81,7 @@ export abstract class TextSplitter {
   readonly chunkSize: number;
   readonly chunkOverlap: number;
   keepSeparator: boolean;
-  /** Log per splitText (n8n logWrapper) */
+  /** Log per splitText (reference: logWrapper) */
   onSplit?: SplitHook;
 
   constructor(o: TextSplitterOptions = {}) {

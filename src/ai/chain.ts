@@ -1,5 +1,5 @@
 // Basic LLM Chain: build the prompt and call the model.
-// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/chains/ChainLLM/methods:
+// Rebuilt after the reference version 1.123.0 packages/@n8n/nodes-langchain/nodes/chains/ChainLLM/methods:
 //   promptUtils.ts (buildQueryTemplate, processMessageTemplates, finalizePromptTemplate),
 //   chainExecutor.ts (executeChain, executeSimpleChain), imageUtils.ts (createImageMessage)
 import type { ExecContext } from '../nodes/types.js';

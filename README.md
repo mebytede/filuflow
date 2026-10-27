@@ -46,8 +46,8 @@ and respond. Every run is logged and can be traced node by node.
 | **Credentials** | create and edit in the interface (forms per type) or maintain as a file, encrypted with AES-256-GCM, values from environment variables; secret values never appear in logs or the interface |
 | **Team and tenants** | Master with users, permissions and projects; workers in each tenant's environment; login with password and TOTP or SSO (OIDC) |
 | **Command line** | Validate and run workflows, view executions, encrypt credentials, manage users |
-| **Compatible with n8n** | Exported n8n workflows run without changes, copied n8n nodes can be pasted into the editor |
-| **Custom nodes** | Plugins as JavaScript modules or nodes in n8n format (own folders and community packages with `execute`) |
+| **Compatible workflow format** | Runs workflows in the common workflow JSON format (nodes, connections, `typeVersion`, `executionOrder` v1) without changes; nodes copied from compatible editors can be pasted |
+| **Custom nodes** | Plugins as JavaScript modules or nodes in the community node format (own folders and community node packages) |
 | **Languages** | Interface in English or German (switch under Settings); documentation and messages in English |
 
 ## Quick start
@@ -111,7 +111,7 @@ new workflows can be created in the editor or dropped in as a file (the server r
 | Ctrl+Enter | Test run |
 | N | Add node |
 | Ctrl+Z, Ctrl+Shift+Z | Undo, redo |
-| Ctrl+C, Ctrl+X, Ctrl+V | Copy, cut, paste (also nodes from n8n) |
+| Ctrl+C, Ctrl+X, Ctrl+V | Copy, cut, paste (also nodes copied from compatible editors) |
 | Ctrl+A | Select all |
 | Delete | Delete selection |
 | D | Disable or enable node |
@@ -183,7 +183,7 @@ filuflow validate <workflow.json> [--json]
 filuflow run <workflow.json> [--input items.json] [--trigger "Node"] [--json] [--only-last] [--no-pin]
 filuflow executions list|show <id> [--json] [--db ./filuflow.db]
 filuflow credentials encrypt|decrypt|check <credentials.json>
-filuflow credentials import <n8n-export.json> [--n8n-key <k>] [--out <file> | --managed <file>]
+filuflow credentials import <export.json> [--n8n-key <k>] [--out <file> | --managed <file>]
 filuflow nodes [--json]
 ```
 
@@ -225,31 +225,32 @@ saving: an empty field when editing keeps the stored value. The interface also s
 credential.
 
 **OAuth2 with sign-in at the provider** (grant type "Authorization Code" or "PKCE", e.g. Google, Microsoft 365, Slack):
-register the redirect URL `<FILUFLOW_WEBHOOK_URL>rest/oauth2-credential/callback` with the provider (the same as in
-n8n, the form shows it), create the credential and click **Connect** in the list. The token is stored
+register the redirect URL `<FILUFLOW_WEBHOOK_URL>rest/oauth2-credential/callback` with the provider (the usual path for
+this format, the form shows it), create the credential and click **Connect** in the list. The token is stored
 encrypted in the database and is renewed with the refresh token when access has expired. In the master, sign-in
 runs via the master's address, and the token is stored on the worker.
 
-Many services have their own OAuth2 types with n8n's data, such as `googleOAuth2Api`, `gmailOAuth2`,
+Many services have their own OAuth2 types with predefined endpoints and scopes, such as `googleOAuth2Api`, `gmailOAuth2`,
 `googleSheetsOAuth2Api`, `googleDriveOAuth2Api`, `microsoftOAuth2Api`, `microsoftOutlookOAuth2Api`, `microsoftTeamsOAuth2Api`,
 `slackOAuth2Api`, `githubOAuth2Api`, `notionOAuth2Api`, `hubspotOAuth2Api`, `airtableOAuth2Api`, `salesforceOAuth2Api` and
 more (47 in total). There you only enter client ID and client secret (for some services also server, subdomain
-or environment); URLs, scopes and grant type are set by the type. Exported n8n workflows with these credentials thus run
+or environment); URLs, scopes and grant type are set by the type. Exported workflows with these credentials thus run
 without changes.
 
 **Predefined credential types** in HTTP Request ("Predefined Credential Type"): filuflow knows the authentication of
 `githubApi`, `notionApi`, `slackApi`, `stripeApi`, `airtableTokenApi`, `hubspotAppToken`, `openAiApi`, `anthropicApi`,
 `googlePalmApi` and the generic types, plus types from plugins. OAuth2 types (the built-in ones above, types ending in
-`…OAuth2Api` from an n8n import or from plugins) use the connected token, with the services' quirks as in
-n8n (e.g. Slack with the user token). The same applies to the HTTP Request Tool on the AI Agent.
+`…OAuth2Api` from an import or from plugins) use the connected token, with the services' quirks as in
+the reference implementation (e.g. Slack with the user token). The same applies to the HTTP Request Tool on the AI Agent.
 
 **OAuth1** (`oAuth1Api`, e.g. older APIs of Twitter/X, Trello or Xero) works the same way: enter consumer key and secret as well as
 the provider's three URLs, save, **Connect**. As the redirect, filuflow uses
 `<FILUFLOW_WEBHOOK_URL>rest/oauth1-credential/callback`.
 
-**Import from n8n**: credentials exported with `n8n export:credentials --all --output=export.json` (encrypted or with
-`--decrypted`) are imported with the **Import from n8n** button on the Credentials page, in the master on the worker page. For
-encrypted exports you provide the n8n key (`N8N_ENCRYPTION_KEY` of the n8n instance). On the command line use
+**Importing exported credentials**: credential exports in the common JSON format (created with the `export:credentials
+--all --output=export.json` command of the source instance, encrypted or with `--decrypted`) are imported with the
+**Import** button on the Credentials page, in the master on the worker page. For encrypted exports you provide the
+encryption key of the source instance. On the command line use
 `filuflow credentials import export.json --n8n-key ... --managed credentials.managed.json`. IDs are preserved, so that
 imported workflows find their credentials.
 
@@ -284,18 +285,18 @@ under which a workflow uses the credential:
 The Code node supports three languages (**Language** selection in the editor):
 
 - **JavaScript**: all expression variables (`$input`, `$json`, `$('Node')`, `$now` …), `console.log` ends up in the
-  execution log. As in n8n, `helpers` offers `httpRequest`, `httpRequestWithAuthentication` (with a
+  execution log. As in the reference implementation, `helpers` offers `httpRequest`, `httpRequestWithAuthentication` (with a
   credential on the node), `returnJsonArray`, `constructExecutionMetaData`, `prepareBinaryData`, `getBinaryDataBuffer` and others.
 - **Python**: runs with [Pyodide](https://pyodide.org) (CPython as WebAssembly) directly in the server, without an installed Python.
-  As in n8n, the variables use `_` instead of `$`: `_input.all()`, `_json`, `_('Node')`, `_now`, `_jmespath()`.
+  As in the reference implementation, the variables use `_` instead of `$`: `_input.all()`, `_json`, `_('Node')`, `_now`, `_jmespath()`.
   Objects can be read as attributes or keys (`item.json.name`, `item.json['name']`), `print()` ends up in the log.
   The standard library is included; Pyodide loads packages such as numpy or pandas from the network on the first `import`
   (`FILUFLOW_PYTHON_PACKAGES_DIR`). The first run after startup takes about two seconds; if a workflow uses Python,
   the server already loads Pyodide at startup.
 - **Python (Native)**: uses the server's Python interpreter (`FILUFLOW_PYTHON`, default `python3`) in a separate
-  process per execution, with all packages installed there. As in the n8n task runner, there is only `_items` (all items) or
+  process per execution, with all packages installed there. As in the reference implementation's task runner, there is only `_items` (all items) or
   `_item` (per item) as dicts. Imports are only allowed with an allowance: `FILUFLOW_PYTHON_STDLIB_ALLOW=json,datetime,re` and
-  `FILUFLOW_PYTHON_EXTERNAL_ALLOW=numpy` (`*` for all; the n8n names `N8N_RUNNERS_STDLIB_ALLOW` etc. also apply).
+  `FILUFLOW_PYTHON_EXTERNAL_ALLOW=numpy` (`*` for all).
   Builtins such as `eval`, `open` or `getattr` are blocked (`FILUFLOW_PYTHON_BUILTINS_DENY`), the environment is empty
   (`FILUFLOW_PYTHON_ENV_ACCESS=true` exposes it).
 
@@ -320,7 +321,7 @@ runs. The models are called directly via HTTP, without additional libraries.
 **Querying knowledge (RAG):** the Simple Vector Store ingests documents (Default Data Loader for JSON, text, Markdown and CSV,
 Text Splitter, OpenAI Embeddings) and returns the most similar chunks: directly as a node, via the Vector Store
 Retriever to the Question and Answer Chain, or as a tool for the AI Agent (also via the Vector Store Question Answer Tool).
-As in n8n, the data is kept in the process's memory and is empty after a restart.
+As in the reference implementation, the data is kept in the process's memory and is empty after a restart.
 
 **Chat:** the Chat Trigger starts a workflow with a chat message. In the editor, the chat button in the
 header opens a chat window; every message is a test run with the current state. If the chat is public, there is
@@ -329,7 +330,7 @@ the endpoint for embedding. The response is the first item of the last node (`ou
 Respond to Webhook node.
 
 **Streaming:** with the response mode "Streaming" (Webhook from v2.1, Chat Trigger from v1.2), the AI Agent writes its
-response word by word into the running HTTP response, and the chat page shows it immediately. As in n8n, the response consists of
+response word by word into the running HTTP response, and the chat page shows it immediately. As in the reference implementation, the response consists of
 JSON lines (`{"type":"begin|item|end|error","content":…,"metadata":{…}}`); Respond to Webhook from v1.5 writes into it
 as well.
 
@@ -367,33 +368,33 @@ Credential values and parameters such as passwords or API keys are always masked
 ## Custom nodes (plugins)
 
 At startup filuflow loads custom nodes from `~/.filuflow/custom`, from the paths in `FILUFLOW_CUSTOM_EXTENSIONS` (separated
-by `;`; `N8N_CUSTOM_EXTENSIONS` also works) and from `--nodes <path>` (for `validate`, `run`, `serve`, `worker`, `master` and
+by `;`) and from `--nodes <path>` (for `validate`, `run`, `serve`, `worker`, `master` and
 `nodes`). Loading problems appear as a notice, the rest keeps running; `filuflow nodes` shows what is loaded.
 
-**Nodes in n8n format:** a folder with `*.node.js` and `*.credentials.js` (like `~/.n8n/custom`, type `CUSTOM.<name>`) or a
+**Nodes in the community node format:** a folder with `*.node.js` and `*.credentials.js` (type `CUSTOM.<name>`) or a
 community package (folder with `package.json` and `"n8n": { "nodes": [...], "credentials": [...] }`, type `<package>.<name>`, also in
 the folder's `node_modules`). Supported are programmatic nodes with `execute()`, including versioned ones; the context offers the
 usual functions (`getInputData`, `getNodeParameter` with defaults, `getCredentials`, `continueOnFail`,
 `helpers.httpRequest` and `request` with and without authentication, `returnJsonArray`, `constructExecutionMetaData`,
 binary data). The package `n8n-workflow` does not need to be installed: filuflow provides error classes, connection types and
 helper functions. Declarative nodes (without `execute`, requests described via `requestDefaults` and `routing`, like
-many community nodes from the n8n template) run as well, with pagination, post-processing and the "Request
+many community nodes generated from the common starter template) run as well, with pagination, post-processing and the "Request
 Options" setting (batching, proxy, timeout). Poll nodes (e.g. mailbox or feed triggers) poll in the active workflow according to the
-"Poll Times" (as in n8n at most every minute, first poll on activation) and remember their state in the static
+"Poll Times" (as in the reference implementation at most every minute, first poll on activation) and remember their state in the static
 data; trigger nodes with their own connection (e.g. message brokers) start executions via `emit` and are closed on
-deactivation. In the editor both run once directly. Webhook nodes from packages get their URL as in n8n
+deactivation. In the editor both run once directly. Webhook nodes from packages get their URL as in the reference implementation
 (`/webhook/<webhookId>/<path>`, test under `/webhook-test/…`); nodes that register with the service (`webhookMethods`)
 register on activation and unregister on deactivation, in the editor also for the test URL. AI sub-nodes from packages are
 not loaded yet.
 
 **Installing community packages:** on the **Packages** page (in the master on a worker's page) you install
-n8n community packages from npm by name (`n8n-nodes-…` or `@scope/n8n-nodes-…`, optionally with a version), update and
-remove them. As in n8n, filuflow downloads the package with `npm pack`, installs its dependencies without
+community node packages from npm by name (`n8n-nodes-…` or `@scope/n8n-nodes-…`, optionally with a version), update and
+remove them. As in the reference implementation, filuflow downloads the package with `npm pack`, installs its dependencies without
 install scripts and makes the nodes available immediately, without a restart; workflows are revalidated afterwards. The packages
 are stored in `~/.filuflow/nodes` (`FILUFLOW_NODES_DIR`) and are loaded at startup as well as by `validate` and `run`. The same
 functions are offered by the REST API under `/api/community-packages` (GET, POST and PATCH with `{ "name", "version" }`, DELETE with
 `?name=`). `FILUFLOW_COMMUNITY_PACKAGES_ENABLED=false` disables installing, a custom registry is set with
-`FILUFLOW_COMMUNITY_PACKAGES_REGISTRY` (each also with `N8N_` instead of `FILUFLOW_`).
+`FILUFLOW_COMMUNITY_PACKAGES_REGISTRY`.
 
 **filuflow plugins:** an ES module (`*.mjs` or a package with `"filuflow": { "plugin": "index.js" }`) that exports an object or a
 function:
@@ -563,9 +564,9 @@ removes it when the assignment is lifted and catches up on failures at the next 
 | `FILUFLOW_INSTANCE_NAME` | name in the sidebar footer | hostname |
 | `FILUFLOW_IMPRINT_URL`, `FILUFLOW_PRIVACY_URL` | "Imprint" and "Privacy" links (only if set) | |
 | `FILUFLOW_LOG_LEVEL` | log level (pino) | `info` |
-| `FILUFLOW_CUSTOM_EXTENSIONS` / `--nodes` | paths to custom nodes (separated by `;`; also `N8N_CUSTOM_EXTENSIONS`) | `~/.filuflow/custom` |
+| `FILUFLOW_CUSTOM_EXTENSIONS` / `--nodes` | paths to custom nodes (separated by `;`) | `~/.filuflow/custom` |
 | `FILUFLOW_NODES_DIR` | folder of community packages installed via the interface | `~/.filuflow/nodes` |
-| `FILUFLOW_COMMUNITY_PACKAGES_ENABLED`, `FILUFLOW_COMMUNITY_PACKAGES_REGISTRY` | allow installing community packages, npm registry (also `N8N_…`) | `true`, `https://registry.npmjs.org` |
+| `FILUFLOW_COMMUNITY_PACKAGES_ENABLED`, `FILUFLOW_COMMUNITY_PACKAGES_REGISTRY` | allow installing community packages, npm registry | `true`, `https://registry.npmjs.org` |
 | `FILUFLOW_SUPERVISOR` | Supervisor (rules, analyses, proposals) on or off | `true` |
 
 ### Docker
@@ -587,17 +588,19 @@ For operation on a network, put a reverse proxy with HTTPS in front. Workers sho
 [docs/INSTALL.md](docs/INSTALL.md) describes the installation per mode with Docker or systemd, HTTPS with Caddy or nginx,
 updates and backups; `scripts/install.sh` automates it.
 
-## Working with n8n
+## Compatibility
 
-filuflow reads the n8n workflow format. Exported workflows (JSON, `executionOrder: v1`) run without changes and deliver
-the same data at the same nodes as n8n 1.x; comparison tests against real n8n verify this (reference 1.123.0). Credentials from
-`n8n export:credentials` can be used directly (encrypted ones with `N8N_ENCRYPTION_KEY`), copied n8n nodes can be pasted into the editor.
+filuflow runs workflows in the common workflow JSON format (nodes, connections, `typeVersion`, `executionOrder` v1)
+without changes and loads community node packages in that format. Exported workflows deliver the same data at the same
+nodes as the reference implementation; golden tests against recorded results of the reference version 1.123.0 verify
+this. Exported credential files can be imported directly (encrypted ones with the source instance's key), and nodes
+copied from compatible editors can be pasted into the editor.
 
 ## Development
 
 ```bash
 npm test             # unit tests, comparison tables and browser tests of the interface (Chromium)
-npm run test:compat  # comparison with recorded results from n8n (CLI, engine, webhooks)
+npm run test:compat  # comparison with recorded reference results (CLI, engine, webhooks)
 npm run lint         # eslint and TypeScript
 npm run build        # CLI, server and interface to dist/
 ```
@@ -626,7 +629,7 @@ golden tests, build and the Docker image (build, start, `/healthz`). After a pus
 
 ## Contributing
 
-Bug reports, feature requests and reports about n8n workflows that behave differently are welcome as
+Bug reports, feature requests and reports about exported workflows that behave differently are welcome as
 [issues](https://github.com/mebytede/filuflow/issues). External pull requests are not accepted at the moment; see
 [CONTRIBUTING.md](CONTRIBUTING.md) for the reasons, how to report bugs and how to build and test locally. Please report
 security problems privately as described in [SECURITY.md](SECURITY.md). Everyone taking part is expected to follow the
@@ -647,6 +650,3 @@ is authoritative.
 
 Bundled third-party material (IBM Plex fonts, Lucide icons, Pyodide and the npm dependencies) keeps its own licenses;
 see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
-
-filuflow is an independent project and not affiliated with or endorsed by n8n GmbH. n8n is a trademark of n8n GmbH; it
-is used here only to describe compatibility.

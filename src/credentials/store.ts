@@ -63,7 +63,7 @@ export function decryptValue(encoded: string, secret: string): unknown {
   return JSON.parse(plain);
 }
 
-/** Encrypts a credentials file (filuflow format or n8n export) per entry; names, IDs and types stay readable */
+/** Encrypts a credentials file (filuflow format or exported file) per entry; names, IDs and types stay readable */
 export function encryptCredentialsFile(raw: unknown, secret: string): unknown {
   const encryptEntry = (entry: unknown): unknown => {
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return entry;
@@ -145,10 +145,10 @@ function toEntry(name: string, raw: unknown, where: string): CredentialEntry {
   }
   const obj = value as Record<string, unknown>;
   if (typeof obj.data === 'string' && obj.type) {
-    // n8n export without --decrypted: decrypt with N8N_ENCRYPTION_KEY (n8nCipher.ts)
+    // Export without --decrypted: decrypt with FILUFLOW_IMPORT_ENCRYPTION_KEY (n8nCipher.ts)
     const n8nKey = n8nKeyFromEnv();
     if (!n8nKey) {
-      throw new Error(`${where}: credential "${name}" is encrypted with the n8n key; set N8N_ENCRYPTION_KEY or export with "n8n export:credentials --decrypted"`);
+      throw new Error(`${where}: credential "${name}" is encrypted with the key of the source instance; set FILUFLOW_IMPORT_ENCRYPTION_KEY or export with "export:credentials --decrypted"`);
     }
     try {
       obj.data = decryptN8nCredential(obj.data, n8nKey);
@@ -168,7 +168,7 @@ function toEntry(name: string, raw: unknown, where: string): CredentialEntry {
 }
 
 /**
- * Secret fields (in n8n the fields with typeOptions.password of the credential types, e.g. password, value,
+ * Secret fields (in the reference the fields with typeOptions.password of the credential types, e.g. password, value,
  * token, clientSecret, privateKey). Only these are masked in output and in the execution log: by the
  * schema of the type (types.ts) and additionally by field name.
  */
@@ -239,14 +239,14 @@ export async function loadCredentials(path: string): Promise<StaticCredentialPro
   } else {
     const parsed = maybeDecrypt(JSON.parse(await readFile(path, 'utf8')), path);
     if (Array.isArray(parsed)) {
-      // Export from `n8n export:credentials --decrypted`: [{ id, name, type, data }]
+      // Export from the reference CLI command `export:credentials --decrypted`: [{ id, name, type, data }]
       for (const [i, raw] of parsed.entries()) {
         const name = (raw as { name?: unknown })?.name;
         if (typeof name !== 'string') throw new Error(`${path}: entry ${i} has no name`);
         entries.push(toEntry(name, raw, path));
       }
     } else if (!parsed || typeof parsed !== 'object') {
-      throw new Error(`${path}: expected an object { "<name>": {...} } or an n8n export (array)`);
+      throw new Error(`${path}: expected an object { "<name>": {...} } or an exported file (array)`);
     } else {
       for (const [name, raw] of Object.entries(parsed)) entries.push(toEntry(name, raw, path));
     }

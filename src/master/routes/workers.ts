@@ -283,7 +283,7 @@ export function registerWorkerRoutes(api: FastifyInstance, ctx: MasterContext): 
     }
   });
 
-  // Import of an n8n export on the worker (values only pass through, the master stores nothing)
+  // Import of an exported file on the worker (values only pass through, the master stores nothing)
   api.post('/api/admin/workers/:id/credentials/import', async (request, reply) => {
     if (!ctx.requireAdmin(request, reply)) return;
     const worker = db.getWorker((request.params as { id: string }).id);

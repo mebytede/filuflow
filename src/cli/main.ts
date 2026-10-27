@@ -5,7 +5,7 @@ import { parseArgs } from 'node:util';
 import { cmdValidate } from './validate.js';
 import { cmdNodes } from './nodes.js';
 
-const USAGE = `filuflow: n8n-compatible workflow engine
+const USAGE = `filuflow: workflow engine for the common workflow JSON format
 
 Commands:
   filuflow validate <wf.json> [--json] [--credentials <path>]

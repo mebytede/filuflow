@@ -1,4 +1,4 @@
-// Webhook nodes from n8n packages (M32), as in n8n 1.123.0:
+// Webhook nodes from packages in the community node format (M32), as in the reference version 1.123.0:
 //   cli webhook.service.ts getNodeWebhooks (path, methods, isFullPath from description.webhooks via expressions),
 //   runWebhookMethod (webhookMethods checkExists/create/delete with HookContext), runWebhook (WebhookContext);
 //   core webhook-context.ts (getBodyData, getHeaderData, getQueryData, getParamsData, getRequestObject,
@@ -82,7 +82,7 @@ export function packageWebhooks(impl: N8nWebhookImpl): NonNullable<NodeType['pac
           isFullPath: simple(ctx, description, d.isFullPath, false) === true,
           responseMode: String(simple(ctx, description, d.responseMode, 'onReceived')),
           responseCode: Number(simple(ctx, description, d.responseCode, 200)),
-          // getComplexParameterValue with default "firstEntryJson": without responseData n8n answers onReceived with
+          // getComplexParameterValue with default "firstEntryJson": without responseData the reference answers onReceived with
           // exactly this text (extractWebhookOnReceivedResponse)
           responseData: String(simple(ctx, description, d.responseData, 'firstEntryJson')),
         };

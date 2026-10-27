@@ -1,4 +1,4 @@
-// Execution context of a node (n8n ExecuteContext).
+// Execution context of a node (reference: ExecuteContext).
 import type { EngineResponse, ExecContext, ExecuteWorkflowRequest, ExecuteWorkflowResult, GetParamOptions, WebhookResponse } from '../nodes/types.js';
 import type { ExecutionMode, Item, SourceData, WorkflowNode } from '../types.js';
 import type { WorkflowGraph } from './graph.js';
@@ -10,7 +10,7 @@ import { createDataProxy, type ExecuteData } from '../expressions/proxy.js';
 import { cleanupParameterData, getByPath, resolveParameterValue, resolveSimpleValue } from '../expressions/resolve.js';
 import type { WorkflowExecutor } from './executor.js';
 
-/** Copy of the input data for code nodes (n8n augmentArray: changes stay local) */
+/** Copy of the input data for code nodes (reference: augmentArray: changes stay local) */
 function structuredCloneItems(items: Item[]): Item[] {
   return items.map((item) => {
     const copy: Item = { ...item, json: cloneJson(item.json) };
@@ -34,7 +34,7 @@ export interface ContextInit {
   inputs: Item[][];
   connectionInputData: Item[];
   runIndex: number;
-  /** Sub-node context: parent node (n8n SupplyDataContext.parentNode) */
+  /** Sub-node context: parent node (reference: SupplyDataContext.parentNode) */
   parent?: { node: WorkflowNode; runIndex: number };
   engineResponse?: EngineResponse;
 }
@@ -192,7 +192,7 @@ export class NodeExecutionContext implements ExecContext {
     return this.executor.isStreaming();
   }
 
-  /** n8n ExecuteContext.sendChunk: content as text (objects as JSON) with the node's metadata */
+  /** Reference: ExecuteContext.sendChunk: content as text (objects as JSON) with the node's metadata */
   sendChunk(type: 'begin' | 'item' | 'end' | 'error', itemIndex: number, content?: unknown): void {
     this.executor.sendChunk({
       type,
@@ -211,7 +211,7 @@ export class NodeExecutionContext implements ExecContext {
     return (await this.executor.supplySubNode(sub, this, type, itemIndex)) as T;
   }
 
-  /** Order like n8n getInputConnectionData (getParentNodes, depth 1) */
+  /** Order like the reference getInputConnectionData (getParentNodes, depth 1) */
   async getSubNodeInstances<T = unknown>(type: string, itemIndex = 0): Promise<T[]> {
     const out: T[] = [];
     const nodes = this.workflow
@@ -249,7 +249,7 @@ export class NodeExecutionContext implements ExecContext {
   }
 
   /**
-   * n8n SupplyDataContext.cloneWith: same node with a different run index and its own input data
+   * Reference: SupplyDataContext.cloneWith: same node with a different run index and its own input data
    * (getInputData), expressions still see the parent node's data
    */
   cloneWith(replacements: { runIndex: number; items: Item[] }): NodeExecutionContext {
@@ -264,7 +264,7 @@ export class NodeExecutionContext implements ExecContext {
     });
   }
 
-  /** For sub-nodes: context of another node with the same input data (n8n SupplyDataContext) */
+  /** For sub-nodes: context of another node with the same input data (reference: SupplyDataContext) */
   forSubNode(node: WorkflowNode): NodeExecutionContext {
     return new NodeExecutionContext({
       executor: this.executor,

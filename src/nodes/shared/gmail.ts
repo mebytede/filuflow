@@ -210,7 +210,7 @@ export function prepareEmailsInput(ctx: ExecContext, input: unknown, fieldName: 
 }
 
 /**
- * prepareEmailBody: text or HTML from "message". The n8n attribution ("This email was sent automatically with n8n")
+ * prepareEmailBody: text or HTML from "message". The attribution line of the reference
  * is not appended by filuflow (decision in docs/DECISIONS.md).
  */
 export function prepareEmailBody(ctx: ExecContext, itemIndex: number, defaultEmailType: string): { body: string; htmlBody: string } {
@@ -247,7 +247,7 @@ export interface Email {
   bcc?: string;
   replyTo?: string;
   inReplyTo?: string;
-  /** Read by encodeEmail; draft.js sets "references" instead, which therefore never reaches the message (as in n8n) */
+  /** Read by encodeEmail; draft.js sets "references" instead, which therefore never reaches the message (as in the reference) */
   reference?: string;
   references?: string;
   subject?: string;
@@ -277,10 +277,10 @@ export function encodeEmail(email: Email): string {
 
 /**
  * parseRawEmail: the "raw" message (base64url) parsed like mailparser simpleParser, headers as { key: line }, date as
- * ISO text, attachments as binary <prefix><index> when options.downloadAttachments (read at item 0 like n8n) is on
+ * ISO text, attachments as binary <prefix><index> when options.downloadAttachments (read at item 0 like the reference) is on
  */
 export async function parseRawEmail(ctx: ExecContext, messageData: Json, prefix: string): Promise<Item> {
-  // n8n decodes the message to a UTF-8 string first and parses that string
+  // The reference decodes the message to a UTF-8 string first and parses that string
   const parsed = parseMail(Buffer.from(String(messageData.raw ?? ''), 'base64').toString('utf8')) as unknown as Json & ReturnType<typeof parseMail>;
   const headers: Record<string, string> = {};
   for (const h of parsed.headerLines) headers[h.key] = h.line;
@@ -299,7 +299,7 @@ export async function parseRawEmail(ctx: ExecContext, messageData: Json, prefix:
   return Object.keys(binary).length ? { json, binary } : { json };
 }
 
-/** unescapeSnippets: &amp; &lt; &gt; &#39; &quot; in snippet (n8n utilities escapeHtml) */
+/** unescapeSnippets: &amp; &lt; &gt; &#39; &quot; in snippet (the reference utilities escapeHtml) */
 export function unescapeSnippets(items: Item[]): Item[] {
   const map: Record<string, string> = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&#39;': "'", '&quot;': '"' };
   for (const item of items) {

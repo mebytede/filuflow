@@ -1,5 +1,5 @@
 # Weekly dependency updates; minor and patch updates are grouped into one pull request per ecosystem.
-# Libraries pinned to the versions of the n8n reference (docs/DECISIONS.md, "Versions like n8n") are ignored: they are
+# Libraries pinned to the versions of the reference implementation (docs/DECISIONS.md, "Versions like the reference") are ignored: they are
 # only updated together with the reference version and the golden tests. Node.js stays on 22 LTS (CLAUDE.md).
 version: 2
 updates:

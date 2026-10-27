@@ -1,6 +1,6 @@
-// Nodes from n8n packages (community nodes, custom nodes in n8n format) as a filuflow node type (M24).
+// Nodes from packages in the community node format (community packages and custom nodes) as a filuflow node type (M24).
 // Supports programmatic nodes with execute(this: IExecuteFunctions) and versioned nodes (nodeVersions).
-// The context rebuilds the common functions of IExecuteFunctions (n8n 1.123.0
+// The context rebuilds the common functions of IExecuteFunctions (the reference version 1.123.0
 // packages/core/src/execution-engine/node-execution-context/execute-context.ts, node-execution-context.ts and
 // utils/*): getInputData, getNodeParameter (with defaults like getNodeParameters), getCredentials, continueOnFail,
 // helpers.httpRequest/request (with and without authentication), returnJsonArray, constructExecutionMetaData and
@@ -40,7 +40,7 @@ export function unsupportedReason(node: N8nNodeInstance): string | undefined {
     if (v.webhook || v.description.webhooks?.length) return 'Webhook node without a webhook method or without a description of the webhooks';
     if (typeof v.poll === 'function' || typeof v.trigger === 'function') continue;
     if (v.description.polling) return 'Poll node without a poll method';
-    if (v.supplyData) return 'AI sub-nodes from n8n packages are not supported yet';
+    if (v.supplyData) return 'AI sub-nodes from packages in the community node format are not supported yet';
     return 'the node has no execute method';
   }
   return undefined;
@@ -121,14 +121,14 @@ export function executeSingleFunctions(ctx: ExecContext, description: N8nNodeDes
   };
 }
 
-/** Type name as in n8n: <package>.<description.name>, custom folders "CUSTOM" */
+/** Type name as in the reference: <package>.<description.name>, custom folders "CUSTOM" */
 export function n8nNodeType(packageName: string, instance: N8nNodeInstance): NodeType {
   const base = instance.description;
   const versions = instance.nodeVersions
     ? Object.keys(instance.nodeVersions).map(Number).sort((a, b) => a - b)
     : (Array.isArray(base.version) ? base.version : [base.version]).map(Number);
   const forVersion = (version: number): N8nNodeInstance => (instance.nodeVersions ? (instance.nodeVersions[version] ?? instance.nodeVersions[Math.max(...versions)]) : instance);
-  // Declarative nodes get the "Request Options" setting as in n8n
+  // Declarative nodes get the "Request Options" setting as in the reference
   const describe = (impl: N8nNodeInstance) => (isDeclarative(impl) ? withRequestOptions(impl.description) : withPollTimes(impl.description));
   const isTriggerImpl = (impl: N8nNodeInstance) => typeof impl.execute !== 'function' && (typeof impl.poll === 'function' || typeof impl.trigger === 'function');
   const isWebhookImpl = (impl: N8nNodeInstance) => typeof impl.execute !== 'function' && hasPackageWebhooks(impl as N8nWebhookImpl);

@@ -1,7 +1,7 @@
 // Respond to Webhook, n8n-nodes-base.respondToWebhook (typeVersion 1 to 1.5)
-// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/RespondToWebhook/RespondToWebhook.node.ts,
+// Rebuilt after the reference version 1.123.0, packages/nodes-base/nodes/RespondToWebhook/RespondToWebhook.node.ts,
 // utils/binary.ts, utils/outputs.ts. The response goes to the server via ctx.sendWebhookResponse
-// (n8n: sendResponse hook, only the first response counts). From v1.5 also parts of a streamed response
+// (reference: sendResponse hook, only the first response counts). From v1.5 also parts of a streamed response
 // (begin/item/end) when the webhook runs with responseMode "streaming".
 import { createHmac, createPrivateKey, sign as cryptoSign } from 'node:crypto';
 import lodash from 'lodash';
@@ -60,7 +60,7 @@ function outputCount(version: number, enableResponseOutput: unknown): number {
   return version === 1.3 || (version >= 1.4 && enableResponseOutput === true) ? 2 : 1;
 }
 
-// Parameters as in n8n RespondToWebhook.node.ts (properties, respondWithProperty). The parameter "credentials" (type
+// Parameters as in the reference RespondToWebhook.node.ts (properties, respondWithProperty). The parameter "credentials" (type
 // credentials, with respondWith jwt) is missing: the editor selects credentials via the credential assignment (jwtAuth).
 function respondWithParam(show: ParamSchema['show'], noExpression?: boolean): ParamSchema {
   return {
@@ -286,7 +286,7 @@ export const respondToWebhookNode: NodeType = {
           throw new NodeOperationError(ctx.node.name, 'Error signing JWT token', { cause: error });
         }
       } else if (respondWith === 'allIncomingItems') {
-        // n8n sends here without checking shouldStream (has no effect without streaming)
+        // The reference sends here without checking shouldStream (has no effect without streaming)
         const all = items.map((i, index) => (stream(index, i.json), i.json));
         body = options.responseKey ? lodash.set({}, options.responseKey as string, all) : all;
       } else if (respondWith === 'firstIncomingItem') {

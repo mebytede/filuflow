@@ -57,7 +57,7 @@ export function startMaster(app: HTMLElement): void {
     return [
       h('div', { class: 'foot-row', title: u.email }, icon('user', 16), h('span', { class: 'ellipsis' }, u.name || u.email)),
       h('div', { class: 'foot-row' }, icon('server', 16), `Master ${status?.instance ?? ''}`),
-      h('div', null, t('Compatible with n8n {version}', { version: '1.123' })),
+      h('div', null, t('Workflow format {version}', { version: '1.123' })),
       status?.imprintUrl || status?.privacyUrl
         ? h(
             'div',

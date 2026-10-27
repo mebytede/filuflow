@@ -298,7 +298,7 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     }
     const blockedNew = blockedCredentials(a.project.id, wf);
     if (blockedNew.length) return reply.code(403).send({ message: blockedMessage(blockedNew) });
-    // Import: do not take over IDs from n8n (could collide), never start active
+    // Import: do not take over IDs from the exported file (could collide), never start active
     delete wf.id;
     wf.active = false;
     const row = db.saveWorkflow(a.project.id, wf, request.auth!.user.id);

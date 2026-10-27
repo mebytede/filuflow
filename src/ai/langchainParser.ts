@@ -1,5 +1,5 @@
 // StructuredOutputParser and OutputFixingParser as in LangChain (used directly by Information Extractor, Text Classifier
-// and Sentiment Analysis, without the n8n wrapper "output"):
+// and Sentiment Analysis, without the reference wrapper "output"):
 //   @langchain/core 1.1 output_parsers/structured.js (parse: code block, line breaks in strings)
 //   @langchain/classic 1.0 output_parsers/fix.js and prompts.js (NAIVE_FIX_PROMPT, repeated model call)
 import { formatInstructionsFor } from './outputParser.js';

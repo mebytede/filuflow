@@ -1,5 +1,5 @@
 // Basic LLM Chain, @n8n/n8n-nodes-langchain.chainLlm (typeVersion 1 to 1.7)
-// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/chains/ChainLLM
+// Rebuilt after the reference version 1.123.0, packages/@n8n/nodes-langchain/nodes/chains/ChainLLM
 //   (ChainLlm.node.ts execute, methods/processItem.ts, methods/config.ts parameter defaults)
 import type { ExecContext, NodeType } from './types.js';
 import type { Item } from '../types.js';

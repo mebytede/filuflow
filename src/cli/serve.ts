@@ -104,13 +104,13 @@ export async function cmdServe(args: string[], worker = false): Promise<number> 
     apiKey: env.FILUFLOW_API_KEY || undefined,
     concurrency: Number(values.concurrency ?? env.FILUFLOW_CONCURRENCY ?? 5),
     pruneDays: Number(env.FILUFLOW_PRUNE_DAYS ?? 14),
-    payloadSizeMaxMb: Number(env.FILUFLOW_PAYLOAD_SIZE_MAX ?? env.N8N_PAYLOAD_SIZE_MAX ?? 16),
+    payloadSizeMaxMb: Number(env.FILUFLOW_PAYLOAD_SIZE_MAX ?? 16),
     webhookBaseUrl,
     credentials,
     vars: await loadVars(values.vars),
     logger,
     ...(uiOff ? { uiDir: false as const } : {}),
-    communityPackages: { dir: defaultCommunityDir(), npmRegistry: env.FILUFLOW_COMMUNITY_PACKAGES_REGISTRY || env.N8N_COMMUNITY_PACKAGES_REGISTRY || undefined },
+    communityPackages: { dir: defaultCommunityDir(), npmRegistry: env.FILUFLOW_COMMUNITY_PACKAGES_REGISTRY || undefined },
     ...(worker ? { worker: { version: packageVersion(), credentials } } : {}),
   });
   await server.app.listen({ port, host });

@@ -1,5 +1,5 @@
 // Wait, n8n-nodes-base.wait (typeVersion 1, 1.1)
-// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/Wait/Wait.node.ts (execute, configureAndPutToWait, putToWait)
+// Rebuilt after the reference version 1.123.0, packages/nodes-base/nodes/Wait/Wait.node.ts (execute, configureAndPutToWait, putToWait)
 // and packages/cli/src/webhooks/waiting-webhooks.ts (resuming via webhook).
 // - timeInterval / specificTime: below 65 s the process waits, otherwise the execution goes into the "waiting" state
 //   and the server resumes it at the given time (also after a restart).
@@ -51,7 +51,7 @@ function webhookWaitTill(ctx: ExecContext): Date {
 // packages/nodes-base/nodes/Webhook/description.ts (authenticationProperty, httpMethodsProperty, responseCodeProperty,
 // responseModeProperty, responseDataProperty, responseBinaryPropertyNameProperty, optionsProperty) and
 // packages/nodes-base/nodes/Form/common.descriptions.ts (formTitle, formDescription, formFields, formRespondMode,
-// respondWithOptions, appendAttributionToForm). As in n8n, the "@version" conditions from the included descriptions
+// respondWithOptions, appendAttributionToForm). As in the reference, the "@version" conditions from the included descriptions
 // refer to the version of the Wait node.
 
 const ON_WEBHOOK = { resume: ['webhook'] };
@@ -98,10 +98,10 @@ const webhookSuffix: ParamSchema = {
 
 const appendAttribution: ParamSchema = {
   name: 'appendAttribution',
-  label: 'Append n8n Attribution',
+  label: 'Append Attribution',
   type: 'boolean',
   default: true,
-  description: 'Whether the footer link "Form automated with n8n" appears below the form',
+  description: 'Whether an attribution footer link appears below the form',
 };
 
 const fieldOptionsParam = (label: string, addLabel: string, optionLabel: string, fieldType: string, description?: string): ParamSchema => ({
@@ -365,7 +365,7 @@ const respondWithOptions: ParamSchema = {
           label: 'URL to Redirect to',
           type: 'string',
           default: '',
-          placeholder: 'e.g. http://www.n8n.io',
+          placeholder: 'e.g. https://example.com',
           description: 'URL users are sent to after submitting; has to be a valid URL.',
           show: { respondWith: ['redirect'] },
         },
@@ -792,7 +792,7 @@ export const waitNode: NodeType = {
       }
     }
     const ms = Math.max(waitTill.getTime() - Date.now(), 0);
-    // n8n: wait in the process below 65 s (the database is only checked every 60 s)
+    // Reference: wait in the process below 65 s (the database is only checked every 60 s)
     if (ms < 65_000 || !ctx.canWait) return sleepInProcess(ctx, ms);
     ctx.putExecutionToWait(waitTill);
     return [ctx.items];

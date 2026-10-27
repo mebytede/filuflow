@@ -1,5 +1,5 @@
 // Vector Store Question Answer Tool, @n8n/n8n-nodes-langchain.toolVectorStore (typeVersion 1, 1.1)
-// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/tools/ToolVectorStore with VectorStoreQATool and
+// Rebuilt after the reference version 1.123.0, packages/@n8n/nodes-langchain/nodes/tools/ToolVectorStore with VectorStoreQATool and
 // VectorDBQAChain from @langchain/classic 1.0.5 (similaritySearch with k, StuffDocumentsChain, CHAT_PROMPT from
 // chains/question_answering/stuff_prompts.js). Name in v1 from the parameter, from v1.1 from the node name.
 import type { ExecContext, NodeType } from './types.js';

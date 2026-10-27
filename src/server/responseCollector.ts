@@ -1,4 +1,4 @@
-// Express-style response object for webhook nodes from n8n packages (M32, getResponseObject): nodes with
+// Express-style response object for webhook nodes from packages in the community node format (M32, getResponseObject): nodes with
 // noWebhookResponse write the response themselves (status, setHeader, json, send, end, writeHead, write).
 import type { WebhookResponseCollector } from '../nodes/types.js';
 import type { HttpResponse } from './webhooks.js';

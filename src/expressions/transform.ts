@@ -1,5 +1,5 @@
 // AST rewriting of an expression code part.
-// Rebuilt after n8n 1.123.0:
+// Rebuilt after the reference version 1.123.0:
 //   packages/workflow/src/extensions/expression-extension.ts (extendTransform, extendSyntax, $if)
 //   packages/workflow/src/expression-sandboxing.ts (PrototypeSanitizer, DollarSignValidator, FunctionThisSanitizer)
 //   @n8n/tournament 1.0.6 ExpressionBuilder (shouldWrapInTry)
@@ -29,12 +29,12 @@ const EXTENSION_REGEX = new RegExp(
   `(\\$if|\\.(${[...EXTENSION_FUNCTION_NAMES, 'isEmpty', 'isNotEmpty'].map((n) => n.replace(/\$/g, '\\$')).join('|')})\\s*(\\?\\.)?)\\s*\\(`,
 );
 
-/** n8n hasExpressionExtension */
+/** Reference: hasExpressionExtension */
 export function hasExpressionExtension(code: string): boolean {
   return EXTENSION_REGEX.test(code);
 }
 
-/** n8n hasNativeMethod: all words are methods of native prototypes */
+/** Reference: hasNativeMethod: all words are methods of native prototypes */
 function hasNativeMethod(expression: string): boolean {
   if (hasExpressionExtension(expression)) return false;
   const words = expression
@@ -119,7 +119,7 @@ const gen = (node: AnyNode): string => generate(node);
 const genArgs = (args: AnyNode[]): string => generate({ type: 'ArrayExpression', elements: args } as never).slice(1, -1);
 
 /**
- * Optional chain with an extension call: n8n aborts the whole chain as soon as a `?.`
+ * Optional chain with an extension call: the reference aborts the whole chain as soon as a `?.`
  * hits null/undefined (polyfill in extendTransform). Rebuilt as an arrow function
  * that evaluates the members one by one.
  */
@@ -267,7 +267,7 @@ export interface TransformedCode {
 
 /**
  * Converts a code part into an evaluable JS expression.
- * `useExtensions` corresponds to the n8n pre-check in extendSyntax.
+ * `useExtensions` corresponds to the reference pre-check in extendSyntax.
  */
 export function transformCode(code: string, useExtensions: boolean): TransformedCode {
   let ast: AnyNode;
@@ -291,7 +291,7 @@ export function transformCode(code: string, useExtensions: boolean): Transformed
   return { code: out, wrapInTry };
 }
 
-/** Decides like n8n extendSyntax whether extension functions are rewritten */
+/** Decides like the reference extendSyntax whether extension functions are rewritten */
 export function shouldExtend(bracketedExpression: string, codeChunks: string[]): boolean {
   const cleaned = codeChunks.map((c) => c.replace(/("|').*?("|')/, '').trim());
   return cleaned.some(hasExpressionExtension) && !hasNativeMethod(bracketedExpression);

@@ -1,5 +1,5 @@
 // If, n8n-nodes-base.if (typeVersion 2 to 2.3)
-// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/If/V2/IfV2.node.ts
+// Rebuilt after the reference version 1.123.0, packages/nodes-base/nodes/If/V2/IfV2.node.ts
 import type { NodeType } from './types.js';
 import type { Item } from '../types.js';
 import { NodeOperationError } from '../errors.js';

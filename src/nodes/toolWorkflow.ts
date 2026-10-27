@@ -1,5 +1,5 @@
-// Call n8n Workflow Tool, @n8n/n8n-nodes-langchain.toolWorkflow (typeVersion 1 to 1.3, 2 to 2.2)
-// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/tools/ToolWorkflow:
+// Call Workflow Tool, @n8n/n8n-nodes-langchain.toolWorkflow (typeVersion 1 to 1.3, 2 to 2.2)
+// Rebuilt after the reference version 1.123.0, packages/@n8n/nodes-langchain/nodes/tools/ToolWorkflow:
 //   v1/ToolWorkflowV1.node.ts (supplyData, schema from example JSON or JSON Schema, no execute)
 //   v2/ToolWorkflowV2.node.ts and v2/utils/WorkflowToolService.ts (schema from $fromAI in workflowInputs,
 //   execute for Agent V3, retries with retryOnFail)
@@ -46,7 +46,7 @@ function workflowInfo(ctx: ExecContext, itemIndex: number): Pick<ExecuteWorkflow
       throw new NodeOperationError(ctx.node.name, `The provided workflow is not valid JSON: "${(error as Error).message}"`, { itemIndex });
     }
   }
-  throw new NodeOperationError(ctx.node.name, `Call n8n Workflow Tool: source "${source}" is not supported`);
+  throw new NodeOperationError(ctx.node.name, `Call Workflow Tool: source "${source}" is not supported`);
 }
 
 /** rawData for Set v2 (fields of type objectValue with an expression) */
@@ -191,7 +191,7 @@ function toolV2(baseCtx: ExecContext, itemIndex: number, manualLogging: boolean)
   const returnAllItems = node.typeVersion > 2;
   const name = node.typeVersion <= 2.1 ? baseCtx.getParam<string>('name', 0, '') : nodeNameToToolName(node.name);
   const description = baseCtx.getParam<string>('description', 0, '');
-  // workflowInputs is only visible with source "database"; otherwise n8n removes the parameter on load (getNodeParameters)
+  // workflowInputs is only visible with source "database"; otherwise the reference removes the parameter on load (getNodeParameters)
   const parameters = visibleParameters(node.parameters);
   const workflowInputs = parameters.workflowInputs as { schema?: unknown[] } | undefined;
   const useSchema = (workflowInputs?.schema ?? []).length > 0;
@@ -253,9 +253,9 @@ function toolV2(baseCtx: ExecContext, itemIndex: number, manualLogging: boolean)
   };
 }
 
-// Parameters as in v1/versionDescription.ts (typeVersion 1 to 1.3) and v2/versionDescription.ts (2 to 2.2), n8n 1.123.0.
+// Parameters as in v1/versionDescription.ts (typeVersion 1 to 1.3) and v2/versionDescription.ts (2 to 2.2), reference version 1.123.0.
 // Fields that exist in only one of the two versions additionally carry a condition on "@version".
-// The notice pointing to an n8n template (noticeTemplateExample) is omitted because filuflow has no templates.
+// The notice pointing to a template of the reference (noticeTemplateExample) is omitted because filuflow has no templates.
 // workflowSelector (from v1.2) stores a resource locator; the editor has no resourceMapper (workflowInputs, v2),
 // so JSON is used here.
 const V1 = { '@version': [{ _cnd: { lt: 2 } }] };
@@ -275,7 +275,7 @@ const parameters: ParamSchema[] = [
     show: { '@version': [1.1, 1.2, 1.3, 2, 2.1] },
   },
   {
-    // Not in n8n: in v2.2 n8n hides "name", but exported workflows often still contain it.
+    // Not in the reference: in v2.2 the reference hides "name", but exported workflows often still contain it.
     // Only visible when set (without a default, so the rule applies to the field's own value).
     name: 'name',
     label: 'Name (not used)',
@@ -323,7 +323,7 @@ const parameters: ParamSchema[] = [
     show: { source: ['database'], '@version': [{ _cnd: { gte: 1.2 } }] },
   },
   {
-    // Not in n8n: with source "parameter" n8n hides workflowInputs, but exported workflows often still contain the value.
+    // Not in the reference: with source "parameter" the reference hides workflowInputs, but exported workflows often still contain the value.
     // Only visible when set; placed before the actual definition and without a default, so the rule applies to the
     // field's own value.
     name: 'workflowInputs',
@@ -340,7 +340,7 @@ const parameters: ParamSchema[] = [
     default: { mappingMode: 'defineBelow', value: null },
     required: true,
     noExpression: true,
-    description: 'Object with mappingMode, value (values, $fromAI allowed) and schema as in n8n.',
+    description: 'Object with mappingMode, value (values, $fromAI allowed) and schema as in the reference implementation.',
     show: { source: ['database'], '@version': [{ _cnd: { gte: 2 } }] },
     hide: { workflowId: [''] },
   },
@@ -472,7 +472,7 @@ const parameters: ParamSchema[] = [
 
 export const toolWorkflowNode: NodeType = {
   type: '@n8n/n8n-nodes-langchain.toolWorkflow',
-  displayName: 'Call n8n Workflow Tool',
+  displayName: 'Call Workflow Tool',
   versions: [1, 1.1, 1.2, 1.3, 2, 2.1, 2.2],
   parameters,
   isSubNode: true,
@@ -482,7 +482,7 @@ export const toolWorkflowNode: NodeType = {
   validate(node) {
     const source = (node.parameters.source as string | undefined) ?? 'database';
     if (source !== 'database' && source !== 'parameter') {
-      return [{ code: 'node.unsupportedParameter', message: `Call n8n Workflow Tool: source "${source}" is not supported`, path: 'parameters.source' }];
+      return [{ code: 'node.unsupportedParameter', message: `Call Workflow Tool: source "${source}" is not supported`, path: 'parameters.source' }];
     }
     return [];
   },
@@ -491,7 +491,7 @@ export const toolWorkflowNode: NodeType = {
   },
   async execute(ctx) {
     if (ctx.node.typeVersion < 2) {
-      // v1 has no execute in n8n; n8n adds one via RoutingNode, which fails with "Invalid URL" without routing
+      // v1 has no execute in the reference; the reference adds one via RoutingNode, which fails with "Invalid URL" without routing
       // information (as with the HTTP Request Tool, fixture 21). Agent V3 therefore cannot use the tool.
       throw new TypeError('Invalid URL');
     }

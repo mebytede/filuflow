@@ -1,5 +1,5 @@
 // Loop Over Items (Split in Batches), n8n-nodes-base.splitInBatches (typeVersion 3)
-// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/SplitInBatches/v3/SplitInBatchesV3.node.ts
+// Rebuilt after the reference version 1.123.0, packages/nodes-base/nodes/SplitInBatches/v3/SplitInBatchesV3.node.ts
 // Output 0 = done, output 1 = loop. State across runs is kept in the node context.
 import type { NodeType } from './types.js';
 import type { Item, PairedItem, SourceData } from '../types.js';

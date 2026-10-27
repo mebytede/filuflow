@@ -1,5 +1,5 @@
-// n8n Form, n8n-nodes-base.form (typeVersion 1, 2.3): another form page or completion after a Form Trigger.
-// Rebuilt after n8n 1.123.0 packages/nodes-base/nodes/Form/Form.node.ts (execute: Form Trigger required before it, completion
+// Form, n8n-nodes-base.form (typeVersion 1, 2.3): another form page or completion after a Form Trigger.
+// Rebuilt after the reference version 1.123.0, packages/nodes-base/nodes/Form/Form.node.ts (execute: Form Trigger required before it, completion
 // must be the last Form node, the execution waits and redirects via 307 to $execution.resumeFormUrl) and
 // utils/formCompletionUtils.ts. Pages and evaluation: src/server/webhooks.ts with src/nodes/shared/form.ts.
 import type { NodeType } from './types.js';
@@ -11,7 +11,7 @@ import { WAIT_INDEFINITELY } from '../engine/executor.js';
 
 const UNIT_SECONDS: Record<string, number> = { seconds: 1, minutes: 60, hours: 3600, days: 86400 };
 
-// Parameters like n8n Form.node.ts (properties with pageProperties, completionProperties, waitTimeProperties) and
+// Parameters like the reference Form.node.ts (properties with pageProperties, completionProperties, waitTimeProperties) and
 // utils/sendAndWait/descriptions.ts (limitWaitTimeProperties); form fields from shared/formParams.ts.
 // updateDisplayOptions adds show.operation there; the wait time parameters apply to both page types.
 const PAGE = { operation: ['page'] };
@@ -32,7 +32,7 @@ const parameters: ParamSchema[] = [
   ...formFieldsDefinitionParams.map((p): ParamSchema => ({ ...p, show: { ...p.show, ...PAGE } })),
   {
     name: 'respondWith',
-    label: 'On n8n Form Submission',
+    label: 'On Form Submission',
     type: 'options',
     default: 'text',
     show: COMPLETION,
@@ -142,7 +142,7 @@ const parameters: ParamSchema[] = [
 
 export const formNode: NodeType = {
   type: FORM_NODE_TYPE,
-  displayName: 'n8n Form',
+  displayName: 'Form',
   versions: [1, 2.3],
   parameters,
   outputs: () => 1,

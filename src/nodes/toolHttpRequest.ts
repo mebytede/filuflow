@@ -1,8 +1,8 @@
 // HTTP Request Tool, @n8n/n8n-nodes-langchain.toolHttpRequest (typeVersion 1, 1.1)
-// Rebuilt after n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/tools/ToolHttpRequest:
+// Rebuilt after the reference version 1.123.0, packages/@n8n/nodes-langchain/nodes/tools/ToolHttpRequest:
 //   ToolHttpRequest.node.ts (supplyData, no execute), utils.ts (placeholders, parameters, response optimization,
 //   configureToolFunction), utils/N8nTool.ts (v1.1: structured tool)
-// HTTP like the n8n helper httpRequest (axios): query with qs (indices), object body as JSON.
+// HTTP like the reference helper httpRequest (axios): query with qs (indices), object body as JSON.
 // Not supported (validate): predefined credential types, Digest, OAuth1, response type "text" (Readability),
 // HTML with "onlyContent" (html-to-text).
 import * as cheerio from 'cheerio';
@@ -65,7 +65,7 @@ class HttpToolError extends Error {
 
 const SUPPORTED_GENERIC = ['httpBasicAuth', 'httpHeaderAuth', 'httpQueryAuth', 'httpCustomAuth', 'oAuth2Api'];
 
-/** n8n jsonParse (optionally with repairJSON) */
+/** Reference: jsonParse (optionally with repairJSON) */
 function jsonParse<T = unknown>(text: string, repair = false): T {
   try {
     return JSON.parse(text) as T;
@@ -75,7 +75,7 @@ function jsonParse<T = unknown>(text: string, repair = false): T {
   }
 }
 
-/** n8n jsonParse with acceptJSObject: unquoted keys and single quotes */
+/** Reference: jsonParse with acceptJSObject: unquoted keys and single quotes */
 function jsonParseRelaxed(text: string): Record<string, unknown> {
   try {
     return JSON.parse(text) as Record<string, unknown>;
@@ -197,7 +197,7 @@ function makeToolInputSchema(params: ToolParameter[]): ZType {
 }
 
 // ---------------------------------------------------------------------------------------------
-// HTTP (n8n helpers.httpRequest with returnFullResponse)
+// HTTP (the reference helpers.httpRequest with returnFullResponse)
 
 async function sendRequest(
   ctx: ExecContext,
@@ -611,7 +611,7 @@ function validateNode(node: WorkflowNode): NodeIssue[] {
   return issues;
 }
 
-// Parameters as in n8n 1.123.0 packages/@n8n/nodes-langchain/nodes/tools/ToolHttpRequest/ToolHttpRequest.node.ts
+// Parameters as in the reference version 1.123.0, packages/@n8n/nodes-langchain/nodes/tools/ToolHttpRequest/ToolHttpRequest.node.ts
 // (properties, identical for v1 and v1.1) with the building blocks from descriptions.ts (specifyBySelector, parametersCollection,
 // placeholderDefinitionsCollection, jsonInput, authenticationProperties, optimizeResponseProperties) and
 // packages/@n8n/nodes-langchain/utils/sharedFields.ts (getConnectionHintNoticeField). The generic auth types are
@@ -664,7 +664,7 @@ function toolParametersCollection(name: string, label: string, show: ParamSchema
   };
 }
 
-/** jsonInput (descriptions.ts): a multi-line string in n8n, not a json type */
+/** jsonInput (descriptions.ts): a multi-line string in the reference, not a json type */
 function toolJsonInput(name: string, show: ParamSchema['show']): ParamSchema {
   return { name, label: 'JSON', type: 'string', rows: 5, default: '', show, description: 'Parts of the JSON written as {placeholder} are filled in by the model' };
 }
@@ -715,7 +715,7 @@ const parameters: ParamSchema[] = [
     ],
   },
   {
-    // n8n: type credentialsSelect; filuflow knows types with authentication and OAuth2 types (M28), validate reports others
+    // Reference: type credentialsSelect; filuflow knows types with authentication and OAuth2 types (M28), validate reports others
     name: 'nodeCredentialType',
     label: 'Credential Type',
     type: 'string',
@@ -733,7 +733,7 @@ const parameters: ParamSchema[] = [
     show: { nodeCredentialType: ['googleApi'] },
   },
   {
-    // n8n: type credentialsSelect (has:genericAuth)
+    // Reference: type credentialsSelect (has:genericAuth)
     name: 'genericAuthType',
     label: 'Generic Auth Type',
     type: 'options',
@@ -913,9 +913,9 @@ export const toolHttpRequestNode: NodeType = {
   validate: validateNode,
   supplyData: supplyTool,
   async execute() {
-    // The node has no execute in n8n. packages/cli/src/node-types.ts (shouldAssignExecuteMethod) assigns one via
+    // The node has no execute in the reference. packages/cli/src/node-types.ts (shouldAssignExecuteMethod) assigns one via
     // RoutingNode, which fails with "Invalid URL" without routing information. Agent V3 therefore cannot use the tool
-    // (fixture 21 against n8n 1.123.0).
+    // (fixture 21 against the reference version 1.123.0).
     throw new TypeError('Invalid URL');
   },
 };
