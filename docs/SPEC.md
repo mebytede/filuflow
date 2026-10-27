@@ -325,6 +325,7 @@ Engine order, expressions (including raw value vs. string), every node, filter o
 | M39 | English by default, German selectable | Code, docs, server, CLI and API messages in English; web interface in English with German as a per-browser option, including node and credential labels; Supervisor language setting |
 | M40 | Gmail node | All resources and operations of Gmail v2 to 2.2 with OAuth2 and service account, MIME messages with attachments, send and wait for a response |
 | M41 | Gmail Trigger | Polling trigger v1 to 1.3 with the Gmail filters, seen messages in static data like n8n; generic mechanism for built-in poll nodes (Poll Times, activation, manual run) |
+| M42 | Installation | `scripts/install.sh` for serve, master and worker with Docker or systemd, optional Caddy with Let's Encrypt, updates and uninstall; `docs/INSTALL.md` |
 
 After each milestone: update `docs/STATUS.md` (what works, what is missing) and make a commit with a meaningful message.
 
@@ -380,3 +381,19 @@ proposal that a human accepts or dismisses; accepting activates nothing.
 | M36 | Improve: proposal for a finding as a sequence of operations, applied to a copy, validated (validator), shown with a diff; test run only on explicit request; accepting saves if the workflow is unchanged since the proposal |
 | M37 | Create: chat with the Supervisor in the editor (questions about the workflow, changes, new workflows); new workflows are created inactive as a proposal |
 | M38 | Master: the workers' Supervisors via the master, proposals are accepted in the master as a new version, permissions as role actions (M34) |
+
+## Installation (M42)
+`scripts/install.sh` (bash, Debian/Ubuntu first, Fedora/RHEL where simple) installs filuflow on a server:
+- Modes `serve`, `master`, `worker` with the keys each needs (`FILUFLOW_API_KEY` for serve and worker,
+  `FILUFLOW_ENCRYPTION_KEY` everywhere, required in the master), generated when not given, written only to the env file
+  (mode 600) and printed once.
+- Methods `docker` (default; compose file and `.env` in the install directory, data in `./data`, image built from the
+  checked out source or `--image`) and `native` (Node.js 22, system user, systemd unit with hardening).
+- `--domain` puts Caddy in front with an automatic Let's Encrypt certificate; filuflow then listens on 127.0.0.1, the
+  webhook or public URL uses `https://<domain>`, the master trusts `X-Forwarded-For`.
+- Interactive questions in a terminal, fully non-interactive with flags and `--yes`; prerequisites only after showing the
+  plan and confirmation; input validation; `--dry-run` writes the generated files into the install directory without
+  root, packages or services.
+- Re-runs update (keep secrets, own settings and data), `--update`, `--uninstall` keeps data, `--purge` deletes it.
+- `docs/INSTALL.md`: requirements, the script, manual installation per mode and method, HTTPS (Caddy, nginx), first
+  steps, updates, backup and restore, uninstalling, troubleshooting.

@@ -550,3 +550,22 @@ active workflow, so without the copy a test run of the Gmail Trigger would move 
 still starts from the stored values, so like n8n a test run does not return a message that the active trigger already
 counts as a possible duplicate. After a successful activation the static data is saved (as n8n does in
 `ActiveWorkflowManager.add`), so the first poll time survives a restart even before the first execution.
+
+## Installer (M42)
+`scripts/install.sh` builds the Docker image from source on the server by default instead of pulling
+`ghcr.io/mebytede/filuflow:main`. The package in the GitHub Container Registry is private, so other people cannot pull it,
+and building from a git ref makes the installed version explicit (`--ref`) and works the same for the native method.
+`--image` uses a prebuilt image for those who have access to one; the build costs a few minutes and about 2 GB of RAM
+once per update.
+
+For HTTPS the installer uses Caddy from its official repository: it obtains and renews Let's Encrypt certificates by
+itself, redirects HTTP to HTTPS and needs a configuration of a few lines, so the installer has no certbot timers, renewal
+hooks or TLS settings to maintain. Caddy runs on the host for both methods (not as a container), so the same site file
+serves a Docker or a native installation, and filuflow only listens on 127.0.0.1 behind it. Other proxies (nginx,
+Traefik) remain possible with `--public-url`; `docs/INSTALL.md` has an nginx example.
+
+The installer is a bash script without dependencies beyond curl, git and the package manager. Generated configuration
+files (compose file, systemd unit, Caddy site) are rewritten on every run; own changes go into
+`docker-compose.override.yml` or a systemd drop-in. The env file is only amended, so secrets and own settings survive
+updates. No new runtime dependencies for filuflow itself.
+

@@ -43,7 +43,18 @@ and respond. Every run is logged and can be traced node by node.
 
 ## Quick start
 
-Requirement: Node.js 22.
+On a Linux server (Debian or Ubuntu; Docker by default, `--method native` for Node.js 22 with systemd):
+
+```bash
+sudo bash scripts/install.sh --mode serve --domain flows.example.com --email admin@example.com
+```
+
+The script installs the prerequisites, generates the secrets, puts Caddy with a Let's Encrypt certificate in front
+(only with `--domain`), starts filuflow and prints the address and login. `--mode master` and `--mode worker` set up the
+team and tenant modes. All flags, manual installation, HTTPS, updates, backups and troubleshooting:
+[docs/INSTALL.md](docs/INSTALL.md).
+
+For development and a quick try on your own machine (Node.js 22):
 
 ```bash
 npm install
@@ -53,12 +64,6 @@ FILUFLOW_API_KEY=secret npx filuflow serve --dir ./workflows
 
 Then open `http://localhost:5678/` and log in with the API key `secret`. Workflows are stored as JSON files in `./workflows`;
 new workflows can be created in the editor or dropped in as a file (the server reloads changes automatically).
-
-With Docker:
-
-```bash
-FILUFLOW_API_KEY=secret docker compose up -d --build
-```
 
 ## Web interface
 
@@ -560,8 +565,8 @@ removes it when the assignment is lifted and catches up on failures at the next 
 worker. The image is based on `node:22-slim` and runs as user `node` with the working directory `/data` (workflows under
 `/data/workflows`, optionally `/data/credentials.json` and `/data/vars.json`).
 
-A prebuilt image is available in the GitHub Container Registry (`ghcr.io/mebytede/filuflow:main`, see Development); to
-build it yourself:
+A prebuilt image is published to the GitHub Container Registry (`ghcr.io/mebytede/filuflow:main`, see Development); while
+the package is private, only accounts with access can pull it. To build it yourself:
 
 ```bash
 docker build -t filuflow .                                   # with Python (Native): --build-arg WITH_PYTHON=true
@@ -569,6 +574,8 @@ docker run -p 5678:5678 -e FILUFLOW_API_KEY=secret -v "$PWD/data:/data" filuflow
 ```
 
 For operation on a network, put a reverse proxy with HTTPS in front. Workers should be reachable via HTTPS or a VPN.
+[docs/INSTALL.md](docs/INSTALL.md) describes the installation per mode with Docker or systemd, HTTPS with Caddy or nginx,
+updates and backups; `scripts/install.sh` automates it.
 
 ## Working with n8n
 
@@ -594,6 +601,7 @@ golden tests, build and the Docker image (build, start, `/healthz`). After a pus
 
 ## Documentation
 
+- [docs/INSTALL.md](docs/INSTALL.md): installation (script, Docker, systemd, HTTPS, updates, backups)
 - [docs/STATUS.md](docs/STATUS.md): development status
 - [docs/SECURITY.md](docs/SECURITY.md): security model, login, credentials
 - [docs/DECISIONS.md](docs/DECISIONS.md): decisions and dependencies

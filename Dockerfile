@@ -29,7 +29,8 @@ COPY --from=build /app/package.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/bin ./bin
-RUN mkdir -p /data/workflows && chown -R node:node /data
+# /data/state exists in the image so that a named volume mounted there (compose files) belongs to "node"
+RUN mkdir -p /data/workflows /data/state && chown -R node:node /data
 WORKDIR /data
 USER node
 VOLUME ["/data"]
