@@ -47,7 +47,7 @@ describe('Credential files', () => {
     expect(provider.find({ name: 'Flat' }, 'httpBasicAuth')?.data).toEqual({ user: 'u', password: 'p' });
   });
 
-  it('reads exports of n8n export:credentials --decrypted', async () => {
+  it('reads exports of "export:credentials --decrypted" from the reference', async () => {
     const provider = await loadCredentials(
       tmpFile('export.json', [{ id: 'x9', name: 'Export', type: 'httpBearerAuth', data: { token: 't' }, createdAt: '2024-01-01' }]),
     );
@@ -176,7 +176,7 @@ describe('OAuth2 client_credentials', () => {
     return { client, calls };
   }
 
-  it('fetches a token like n8n and keeps using it until the API returns 401', async () => {
+  it('fetches a token like the reference and keeps using it until the API returns 401', async () => {
     const { client, calls } = fakeHttp((t) => (t === 'tok-1' ? 200 : 500));
     const runner = new Runner({ credentials, http: client });
     const first = await runner.run({ workflow: oauthWorkflow() });
@@ -189,7 +189,7 @@ describe('OAuth2 client_credentials', () => {
       'Content-Type': 'application/x-www-form-urlencoded',
       Authorization: `Basic ${Buffer.from('id:sec').toString('base64')}`,
     });
-    // second run: token from the cache although expires_in would have expired (n8n does not check the expiry date)
+    // second run: token from the cache although expires_in would have expired (the reference does not check the expiry date)
     await new Promise((r) => setTimeout(r, 1100));
     const second = await runner.run({ workflow: oauthWorkflow() });
     expect(second.status).toBe('success');

@@ -17,7 +17,7 @@ function sample(): Workflow {
 }
 
 describe('Editor model', () => {
-  it('creates connections in n8n format (empty outputs as [])', () => {
+  it('creates connections in the common workflow format (empty outputs as [])', () => {
     const wf = sample();
     expect(wf.connections.If).toEqual({ main: [[], [{ node: 'End', type: 'main', index: 0 }]] });
     expect(addEdge(wf, { from: 'Start', type: 'main', output: 0, to: 'Assign', input: 0 })).toBe(false);

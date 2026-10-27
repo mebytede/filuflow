@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Reads the executions from the n8n SQLite database and writes expected.json for webhook fixtures:
+// Reads the executions from the SQLite database of the reference implementation and writes expected.json for webhook fixtures:
 // { "responses": [...], "executions": [ <snapshot per execution, sorted by ID> ] }
 // Usage: node scripts/extract-webhook.mjs <database.sqlite> <responses.json> <expected.json>
 import { readFileSync, writeFileSync } from 'node:fs';

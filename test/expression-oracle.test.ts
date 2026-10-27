@@ -1,5 +1,5 @@
-// Expressions with extension functions against an oracle table from real n8n
-// (scripts/record-expression-table.sh, n8n Expression.getParameterValue).
+// Expressions with extension functions against an oracle table from the real reference implementation
+// (scripts/record-expression-table.sh, Expression.getParameterValue of the reference).
 import { beforeAll, describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
@@ -59,12 +59,12 @@ function evaluate(tpl: string): { result?: unknown; error?: string } {
   }
 }
 
-describe('Expressions with extension functions (oracle n8n 1.123.0)', () => {
+describe('Expressions with extension functions (oracle: reference version 1.123.0)', () => {
   beforeAll(() => {
     Settings.defaultZone = 'Europe/Berlin';
   });
 
-  it(`match n8n in all ${table.cases.length} cases`, () => {
+  it(`match the reference in all ${table.cases.length} cases`, () => {
     const mismatches: string[] = [];
     for (const c of table.cases) {
       const actual = evaluate(c.tpl);

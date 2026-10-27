@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Generates test/oracle/expression-table.json.gz: results of n8n Expression.getParameterValue
+# Generates test/oracle/expression-table.json.gz: results of Expression.getParameterValue of the reference
 # (n8n-workflow from the pinned image) for all cases from scripts/oracle-cases.mjs (extensionCases).
 set -euo pipefail
-N8N_IMAGE="${N8N_IMAGE:-n8nio/n8n:1.123.0}"
+REFERENCE_IMAGE="${REFERENCE_IMAGE:-n8nio/n8n:1.123.0}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WORK="$(mktemp -d)"; chmod 777 "$WORK"; trap 'rm -rf "$WORK"' EXIT
 node --input-type=module -e "
@@ -45,7 +45,7 @@ const out = cases.map((tpl) => {
 });
 fs.writeFileSync('/data/results.json', JSON.stringify(out));
 JS
-docker run --rm -v "$WORK:/data" -e TZ=Europe/Berlin -e GENERIC_TIMEZONE=Europe/Berlin --entrypoint node "$N8N_IMAGE" /data/run.cjs
+docker run --rm -v "$WORK:/data" -e TZ=Europe/Berlin -e GENERIC_TIMEZONE=Europe/Berlin --entrypoint node "$REFERENCE_IMAGE" /data/run.cjs
 mkdir -p "$ROOT/test/oracle"
 node -e "
 const fs=require('fs');

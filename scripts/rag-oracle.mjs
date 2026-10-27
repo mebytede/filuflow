@@ -1,5 +1,5 @@
 // Oracle for M27 (test/oracle/rag-oracle.json): Text Splitter, JSONLoader/TextLoader and MemoryVectorStore from the
-// LangChain packages in the versions used by n8n 1.123.0. Run in a separate folder:
+// LangChain packages in the versions used by the reference version 1.123.0. Run in a separate folder:
 //   npm install @langchain/textsplitters@1.0.1 @langchain/core@1.1.0 @langchain/classic@1.0.5
 //   node rag-oracle.mjs > rag-oracle.json
 import { RecursiveCharacterTextSplitter, CharacterTextSplitter } from '@langchain/textsplitters';

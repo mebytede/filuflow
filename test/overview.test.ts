@@ -96,7 +96,7 @@ describe('Overview', () => {
     expect(describeInterval({ field: 'cronExpression', expression: '0 6 * * *' })).toBe('Cron 0 6 * * *');
   });
 
-  it('Switch: output names as in n8n (outputKey, index, fallback)', () => {
+  it('Switch: output names as in the reference (outputKey, index, fallback)', () => {
     const node = (parameters: Record<string, unknown>): WorkflowNode => ({ id: 's', name: 'S', type: 'n8n-nodes-base.switch', typeVersion: 3.2, position: [0, 0], parameters });
     expect(switchNode.outputNames!(node({ rules: { values: [{ outputKey: 'high' }, {}] }, options: { fallbackOutput: 'extra', renameFallbackOutput: 'otherwise' } }))).toEqual(['high', '1', 'otherwise']);
     expect(switchNode.outputNames!(node({ rules: { values: [{}] }, options: { fallbackOutput: 'extra' } }))).toEqual(['0', 'Fallback']);

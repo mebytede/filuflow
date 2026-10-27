@@ -157,7 +157,7 @@ In addition to the stack from CLAUDE.md (luxon, better-sqlite3, fastify, croner,
 - Execution log: SQLite via better-sqlite3, tables `executions` and `execution_data` (gzip-compressed JSON).
   At startup, incomplete executions are marked as `crashed`.
 - Webhook golden tests: `scripts/record-webhook.sh` imports the workflow into the reference, activates it directly in the database
-  (`update:workflow --active=true` fails in 1.123 after an import, see `scripts/activate-n8n-workflow.mjs`), starts
+  (`update:workflow --active=true` fails in 1.123 after an import, see `scripts/activate-reference-workflow.mjs`), starts
   `n8n start`, sends the requests from `webhook.json` with `scripts/webhook-client.mjs` and reads the executions from the SQLite file.
   The same client sends to filuflow in the test, so headers and order are identical.
 
@@ -366,7 +366,7 @@ with the hint about batching.
 
 For this, `helpers.httpRequest` now follows convertN8nRequestToAxios more closely: an empty body (e.g. `{}` from the defaults)
 is not sent, and never a body with GET. Not rebuilt: `preAuthentication` of credential types (tokens that the reference fetches before
-the request and stores in the credential) and the header `User-Agent: n8n`.
+the request and stores in the credential) and the reference's own `User-Agent` header.
 
 ## Community packages from the interface (M30)
 The flow follows the reference version 1.123.0 `community-packages.service.ts`: check the package name, resolve the version via the registry,

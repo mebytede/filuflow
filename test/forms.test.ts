@@ -1,4 +1,4 @@
-// Forms (M17): Form Trigger under /form/<path> like n8n (fields field-N, output by label, numbers, choices,
+// Forms (M17): Form Trigger under /form/<path> like the reference (fields field-N, output by label, numbers, choices,
 // files, submittedAt, formMode, formQueryParameters), response modes, Basic Auth, multi-page forms with Form nodes
 // and completion page, Wait "On Form Submitted", HTML sanitizing.
 import { afterEach, describe, expect, it } from 'vitest';
@@ -69,7 +69,7 @@ const until = async (check: () => boolean, ms = 3000) => {
 };
 
 describe('Form Trigger', () => {
-  it('shows the form and returns the input like n8n', async () => {
+  it('shows the form and returns the input like the reference', async () => {
     const s = await start(workflow([trigger({ formDescription: 'Please fill in <b>everything</b><script>alert(1)</script>' })]));
     const page = await s.app.inject({ method: 'GET', url: '/form/f-1?Name=Ada' });
     expect(page.statusCode).toBe(200);

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Oracle for the AI tools: runs n8n code in the container and stores the results in test/oracle/ai-tools.json
+# Oracle for the AI tools: runs reference code in the container and stores the results in test/oracle/ai-tools.json
 #   - Calculator tool (@langchain/community Calculator with math-expression-evaluator)
 #   - $fromAI placeholders (n8n-workflow extractFromAICalls) and the JSON schema generated from them
 #     (generateZodSchema, z.object(...).required(), zod-to-json-schema as in the tools)
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-N8N_IMAGE="${N8N_IMAGE:-n8nio/n8n:1.123.0}"
+REFERENCE_IMAGE="${REFERENCE_IMAGE:-n8nio/n8n:1.123.0}"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/filuflow-ai-tools.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 node -e '
@@ -42,6 +42,6 @@ for (const text of cases.fromAI) {
 fs.writeFileSync('/data/out.json', JSON.stringify(out, null, 1));
 JS
 chmod -R 777 "$WORK"
-docker run --rm -v "$WORK:/data" --entrypoint node "$N8N_IMAGE" /data/run.mjs
+docker run --rm -v "$WORK:/data" --entrypoint node "$REFERENCE_IMAGE" /data/run.mjs
 cp "$WORK/out.json" "$ROOT/test/oracle/ai-tools.json"
 echo "written: test/oracle/ai-tools.json"

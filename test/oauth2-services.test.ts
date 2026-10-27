@@ -110,7 +110,7 @@ describe('Defaults on load', () => {
     expect(applySchemaDefaults('linkedInOAuth2Api', { organizationSupport: false, legacy: false }).scope).toBe('w_member_social,profile,email,openid');
     expect(applySchemaDefaults('microsoftSharePointOAuth2Api', { subdomain: 'acme' }).scope).toBe('openid offline_access https://acme.sharepoint.com/.default');
     expect(applySchemaDefaults('salesforceOAuth2Api', { environment: 'sandbox' }).accessTokenUrl).toBe('https://test.salesforce.com/services/oauth2/token');
-    // Stored values of hidden fields (n8n export) apply and are evaluated as well
+    // Stored values of hidden fields (exported workflows) apply and are evaluated as well
     expect(applySchemaDefaults('gitlabOAuth2Api', { server: 'https://gitlab.acme.example', authUrl: '={{$self["server"]}}/oauth/authorize' }).authUrl).toBe('https://gitlab.acme.example/oauth/authorize');
     // Entered values stay, even if they start with "="
     expect(applySchemaDefaults('githubOAuth2Api', { clientSecret: '={{1+1}}' }).clientSecret).toBe('={{1+1}}');
@@ -205,7 +205,7 @@ describe('Connecting derived types', () => {
 
 describe('Service quirks of requestOAuth2', () => {
   const credentials = new StaticCredentialProvider([
-    // Slack returns token_type "bot"; n8n uses the user token (authed_user.access_token) as Bearer
+    // Slack returns token_type "bot"; the reference uses the user token (authed_user.access_token) as Bearer
     { name: 'Slack', type: 'slackOAuth2Api', data: { clientId: 'c', clientSecret: 's', oauthTokenData: { access_token: 'bot-1', token_type: 'bot', authed_user: { access_token: 'user-1' } } } },
     // ClickUp: token without "Bearer"
     { name: 'ClickUp', type: 'clickUpOAuth2Api', data: { clientId: 'c', clientSecret: 's', oauthTokenData: { access_token: 'cu-1', token_type: 'Bearer' } } },
@@ -244,7 +244,7 @@ describe('Service quirks of requestOAuth2', () => {
     expect(await run(http('slackOAuth2Api', 'Slack'))).toMatchObject({ ok: true, authorization: 'Bearer user-1' });
     // ClickUp sends the token without a prefix (keepBearer: false)
     expect(await run(http('clickUpOAuth2Api', 'ClickUp'))).toMatchObject({ ok: true, authorization: 'cu-1' });
-    // Shopify has no own description in filuflow: OAuth2 by type name, options as in n8n
+    // Shopify has no own description in filuflow: OAuth2 by type name, options as in the reference
     expect(credentialType('shopifyOAuth2Api')).toBeUndefined();
     expect(await run(http('shopifyOAuth2Api', 'Shopify'))).toMatchObject({ ok: true, authorization: 'Bearer sp-1', shopify: 'sp-1' });
   });

@@ -50,7 +50,7 @@ describe('Expression syntax', () => {
     expect(ev('{{ null }}')).toBe(null);
   });
 
-  it('otherwise concatenates as a string (like n8n Array.join)', () => {
+  it('otherwise concatenates as a string (like the reference Array.join)', () => {
     expect(ev('n={{ 42 }}')).toBe('n=42');
     expect(ev('{{ 1 }}{{ 2 }}')).toBe('12');
     expect(ev('{{ $json.o }} ', { o: { a: 1 } })).toBe('[object Object] ');
@@ -59,7 +59,7 @@ describe('Expression syntax', () => {
     expect(ev('just text')).toBe('just text');
   });
 
-  it('swallows TypeErrors like n8n', () => {
+  it('swallows TypeErrors like the reference', () => {
     expect(ev('{{ $json.a.b.c }}')).toBeUndefined();
     expect(ev('x{{ $json.a.b.c }}y')).toBe('xy');
   });

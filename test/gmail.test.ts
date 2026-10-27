@@ -251,7 +251,7 @@ describe('Gmail messages', () => {
     expect(mail.replyTo?.text).toBe('reply@example.com');
     expect(mail.subject).toBe('Grüße');
     expect(mail.html).toBe('<p>Hallo</p>\n');
-    // No n8n attribution (docs/DECISIONS.md)
+    // No attribution of the reference product (docs/DECISIONS.md); the literal name is checked on purpose
     expect(String(mail.html)).not.toContain('n8n');
   });
 
@@ -338,7 +338,7 @@ describe('Gmail messages', () => {
     });
     expect(lists[0].query.getAll('labelIds')).toEqual(['INBOX', 'Label_1']);
     expect(lists[1].query.get('pageToken')).toBe('p2');
-    // The same query object is used for every message (as in n8n)
+    // The same query object is used for every message (as in the reference)
     const singles = requests.filter((r) => /\/messages\/m\d$/.test(r.path));
     expect(singles.map((r) => r.path.split('/').pop())).toEqual(['m1', 'm2', 'm3']);
     expect(singles[0].query.get('format')).toBe('metadata');
@@ -408,7 +408,7 @@ describe('Gmail messages', () => {
     expect(send).toBeDefined();
   });
 
-  it('maps API errors like n8n and continues on fail', async () => {
+  it('maps API errors like the reference and continues on fail', async () => {
     const missing = await exec({ operation: 'get', messageId: 'missing' });
     expect(missing.runData.Gmail[0].error).toMatchObject({ message: 'Message not found (item 0)', itemIndex: 0 });
     const bad = await exec({ operation: 'get', messageId: 'bad' });
@@ -431,7 +431,7 @@ describe('Gmail messages', () => {
 });
 
 describe('Gmail drafts and threads', () => {
-  it('creates a draft in a thread (In-Reply-To only, as in n8n) with alias and attachments', async () => {
+  it('creates a draft in a thread (In-Reply-To only, as in the reference) with alias and attachments', async () => {
     const pin = [binaryItem('data', 'draft file', 'text/plain')];
     await run(
       { resource: 'draft', subject: 'Re: Thread', message: 'Draft text', options: { threadId: 'thread-7', fromAlias: 'alias@example.com', sendTo: 'x@example.com', attachmentsUi: { attachmentsBinary: [{ property: 'data' }] } } },
@@ -570,7 +570,7 @@ describe('MIME messages', () => {
     parse: Array<{ name: string; raw: string; expected: { json: Record<string, unknown>; attachments: unknown[] } }>;
     compose: Array<{ name: string; options: Record<string, unknown> & { attachments?: Array<{ name: string; content: string; type?: string }> }; expected: { json: Record<string, unknown>; attachments: unknown[] } }>;
   };
-  const asN8n = (raw: string | Buffer) => {
+  const asReferenceJson = (raw: string | Buffer) => {
     const p = parseMail(raw) as unknown as Record<string, unknown> & ReturnType<typeof parseMail>;
     const headers: Record<string, string> = {};
     for (const h of p.headerLines) headers[h.key] = h.line;
@@ -579,13 +579,13 @@ describe('MIME messages', () => {
   };
 
   it.each(oracle.parse.map((c) => [c.name, c] as const))('parses like mailparser: %s', (_name, c) => {
-    expect(JSON.parse(JSON.stringify(asN8n(c.raw)))).toEqual(c.expected);
+    expect(JSON.parse(JSON.stringify(asReferenceJson(c.raw)))).toEqual(c.expected);
   });
 
   it.each(oracle.compose.map((c) => [c.name, c] as const))('composes like nodemailer: %s', (_name, c) => {
     const o = c.options;
     const raw = composeMail({ ...o, attachments: o.attachments?.map((a) => ({ filename: a.name, content: Buffer.from(a.content, 'base64'), contentType: a.type })) } as Parameters<typeof composeMail>[0]);
-    const parsed = asN8n(raw);
+    const parsed = asReferenceJson(raw);
     delete parsed.json.messageId;
     delete parsed.json.date;
     delete parsed.json.headers;

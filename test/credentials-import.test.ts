@@ -1,4 +1,5 @@
-// M22: take over credentials from n8n (n8n export:credentials, encrypted with the n8n key or --decrypted).
+// M22: take over credentials from another instance ("export:credentials" of the reference, encrypted with the key of
+// the source instance or exported with --decrypted).
 import { afterEach, describe, expect, it } from 'vitest';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -9,7 +10,7 @@ import { StaticCredentialProvider, loadCredentials } from '../src/credentials/st
 import { LayeredCredentialProvider } from '../src/credentials/managed.js';
 import { decryptImportedCredential, encryptImportedCredential } from '../src/credentials/importCipher.js';
 
-const N8N_KEY = 'n8n-instance-key';
+const IMPORT_KEY = 'source-instance-key';
 let dir: string | undefined;
 let server: FiluflowServer | undefined;
 const saved = { ...process.env };
@@ -21,26 +22,30 @@ afterEach(async () => {
   process.env = { ...saved };
 });
 
-// This is what an export of "n8n export:credentials --all" looks like (data encrypted)
+// This is what an export of "export:credentials --all" in the reference looks like (data encrypted)
 const exported = () => [
-  { id: 'cred-header-1', name: 'Customer API', type: 'httpHeaderAuth', data: encryptImportedCredential({ name: 'X-Api-Key', value: 'secret-1' }, N8N_KEY), isManaged: false },
-  { id: 'cred-basic-2', name: 'Basic', type: 'httpBasicAuth', data: encryptImportedCredential({ user: 'ada', password: 'lovelace' }, N8N_KEY) },
+  { id: 'cred-header-1', name: 'Customer API', type: 'httpHeaderAuth', data: encryptImportedCredential({ name: 'X-Api-Key', value: 'secret-1' }, IMPORT_KEY), isManaged: false },
+  { id: 'cred-basic-2', name: 'Basic', type: 'httpBasicAuth', data: encryptImportedCredential({ user: 'ada', password: 'lovelace' }, IMPORT_KEY) },
 ];
 
-describe('n8n encryption', () => {
+describe('Encryption of the source instance', () => {
   it('is interchangeable with OpenSSL (EVP_BytesToKey, MD5, AES-256-CBC)', () => {
-    const text = execFileSync('openssl', ['enc', '-aes-256-cbc', '-md', 'md5', '-salt', '-base64', '-A', '-pass', `pass:${N8N_KEY}`], { input: '{"a":1}' }).toString().trim();
-    expect(decryptImportedCredential(text, N8N_KEY)).toEqual({ a: 1 });
-    const back = execFileSync('openssl', ['enc', '-d', '-aes-256-cbc', '-md', 'md5', '-base64', '-A', '-pass', `pass:${N8N_KEY}`], { input: encryptImportedCredential({ b: 2 }, N8N_KEY), stdio: ['pipe', 'pipe', 'ignore'] }).toString();
+    const text = execFileSync('openssl', ['enc', '-aes-256-cbc', '-md', 'md5', '-salt', '-base64', '-A', '-pass', `pass:${IMPORT_KEY}`], { input: '{"a":1}' }).toString().trim();
+    expect(decryptImportedCredential(text, IMPORT_KEY)).toEqual({ a: 1 });
+    const back = execFileSync('openssl', ['enc', '-d', '-aes-256-cbc', '-md', 'md5', '-base64', '-A', '-pass', `pass:${IMPORT_KEY}`], { input: encryptImportedCredential({ b: 2 }, IMPORT_KEY), stdio: ['pipe', 'pipe', 'ignore'] }).toString();
     expect(JSON.parse(back)).toEqual({ b: 2 });
-    expect(() => decryptImportedCredential(encryptImportedCredential({ b: 2 }, N8N_KEY), 'wrong')).toThrow(/wrong n8n key/);
+    expect(() => decryptImportedCredential(encryptImportedCredential({ b: 2 }, IMPORT_KEY), 'wrong')).toThrow(/wrong import key/);
   });
 
-  it('the loader reads encrypted exports with N8N_ENCRYPTION_KEY', async () => {
+  it('the loader reads encrypted exports with FILUFLOW_IMPORT_ENCRYPTION_KEY (not with N8N_ENCRYPTION_KEY)', async () => {
     dir = mkdtempSync(join(tmpdir(), 'filuflow-import-'));
     writeFileSync(join(dir, 'export.json'), JSON.stringify(exported()));
-    await expect(loadCredentials(join(dir, 'export.json'))).rejects.toThrow(/N8N_ENCRYPTION_KEY/);
-    process.env.N8N_ENCRYPTION_KEY = N8N_KEY;
+    await expect(loadCredentials(join(dir, 'export.json'))).rejects.toThrow(/FILUFLOW_IMPORT_ENCRYPTION_KEY/);
+    // The name of the reference implementation is no longer read
+    process.env.N8N_ENCRYPTION_KEY = IMPORT_KEY;
+    await expect(loadCredentials(join(dir, 'export.json'))).rejects.toThrow(/FILUFLOW_IMPORT_ENCRYPTION_KEY/);
+    delete process.env.N8N_ENCRYPTION_KEY;
+    process.env.FILUFLOW_IMPORT_ENCRYPTION_KEY = IMPORT_KEY;
     const provider = await loadCredentials(join(dir, 'export.json'));
     expect(provider.resolve(provider.find({ name: 'Customer API' })!)).toMatchObject({ name: 'X-Api-Key', value: 'secret-1' });
     expect(provider.find({ name: 'whatever', id: 'cred-basic-2' })?.name).toBe('Basic');
@@ -57,8 +62,8 @@ describe('Import via the API and the CLI', () => {
     const post = (body: unknown) => server!.app.inject({ method: 'POST', url: '/api/credentials/import', headers: { 'x-api-key': 'k', 'content-type': 'application/json' }, payload: JSON.stringify(body) });
 
     expect((await post({ credentials: exported() })).statusCode).toBe(400);
-    expect((await post({ credentials: exported(), importKey: 'wrong' })).json().message).toMatch(/wrong n8n key/);
-    const res = await post({ credentials: exported(), importKey: N8N_KEY });
+    expect((await post({ credentials: exported(), importKey: 'wrong' })).json().message).toMatch(/wrong import key/);
+    const res = await post({ credentials: exported(), importKey: IMPORT_KEY });
     expect(res.json()).toEqual({ imported: ['Customer API'], skipped: [{ name: 'Basic', reason: 'maintained in the credentials file' }] });
     expect(credentials.find({ name: 'x', id: 'cred-header-1' })?.data).toEqual({ name: 'X-Api-Key', value: 'secret-1' });
     // Values not in plain text in the response and (with a key) not in the file
@@ -77,16 +82,18 @@ describe('Import via the API and the CLI', () => {
     writeFileSync(file, JSON.stringify(exported()));
     const cli = (args: string[], env: Record<string, string> = {}) =>
       execFileSync(process.execPath, ['--import', 'tsx', join(import.meta.dirname, '..', 'src', 'cli', 'main.ts'), 'credentials', 'import', file, ...args], {
-        env: { ...process.env, FILUFLOW_ENCRYPTION_KEY: '', N8N_ENCRYPTION_KEY: '', ...env },
+        env: { ...process.env, FILUFLOW_ENCRYPTION_KEY: '', FILUFLOW_IMPORT_ENCRYPTION_KEY: '', N8N_ENCRYPTION_KEY: '', ...env },
         stdio: ['ignore', 'pipe', 'pipe'],
       }).toString();
-    const out = JSON.parse(cli(['--n8n-key', N8N_KEY]));
+    const out = JSON.parse(cli(['--import-key', IMPORT_KEY]));
     expect(out).toEqual({
       'Customer API': { id: 'cred-header-1', type: 'httpHeaderAuth', data: { name: 'X-Api-Key', value: 'secret-1' } },
       Basic: { id: 'cred-basic-2', type: 'httpBasicAuth', data: { user: 'ada', password: 'lovelace' } },
     });
     const managed = join(dir, 'managed.json');
-    cli(['--managed', managed], { N8N_ENCRYPTION_KEY: N8N_KEY });
+    // N8N_ENCRYPTION_KEY is no longer read: without the import key the CLI fails
+    expect(() => cli(['--managed', managed], { N8N_ENCRYPTION_KEY: IMPORT_KEY })).toThrow(/FILUFLOW_IMPORT_ENCRYPTION_KEY/);
+    cli(['--managed', managed], { FILUFLOW_IMPORT_ENCRYPTION_KEY: IMPORT_KEY });
     expect(Object.keys(JSON.parse(readFileSync(managed, 'utf8')))).toEqual(['Customer API', 'Basic']);
   }, 60_000);
 });

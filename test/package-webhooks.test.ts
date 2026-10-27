@@ -1,6 +1,6 @@
-// M32: webhook nodes from n8n packages. Paths like getNodeWebhooks (<webhookId>/<path>), methods and response modes
+// M32: webhook nodes from packages in the community node format. Paths like getNodeWebhooks (<webhookId>/<path>), methods and response modes
 // from description.webhooks (also via expression), WebhookContext (body, query, header, URL, name), response mode
-// onReceived with the n8n default "firstEntryJson", lastNode, own response via getResponseObject (noWebhookResponse),
+// onReceived with the reference default "firstEntryJson", lastNode, own response via getResponseObject (noWebhookResponse),
 // webhookResponse without execution, registering and unregistering with the service (webhookMethods) with static data
 // across a restart, test URL.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -91,13 +91,13 @@ async function start(name: string, workflows: Workflow[]): Promise<FiluflowServe
 }
 
 describe('Webhook nodes from packages', () => {
-  it('registers path and method, delivers the request data and responds like n8n', async () => {
+  it('registers path and method, delivers the request data and responds like the reference', async () => {
     const server = await start('inbound', [workflow('inbound', inbound)]);
     try {
       expect(server.workflows.get('inbound')!.webhooks.map((w) => `${w.method} /webhook/${w.path}`)).toEqual(['POST /webhook/inbound-1/webhook']);
       const res = await server.app.inject({ method: 'POST', url: '/webhook/inbound-1/webhook?page=2', headers: { 'content-type': 'application/json', 'x-test': 'yes' }, payload: { order: 7 } });
       expect(res.statusCode).toBe(200);
-      // onReceived without responseData: n8n uses "firstEntryJson" as the default and sends exactly this text
+      // onReceived without responseData: the reference uses "firstEntryJson" as the default and sends exactly this text
       expect(res.body).toBe('firstEntryJson');
       await waitFor(() => server.store.list({ workflow: 'inbound' }).some((e) => e.status === 'success'));
       const [run] = server.store.list({ workflow: 'inbound' });
@@ -114,7 +114,7 @@ describe('Webhook nodes from packages', () => {
       // webhookResponse without workflowData: response without execution
       const rejected = await server.app.inject({ method: 'POST', url: '/webhook/inbound-1/webhook', headers: { 'content-type': 'application/json' }, payload: { reject: true } });
       expect(rejected.json()).toEqual({ rejected: true });
-      // Wrong method: 404 with a hint like n8n
+      // Wrong method: 404 with a hint like the reference
       const wrong = await server.app.inject({ method: 'GET', url: '/webhook/inbound-1/webhook' });
       expect(wrong.statusCode).toBe(404);
       // Test URL for saved workflows

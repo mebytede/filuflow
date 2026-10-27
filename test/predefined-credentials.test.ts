@@ -1,5 +1,5 @@
-// M25: HTTP Request with "Predefined Credential Type" (authentication per type like n8n ICredentialType.authenticate,
-// OAuth2 types via the token) and helpers in the Code node like n8n IExecuteFunctions.helpers.
+// M25: HTTP Request with "Predefined Credential Type" (authentication per type like the reference ICredentialType.authenticate,
+// OAuth2 types via the token) and helpers in the Code node like the reference IExecuteFunctions.helpers.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createServer as createHttpServer, type IncomingMessage, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -101,7 +101,7 @@ describe('helpers in the Code node', () => {
     return exec.runData.Code[0].data!.main![0]!.map((i) => ({ json: i.json, ...(i.pairedItem !== undefined ? { pairedItem: i.pairedItem } : {}) }));
   };
 
-  it('returnJsonArray, constructExecutionMetaData and copyInputItems like n8n', async () => {
+  it('returnJsonArray, constructExecutionMetaData and copyInputItems like the reference', async () => {
     const result = await out(
       code(`
         const items = helpers.returnJsonArray([{ a: 1 }, { json: { b: 2 } }]);

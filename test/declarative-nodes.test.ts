@@ -1,4 +1,4 @@
-// M29: declarative nodes from n8n packages (routing instead of execute) like n8n RoutingNode: requestDefaults with
+// M29: declarative nodes from packages in the community node format (routing instead of execute) like the reference RoutingNode: requestDefaults with
 // $credentials, routing.request/send/output on parameters and option values, preSend and postReceive (functions and
 // built-in actions), pagination (offset, generic), collections, binary responses, errors, Request Options.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';

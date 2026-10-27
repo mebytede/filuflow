@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Records a webhook fixture with real n8n (called by record-expected.sh).
+# Records a webhook fixture with the real reference implementation (called by record-expected.sh).
 #   scripts/record-webhook.sh <fixture-name> [work-dir] [image]
 # Steps: import and activate the workflow, `n8n start`, send the requests from webhook.json via
-# scripts/webhook-client.mjs, stop n8n, read the executions from the SQLite DB.
+# scripts/webhook-client.mjs, stop the reference implementation, read the executions from the SQLite DB.
 set -euo pipefail
 
 NAME="$1"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WORK_BASE="${2:-$(mktemp -d "${TMPDIR:-/tmp}/filuflow-webhook.XXXXXX")}"
-N8N_IMAGE="${3:-${N8N_IMAGE:-n8nio/n8n:1.123.0}}"
+REFERENCE_IMAGE="${3:-${REFERENCE_IMAGE:-n8nio/n8n:1.123.0}}"
 FIX="$ROOT/fixtures/$NAME"
 WORK="$WORK_BASE/webhook-$NAME"
 CONTAINER="filuflow-record-$NAME-$$"
@@ -38,14 +38,14 @@ if [[ -f "$FIX/credentials.json" ]]; then
   node "$ROOT/scripts/credentials-to-reference.mjs" "$FIX/credentials.json" "$WORK/credentials.json"
   IMPORT="n8n import:credentials --input=/data/credentials.json && $IMPORT"
 fi
-docker run --rm --network host -v "$WORK:/data" "${ENV_ARGS[@]}" --entrypoint sh "$N8N_IMAGE" -c \
+docker run --rm --network host -v "$WORK:/data" "${ENV_ARGS[@]}" --entrypoint sh "$REFERENCE_IMAGE" -c \
   "$IMPORT" >"$WORK/import.log" 2>&1 || { cat "$WORK/import.log"; exit 1; }
 # 2. Activate directly in the database (see scripts/activate-reference-workflow.mjs)
 node "$ROOT/scripts/activate-reference-workflow.mjs" "$WORK/home/.n8n/database.sqlite" "$ID"
-# 3. Start n8n
-docker run -d --name "$CONTAINER" --network host -v "$WORK:/data" "${ENV_ARGS[@]}" "$N8N_IMAGE" start >/dev/null
+# 3. Start the reference implementation
+docker run -d --name "$CONTAINER" --network host -v "$WORK:/data" "${ENV_ARGS[@]}" "$REFERENCE_IMAGE" start >/dev/null
 
-echo "Waiting for n8n ($NAME) ..."
+echo "Waiting for the reference implementation ($NAME) ..."
 for _ in $(seq 1 90); do
   if docker logs "$CONTAINER" 2>&1 | grep -q "Editor is now accessible"; then break; fi
   sleep 1

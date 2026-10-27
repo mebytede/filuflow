@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# Generates fixtures/<name>/expected.json with real n8n (Docker).
+# Generates fixtures/<name>/expected.json with the real reference implementation (Docker).
 #
 #   scripts/record-expected.sh            # all fixtures without expected.json
 #   scripts/record-expected.sh --all      # re-record all fixtures
 #   scripts/record-expected.sh 01-linear 05-loop
 #
-# Per run: one container with n8n (pinned version); all workflows are imported with
+# Per run: one container with the reference implementation (pinned version); all workflows are imported with
 # `n8n import:workflow` and executed with `n8n execute --id=<id> --rawOutput`.
 # HTTP fixtures use the mock server (scripts/mock-server.mjs) on 127.0.0.1:18089,
 # so the container runs with --network host.
 # Webhook fixtures (file webhook.json) are recorded via `n8n start` + HTTP request.
 set -euo pipefail
 
-N8N_IMAGE="${N8N_IMAGE:-n8nio/n8n:1.123.0}"   # docker.n8n.io/n8nio/n8n:1.123.0 is identical
+REFERENCE_IMAGE="${REFERENCE_IMAGE:-n8nio/n8n:1.123.0}"   # the same image is also published under docker.n8n.io
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 FIXTURES="$ROOT/fixtures"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/filuflow-record.XXXXXX")"
@@ -93,8 +93,8 @@ if [[ ${#BATCH[@]} -gt 0 ]]; then
     echo "n8n import:workflow --input=/data/$name.json >/dev/null 2>&1 || echo 'Import failed: $name'" >> "$SCRIPT"
     echo "n8n execute --id=$id --rawOutput > /data/$name.out 2>&1 || true" >> "$SCRIPT"
   done
-  echo "Running ${#BATCH[@]} workflow(s) in $N8N_IMAGE ..."
-  docker run --rm --network host -v "$WORK:/data" "${ENV_ARGS[@]}" --entrypoint sh "$N8N_IMAGE" /data/run.sh
+  echo "Running ${#BATCH[@]} workflow(s) in $REFERENCE_IMAGE ..."
+  docker run --rm --network host -v "$WORK:/data" "${ENV_ARGS[@]}" --entrypoint sh "$REFERENCE_IMAGE" /data/run.sh
   for name in "${BATCH[@]}"; do
     node "$ROOT/scripts/extract-expected.mjs" "$WORK/$name.out" "$FIXTURES/$name/expected.json" || {
       echo "Error while evaluating $name:"; tail -40 "$WORK/$name.out"; exit 1; }
@@ -116,5 +116,5 @@ if [[ -s "$WORK/unmatched.jsonl" ]]; then
 fi
 
 for name in "${WEBHOOK[@]}"; do
-  "$ROOT/scripts/record-webhook.sh" "$name" "$WORK" "$N8N_IMAGE"
+  "$ROOT/scripts/record-webhook.sh" "$name" "$WORK" "$REFERENCE_IMAGE"
 done

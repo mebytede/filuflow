@@ -1,4 +1,4 @@
-// M31: poll and trigger nodes from n8n packages. Poll Times as in n8n (cron with a random second, at least one
+// M31: poll and trigger nodes from packages in the community node format. Poll Times as in the reference (cron with a random second, at least one
 // minute), first poll on activation, static data across restarts, errors on activation; trigger nodes with emit,
 // closeFunction and manualTriggerFunction, errors start the error workflow and restart the trigger.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -55,7 +55,7 @@ async function start(name: string, workflows: Workflow[]): Promise<FiluflowServe
 }
 
 describe('Poll Times', () => {
-  it('computes like n8n toCronExpression', () => {
+  it('computes like the reference toCronExpression', () => {
     const r = () => 7;
     expect(toCronExpression({ mode: 'everyMinute' }, r)).toBe('7 * * * * *');
     expect(toCronExpression({ mode: 'everyHour', minute: 5 }, r)).toBe('7 5 * * * *');

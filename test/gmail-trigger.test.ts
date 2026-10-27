@@ -306,7 +306,7 @@ describe('Gmail Trigger query and output', () => {
     // "Unread and read emails" adds nothing to q
     requests = [];
     await activate(triggerWorkflow({ filters: { readStatus: 'both', labelIds: '["INBOX"]' } }));
-    // As in n8n readStatus "both" stays in the query as it is
+    // As in the reference readStatus "both" stays in the query as it is
     expect([...listRequests()[0].query.entries()]).toEqual([
       ['readStatus', 'both'],
       ['labelIds', 'INBOX'],
@@ -344,7 +344,7 @@ describe('Gmail Trigger query and output', () => {
     mailbox = [{ id: 'm1', seconds: NOW + 1, attachment: true }];
     const a = await activate(triggerWorkflow({ simple: false, options: { downloadAttachments: true, dataPropertyAttachmentsPrefixName: 'file_' } }));
     const list = listRequests()[0].query;
-    // As in n8n the options end up in the query as well
+    // As in the reference the options end up in the query as well
     expect([...list.entries()]).toEqual([
       ['q', `after:${NOW}`],
       ['downloadAttachments', 'true'],
@@ -404,7 +404,7 @@ describe('Gmail Trigger manual run', () => {
 });
 
 describe('Gmail Trigger errors when active', () => {
-  it('only logs API errors (like n8n) and keeps polling', async () => {
+  it('only logs API errors (like the reference) and keeps polling', async () => {
     fixClock();
     const logs: LogEntry[] = [];
     override = (r) => (r.path.endsWith('/messages') ? { status: 500, body: { error: { code: 500, message: 'Backend Error' } } } : undefined);
@@ -461,7 +461,7 @@ describe('Gmail Trigger in the server', () => {
   }
 
   it('polls in the active workflow, starts one execution per new mail batch and keeps the state across a restart', async () => {
-    // A range of seconds passes the interval check (as in n8n) and polls every second
+    // A range of seconds passes the interval check (as in the reference) and polls every second
     const workflow = triggerWorkflow({ pollTimes: { item: [{ mode: 'custom', cronExpression: '0-59 * * * * *' }] } }, { active: true });
     const first = await start(workflow);
     expect(first.workflows.get('gmail-trigger-wf')!.active).toBe(true);
@@ -485,8 +485,8 @@ describe('Gmail Trigger in the server', () => {
     await until(() => listRequests().length >= polls + 2);
     expect(triggerRuns(first)).toHaveLength(1);
 
-    // A manual run in the editor fetches the latest message, but reads the workflow's static data like n8n: live-1 is a
-    // possible duplicate, so the test run returns nothing (n8n shows no data in this case as well)
+    // A manual run in the editor fetches the latest message, but reads the workflow's static data like the reference: live-1 is a
+    // possible duplicate, so the test run returns nothing (the reference shows no data in this case as well)
     const before = listRequests().filter((r) => r.query.get('maxResults') === '1').length;
     const manual = await first.app.inject({ method: 'POST', url: '/api/editor/run', headers: { 'x-api-key': 'k' }, payload: { workflow } });
     expect(manual.json()).toMatchObject({ mode: 'manual', status: 'success', runData: {} });

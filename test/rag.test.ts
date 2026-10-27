@@ -1,5 +1,5 @@
 // M27: Embeddings, Simple Vector Store, Default Data Loader, Text Splitter, Retriever, Question and Answer Chain and
-// Vector Store Tools. Splitters, loaders and search against the LangChain packages of n8n 1.123.0 as an oracle
+// Vector Store Tools. Splitters, loaders and search against the LangChain packages of the reference version 1.123.0 as an oracle
 // (test/oracle/rag-oracle.json, scripts/rag-oracle.mjs); nodes with a fake HTTP client for OpenAI.
 import { beforeEach, describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -31,7 +31,7 @@ describe('against LangChain (oracle)', () => {
     for (const c of oracle.cases) expect(JSON.parse(JSON.stringify(splitters[c.name].splitDocuments(doc))), c.name).toEqual(c.docs);
   });
 
-  it('JSONLoader and TextLoader (including the repetitions for an empty pointer, as in n8n)', () => {
+  it('JSONLoader and TextLoader (including the repetitions for an empty pointer, as in the reference)', () => {
     const json = JSON.stringify({ name: 'Ada', tags: ['a', 'b'], nested: { city: 'Berlin', deep: { x: 'y' } }, n: 3, empty: '' });
     expect(loadJson(json, [''])).toEqual(oracle.loaders.allPointerEmpty);
     expect(loadJson(json, [])).toEqual(oracle.loaders.noPointers);
@@ -125,7 +125,7 @@ describe('Simple Vector Store', () => {
     ]);
     // One batch with all three texts, base64 like the OpenAI SDK
     expect(http.embeddings).toEqual([{ model: 'text-embedding-3-small', input: ['The cat sleeps.', 'The dog barks.', 'The car drives.'], encoding_format: 'base64' }]);
-    // Logging on the loader and embeddings like n8n logWrapper
+    // Logging on the loader and embeddings like the reference logWrapper
     expect(exec.runData.Loader).toHaveLength(3);
     expect(exec.runData.Embeddings[0].data!.ai_embedding![0]![0].json).toMatchObject({ response: [expect.any(Array), expect.any(Array), expect.any(Array)] });
 
@@ -179,7 +179,7 @@ describe('Simple Vector Store', () => {
       },
       { role: 'user', content: 'What does the cat do?' },
     ]);
-    // Search logged on the vector store, not on the retriever (like n8n with @langchain/core 1.1)
+    // Search logged on the vector store, not on the retriever (like the reference with @langchain/core 1.1)
     expect(exec.runData.Knowledge[0].data!.ai_vectorStore![0]![0].json).toMatchObject({ response: [{ pageContent: 'The cat sleeps.' }] });
     expect(exec.runData.Retriever).toBeUndefined();
   });

@@ -325,7 +325,7 @@ describe('Projects and permissions', () => {
     const pb = (await admin.post('/api/projects', { name: 'Beta' })).json() as { id: string };
     await admin.put(`/api/projects/${pa.id}/members/${viewer.id}`, { role: 'viewer' });
     await admin.put(`/api/projects/${pa.id}/members/${editor.id}`, { role: 'editor' });
-    const wf = (await admin.post(`/api/projects/${pa.id}/workflows`, { workflow: { ...sample, id: 'from-n8n', active: true } })).json() as { id: string; version: number; active: boolean };
+    const wf = (await admin.post(`/api/projects/${pa.id}/workflows`, { workflow: { ...sample, id: 'from-elsewhere', active: true } })).json() as { id: string; version: number; active: boolean };
     return { m, admin, viewer: viewer.client, editor: editor.client, outsider: outsider.client, editorId: editor.id, pa: pa.id, pb: pb.id, wf };
   }
 
@@ -336,9 +336,9 @@ describe('Projects and permissions', () => {
     expect((await admin.post('/api/projects', { name: '' })).statusCode).toBe(400);
   });
 
-  it('import: the n8n ID is discarded, the workflow starts inactive, version 1', async () => {
+  it('import: the ID of the source instance is discarded, the workflow starts inactive, version 1', async () => {
     const { wf } = await scenario();
-    expect(wf.id).not.toBe('from-n8n');
+    expect(wf.id).not.toBe('from-elsewhere');
     expect(wf.active).toBe(false);
     expect(wf.version).toBe(1);
   });

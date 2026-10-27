@@ -1,4 +1,4 @@
-// Generates test cases for oracle tables (filter operators) that are evaluated with real n8n.
+// Generates test cases for oracle tables (filter operators) that are evaluated with the real reference implementation.
 export function filterCases() {
   const values = [
     null, undefined, '', ' ', '0', '1', '5', '5.5', 'abc', 'ABC', 'true', 'false', 'TRUE',

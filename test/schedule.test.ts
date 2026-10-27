@@ -1,4 +1,4 @@
-// Schedule Trigger: date formats against moment-timezone from the n8n image (test/oracle/schedule-moment.json,
+// Schedule Trigger: date formats against moment-timezone from the reference image (test/oracle/schedule-moment.json,
 // generated with moment.tz(...).format(...) as in ScheduleTrigger.node.ts), cron expressions, recurrence check.
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -71,7 +71,7 @@ describe('Schedule Trigger', () => {
     expect(recurrenceCheck(rec, rules, 'UTC', at(4))).toBe(true);
   });
 
-  it('creates cron expressions like n8n', () => {
+  it('creates cron expressions like the reference', () => {
     expect(toCronExpression({ field: 'seconds', secondsInterval: 10 })).toBe('*/10 * * * * *');
     expect(toCronExpression({ field: 'cronExpression', expression: '0 15 * * 1' })).toBe('0 15 * * 1');
     expect(toCronExpression({ field: 'minutes', minutesInterval: 5 })).toMatch(/^\d+ \*\/5 \* \* \* \*$/);

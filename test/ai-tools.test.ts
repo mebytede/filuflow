@@ -1,4 +1,4 @@
-// AI tools against n8n code as an oracle (test/oracle/ai-tools.json, scripts/record-ai-tools-oracle.sh):
+// AI tools against reference code as an oracle (test/oracle/ai-tools.json, scripts/record-ai-tools-oracle.sh):
 // Calculator tool and $fromAI placeholders with the JSON Schema generated from them.
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -14,7 +14,7 @@ interface Table {
 
 const table = JSON.parse(readFileSync(join(__dirname, 'oracle', 'ai-tools.json'), 'utf8')) as Table;
 
-describe('Calculator like n8n', () => {
+describe('Calculator like the reference', () => {
   for (const c of table.calculator) {
     it(JSON.stringify(c.input), () => {
       expect(calculate(c.input)).toBe(c.output);
@@ -22,7 +22,7 @@ describe('Calculator like n8n', () => {
   }
 });
 
-describe('$fromAI like n8n', () => {
+describe('$fromAI like the reference', () => {
   for (const c of table.fromAI) {
     it(c.text, () => {
       if (c.error) {

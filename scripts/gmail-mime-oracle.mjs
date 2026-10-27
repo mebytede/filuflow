@@ -1,4 +1,4 @@
-// Oracle for M40 (test/oracle/gmail-mime.json): what n8n 1.123.0 (n8n-nodes-base 1.121.0, Gmail GenericFunctions
+// Oracle for M40 (test/oracle/gmail-mime.json): what the reference version 1.123.0 (n8n-nodes-base 1.121.0, Gmail GenericFunctions
 // parseRawEmail and encodeEmail) gets from mailparser 3.6.7 and nodemailer 7.0.10. Run with a folder that contains
 // both packages, e.g.:
 //   mkdir /tmp/mo && cd /tmp/mo && npm install mailparser@3.6.7 nodemailer@7.0.10

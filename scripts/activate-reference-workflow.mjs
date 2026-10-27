@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Activates an imported workflow directly in the n8n SQLite database.
-// n8n 1.123 `update:workflow --active=true` fails after `import:workflow` because the import does not create
+// Activates an imported workflow directly in the SQLite database of the reference implementation.
+// In the reference version 1.123, `update:workflow --active=true` fails after `import:workflow` because the import does not create
 // an entry in workflow_history (foreign key activeVersionId). Only used for recording.
 // Usage: node scripts/activate-reference-workflow.mjs <database.sqlite> <workflow-id>
 import Database from 'better-sqlite3';

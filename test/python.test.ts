@@ -1,4 +1,4 @@
-// Python in the Code node (M12): "python" with Pyodide like n8n (context with "_", JS objects as dicts, print, errors from
+// Python in the Code node (M12): "python" with Pyodide like the reference (context with "_", JS objects as dicts, print, errors from
 // the error type on, validation with "dictionary"), timeout also for endless loops, blocked modules; "pythonNative"
 // with a local python3 (only _items/_item, import allow lists, blocked builtins, empty environment, timeout).
 // Code Tool with Python.
@@ -58,7 +58,7 @@ describe('Python (Pyodide)', () => {
     expect(out.map((i) => i.json)).toEqual([{ name: 'ANNA', double: 2 }, { name: 'BERT', double: 4 }, { count: 2, first: 'Anna' }]);
   });
 
-  it('modify items directly and return them (like in n8n)', async () => {
+  it('modify items directly and return them (like in the reference)', async () => {
     const { out } = await run(workflow({ pythonCode: 'for item in _input.all():\n  item.json.new = True\nreturn _input.all()' }));
     expect(out.map((i) => i.json)).toEqual([{ name: 'Anna', n: 1, new: true }, { name: 'Bert', n: 2, new: true }]);
   });
@@ -117,10 +117,15 @@ describe('Python (Pyodide)', () => {
     expect(await runPython("import os\nreturn 'FILUFLOW_API_KEY' in os.environ", { context: {}, timeoutMs: 1000 })).toBe(false);
   });
 
-  it('can be turned off (N8N_PYTHON_ENABLED / FILUFLOW_PYTHON_ENABLED)', async () => {
+  it('can be turned off (FILUFLOW_PYTHON_ENABLED, N8N_PYTHON_ENABLED is not read)', async () => {
+    process.env.N8N_PYTHON_ENABLED = 'false';
+    const allowed = await run(workflow({ pythonCode: 'return _input.all()' }));
+    expect(allowed.exec.runData.Code[0].error?.message ?? '').not.toMatch(/disallows Python execution/);
+    delete process.env.N8N_PYTHON_ENABLED;
     process.env.FILUFLOW_PYTHON_ENABLED = 'false';
     const { exec } = await run(workflow({ pythonCode: 'return _input.all()' }));
     expect(exec.runData.Code[0].error?.message).toMatch(/disallows Python execution/);
+    expect(exec.runData.Code[0].error?.message).toContain('FILUFLOW_PYTHON_ENABLED');
   });
 
   it('validator accepts python and pythonNative, rejects other languages', () => {

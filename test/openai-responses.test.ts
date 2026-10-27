@@ -1,5 +1,5 @@
-// M26: OpenAI Chat Model from v1.3 on with the Responses API (default in n8n): request like @langchain/openai 1.1.3
-// (input entries, function_call/function_call_output with IDs, text, max_output_tokens), options like n8n
+// M26: OpenAI Chat Model from v1.3 on with the Responses API (default in the reference): request like @langchain/openai 1.1.3
+// (input entries, function_call/function_call_output with IDs, text, max_output_tokens), options like the reference
 // prepareAdditionalResponsesParams, built-in tools only with Agent V3, response blocks, streaming.
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createServer as createHttpServer, type Server } from 'node:http';
@@ -68,7 +68,7 @@ const model = (parameters: Record<string, unknown> = {}): WorkflowNode => ({
   type: '@n8n/n8n-nodes-langchain.lmChatOpenAi',
   typeVersion: 1.3,
   position: [100, 200],
-  parameters: { model: { __rl: true, value: 'gpt-4.1-mini', mode: 'list' }, builtInTools: { webSearch: { searchContextSize: 'low', allowedDomains: 'example.org, n8n.io' } }, options: {}, ...parameters },
+  parameters: { model: { __rl: true, value: 'gpt-4.1-mini', mode: 'list' }, builtInTools: { webSearch: { searchContextSize: 'low', allowedDomains: 'example.org, example.net' } }, options: {}, ...parameters },
   credentials: { openAiApi: { id: null, name: 'OpenAI' } },
 });
 
@@ -113,10 +113,10 @@ describe('Responses API', () => {
     expect(first.input).toEqual([{ type: 'message', role: 'user', content: 'What is 21 times 2?' }]);
     expect(first.tools).toEqual([
       expect.objectContaining({ type: 'function', name: 'Calculator', strict: null }),
-      { type: 'web_search', search_context_size: 'low', filters: { allowed_domains: ['example.org', 'n8n.io'] } },
+      { type: 'web_search', search_context_size: 'low', filters: { allowed_domains: ['example.org', 'example.net'] } },
     ]);
     expect(first.text).toEqual({});
-    // Like n8n, V3 rebuilds the steps from the engine response (buildSteps: "Calling …", arguments with id, output as JSON)
+    // Like the reference, V3 rebuilds the steps from the engine response (buildSteps: "Calling …", arguments with id, output as JSON)
     expect((second.input as unknown[]).slice(1)).toEqual([
       { type: 'message', role: 'assistant', content: 'Calling Calculator with input: {"input":"21*2","id":"call_1"}' },
       { type: 'function_call', name: 'Calculator', arguments: '{"input":"21*2","id":"call_1"}', call_id: 'call_1' },
@@ -124,7 +124,7 @@ describe('Responses API', () => {
     ]);
     const stored = s.store.get(s.store.list({ limit: 1 })[0].id)!;
     expect(stored.status).toBe('success');
-    // Tracing estimates the tokens like n8n (no tokenUsage with the Responses API)
+    // Tracing estimates the tokens like the reference (no tokenUsage with the Responses API)
     expect(stored.runData!.GPT[1].data!.ai_languageModel![0]![0].json).toMatchObject({ response: { generations: [[{ text: 'The result is 42.' }]] }, tokenUsageEstimate: expect.any(Object) });
   });
 

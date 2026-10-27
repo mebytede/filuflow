@@ -2,13 +2,13 @@
 import type { NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
 
-// Parameters as in packages/nodes-base/nodes/StickyNote/StickyNote.node.ts (content default verbatim as in the reference)
+// Parameters as in packages/nodes-base/nodes/StickyNote/StickyNote.node.ts (content default: own neutral text without the reference docs link)
 const parameters: ParamSchema[] = [
   {
     name: 'content',
     label: 'Content',
     type: 'string',
-    default: "## I'm a note \n**Double click** to edit me. [Guide](https://docs.n8n.io/workflows/components/sticky-notes/)",
+    default: "## I'm a note \n**Double click** to edit me. Notes can contain Markdown.",
     description: 'Text of the note (Markdown)',
   },
   { name: 'height', label: 'Height', type: 'number', required: true, default: 160 },

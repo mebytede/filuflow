@@ -1,4 +1,4 @@
-// Shared conversion of n8n resultData into the comparison format (like src/snapshot.ts).
+// Shared conversion of resultData of the reference into the comparison format (like src/snapshot.ts).
 export function cleanItem(item) {
   const out = { json: item.json };
   if (item.binary) {
@@ -40,7 +40,7 @@ export function resultDataToSnapshot(resultData) {
   };
 }
 
-/** Own implementation of the flatted format (n8n stores execution data this way) */
+/** Own implementation of the flatted format (the reference stores execution data this way) */
 export function flattedParse(text) {
   const input = JSON.parse(text, (_k, v) => (typeof v === 'string' ? new String(v) : v)).map((v) => (v instanceof String ? String(v) : v));
   const revive = (output, parsed) => {

@@ -1,4 +1,4 @@
-// HTTP Request (M15): pagination like n8n (parameter per page, next URL, status codes, custom condition, limit,
+// HTTP Request (M15): pagination like the reference (parameter per page, next URL, status codes, custom condition, limit,
 // stop after 5x the same response), Digest auth and client certificates (httpSslAuth) against local servers.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createServer as createHttpServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
