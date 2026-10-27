@@ -183,7 +183,7 @@ filuflow validate <workflow.json> [--json]
 filuflow run <workflow.json> [--input items.json] [--trigger "Node"] [--json] [--only-last] [--no-pin]
 filuflow executions list|show <id> [--json] [--db ./filuflow.db]
 filuflow credentials encrypt|decrypt|check <credentials.json>
-filuflow credentials import <export.json> [--n8n-key <k>] [--out <file> | --managed <file>]
+filuflow credentials import <export.json> [--import-key <k>] [--out <file> | --managed <file>]
 filuflow nodes [--json]
 ```
 
@@ -250,8 +250,8 @@ the provider's three URLs, save, **Connect**. As the redirect, filuflow uses
 **Importing exported credentials**: credential exports in the common JSON format (created with the `export:credentials
 --all --output=export.json` command of the source instance, encrypted or with `--decrypted`) are imported with the
 **Import** button on the Credentials page, in the master on the worker page. For encrypted exports you provide the
-encryption key of the source instance. On the command line use
-`filuflow credentials import export.json --n8n-key ... --managed credentials.managed.json`. IDs are preserved, so that
+encryption key of the source instance (or set `FILUFLOW_IMPORT_ENCRYPTION_KEY`). On the command line use
+`filuflow credentials import export.json --import-key ... --managed credentials.managed.json`. IDs are preserved, so that
 imported workflows find their credentials.
 
 **Sharing in the master**: a worker's credentials are initially available to all projects of that worker. Via the
@@ -549,6 +549,7 @@ removes it when the assignment is lifted and catches up on failures at the next 
 | `FILUFLOW_WEBHOOK_URL` | public base URL for webhooks | `http://localhost:5678/` |
 | `FILUFLOW_CREDENTIALS`, `FILUFLOW_VARS` | credentials and variables | `./credentials.json`, `./vars.json` |
 | `FILUFLOW_ENCRYPTION_KEY` | key for encrypted credentials | |
+| `FILUFLOW_IMPORT_ENCRYPTION_KEY` / `--import-key` | encryption key of the source instance for importing encrypted credential exports (never stored) | |
 | `FILUFLOW_MANAGED_CREDENTIALS` | file for credentials from the interface or from the master | `./credentials.managed.json` |
 | `FILUFLOW_CONCURRENCY` | simultaneous executions | `5` |
 | `FILUFLOW_PRUNE_DAYS` | retention of executions in days | `14` |

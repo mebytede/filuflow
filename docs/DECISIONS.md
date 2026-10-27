@@ -36,7 +36,7 @@ In addition to the stack from CLAUDE.md (luxon, better-sqlite3, fastify, croner,
 - Parameters: filuflow does not know the parameter descriptions of the reference nodes. Instead of rebuilding them, the editor edits the
   parameter tree directly (text, number, yes/no, object, list, expression) or as JSON. New nodes get starting values from
   `src/ui/editor/templates.ts`.
-- Saving writes the workflow file in the workflow directory (the reference format, indented with 2 spaces); hot reload and activation
+- Saving writes the workflow file in the workflow directory (the common workflow format, indented with 2 spaces); hot reload and activation
   work as with manual changes. New workflows get a random ID and a file name derived from the workflow name.
 - `playwright-core` (dev dependency, version matching the preinstalled Chromium) for the browser test `test/ui.e2e.test.ts`;
   without Chromium the test is skipped.
@@ -86,7 +86,7 @@ In addition to the stack from CLAUDE.md (luxon, better-sqlite3, fastify, croner,
   such as `********` as a value would be error-prone (it could be stored as a real value).
 - **Declarative types:** the fields of the built-in types are stored as data in `src/credentials/types.ts` (following the reference definitions,
   but an own description) and reach the interface via `GET /api/credential-types`. The same description decides which
-  fields are secret; for other types the name heuristic still applies. Other the reference types can be created with free fields.
+  fields are secret; for other types the name heuristic still applies. Other reference types can be created with free fields.
 - **IDs like the reference:** new credentials get an ID of 16 characters. Workflows reference `{ id, name }`; lookup is by name,
   then by ID. Renaming keeps the ID so that workflows with a stored ID still find the credential.
 - No new dependency.
@@ -103,9 +103,9 @@ In addition to the stack from CLAUDE.md (luxon, better-sqlite3, fastify, croner,
 ## Chat Trigger (M16)
 - **Own chat page instead of @n8n/chat:** the reference loads the chat widget from a CDN. filuflow serves a small page of its own
   (`src/ui/chat/`, built to `dist/ui/chat/`), without third-party sources and with a strict CSP. The protocol is the same
-  (`action`, `sessionId`, `chatInput`; response `output` or `text`), so embedded the reference widgets keep working.
+  (`action`, `sessionId`, `chatInput`; response `output` or `text`), so embedded chat widgets of the reference keep working.
 - **Chat in the editor** is a test run from the Chat Trigger with the message as input, like the chat in the reference editor.
-- Streaming and "the reference User Auth" are still missing (validation reports them).
+- Streaming and the reference's "User Auth" webhook authentication are still missing (validation reports them).
 
 ## HTTP Request extended (M15)
 - **Pagination:** same options and stop rules as the reference; the per-page values are merged into query,
@@ -119,7 +119,7 @@ In addition to the stack from CLAUDE.md (luxon, better-sqlite3, fastify, croner,
 - **Tokens in the database, not in the credential:** the reference writes `oauthTokenData` into the credential. filuflow puts the tokens
   (encrypted) into the key-value table, keyed by the credential's ID. This way credentials from the
   hand-maintained file can be connected too, and editing in the form does not overwrite tokens. `oauthTokenData` from an
-  exported credentials is still read.
+  export is still read.
 - **Redirect URI like the reference** (`/rest/oauth2-credential/callback`), so existing app registrations still fit.
 - **Master:** the worker builds the authorization URL with the master's redirect URI and remembers `state` and
   `code_verifier`; the master only remembers which worker the `state` belongs to, and forwards the callback.
@@ -138,7 +138,7 @@ In addition to the stack from CLAUDE.md (luxon, better-sqlite3, fastify, croner,
 ## Python in the Code node (M12)
 - **Two ways like the reference:** "Python" runs with Pyodide in the server process (context with `_` instead of `$`, like the reference `PythonSandbox`),
   "Python (Native)" with a real interpreter in a separate process (like the reference's Python task runner). The reference requires a
-  separate task runner for Native (`N8N_RUNNERS_ENABLED`); filuflow instead starts `python3` per execution with its
+  separate task runner service for Native; filuflow instead starts `python3` per execution with its
   own small runner (task as JSON via stdin, result as JSON via stdout). This saves a service; the start costs
   about 30 ms per execution of the node (not per item).
 - **Time limit for Pyodide:** the reference has none in Pyodide mode. Python blocks the main thread, so a timer cannot
@@ -146,7 +146,7 @@ In addition to the stack from CLAUDE.md (luxon, better-sqlite3, fastify, croner,
   wrapper turns this into "Code execution timed out". If an interrupt escapes into Pyodide's event loop, a custom
   handler catches it so that the server keeps running.
 - **Security defaults for Native like the reference** (allowlists empty, blocked builtins, empty environment), so that exported
-  workflows have the same limits; variables with the reference names apply as well.
+  workflows have the same limits; variables with the reference names applied as well (aliases removed in M44).
 
 ## Server
 - fastify with its own content type parser for webhooks: the body is read raw (gzip/deflate like the reference) and evaluated in the Webhook node
@@ -186,7 +186,7 @@ triggers the reference CLI picks the first matching one; filuflow deliberately r
   as an oracle (`scripts/record-filter-table.sh`) and the result is checked in as a table.
 
 ## Versions like the reference
-Libraries whose behavior is visible in outputs are pinned exactly to the versions of the reference version 1.123.0:
+Libraries whose behavior is visible in outputs are pinned exactly to the versions used by the reference version 1.123.0:
 luxon 3.4.4, lodash 4.17.21, cheerio 1.0.0-rc.6, html-to-text 9.0.5, xml2js 0.6.2, qs 6.11.0, jsonrepair 3.13.1, jmespath 0.16.0,
 title-case 3.0.3 and transliteration 2.3.5 (extension functions `toTitleCase()`, `replaceSpecialChars()`).
 `html-to-text` is used by the HTML node (v1.2, return "text").
@@ -224,7 +224,7 @@ as the reference). Exceptions:
 ## Merge via SQL with alasql (M20)
 `combineBySql` runs SQL over the inputs. The behavior (dialect, joins, types, result shape) is that of alasql;
 an own SQL interpreter would never deliver the same results. That is why alasql was added as a runtime dependency,
-exactly in the version of the reference version 1.123.0 (4.4.0), like the other libraries under "Versions like the reference". alasql's file functions
+exactly in the version used by the reference version 1.123.0 (4.4.0), like the other libraries under "Versions like the reference". alasql's file functions
 are blocked.
 
 ## Execution order v0 (M20)
@@ -233,11 +233,11 @@ following `packages/core/src/execution-engine/workflow-execute.ts`: breadth-firs
 connection order instead of by position, for nodes with multiple inputs missing predecessors without data are started with an
 empty item, an empty output on a second input counts as data, input data always comes from input 1,
 `requiredInputs` does not apply, and a node without data on all inputs goes back on the stack (with an abort for
-infinite loops). Golden tests against a running the reference are still missing, because no reference container ran in this environment.
+infinite loops). Golden tests against a running reference instance are still missing, because no reference container ran in this environment.
 
 ## Execute Workflow from file and URL (M20)
 As in the reference, relative paths are relative to the process's working directory. The reference reads without restriction; filuflow additionally offers
-`FILUFLOW_RESTRICT_FILE_ACCESS_TO` (name like `N8N_RESTRICT_FILE_ACCESS_TO`). External modules for `require` come
+`FILUFLOW_RESTRICT_FILE_ACCESS_TO` (same semantics as the reference's setting). External modules for `require` come
 from the filuflow installation, as with the reference from that of the task runner.
 
 ## Streaming (M21)
@@ -258,7 +258,7 @@ intervals of 500 ms instead of 3 s), but without a new dependency and with the f
 ## Imported credentials and OAuth1 (M22)
 The reference encrypts credentials with crypto-js in OpenSSL format ("Salted__", 8 byte salt, key and IV via EVP_BytesToKey
 with MD5, AES-256-CBC, Base64). filuflow rebuilds this with `node:crypto` (no new dependency) and tests it against
-`openssl enc -md md5`. Imported entries keep their the reference ID, so that workflows with `credentials.<type>.id` find them.
+`openssl enc -md md5`. Imported entries keep their original ID, so that workflows with `credentials.<type>.id` find them.
 
 Sharing applies per worker and project in the master database (`credential_access`), not on the worker: the worker knows no
 projects, and the master checks every workflow before distribution anyway. Without an entry, every project of the worker may use the
@@ -307,12 +307,12 @@ code that works with `this.helpers` or `helpers` in the reference behaves the sa
 
 ## More AI models (M26)
 The models talk to the providers directly via HTTP, like OpenAI, Anthropic and Gemini already do, without the SDKs of Groq,
-Mistral or Ollama. The benchmark is what the LangChain packages in the versions of the reference version 1.123.0 send (read via `npm pack`):
+Mistral or Ollama. The benchmark is what the LangChain packages in the versions used by the reference version 1.123.0 send (read via `npm pack`):
 field names, defaults (temperature 0.7 for Groq and Mistral), message conversion and quirks that the reference
 inherits through them. Quirks are also deliberately adopted, such as: Mistral always streams (the reference always passes an
 AbortSignal), Ollama does not send tool calls of earlier responses, the Ollama options "useMLock"/"useMMap" have no
 effect, the Responses API delivers no token counts to tracing (the reference then estimates). Agent V3 rebuilds its steps like
-The reference from the engine responses; the IDs of the Responses API are lost in the process, as there.
+the reference from the engine responses; the IDs of the Responses API are lost in the process, as there.
 
 ## Embeddings and vector stores (M27)
 The RAG nodes also work without LangChain. The benchmark is the behavior of the reference version 1.123.0 with @langchain/core 1.1.0,
@@ -345,7 +345,7 @@ Defaults apply when loading in the engine for all types with a description, like
 values of visible fields get their default, stored values take precedence. Differences from the reference:
 - filuflow evaluates expressions (`=…{{ $self.field }}`) only in hidden fields. They come from the type description or
   an export; entered values, such as a password starting with "=", stay unchanged. For credentials filuflow still
-  supports `{{ env.NAME }}`, but no the reference expressions with `$vars` or `$secrets`.
+  supports `{{ env.NAME }}`, but no reference expressions with `$vars` or `$secrets`.
 - filuflow does not discard fields that no description knows (the reference only passes on described fields).
 - Evaluation runs in `node:vm` with a time limit; credentials and types are considered trusted like workflows.
 
@@ -508,7 +508,7 @@ The Gmail node builds and parses MIME messages itself (`src/nodes/shared/mime.ts
 mailparser (the libraries the reference uses) as runtime dependencies. The node needs only a small part of them: single part,
 multipart/alternative and multipart/mixed with attachments, encoded words, RFC 2231 file names, quoted-printable and
 base64, address lists, and on the reading side the fields the reference's `parseRawEmail` takes over. Both directions are checked
-against the real libraries in the versions of the reference version 1.123.0 with a recorded oracle (`test/oracle/gmail-mime.json`,
+against the real libraries in the versions used by the reference version 1.123.0 with a recorded oracle (`test/oracle/gmail-mime.json`,
 `scripts/gmail-mime-oracle.mjs`). Known gaps: `textAsHtml` links only URLs with a scheme, `www.` addresses and email
 addresses (mailparser also links bare domains and @mentions), and named HTML entities there cover Latin-1 and the
 HTML 4 special characters.
@@ -518,14 +518,14 @@ Two deliberate differences to the reference: the reference puts the whole privat
 the key; and filuflow keeps the access token until shortly before it expires instead of requesting a new one for every
 API call. Neither changes what the node returns.
 
-The reference appends "This email was sent automatically with the reference" with a link to n8n.io to sent emails (option "Append the reference
-Attribution", on by default from typeVersion 2.1) and to "Send and Wait" emails. filuflow is not the reference and does not
+The reference appends an attribution sentence with a link to its website to sent emails (option "Append Attribution",
+parameter `appendAttribution`, on by default from typeVersion 2.1) and to "Send and Wait" emails. filuflow is not the reference and does not
 advertise it: the option is accepted and kept in the workflow, but nothing is appended (as with the attribution of the
 forms). The "Send and Wait" email and its pages use filuflow's own HTML with the same texts and buttons.
 
 "Send and Wait for Response" uses the existing waiting executions (M13). The resume links are signed like the reference
-(HMAC-SHA256 over host, path and query, parameter `signature`); the secret comes from `FILUFLOW_HMAC_SIGNATURE_SECRET`
-or `N8N_HMAC_SIGNATURE_SECRET`, otherwise the server generates one and keeps it in its database so that links in sent
+(HMAC-SHA256 over host, path and query, parameter `signature`); the secret comes from `FILUFLOW_HMAC_SIGNATURE_SECRET`,
+otherwise the server generates one and keeps it in its database so that links in sent
 emails stay valid after a restart. The values the form pages need (title, description, fields) are resolved when the
 email is sent and stored in the node context of the waiting execution, so the webhook does not have to evaluate
 expressions without the execution's data.
@@ -584,7 +584,7 @@ prevents an accidental publish. Copyright line: "the filuflow authors", maintain
 
 **No external pull requests for now.** As long as all code comes from the maintainers, the copyright situation stays
 simple (no contributor license agreement or DCO process, the license can still be adjusted, for example for dual
-licensing) and the review effort stays manageable while the architecture is still moving. Issues, the reference compatibility
+licensing) and the review effort stays manageable while the architecture is still moving. Issues, compatibility
 reports and private security reports are welcome and are the main input. The pull request template and CONTRIBUTING
 say so; the decision is to be revisited, together with a DCO, once the project has settled.
 
