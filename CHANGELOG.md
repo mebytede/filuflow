@@ -8,7 +8,7 @@ breaking changes; they are listed under "Changed" or "Removed".
 
 ## [Unreleased]
 
-## [0.1.0] - Unreleased
+## [0.1.0] - 2026-10-30
 
 First public release.
 
