@@ -171,7 +171,7 @@ In addition to the stack from CLAUDE.md (luxon, better-sqlite3, fastify, croner,
   filuflow behaves like the reference.
 
 ## Time zone
-Default `Europe/Berlin` (SPEC). Can be overridden via `settings.timezone`, `FILUFLOW_TIMEZONE` or `GENERIC_TIMEZONE`.
+Default `Europe/Berlin` (SPEC). Can be overridden via `settings.timezone`, `FILUFLOW_TIMEZONE`.
 The reference's default is `America/New_York`; for golden tests the reference container is started with `GENERIC_TIMEZONE=Europe/Berlin`.
 
 ## Start node
