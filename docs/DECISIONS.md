@@ -187,9 +187,17 @@ triggers the reference CLI picks the first matching one; filuflow deliberately r
 
 ## Versions like the reference
 Libraries whose behavior is visible in outputs are pinned exactly to the versions used by the reference version 1.123.0:
-luxon 3.4.4, lodash 4.17.21, cheerio 1.0.0-rc.6, html-to-text 9.0.5, xml2js 0.6.2, qs 6.11.0, jsonrepair 3.13.1, jmespath 0.16.0,
+luxon 3.4.4, lodash 4.17.21 (see below), cheerio 1.0.0-rc.6, html-to-text 9.0.5, xml2js 0.6.2, qs 6.11.0 (see below), jsonrepair 3.13.1, jmespath 0.16.0,
 title-case 3.0.3 and transliteration 2.3.5 (extension functions `toTitleCase()`, `replaceSpecialChars()`).
 `html-to-text` is used by the HTML node (v1.2, return "text").
+
+Security exceptions: lodash is 4.18.1 and qs 6.17.1 instead of 4.17.21 and 6.11.0, because the reference versions have
+known vulnerabilities (lodash: code injection in `_.template` and prototype pollution in `_.unset`/`_.omit`; qs: denial
+of service through the array limit, reachable through the query string of every public webhook). Both are patch or
+minor updates; all golden tests and recorded oracle tables still match. html-to-text stays on 9.0.5 although its
+dependency deepmerge has a low-severity advisory (prototype poisoning of merged objects): the merged values are the
+HTML node's options, which only trusted workflow authors set, and the fix requires html-to-text 10, whose output may
+differ from the reference. Security updates of pinned libraries are checked by hand (Dependabot ignores them).
 
 ## Variables (M18)
 Variables maintained in the interface are stored in the SQLite table `kv` (key `variables`), not in `vars.json`: the
