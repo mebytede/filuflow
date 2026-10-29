@@ -284,9 +284,9 @@ and transitive) as resolved in `package-lock.json`. Regenerate it after dependen
 | fast-deep-equal | 3.1.3 | MIT | https://github.com/epoberezkin/fast-deep-equal |
 | fast-json-stringify | 7.1.0 | MIT | https://github.com/fastify/fast-json-stringify |
 | fast-querystring | 1.1.2 | MIT | https://github.com/anonrig/fast-querystring |
-| fast-uri | 3.1.8 | BSD-3-Clause | https://github.com/fastify/fast-uri |
-| fast-uri | 4.2.2 | BSD-3-Clause | https://github.com/fastify/fast-uri |
-| fastify | 5.12.5 | MIT | https://github.com/fastify/fastify |
+| fast-uri | 3.1.9 | BSD-3-Clause | https://github.com/fastify/fast-uri |
+| fast-uri | 4.2.3 | BSD-3-Clause | https://github.com/fastify/fast-uri |
+| fastify | 5.12.7 | MIT | https://github.com/fastify/fastify |
 | fastq | 1.20.3 | ISC | https://github.com/mcollina/fastq |
 | find-my-way | 9.10.0 | MIT | https://github.com/delvedor/find-my-way |
 | function-bind | 1.1.2 | MIT | https://github.com/Raynos/function-bind |
@@ -307,7 +307,7 @@ and transitive) as resolved in `package-lock.json`. Regenerate it after dependen
 | jsonrepair | 3.13.1 | ISC | https://github.com/josdejong/jsonrepair |
 | leac | 0.6.0 | MIT | https://github.com/mxxii/leac |
 | light-my-request | 6.8.0 | BSD-3-Clause | https://github.com/fastify/light-my-request |
-| lodash | 4.17.21 | MIT | https://github.com/lodash/lodash |
+| lodash | 4.18.1 | MIT | https://github.com/lodash/lodash |
 | luxon | 3.4.4 | MIT | https://github.com/moment/luxon |
 | math-expression-evaluator | 2.0.7 | MIT | https://github.com/redhivesoftware/math-expression-evaluator |
 | math-intrinsics | 1.1.0 | MIT | https://github.com/es-shims/math-intrinsics |
@@ -325,7 +325,7 @@ and transitive) as resolved in `package-lock.json`. Regenerate it after dependen
 | pino-std-serializers | 7.1.0 | MIT | https://github.com/pinojs/pino-std-serializers |
 | process-warning | 5.1.1 | MIT | https://github.com/fastify/process-warning |
 | pyodide | 0.28.0 | MPL-2.0 | https://github.com/pyodide/pyodide |
-| qs | 6.11.0 | BSD-3-Clause | https://github.com/ljharb/qs |
+| qs | 6.17.1 | BSD-3-Clause | https://github.com/ljharb/qs |
 | quick-format-unescaped | 4.0.4 | MIT | https://github.com/davidmarkclements/quick-format |
 | real-require | 1.0.0 | MIT | https://github.com/pinojs/real-require |
 | require-directory | 2.1.1 | MIT | https://github.com/troygoode/node-require-directory |
@@ -354,7 +354,7 @@ and transitive) as resolved in `package-lock.json`. Regenerate it after dependen
 | tr46 | 0.0.3 | MIT | https://github.com/Sebmaster/tr46.js |
 | transliteration | 2.3.5 | MIT | https://github.com/dzcpy/transliteration |
 | tslib | 2.8.1 | 0BSD | https://github.com/Microsoft/tslib |
-| undici | 8.11.2 | MIT | https://github.com/nodejs/undici |
+| undici | 8.12.3 | MIT | https://github.com/nodejs/undici |
 | webidl-conversions | 3.0.1 | BSD-2-Clause | https://github.com/jsdom/webidl-conversions |
 | whatwg-url | 5.0.0 | MIT | https://github.com/jsdom/whatwg-url |
 | wrap-ansi | 7.0.0 | MIT | https://github.com/chalk/wrap-ansi |
