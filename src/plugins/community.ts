@@ -23,6 +23,15 @@ const INVALID_OR_SUSPICIOUS_PACKAGE_NAME = /[^0-9a-z@\-._/]/;
 const NODE_PACKAGE_PREFIX = 'n8n-nodes-';
 /** semver.valid (also with a leading "v" or "=") */
 const SEMVER = /^[v=]?\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$/;
+/**
+ * Requested version (install/update body): a version or a dist tag such as "latest". npm would also accept URLs, git
+ * and file specs after "@" and thereby bypass the configured registry; those are rejected.
+ */
+const VERSION_OR_TAG = /^(?:[v=]?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?|[A-Za-z][0-9A-Za-z._-]{0,63})$/;
+
+function checkRequestedVersion(version: string | undefined): void {
+  if (version !== undefined && !VERSION_OR_TAG.test(version)) throw new CommunityPackageError(`Invalid version: ${version}`);
+}
 
 export interface InstalledPackage {
   packageName: string;
@@ -149,6 +158,7 @@ export class CommunityPackages {
   install(spec: string, version?: string): Promise<InstalledPackage> {
     return this.serial(async () => {
       const parsed = parseNpmPackageName(spec);
+      checkRequestedVersion(version);
       if (this.list().some((p) => p.packageName === parsed.packageName)) throw new CommunityPackageError(`The package ${parsed.packageName} is already installed`);
       return this.installOrUpdate(parsed.packageName, version ?? parsed.version);
     });
@@ -157,6 +167,7 @@ export class CommunityPackages {
   update(name: string, version?: string): Promise<InstalledPackage> {
     return this.serial(async () => {
       const { packageName } = parseNpmPackageName(name);
+      checkRequestedVersion(version);
       const installed = this.list().find((p) => p.packageName === packageName);
       if (!installed) throw new CommunityPackageError(`The package ${packageName} is not installed`, 404);
       return this.installOrUpdate(packageName, version, installed);

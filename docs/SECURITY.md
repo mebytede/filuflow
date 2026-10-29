@@ -37,10 +37,14 @@ Still:
   login, as in the reference implementation.
 - Credential values are never logged and not stored in the execution log.
 - The REST API is protected with `FILUFLOW_API_KEY`. Without a key set, the API is locked (except `/healthz` and webhooks).
-- The API key comparison is constant-time. Webhooks are reachable without an API key; their authentication comes from the Webhook node
-  (Basic, Header, Bearer, JWT) with credentials from `credentials.json`.
+- The API key comparison is constant-time (SHA-256 digests compared with `timingSafeEqual`, so neither content nor length
+  leaks). Webhooks are reachable without an API key; their authentication comes from the Webhook node
+  (Basic, Header, Bearer, JWT) with credentials from `credentials.json`. Basic, Header and Bearer values of webhooks, forms,
+  the chat and waiting executions are compared in constant time as well.
 - The Docker container runs as user `node` (not root).
-- Request bodies are limited to `FILUFLOW_PAYLOAD_SIZE_MAX` MB (default 16, like the reference implementation).
+- Request bodies are limited to `FILUFLOW_PAYLOAD_SIZE_MAX` MB (default 16, like the reference implementation). Webhook bodies
+  with `Content-Encoding: gzip` or `deflate` are limited to the same size after decompression (413 otherwise), so a small
+  compressed body cannot exhaust the memory.
 - AI agents let the model call tools: the HTTP Request Tool sends requests with values from the model (with
   authentication, a placeholder in the domain is forbidden, as in the reference implementation), the Workflow Tool starts sub-workflows, the
   Code Tool runs its code in the same sandbox as the Code node (same timeout). LLM responses are not
@@ -79,7 +83,8 @@ Still:
   confidential processes use Basic auth on the Form Trigger.
 - Chat Trigger: a public chat is reachable without login, unless the node requires Basic auth. Every message
   starts an execution; for the internet, put rate limiting (reverse proxy) in front. The chat page only loads its own
-  scripts (CSP `script-src 'self'`), settings are embedded as JSON data in the page; custom CSS (`customCss`) is allowed.
+  scripts (CSP `script-src 'self'`), settings are embedded as JSON data in the page; custom CSS (`customCss`) is allowed,
+  but cannot end the `<style>` element (`</` is written as `<\/`).
 - Execution results are masked like in the execution log.
 - Waiting executions: to resume, filuflow stores the state unmasked (the data flows into later nodes), in
   a separate table, encrypted with `FILUFLOW_ENCRYPTION_KEY`, and deletes it on resume or cancellation. OAuth2 tokens
@@ -136,7 +141,8 @@ plugins only via `getCredentials` of the respective node; in logs and executions
 Community packages from the interface (M30) are the same: anyone allowed to install (on a single server anyone with the API key, in the
 master only global admins, on the worker the master) can use this to run arbitrary code with filuflow's privileges.
 filuflow installs without npm install scripts (`--ignore-scripts`), checks the package name strictly (only `n8n-nodes-…`,
-no special characters) and calls npm without a shell; the package's code still runs when loaded. Where this is not wanted,
+no special characters), accepts as version only a version number or a dist tag (no URL, git or file specs that would bypass
+the configured registry) and calls npm without a shell; the package's code still runs when loaded. Where this is not wanted,
 `FILUFLOW_COMMUNITY_PACKAGES_ENABLED=false` disables installation (packages already installed are still loaded).
 
 ## Master and Worker (M9)
@@ -163,7 +169,9 @@ Login and sessions:
 - Passwords with scrypt (N=32768, r=8, p=1, 16 byte salt), at least 12 characters. For an unknown email a hash is still
   computed (same response time, same message).
 - After 10 failed attempts an account is locked for 15 minutes; at most 20 login attempts per IP and per email in 15 minutes,
-  5 TOTP attempts per login in 5 minutes. Behind a reverse proxy set `FILUFLOW_TRUST_PROXY=true` so that the IP from
+  5 TOTP attempts per login in 5 minutes and at most 10 per account in 15 minutes (a new login does not bring new attempts).
+  Re-entering the password in the profile (changing the password, disabling TOTP) is limited to 10 attempts per account in
+  15 minutes. Behind a reverse proxy set `FILUFLOW_TRUST_PROXY=true` so that the IP from
   `X-Forwarded-For` counts (otherwise everyone shares the proxy's IP). Without a proxy it stays off, because otherwise anyone could
   claim any IP.
 - TOTP per RFC 6238 (SHA-1, 30 s, 6 digits, ±1 time step), a code is valid only once. The secret is stored encrypted with
@@ -195,6 +203,13 @@ Permissions:
   worker are only visible to those who may read in the associated project; executions are filtered to the project's workflows.
 - Administration (users, tenants, workers, setting credentials, audit log) only for global admins. The last active admin cannot
   be demoted, locked or deleted.
+- Assigning roles: whoever manages members (`project.manage`) or shares workflows (`workflow.share`) through a custom role may
+  only assign, change or remove roles whose actions they have themselves. Otherwise a custom role with only these actions
+  could raise its own permissions (for example to "Edit", which allows code). Project admins and global admins are not
+  restricted.
+- Running: with `workflow.run` but without `workflow.edit` the master runs the saved version; a workflow state sent along
+  (from the editor) is only used for people who may edit, because it can contain any code.
+- Moving a workflow into another project checks the credential sharing of the target project like saving does.
 - Audit log for logins (including failed ones), user, project, workflow and worker changes, runs via the master
   and credential changes, without passwords, tokens or credential values.
 
@@ -210,3 +225,23 @@ Connection to the worker:
   stores them in `credentials.managed.json` (file mode 0600, encrypted with the worker's `FILUFLOW_ENCRYPTION_KEY` if
   set). The master can neither overwrite nor delete entries from the worker's hand-maintained credential file.
 - Execution data stays on the worker and is only displayed via the master when needed (masked like in the execution log).
+
+## Deployment checklist
+- Set `FILUFLOW_API_KEY` (single server and worker) to a long random value (for example `openssl rand -hex 32`); without it
+  the REST API stays locked. On a worker it must have at least 16 characters.
+- Set `FILUFLOW_ENCRYPTION_KEY` to a long random value and back it up separately from the database. Without it the single
+  server and the worker store credentials and waiting executions in plain text; the master refuses to start.
+- Put a reverse proxy with HTTPS in front and set `FILUFLOW_WEBHOOK_URL` (single server, worker) or `FILUFLOW_PUBLIC_URL`
+  (master) to the `https://` address; in the master this also marks the session cookie `Secure`. Set
+  `FILUFLOW_TRUST_PROXY=true` only behind such a proxy.
+- Rate limit public paths at the proxy (`/webhook/`, `/form/`, `/chat/`, `/webhook-waiting/`, `/form-waiting/`): every call
+  can start an execution. Keep `FILUFLOW_PAYLOAD_SIZE_MAX` as small as the workflows allow.
+- Do not expose the worker API to the internet: only the master needs it, ideally over HTTPS with certificate verification.
+  Webhooks and forms of the worker may be public.
+- Master: remove the setup token from logs after the first admin exists, require TOTP for password logins
+  (administration, settings), restrict SSO with `FILUFLOW_OIDC_ALLOWED_DOMAINS` if users can choose their email at the
+  identity provider.
+- Grant "Edit" (and custom roles with `workflow.edit`) only to people who may run code on the project's worker.
+- Set `FILUFLOW_COMMUNITY_PACKAGES_ENABLED=false` where installing packages from the interface is not wanted.
+- Run the container as the non-root user `node` (default in the image) and keep env files readable only by the service
+  (`scripts/install.sh` writes them with mode 600).

@@ -534,6 +534,33 @@ describe('Sharing credentials with projects', () => {
     // Global admins only
     const member = await addUser(master, admin, 'mia@example.org');
     expect((await member.client.put(`/api/admin/workers/${wk.id}/credentials/Shared/access`, { projects: null })).statusCode).toBe(403);
+
+    // Moving a workflow does not take a credential into a project it is not shared with
+    const usesOnlyA = await createWorkflow(pa, wf('Only A new'));
+    const moved = await admin.post(`/api/workflows/${usesOnlyA.id}/move`, { projectId: pb });
+    expect(moved.statusCode).toBe(403);
+    expect(moved.json().message).toContain('is not shared with this project');
+    expect((await admin.get(`/api/workflows/${usesOnlyA.id}`)).json().projectId).toBe(pa);
+  });
+});
+
+describe('Security: running without edit permission', () => {
+  it('a role with run but without edit runs the saved version, not a submitted workflow', async () => {
+    const w = await startWorker('w1');
+    const wk = await registerWorker(w);
+    const pa = await project('A', wk.id);
+    const a = await createWorkflow(pa, manual('Saved'));
+    const role = (await admin.post('/api/admin/roles', { name: 'Runner', permissions: ['workflow.read', 'workflow.run', 'execution.read'] })).json() as { id: string };
+    const runner = await addUser(master, admin, 'rita@example.org');
+    await admin.put(`/api/projects/${pa}/members/${runner.id}`, { role: role.id });
+
+    const changed = manual('Saved');
+    changed.nodes[1].parameters = { assignments: { assignments: [{ id: 'x', name: 'value', value: 7, type: 'number' }] }, options: {} };
+    const run = await runner.client.post(`/api/workflows/${a.id}/run`, { workflow: changed });
+    expect(run.statusCode).toBe(200);
+    expect(run.json().runData.Set[0].data.main[0][0].json).toEqual({ value: 42 });
+    // Editors still run their unsaved state
+    expect((await admin.post(`/api/workflows/${a.id}/run`, { workflow: changed })).json().runData.Set[0].data.main[0][0].json).toEqual({ value: 7 });
   });
 });
 

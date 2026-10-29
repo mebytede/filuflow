@@ -7,7 +7,7 @@
 // During the execution the node passes through the data created by the server (workflow-execute.ts runNode:
 // "for webhook nodes always simply pass the data through"). Request handling lives in
 // handleWebhookRequest and is called by the server.
-import { randomUUID, createHmac, createPublicKey, verify as cryptoVerify, timingSafeEqual } from 'node:crypto';
+import { randomUUID, createHash, createHmac, createPublicKey, verify as cryptoVerify, timingSafeEqual } from 'node:crypto';
 import { parse as parseQueryString } from 'node:querystring';
 import xml2js from 'xml2js';
 import type { NodeIssue, NodeType } from './types.js';
@@ -17,6 +17,22 @@ import type { BinaryStore } from '../binary.js';
 import { NodeOperationError } from '../errors.js';
 
 export const WEBHOOK_NODE_TYPE = 'n8n-nodes-base.webhook';
+
+/** Constant-time comparison of secrets from requests (Basic, Bearer, header auth): digests hide content and length */
+export function secretEquals(given: unknown, expected: unknown): boolean {
+  if (typeof given !== 'string' || typeof expected !== 'string') return given === expected && given !== undefined;
+  const digest = (s: string) => createHash('sha256').update(s, 'utf8').digest();
+  return timingSafeEqual(digest(given), digest(expected));
+}
+
+/** Basic auth: user and password from the decoded header compared in constant time (both are always compared) */
+export function basicAuthMatches(decoded: string, expected: { user?: unknown; password?: unknown }): boolean {
+  const idx = decoded.indexOf(':');
+  if (idx === -1) return false;
+  const userOk = secretEquals(decoded.slice(0, idx), String(expected.user ?? ''));
+  const passwordOk = secretEquals(decoded.slice(idx + 1), String(expected.password ?? ''));
+  return userOk && passwordOk;
+}
 export const RESPOND_TO_WEBHOOK_TYPE = 'n8n-nodes-base.respondToWebhook';
 
 export type ResponseMode = 'onReceived' | 'lastNode' | 'responseNode' | 'streaming';
@@ -363,17 +379,17 @@ async function validateAuth(ctx: WebhookHandleContext): Promise<Record<string, u
     const decoded = Buffer.from(m[1], 'base64').toString();
     const idx = decoded.indexOf(':');
     if (idx === -1) throw new WebhookAuthorizationError(401);
-    if (decoded.slice(0, idx) !== expected.user || decoded.slice(idx + 1) !== expected.password) throw new WebhookAuthorizationError(403);
+    if (!basicAuthMatches(decoded, expected)) throw new WebhookAuthorizationError(403);
   } else if (authentication === 'bearerAuth') {
     const expected = await get('httpBearerAuth');
     const token = expected?.token as string | undefined;
     if (!token) throw new WebhookAuthorizationError(500, 'No authentication data defined on node!');
-    if (header(req, 'authorization') !== `Bearer ${token}`) throw new WebhookAuthorizationError(403);
+    if (!secretEquals(header(req, 'authorization') ?? '', `Bearer ${token}`)) throw new WebhookAuthorizationError(403);
   } else if (authentication === 'headerAuth') {
     const expected = await get('httpHeaderAuth');
     if (!expected || !expected.name || !expected.value) throw new WebhookAuthorizationError(500, 'No authentication data defined on node!');
     const name = String(expected.name).toLowerCase();
-    if (!Object.hasOwn(req.headers, name) || req.headers[name] !== expected.value) throw new WebhookAuthorizationError(403);
+    if (!Object.hasOwn(req.headers, name) || !secretEquals(req.headers[name], expected.value)) throw new WebhookAuthorizationError(403);
   } else if (authentication === 'jwtAuth') {
     const expected = (await get('jwtAuth')) as { keyType?: string; publicKey?: string; secret?: string; algorithm?: string } | undefined;
     if (!expected) throw new WebhookAuthorizationError(500, 'No authentication data defined on node!');

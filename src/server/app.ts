@@ -2,7 +2,7 @@
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import qs from 'qs';
 import { gunzipSync, inflateSync } from 'node:zlib';
-import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { Execution, Item, Workflow } from '../types.js';
 import { Runner } from '../runner.js';
 import { getDefaultRegistry } from '../nodes/index.js';
@@ -86,13 +86,13 @@ function usesPyodide(workflow: { nodes?: Array<{ type: string; parameters?: Reco
   );
 }
 
-function checkApiKey(expected: string | undefined, request: FastifyRequest): boolean {
+export function checkApiKey(expected: string | undefined, request: FastifyRequest): boolean {
   if (!expected) return false;
   const given = request.headers['x-api-key'];
   if (typeof given !== 'string') return false;
-  const a = Buffer.from(given);
-  const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
+  // Compare fixed-length digests so that neither the content nor the length of the key leaks through timing
+  const digest = (s: string) => createHash('sha256').update(s, 'utf8').digest();
+  return timingSafeEqual(digest(given), digest(expected));
 }
 
 function sendHttp(reply: FastifyReply, response: HttpResponse): FastifyReply {
@@ -345,9 +345,12 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
       try {
         const enc = request.headers['content-encoding'];
         const buf = body as Buffer;
-        done(null, enc === 'gzip' ? gunzipSync(buf) : enc === 'deflate' ? inflateSync(buf) : buf);
+        // The decompressed body is limited like the raw body (otherwise a small gzip bomb could exhaust memory)
+        const limit = { maxOutputLength: bodyLimit };
+        done(null, enc === 'gzip' ? gunzipSync(buf, limit) : enc === 'deflate' ? inflateSync(buf, limit) : buf);
       } catch (error) {
-        done(error as Error, undefined);
+        const tooLarge = error instanceof RangeError || (error as { code?: string }).code === 'ERR_BUFFER_TOO_LARGE';
+        done(Object.assign(new Error(tooLarge ? 'Request body is too large' : 'Request body could not be decompressed'), { statusCode: tooLarge ? 413 : 400 }), undefined);
       }
     });
     const handler = (test: boolean) => async (request: FastifyRequest, reply: FastifyReply) => {
