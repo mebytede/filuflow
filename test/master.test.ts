@@ -210,6 +210,25 @@ describe('TOTP', () => {
     expect((await new Client(m.app).post('/api/auth/totp', { code })).statusCode).toBe(401);
   });
 
+  it('limits TOTP attempts per account, not only per half login', async () => {
+    const m = await start();
+    const admin = await setupAdmin(m);
+    const secret = await enableTotp(m, admin);
+    const wrong = totpCode(secret, totpCounter()) === '000000' ? '111111' : '000000';
+    const statuses: number[] = [];
+    // Each new login brings a new half session; together at most 10 attempts per account
+    for (let i = 0; i < 3; i++) {
+      const c = new Client(m.app);
+      await c.login(ADMIN.email, ADMIN.password);
+      for (let j = 0; j < 4; j++) statuses.push((await c.post('/api/auth/totp', { code: wrong })).statusCode);
+    }
+    expect(statuses.filter((s) => s === 401)).toHaveLength(10);
+    expect(statuses.slice(10)).toEqual([429, 429]);
+    const c = new Client(m.app);
+    await c.login(ADMIN.email, ADMIN.password);
+    expect((await c.post('/api/auth/totp', { code: totpCode(secret, totpCounter()) })).statusCode).toBe(429);
+  });
+
   it('required TOTP: without TOTP set up only profile and setup', async () => {
     const m = await start();
     const admin = await setupAdmin(m);
@@ -466,6 +485,41 @@ describe('Custom roles (M34)', () => {
     expect((await admin.del(`/api/admin/roles/${encodeURIComponent(role.id)}`)).statusCode).toBe(204);
     expect((await admin.put(`/api/projects/${pa.id}/members/${anna.id}`, { role: role.id })).statusCode).toBe(400);
     expect(JSON.stringify((await admin.get('/api/admin/audit')).json())).toContain('role.created');
+  });
+});
+
+describe('Security: assigning roles', () => {
+  it('custom roles with project.manage or workflow.share cannot raise their own permissions', async () => {
+    const m = await start();
+    const admin = await setupAdmin(m);
+    const mo = await addUser(m, admin, 'mo@example.org');
+    const pia = await addUser(m, admin, 'pia@example.org');
+    const pa = (await admin.post('/api/projects', { name: 'Alpha' })).json() as { id: string };
+    const wf = (await admin.post(`/api/projects/${pa.id}/workflows`, { workflow: { ...sample } })).json() as { id: string };
+    const manager = (await admin.post('/api/admin/roles', { name: 'Member manager', permissions: ['project.manage', 'workflow.read'] })).json() as { id: string };
+    await admin.put(`/api/projects/${pa.id}/members/${mo.id}`, { role: manager.id });
+    await admin.put(`/api/projects/${pa.id}/members/${pia.id}`, { role: 'editor' });
+
+    // Neither raise the own role nor hand out roles with more actions, nor demote or remove a stronger member
+    expect((await mo.client.put(`/api/projects/${pa.id}/members/${mo.id}`, { role: 'admin' })).statusCode).toBe(403);
+    expect((await mo.client.put(`/api/projects/${pa.id}/members/${mo.id}`, { role: 'editor' })).statusCode).toBe(403);
+    expect((await mo.client.put(`/api/projects/${pa.id}/members/${pia.id}`, { role: 'viewer' })).statusCode).toBe(403);
+    expect((await mo.client.del(`/api/projects/${pa.id}/members/${pia.id}`)).statusCode).toBe(403);
+    expect(m.db.getMemberRole(pa.id, mo.id)).toBe(manager.id);
+    expect(m.db.getMemberRole(pa.id, pia.id)).toBe('editor');
+    // Roles within the own actions remain possible
+    const outsider = await addUser(m, admin, 'ole@example.org');
+    expect((await mo.client.put(`/api/projects/${pa.id}/members/${outsider.id}`, { role: manager.id })).statusCode).toBe(200);
+    expect((await mo.client.del(`/api/projects/${pa.id}/members/${outsider.id}`)).statusCode).toBe(204);
+
+    // Workflow sharing: no edit role for oneself
+    const sharer = (await admin.post('/api/admin/roles', { name: 'Sharer', permissions: ['workflow.read', 'workflow.share'] })).json() as { id: string };
+    await admin.put(`/api/projects/${pa.id}/members/${mo.id}`, { role: sharer.id });
+    expect((await mo.client.put(`/api/workflows/${wf.id}/members/${mo.id}`, { role: 'editor' })).statusCode).toBe(403);
+    expect((await mo.client.put(`/api/workflows/${wf.id}/members/${pia.id}`, { role: 'none' })).statusCode).toBe(403);
+    expect((await mo.client.put(`/api/workflows/${wf.id}/members/${outsider.id}`, { role: sharer.id })).statusCode).toBe(200);
+    // Project admins keep full control
+    expect((await admin.put(`/api/workflows/${wf.id}/members/${mo.id}`, { role: 'editor' })).statusCode).toBe(200);
   });
 });
 

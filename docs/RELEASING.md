@@ -13,7 +13,16 @@ Everything after the version bump is done by `.github/workflows/release.yml`.
 
 ## Release procedure
 
-1. **Prepare the release in a pull request** against `main`:
+1. **Dry run first**: GitHub, tab "Actions", workflow "Release", "Run workflow", choose the branch (the release pull
+   request branch or `main`; `package.json` on that branch must already carry `X.Y.Z`, see step 2 for the version
+   bump), enter the version `X.Y.Z` and leave "Dry run" ticked (the default). The dry run checks
+   the version against `package.json` and the existing tags, runs lint, unit, browser and golden tests and the build,
+   builds the image for amd64 and checks `/healthz`, and builds the multi-arch image (amd64, arm64) without pushing
+   it. It creates no tag, pushes no image and creates no release; the run summary shows the release notes and the
+   image tags a real release would push. A CHANGELOG section without a date (`## [X.Y.Z] - Unreleased`) only gives a
+   warning here, so the dry run can be used before the release date is chosen; a missing or empty section fails.
+   The default is a dry run on purpose: clicking "Run workflow" without changing anything never publishes.
+2. **Prepare the release in a pull request** against `main`:
    - set the version in `package.json` and the root entry of `package-lock.json`:
      `npm version X.Y.Z --no-git-tag-version` (changes both files, creates no tag)
    - in `CHANGELOG.md`, rename the section `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD` (release date), add a new
@@ -24,9 +33,11 @@ Everything after the version bump is done by `.github/workflows/release.yml`.
    - check the notes locally: `node scripts/changelog-section.mjs X.Y.Z --require-date`
    - if dependencies changed: `node scripts/third-party-licenses.mjs --write`
    - `npm run lint`, `npm test`, `npm run test:compat`
+   - optionally repeat the dry run on the pull request branch, now without the date warning
    - merge the pull request once CI is green.
-2. **Start the release workflow**: GitHub, tab "Actions", workflow "Release", "Run workflow", branch `main`,
-   version `X.Y.Z` (without "v"). The workflow
+3. **Start the release workflow**: GitHub, tab "Actions", workflow "Release", "Run workflow", branch `main`,
+   version `X.Y.Z` (without "v"), **untick "Dry run"**. A real release is refused on any branch other than `main`. The
+   workflow
    1. checks that the version has the form `X.Y.Z`, matches `package.json`, has a dated CHANGELOG section and that the
       tag does not exist yet,
    2. runs lint, unit, browser and golden tests and the build,
@@ -37,8 +48,8 @@ Everything after the version bump is done by `.github/workflows/release.yml`.
    5. creates the GitHub release `filuflow X.Y.Z` with the CHANGELOG section as notes.
 
    Alternative for people with tag push rights: `git tag -a vX.Y.Z -m "filuflow X.Y.Z" && git push origin vX.Y.Z`
-   starts the same workflow without the tag step.
-3. **Verify**:
+   starts the same workflow without the tag step (a tag push is never a dry run).
+4. **Verify**:
    - the run is green in all jobs ("Check version", "Lint and tests", "Create tag", "Docker image", "GitHub release")
    - the release page shows the notes and is marked "Latest" (pre-releases: "Pre-release")
    - `docker pull ghcr.io/mebytede/filuflow:X.Y.Z` works without login (once the package is public) and
@@ -48,6 +59,9 @@ Everything after the version bump is done by `.github/workflows/release.yml`.
      `curl http://127.0.0.1:5678/healthz` answer `{"status":"ok"}`
    - `docker inspect` shows the labels `org.opencontainers.image.version=X.Y.Z`,
      `org.opencontainers.image.licenses=AGPL-3.0-or-later` and `org.opencontainers.image.source`
+
+In a dry run the jobs "Create tag" and "GitHub release" are skipped and "Docker image" pushes nothing; that is
+expected.
 
 **If the workflow fails** before "Create tag": fix the problem in a pull request and start it again. If it fails after
 the tag exists (image or release job): re-run the failed jobs from the run page ("Re-run failed jobs"); a new run with

@@ -100,6 +100,19 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     return { project: db.getProject(row.project_id)!, projectRole: projectRole!, role, row };
   };
 
+  /**
+   * Custom roles may contain project.manage or workflow.share without all other actions: whoever holds them may only
+   * assign (or change, remove) roles whose actions they have themselves, otherwise they could raise their own role.
+   */
+  const canGrant = (own: AccessRole, role: string | undefined): boolean => {
+    if (role === undefined || role === 'none') return true;
+    const mine = new Set(permissionsOf(own));
+    return permissionsOf(role as AccessRole).every((p) => mine.has(p));
+  };
+
+  /** Current effective role of a person for a workflow (for the comparison when sharing) */
+  const currentWorkflowRole = (user: UserRow, row: WorkflowRow): ProjectRole | undefined => effectiveWorkflowRole(projectRoleOf(user, row.project_id), db.getWorkflowRole(row.id, user.id));
+
   const workerError = (reply: FastifyReply, error: unknown) => {
     if (error instanceof WorkerError) {
       const status = error.status === 0 ? 502 : error.status === 401 ? 502 : error.status;
@@ -242,6 +255,7 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     if (!isProjectRole(role)) return reply.code(400).send({ message: 'Role must be admin, editor, viewer or a custom role' });
     const user = db.getUser(uid);
     if (!user) return reply.code(404).send({ message: 'User not found' });
+    if (!canGrant(a.role, role) || !canGrant(a.role, db.getMemberRole(pid, uid))) return reply.code(403).send({ message: 'You cannot assign or change a role with more permissions than your own' });
     db.setMember(pid, uid, role);
     ctx.audit(request, 'project.member_set', pid, { userId: uid, email: user.email, role });
     return { userId: uid, email: user.email, name: user.name, role };
@@ -251,6 +265,7 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     const { pid, uid } = request.params as { pid: string; uid: string };
     const a = access(request, reply, pid, 'project.manage');
     if (!a) return;
+    if (!canGrant(a.role, db.getMemberRole(pid, uid))) return reply.code(403).send({ message: 'You cannot remove a member with more permissions than your own' });
     db.removeMember(pid, uid);
     ctx.audit(request, 'project.member_removed', pid, { userId: uid });
     return reply.code(204).send();
@@ -361,6 +376,9 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     if (!a) return;
     const target = access(request, reply, str((request.body as Record<string, unknown> | null)?.projectId), 'workflow.edit');
     if (!target) return;
+    // Credentials shared only with the old project must not travel along into the new one
+    const blockedMove = blockedCredentials(target.project.id, JSON.parse(a.row.data) as Workflow);
+    if (blockedMove.length) return reply.code(403).send({ message: blockedMessage(blockedMove) });
     db.moveWorkflow(a.row.id, target.project.id);
     ctx.audit(request, 'workflow.moved', a.row.id, { from: a.project.id, to: target.project.id });
     return workflowView(await hub.deploy(db.getWorkflow(a.row.id)!));
@@ -413,6 +431,7 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     if (user.role === 'admin' || db.getMemberRole(a.project.id, uid) === 'admin') {
       return reply.code(400).send({ message: 'Project administrators always have full access' });
     }
+    if (!canGrant(a.role, role) || !canGrant(a.role, currentWorkflowRole(user, a.row))) return reply.code(403).send({ message: 'You cannot assign or change a role with more permissions than your own' });
     db.setWorkflowMember(a.row.id, uid, role);
     ctx.audit(request, 'workflow.member_set', a.row.id, { userId: uid, email: user.email, role });
     return { userId: uid, email: user.email, name: user.name, workflowRole: role };
@@ -422,6 +441,8 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     const { id, uid } = request.params as { id: string; uid: string };
     const a = workflowAccess(request, reply, id, 'workflow.share');
     if (!a) return;
+    const target = db.getUser(uid);
+    if (target && !canGrant(a.role, currentWorkflowRole(target, a.row))) return reply.code(403).send({ message: 'You cannot change a role with more permissions than your own' });
     db.removeWorkflowMember(a.row.id, uid);
     ctx.audit(request, 'workflow.member_removed', a.row.id, { userId: uid });
     return reply.code(204).send();
@@ -459,7 +480,9 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     const worker = hub.workerForProject(a.project.id);
     if (!worker) return reply.code(409).send({ message: 'Project has no worker' });
     const body = (request.body ?? {}) as { workflow?: unknown; trigger?: string; input?: unknown; destination?: unknown };
-    const wf = body.workflow !== undefined ? asWorkflow(body.workflow) : (JSON.parse(a.row.data) as Workflow);
+    // Only people who may edit run a state of their own (it can contain any code); everyone else runs the saved version
+    const own = body.workflow !== undefined && allows(a.role, 'workflow.edit');
+    const wf = own ? asWorkflow(body.workflow) : (JSON.parse(a.row.data) as Workflow);
     if (typeof wf === 'string') return reply.code(400).send({ message: wf });
     const blockedRun = blockedCredentials(a.project.id, wf);
     if (blockedRun.length) return reply.code(403).send({ message: blockedMessage(blockedRun) });

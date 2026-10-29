@@ -44,6 +44,10 @@ function str(v: unknown, max = 500): string {
 export function registerAuthRoutes(api: FastifyInstance, ctx: MasterContext): void {
   const { db, sessions } = ctx;
   const totpLimiter = new RateLimiter(5, 5 * 60_000);
+  // Per account as well: a new login would otherwise bring five fresh attempts every time
+  const totpUserLimiter = new RateLimiter(10, 15 * 60_000);
+  // Re-entering the password in the profile (change password, disable TOTP): no brute force with a stolen session
+  const passwordCheckLimiter = new RateLimiter(10, 15 * 60_000);
 
   api.get('/api/auth/status', async (request) => {
     const auth = sessions.authenticate(request, true);
@@ -110,7 +114,7 @@ export function registerAuthRoutes(api: FastifyInstance, ctx: MasterContext): vo
   api.post('/api/auth/totp', async (request, reply) => {
     const auth = sessions.authenticate(request, true);
     if (!auth || !('mfaPending' in auth)) return reply.code(401).send({ message: 'No pending login' });
-    if (!totpLimiter.hit(auth.sessionHash)) return reply.code(429).send({ message: 'Too many attempts' });
+    if (!totpLimiter.hit(auth.sessionHash) || !totpUserLimiter.hit(auth.user.id)) return reply.code(429).send({ message: 'Too many attempts' });
     const user = auth.user;
     const counter = user.totp_secret ? verifyTotp(ctx.secrets.open(user.totp_secret), str((request.body as Record<string, unknown> | null)?.code), user.totp_last_counter) : undefined;
     if (counter === undefined) {
@@ -120,6 +124,7 @@ export function registerAuthRoutes(api: FastifyInstance, ctx: MasterContext): vo
     db.updateUser(user.id, { totp_last_counter: counter, last_login_at: new Date().toISOString() });
     db.completeMfa(auth.sessionHash);
     totpLimiter.reset(auth.sessionHash);
+    totpUserLimiter.reset(user.id);
     db.audit({ userId: user.id, email: user.email, action: 'login', details: { ip: request.ip, method: 'password+totp' } });
     return { ok: true };
   });
@@ -146,6 +151,7 @@ export function registerAuthRoutes(api: FastifyInstance, ctx: MasterContext): vo
   api.post('/api/me/password', async (request, reply) => {
     const body = (request.body ?? {}) as Record<string, unknown>;
     const user = request.auth!.user;
+    if (user.password_hash && !passwordCheckLimiter.hit(user.id)) return reply.code(429).send({ message: 'Too many attempts, please try again later' });
     if (user.password_hash && !(await verifyPassword(str(body.current, 2000), user.password_hash))) {
       return reply.code(403).send({ message: 'Current password is wrong' });
     }
@@ -179,6 +185,7 @@ export function registerAuthRoutes(api: FastifyInstance, ctx: MasterContext): vo
   api.post('/api/me/totp/disable', async (request, reply) => {
     const user = request.auth!.user;
     const body = (request.body ?? {}) as Record<string, unknown>;
+    if (user.password_hash && !passwordCheckLimiter.hit(user.id)) return reply.code(429).send({ message: 'Too many attempts, please try again later' });
     if (user.password_hash && !(await verifyPassword(str(body.password, 2000), user.password_hash))) {
       return reply.code(403).send({ message: 'Password is wrong' });
     }

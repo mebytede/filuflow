@@ -10,7 +10,7 @@ import type { NodeIssue, NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
 import type { Item, Workflow, WorkflowNode } from '../types.js';
 import type { BinaryStore } from '../binary.js';
-import { parseContentType, type IncomingWebhookRequest } from './webhook.js';
+import { basicAuthMatches, parseContentType, type IncomingWebhookRequest } from './webhook.js';
 import { memoryMessages } from '../ai/memory.js';
 
 export const CHAT_TRIGGER_TYPE = '@n8n/n8n-nodes-langchain.chatTrigger';
@@ -44,6 +44,14 @@ export function chatWebhookPath(node: WorkflowNode): string {
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
 
+/**
+ * Custom CSS inside <style>: "</" cannot end the element any more ("<\/" means the same in CSS). Removing "</style" once
+ * was not enough ("</</stylestyle>" became "</style>" again).
+ */
+export function escapeStyleText(css: string): string {
+  return css.replace(/<\//g, '<\\/');
+}
+
 /** Hosted chat page: settings as JSON data, logic in /ui/chat/page.js */
 export function chatPage(config: Record<string, unknown>, customCss?: string): string {
   const json = JSON.stringify(config).replace(/</g, '\\u003c');
@@ -55,7 +63,7 @@ export function chatPage(config: Record<string, unknown>, customCss?: string): s
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)}</title>
 <link rel="stylesheet" href="/ui/chat/chat.css">
-${customCss ? `<style>${customCss.replace(/<\/style/gi, '')}</style>` : ''}
+${customCss ? `<style>${escapeStyleText(customCss)}</style>` : ''}
 </head>
 <body>
 <div id="chat" class="chat"></div>
@@ -98,7 +106,7 @@ export async function handleChatRequest(ctx: ChatHandleContext): Promise<ChatHan
     if (!m) return unauthorized(401, 'Authorization is required!');
     const decoded = Buffer.from(m[1], 'base64').toString();
     const idx = decoded.indexOf(':');
-    if (idx === -1 || decoded.slice(0, idx) !== expected.user || decoded.slice(idx + 1) !== expected.password) return unauthorized(403, 'Authorization data is wrong!');
+    if (idx === -1 || !basicAuthMatches(decoded, expected)) return unauthorized(403, 'Authorization data is wrong!');
   }
 
   if (req.method === 'GET') {

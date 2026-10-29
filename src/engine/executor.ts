@@ -47,7 +47,7 @@ import {
 import { createDataProxy, allowedEnv, type ExecuteData, type AdditionalKeys } from '../expressions/proxy.js';
 import { DEFAULT_EXPRESSION_TIMEOUT } from '../expressions/evaluator.js';
 
-export const DEFAULT_TIMEZONE = process.env.FILUFLOW_TIMEZONE ?? process.env.GENERIC_TIMEZONE ?? 'Europe/Berlin';
+export const DEFAULT_TIMEZONE = process.env.FILUFLOW_TIMEZONE ?? 'Europe/Berlin';
 
 export interface ExecutionLogEntry {
   time: number;

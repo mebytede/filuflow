@@ -14,6 +14,7 @@ import {
   RESPOND_TO_WEBHOOK_TYPE,
   WebhookConfigurationError,
   UnprocessableRequestError,
+  basicAuthMatches,
   describeWebhooks,
   handleWebhookRequest,
   responseOptions,
@@ -694,7 +695,7 @@ export class WebhookService {
     const m = /^ *(?:[Bb][Aa][Ss][Ii][Cc]) +([A-Za-z0-9._~+/-]+=*) *$/.exec((Array.isArray(header) ? header[0] : header) ?? '');
     const decoded = m ? Buffer.from(m[1], 'base64').toString() : '';
     const idx = decoded.indexOf(':');
-    if (expected?.user && expected?.password && idx !== -1 && decoded.slice(0, idx) === expected.user && decoded.slice(idx + 1) === expected.password) return undefined;
+    if (expected?.user && expected?.password && idx !== -1 && basicAuthMatches(decoded, expected)) return undefined;
     return { statusCode: 401, headers: { 'WWW-Authenticate': 'Basic realm="Enter credentials"' }, body: '', raw: true };
   }
 
