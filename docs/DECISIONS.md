@@ -559,12 +559,25 @@ still starts from the stored values, so like the reference a test run does not r
 counts as a possible duplicate. After a successful activation the static data is saved (as the reference does in
 `ActiveWorkflowManager.add`), so the first poll time survives a restart even before the first execution.
 
-## Installer (M42)
-`scripts/install.sh` builds the Docker image from source on the server by default instead of pulling
-`ghcr.io/mebytede/filuflow:main`. The package in the GitHub Container Registry is private, so other people cannot pull it,
-and building from a git ref makes the installed version explicit (`--ref`) and works the same for the native method.
-`--image` uses a prebuilt image for those who have access to one; the build costs a few minutes and about 2 GB of RAM
-once per update.
+## Installer (M42, M45)
+`scripts/install.sh` installs released versions by default: with Docker it pulls the published release image
+`ghcr.io/mebytede/filuflow:<version>`, natively it builds the release's git tag. Until M45 it built the Docker image from
+`main` on the server, because the image package was private; since release 0.1.0 the repository and the multi-arch images
+are public and pull without login. Pulling a release image is faster (no build of a few minutes and about 2 GB of RAM per
+update, which small servers often do not have), uses exactly the image that passed the release workflow's tests and smoke
+test, and installs a version that is documented in the changelog instead of whatever `main` holds at that moment.
+Building from source stays available: `--build` (the release's tag), `--ref` (a branch or commit, e.g. `main`),
+`--source` (a local checkout) and `--image` (an own image).
+
+The latest release is resolved from the repository's git tags (`git ls-remote`, highest `vX.Y.Z`, pre-releases only
+when asked for explicitly), so it does not depend on the GitHub API and its rate limit; without git the script follows
+GitHub's `/releases/latest` redirect, and if both fail Docker falls back to the image tag `latest` with a note. The
+resolved version is pinned as `FILUFLOW_IMAGE` in `.env` (not `latest`), so the installed version is explicit, a restart
+never changes it, and `docker compose pull` plus `up -d` or a changed `FILUFLOW_IMAGE` update it by hand. Before changing
+anything the script checks the image tag with the registry's manifest endpoint (anonymous token, only curl needed, also
+before Docker is installed) or the git tag with `git ls-remote`. The way of installing is stored in the state file and
+kept by `--update`, so a server that builds from source does not switch to pulling (or the reverse) without being asked.
+A plain re-run keeps the version; only `--update` or `--version` changes it.
 
 For HTTPS the installer uses Caddy from its official repository: it obtains and renews Let's Encrypt certificates by
 itself, redirects HTTP to HTTPS and needs a configuration of a few lines, so the installer has no certbot timers, renewal

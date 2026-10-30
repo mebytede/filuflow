@@ -8,6 +8,17 @@ breaking changes; they are listed under "Changed" or "Removed".
 
 ## [Unreleased]
 
+### Changed
+
+- **The installer uses the published image and installs releases by default.** `scripts/install.sh` with Docker pulls
+  `ghcr.io/mebytede/filuflow:<version>` of the latest release instead of building `main` from source; the native method
+  builds the release tag instead of `main`. `--version X.Y.Z` pins a release, `--build` builds the image from the
+  release's source, `--ref` builds a branch or commit (e.g. `main`), `--source` and `--image` work as before. The image
+  is recorded as `FILUFLOW_IMAGE` in `.env`. `--update` moves to the latest release (or `--version`), prints the old and
+  new version and keeps the way the installation was made; a plain re-run keeps the version. `--version` is no longer an
+  alias of `--ref`. Docker installations made with the 0.1.0 installer keep building their git ref;
+  `--update --version latest --no-build` switches them to the release image.
+
 ## [0.1.0] - 2026-10-30
 
 First public release.

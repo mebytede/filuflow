@@ -55,12 +55,16 @@ and respond. Every run is logged and can be traced node by node.
 On a Linux server (Debian or Ubuntu; Docker by default, `--method native` for Node.js 22 with systemd):
 
 ```bash
-sudo bash scripts/install.sh --mode serve --domain flows.example.com --email admin@example.com
+curl -fsSL https://raw.githubusercontent.com/mebytede/filuflow/main/scripts/install.sh \
+  | sudo bash -s -- --mode serve --domain flows.example.com --email admin@example.com
 ```
 
-The script installs the prerequisites, generates the secrets, puts Caddy with a Let's Encrypt certificate in front
-(only with `--domain`), starts filuflow and prints the address and login. `--mode master` and `--mode worker` set up the
-team and tenant modes. All flags, manual installation, HTTPS, updates, backups and troubleshooting:
+The script installs the prerequisites, installs the latest release (Docker: pulls the image
+`ghcr.io/mebytede/filuflow:<version>`; native: builds the release tag), generates the secrets, puts Caddy with a
+Let's Encrypt certificate in front (only with `--domain`), starts filuflow and prints the address, login and version.
+`--version 0.1.0` pins a release, `--build` builds the image from source instead of pulling it, `--ref main` installs the
+development state, and `--update` moves an installation to the latest release. `--mode master` and `--mode worker` set
+up the team and tenant modes. All flags, manual installation, HTTPS, updates, backups and troubleshooting:
 [docs/INSTALL.md](docs/INSTALL.md).
 
 For development and a quick try on your own machine (Node.js 22):
