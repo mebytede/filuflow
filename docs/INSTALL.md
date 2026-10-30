@@ -11,8 +11,11 @@ three operating modes:
 
 Two installation methods are supported:
 
-- **Docker** (default): Docker Engine with the compose plugin; the image is built from the source code on the server.
-- **Native**: Node.js 22 with a systemd service and a dedicated system user.
+- **Docker** (default): Docker Engine with the compose plugin; runs the published release image
+  `ghcr.io/mebytede/filuflow:<version>` (amd64 and arm64), or with `--build` an image built from source on the server.
+- **Native**: Node.js 22 with a systemd service and a dedicated system user; builds the release from its git tag.
+
+Both methods install released versions by default (the latest release, or the one given with `--version`).
 
 Contents: [Requirements](#requirements) · [Quick install](#quick-install-with-the-script) ·
 [Manual Docker install](#manual-installation-with-docker) · [Manual native install](#manual-native-installation-with-systemd) ·
@@ -25,7 +28,8 @@ Contents: [Requirements](#requirements) · [Quick install](#quick-install-with-t
 - Linux on x86_64 or arm64. The installer supports Debian and Ubuntu (apt) fully, Fedora, RHEL, Rocky and AlmaLinux (dnf)
   for the prerequisites where this is simple. Other distributions work with a manual installation.
 - Root access (or sudo).
-- Outgoing HTTPS during installation (GitHub, npm registry, Docker Hub or NodeSource, Caddy repository).
+- Outgoing HTTPS during installation (GitHub and the GitHub Container Registry, for native installs and `--build` the
+  npm registry and Docker Hub or NodeSource, with `--domain` the Caddy repository).
 - For HTTPS with Let's Encrypt: a DNS name pointing to the server, ports 80 and 443 reachable from the internet.
 
 Sizing (rough guide values; AI nodes, large payloads and many parallel executions need more):
@@ -36,20 +40,21 @@ Sizing (rough guide values; AI nodes, large payloads and many parallel execution
 | Single server or worker, busy | 2 to 4 vCPU | 2 to 4 GB | 20 GB+ (execution log, binary data) |
 | Master | 1 vCPU | 512 MB to 1 GB | 2 GB |
 
-Building the Docker image needs about 2 GB of RAM and 3 GB of disk temporarily. Executions are kept for 14 days by default
+Building the Docker image (only with `--build`, `--ref` or `--source`) needs about 2 GB of RAM and 3 GB of disk
+temporarily. Executions are kept for 14 days by default
 (`FILUFLOW_PRUNE_DAYS`); the database grows with the number and size of executions.
 
 ## Quick install with the script
 
-`scripts/install.sh` installs the prerequisites, gets the source code, writes the configuration with fresh secrets,
-starts filuflow, waits for `/healthz` and prints a summary.
+`scripts/install.sh` installs the prerequisites, looks up the latest release, pulls its image (Docker) or builds it from
+its git tag (native), writes the configuration with fresh secrets, starts filuflow, waits for `/healthz` and prints a
+summary with the installed version.
 
 ```bash
-# from a checkout
-sudo bash scripts/install.sh
-
-# or directly (needs the repository to be public)
 curl -fsSL https://raw.githubusercontent.com/mebytede/filuflow/main/scripts/install.sh | sudo bash -s -- --mode serve
+
+# or from a checkout
+sudo bash scripts/install.sh
 ```
 
 In a terminal the script asks for the mode, method, port, domain and (master) first admin. Without a terminal, or with
@@ -68,9 +73,36 @@ sudo bash scripts/install.sh --mode worker --method native
 # master with HTTPS and the first admin (password generated and shown once)
 sudo bash scripts/install.sh --mode master --domain filuflow.example.com --admin-email ada@example.com
 
+# a specific release, and building the image from its source instead of pulling it
+sudo bash scripts/install.sh --version 0.1.0 --build
+
+# the development state (branch main), built from source
+sudo bash scripts/install.sh --ref main
+
 # see what would happen, without installing anything (writes the generated files to ./preview)
 bash scripts/install.sh --dry-run --yes --mode master --dir "$PWD/preview"
 ```
+
+### Versions
+
+| What is installed | Flags | Docker | Native |
+|---|---|---|---|
+| latest release | (default) | pulls `ghcr.io/mebytede/filuflow:<version>` | builds the git tag `v<version>` |
+| a specific release | `--version 0.1.0` (or `v0.1.0`) | pulls that image tag | builds that tag |
+| a release, built on the server | `--build` (with or without `--version`) | builds the git tag `v<version>` | (always) |
+| a branch, tag or commit | `--ref main` | builds it from source | builds it |
+| a local checkout | `--source <path>` | builds it | builds it |
+| an own image | `--image <image>` | pulls it | |
+
+The latest release is the highest version tag `vX.Y.Z` of the repository (pre-releases such as `1.2.0-rc.1` are only
+installed when given with `--version`). If it cannot be determined (no git, no access to GitHub), Docker falls back to
+the image tag `latest` with a note; building then needs `--version` or `--ref`. Before changing anything the script
+checks that the image tag or the git tag exists and stops with a clear error otherwise.
+
+With Docker the chosen image is recorded as `FILUFLOW_IMAGE` in `/opt/filuflow/.env` and the compose file uses it, so
+`cd /opt/filuflow && sudo docker compose pull && sudo docker compose up -d` refreshes the installed version by hand, and
+editing `FILUFLOW_IMAGE` pins another one. The way of installing (release image, `--build`, `--ref`, `--source` or
+`--image`) is stored in `.install.conf` and kept by updates.
 
 ### Flags
 
@@ -86,16 +118,19 @@ bash scripts/install.sh --dry-run --yes --mode master --dir "$PWD/preview"
 | `--email <address>` | contact address for Let's Encrypt (expiry notices) | none |
 | `--public-url <url>` | public base URL when you run your own reverse proxy | `http://<server IP>:<port>` |
 | `--timezone <zone>` | time zone for schedules and date values | the server's, else `Europe/Berlin` |
-| `--ref <ref>`, `--version <ref>` | git branch, tag or commit | `main` |
-| `--repo <url>` | git repository | `https://github.com/mebytede/filuflow.git` |
-| `--source <path>` | use a local checkout instead of cloning | |
-| `--image <image>` | Docker only: use a prebuilt image instead of building | |
+| `--version <X.Y.Z\|latest>` | release to install or update to; a leading `v` is optional | latest release |
+| `--build` | Docker only: build the image from the release's git tag instead of pulling it | off |
+| `--no-build` | Docker only: go back from `--build` to the published image | |
+| `--ref <ref>` | build a git branch, tag or commit instead of a release | |
+| `--repo <url>` | git repository (for building and for looking up releases) | `https://github.com/mebytede/filuflow.git` |
+| `--source <path>` | build from a local checkout instead of cloning | |
+| `--image <image>` | Docker only: use this image instead of the release image | |
 | `--with-python` | Python 3 for "Python (Native)" in the Code node (Pyodide works without) | off |
 | `--api-key <value>` | `FILUFLOW_API_KEY` (serve, worker; at least 16 characters) | generated |
 | `--encryption-key <value>` | `FILUFLOW_ENCRYPTION_KEY` (at least 16 characters) | generated |
 | `--admin-email <address>` | master: first admin instead of the setup token | |
 | `--admin-password <value>` | master: password of the first admin (at least 12 characters) | generated |
-| `--update` | update an existing installation | |
+| `--update` | update an existing installation to the latest release (or `--version`) | |
 | `--uninstall` | stop and remove the service, keep data and settings | |
 | `--purge` | with `--uninstall`: delete data, settings and the install directory | |
 | `-y`, `--yes` | do not ask | |
@@ -113,12 +148,12 @@ Docker (`--method docker`):
 
 | Path | Content |
 |---|---|
-| `/opt/filuflow/app/` | source code (git checkout, or the copy of `--source`); not used with `--image` |
+| `/opt/filuflow/app/` | source code (git checkout, or the copy of `--source`); only when building (`--build`, `--ref`, `--source`) |
 | `/opt/filuflow/docker-compose.yml` | generated per mode; rewritten on every run |
 | `/opt/filuflow/docker-compose.override.yml` | optional, yours: own changes (docker compose reads it automatically) |
-| `/opt/filuflow/.env` | settings and secrets (mode 600), passed to the container |
+| `/opt/filuflow/.env` | settings and secrets (mode 600), passed to the container; `FILUFLOW_IMAGE` names the image |
 | `/opt/filuflow/data/` | everything the container writes: workflows, database, credentials, binary data, packages |
-| `/opt/filuflow/.install.conf` | the installer's choices (no secrets), used for updates |
+| `/opt/filuflow/.install.conf` | the installer's choices and the installed version (no secrets), used for updates |
 
 Native (`--method native`):
 
@@ -126,7 +161,7 @@ Native (`--method native`):
 |---|---|
 | `/opt/filuflow/app/` | source code, built (`npm ci`, `npm run build`, dev dependencies removed), owned by root |
 | `/etc/filuflow/filuflow.env` | settings and secrets (mode 600) |
-| `/etc/filuflow/install.conf` | the installer's choices (no secrets) |
+| `/etc/filuflow/install.conf` | the installer's choices and the installed version (no secrets) |
 | `/etc/systemd/system/filuflow.service` | systemd unit with hardening; own changes via `systemctl edit filuflow` |
 | `/var/lib/filuflow/` | data, home and working directory of the system user `filuflow` |
 
@@ -136,11 +171,12 @@ the import line.
 
 ### Re-running the script
 
-Running the script again on a server where filuflow is installed (same `--dir`) updates it: it fetches the configured
-ref (or the image), rebuilds and restarts. The env file keeps its secrets and your own additions; only the address
-settings (`FILUFLOW_WEBHOOK_URL`, `FILUFLOW_PUBLIC_URL`, `FILUFLOW_TRUST_PROXY`, host and port) are updated from the
-flags. Mode and method cannot change; uninstall first for that. `--update` does the same, but fails if nothing is
-installed.
+Running the script again on a server where filuflow is installed (same `--dir`) applies changed flags (domain, port,
+...) and restarts, but keeps the installed version unless `--version` is given. `--update` also moves to the latest
+release (or to `--version`) and fails if nothing is installed; see [Updating](#updating). The env file keeps its secrets
+and your own additions; only the address settings (`FILUFLOW_WEBHOOK_URL`, `FILUFLOW_PUBLIC_URL`,
+`FILUFLOW_TRUST_PROXY`, host and port) and `FILUFLOW_IMAGE` are updated. Mode and method cannot change; uninstall first
+for that.
 
 ## Manual installation with Docker
 
@@ -213,9 +249,9 @@ interface or the master in `/data/credentials.managed.json`, binary data in `/da
 `/data/pyodide`. A hand-maintained `credentials.json` or `vars.json` goes into `/data` as well. For "Python (Native)" in
 the Code node build with `--build-arg WITH_PYTHON=true` (in compose: `build: { context: ./app, args: { WITH_PYTHON: "true" } }`).
 
-A prebuilt image is published to `ghcr.io/mebytede/filuflow:main` by the CI. As long as that package is private, only
-accounts with access can pull it (`docker login ghcr.io` with a token that has `read:packages`); everyone else builds
-from source as above.
+Instead of building, use the published image: `image: ghcr.io/mebytede/filuflow:0.1.0` (without `build:`; tags
+`X.Y.Z`, `X.Y` and `latest` for releases, `main` for the development state, amd64 and arm64, pulled without login).
+Then `sudo docker compose pull && sudo docker compose up -d` instead of `--build`.
 
 ## Manual native installation with systemd
 
@@ -409,17 +445,31 @@ Credentials can be created in the interface (stored in `credentials.managed.json
 
 ## Updating
 
-With the installer (keeps settings, secrets and data):
+With the installer (keeps settings, secrets and data; the summary at the end of the installation shows the command):
 
 ```bash
-sudo bash /opt/filuflow/app/scripts/install.sh --update              # the configured ref, usually main
-sudo bash /opt/filuflow/app/scripts/install.sh --update --ref v1.2.0 # a specific tag or commit
+curl -fsSL https://raw.githubusercontent.com/mebytede/filuflow/main/scripts/install.sh | sudo bash -s -- --update
+# a specific release (also to go back to an older one; read the changelog before downgrading)
+curl -fsSL https://raw.githubusercontent.com/mebytede/filuflow/main/scripts/install.sh | sudo bash -s -- --update --version 0.1.0
 ```
 
-By hand:
+`--update` looks up the latest release again and prints the old and the new version. Docker: it sets `FILUFLOW_IMAGE`
+to the new tag, pulls and restarts. Native: it fetches the new tag, rebuilds and restarts. An installation made with
+`--build`, `--ref` or `--source` keeps building that way (`--ref`: fetches the ref again; `--source`: copies the
+checkout again), one made with `--image` pulls that image again. `--version` switches such an installation to releases
+(a `--ref` or `--source` installation keeps building them from source; `--no-build` switches to the published image).
+
+By hand (Docker with the release image):
 
 ```bash
-cd /opt/filuflow/app && sudo git pull                                  # both methods
+cd /opt/filuflow && sudo sed -i 's/^FILUFLOW_IMAGE=.*/FILUFLOW_IMAGE=ghcr.io\/mebytede\/filuflow:0.2.0/' .env
+sudo docker compose pull && sudo docker compose up -d
+```
+
+By hand (built from source):
+
+```bash
+cd /opt/filuflow/app && sudo git fetch --depth 1 origin tag v0.2.0 && sudo git checkout -f v0.2.0   # both methods
 cd /opt/filuflow && sudo docker compose up -d --build                  # Docker
 cd /opt/filuflow/app && sudo npm ci && sudo npm run build && sudo npm prune --omit=dev && sudo systemctl restart filuflow   # native
 ```
@@ -518,8 +568,13 @@ worker settings of the master.
 **Docker and the firewall.** Ports published by Docker bypass ufw and firewalld rules. Publish only on `127.0.0.1`
 behind a proxy, or restrict access at the network level.
 
+**Pulling the image fails.** `ghcr.io` and its blob storage (`pkg-containers.githubusercontent.com`) must be reachable;
+behind a proxy configure it for the Docker daemon. The error "image ... not found" means the version has no published
+image (check the releases page; the image of a new release appears a few minutes after its tag).
+
 **Building the image fails.** It needs about 2 GB of RAM (add swap on small servers) and access to Docker Hub and the npm
 registry. Behind a proxy configure it for the Docker daemon and the build.
 
-**`curl | bash` gets a 404.** The raw URL only works while the repository is public. Otherwise clone the repository with
-your credentials and run `sudo bash scripts/install.sh`.
+**`curl | bash` gets a 404.** Check the URL (`https://raw.githubusercontent.com/mebytede/filuflow/main/scripts/install.sh`).
+Without access to GitHub, copy the script to the server and run `sudo bash install.sh --version X.Y.Z` (and set up a
+mirror of the image or the repository with `--image` or `--repo`).

@@ -1,12 +1,15 @@
 // scripts/install.sh in dry-run mode: generates the configuration files into a temporary directory without root,
 // network, package installation or services. Checks contents, file modes and that secrets only end up in the env file.
+// The latest release is injected with FILUFLOW_INSTALL_LATEST_VERSION (default 9.8.7), so no git lookup happens.
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, existsSync } from 'node:fs';
+import { appendFileSync, mkdirSync, writeFileSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 
 const SCRIPT = resolve(import.meta.dirname, '..', 'scripts', 'install.sh');
+const LATEST = '9.8.7';
+const RELEASE_IMAGE = 'ghcr.io/mebytede/filuflow';
 const dirs: string[] = [];
 
 afterAll(() => {
@@ -27,7 +30,8 @@ function cleanEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
 }
 
 function install(args: string[], extraEnv: Record<string, string> = {}) {
-  const result = spawnSync('bash', [SCRIPT, '--dry-run', '--yes', ...args], { encoding: 'utf8', env: cleanEnv(extraEnv), stdio: ['ignore', 'pipe', 'pipe'] });
+  const env = cleanEnv({ FILUFLOW_INSTALL_LATEST_VERSION: LATEST, ...extraEnv });
+  const result = spawnSync('bash', [SCRIPT, '--dry-run', '--yes', ...args], { encoding: 'utf8', env, stdio: ['ignore', 'pipe', 'pipe'] });
   return { status: result.status, stdout: result.stdout, stderr: result.stderr, output: result.stdout + result.stderr };
 }
 
@@ -83,7 +87,7 @@ describe('install.sh', () => {
   it('shows the help', () => {
     const result = spawnSync('bash', [SCRIPT, '--help'], { encoding: 'utf8' });
     expect(result.status).toBe(0);
-    for (const flag of ['--mode', '--method', '--domain', '--email', '--dir', '--port', '--ref', '--image', '--with-python', '--yes', '--dry-run', '--update', '--uninstall', '--purge', '--source']) {
+    for (const flag of ['--mode', '--method', '--domain', '--email', '--dir', '--port', '--ref', '--version', '--build', '--no-build', '--image', '--with-python', '--yes', '--dry-run', '--update', '--uninstall', '--purge', '--source']) {
       expect(result.stdout).toContain(flag);
     }
   });
@@ -122,9 +126,13 @@ describe('install.sh', () => {
           }
 
           if (method === 'docker') {
+            // default: the published image of the latest release, recorded in .env
             const compose = readFileSync(join(dir, 'docker-compose.yml'), 'utf8');
-            expect(compose).toContain('context: ./app');
-            expect(compose).toContain('image: filuflow:local');
+            expect(compose).not.toContain('build:');
+            expect(compose).toContain('image: ${FILUFLOW_IMAGE:?');
+            expect(env.FILUFLOW_IMAGE).toBe(`${RELEASE_IMAGE}:${LATEST}`);
+            expect(run.output).not.toContain('git -C');
+            expect(run.output).toContain('docker compose pull');
             expect(compose).toContain('env_file: .env');
             expect(compose).toContain('- ./data:/data');
             expect(compose).toContain('restart: unless-stopped');
@@ -152,6 +160,9 @@ describe('install.sh', () => {
             }
             expect(existsSync(join(dir, 'docker-compose.yml'))).toBe(false);
             expect(readFileSync(join(dir, 'install.conf'), 'utf8')).toContain('METHOD=native');
+            // native: the release tag, not main
+            expect(run.output).toContain(`fetch --depth 1 origin v${LATEST}`);
+            expect(env.FILUFLOW_IMAGE).toBeUndefined();
           }
 
           const caddyFile = join(dir, 'filuflow.caddy');
@@ -242,7 +253,8 @@ describe('install.sh', () => {
     const run = install(['--dir', dir, '--image', 'ghcr.io/mebytede/filuflow:main']);
     expect(run.status, run.output).toBe(0);
     const compose = readFileSync(join(dir, 'docker-compose.yml'), 'utf8');
-    expect(compose).toContain('image: ghcr.io/mebytede/filuflow:main');
+    expect(compose).toContain('image: ${FILUFLOW_IMAGE:?');
+    expect(parseEnv(join(dir, '.env')).FILUFLOW_IMAGE).toBe('ghcr.io/mebytede/filuflow:main');
     expect(compose).not.toContain('build:');
     expect(run.output).not.toContain('git -C');
 
@@ -277,6 +289,15 @@ describe('install.sh', () => {
       ['--mode', 'master', '--admin-email', 'ada@example.com', '--admin-password', 'short'],
       ['--method', 'native', '--image', 'filuflow:x'],
       ['--ref', 'main;rm -rf /'],
+      ['--version', 'main'],
+      ['--version', '1.2'],
+      ['--version', 'v1.2.3;rm -rf /'],
+      ['--version', '1.2.3', '--ref', 'main'],
+      ['--image', 'filuflow:x', '--version', '1.2.3'],
+      ['--image', 'filuflow:x', '--build'],
+      ['--source', '/tmp', '--version', '1.2.3'],
+      ['--ref', 'main', '--no-build'],
+      ['--method', 'native', '--no-build'],
       ['--purge'],
       ['--unknown-flag'],
     ];
@@ -314,5 +335,173 @@ describe('install.sh', () => {
     expect(install(['--uninstall', '--purge', '--dir', docker]).output).toContain('--rmi local');
     // dry run: the generated files are still there
     expect(existsSync(join(docker, '.env'))).toBe(true);
+  });
+
+  describe('versions', () => {
+    const conf = (dir: string) => parseEnv(join(dir, '.install.conf'));
+    const compose = (dir: string) => readFileSync(join(dir, 'docker-compose.yml'), 'utf8');
+    const envOf = (dir: string) => parseEnv(join(dir, '.env'));
+
+    it('pulls the image of the latest release by default', () => {
+      const dir = tempDir();
+      const run = install(['--dir', dir]);
+      expect(run.status, run.output).toBe(0);
+      expect(run.output).toContain(`version: ${LATEST} (image ${RELEASE_IMAGE}:${LATEST})`);
+      expect(run.output).toContain(`Version:        ${LATEST}`);
+      expect(run.output).toContain('add --version X.Y.Z to pin');
+      expect(envOf(dir).FILUFLOW_IMAGE).toBe(`${RELEASE_IMAGE}:${LATEST}`);
+      expect(conf(dir)).toMatchObject({ KIND: 'release', VERSION: LATEST, BUILD: 'false', REF: '', IMAGE: '' });
+      expect(run.output).not.toContain('docker compose build');
+    });
+
+    it('pins a version given with or without "v", including pre-releases', () => {
+      for (const [given, tag] of [['1.2.3', '1.2.3'], ['v1.2.3', '1.2.3'], ['1.3.0-rc.1', '1.3.0-rc.1']]) {
+        const dir = tempDir();
+        const run = install(['--dir', dir, '--version', given]);
+        expect(run.status, run.output).toBe(0);
+        expect(run.output).not.toContain('Looking up the latest release');
+        expect(envOf(dir).FILUFLOW_IMAGE).toBe(`${RELEASE_IMAGE}:${tag}`);
+        expect(conf(dir).VERSION).toBe(tag);
+      }
+      // "latest" resolves
+      const dir = tempDir();
+      expect(install(['--dir', dir, '--version', 'latest']).status).toBe(0);
+      expect(conf(dir).VERSION).toBe(LATEST);
+    });
+
+    it('builds the release from source with --build, a git ref with --ref and a local checkout with --source', () => {
+      const build = tempDir();
+      const run = install(['--dir', build, '--build', '--version', '1.2.3']);
+      expect(run.status, run.output).toBe(0);
+      expect(compose(build)).toContain('context: ./app');
+      expect(compose(build)).toContain('image: filuflow:local');
+      expect(envOf(build).FILUFLOW_IMAGE).toBeUndefined();
+      expect(run.output).toContain('fetch --depth 1 origin v1.2.3');
+      expect(run.output).toContain('docker compose build --pull');
+      expect(run.output).toContain('1.2.3 (built from git tag v1.2.3)');
+      expect(conf(build)).toMatchObject({ KIND: 'release', VERSION: '1.2.3', BUILD: 'true' });
+
+      const ref = tempDir();
+      const refRun = install(['--dir', ref, '--ref', 'main']);
+      expect(refRun.status, refRun.output).toBe(0);
+      expect(compose(ref)).toContain('context: ./app');
+      expect(refRun.output).toContain('fetch --depth 1 origin main');
+      expect(refRun.output).not.toContain('Looking up the latest release');
+      expect(conf(ref)).toMatchObject({ KIND: 'ref', REF: 'main', VERSION: '' });
+
+      const source = tempDir();
+      const sourceRun = install(['--dir', source, '--source', resolve(import.meta.dirname, '..')]);
+      expect(sourceRun.status, sourceRun.output).toBe(0);
+      expect(compose(source)).toContain('context: ./app');
+      expect(conf(source)).toMatchObject({ KIND: 'source', VERSION: '' });
+    });
+
+    it('uses an own image with --image', () => {
+      const dir = tempDir();
+      const run = install(['--dir', dir, '--image', 'registry.example.com/filuflow:custom']);
+      expect(run.status, run.output).toBe(0);
+      expect(envOf(dir).FILUFLOW_IMAGE).toBe('registry.example.com/filuflow:custom');
+      expect(conf(dir)).toMatchObject({ KIND: 'image', IMAGE: 'registry.example.com/filuflow:custom', VERSION: '' });
+      expect(run.output).not.toContain('Looking up the latest release');
+    });
+
+    it('installs the release tag natively, or a given ref', () => {
+      const dir = tempDir();
+      const run = install(['--dir', dir, '--method', 'native', '--version', 'v2.0.1']);
+      expect(run.status, run.output).toBe(0);
+      expect(run.output).toContain('fetch --depth 1 origin v2.0.1');
+      expect(parseEnv(join(dir, 'install.conf'))).toMatchObject({ KIND: 'release', VERSION: '2.0.1' });
+      const ref = tempDir();
+      const refRun = install(['--dir', ref, '--method', 'native', '--ref', 'main']);
+      expect(refRun.output).toContain('fetch --depth 1 origin main');
+    });
+
+    it('moves to the latest release on --update, keeps the version on a plain re-run, pins with --version', () => {
+      const dir = tempDir();
+      expect(install(['--dir', dir], { FILUFLOW_INSTALL_LATEST_VERSION: '1.0.0' }).status).toBe(0);
+      const update = install(['--update', '--dir', dir], { FILUFLOW_INSTALL_LATEST_VERSION: 'v1.1.0' });
+      expect(update.status, update.output).toBe(0);
+      expect(update.output).toContain(`version: 1.0.0 (image ${RELEASE_IMAGE}:1.0.0) -> 1.1.0 (image ${RELEASE_IMAGE}:1.1.0)`);
+      expect(update.output).toContain('Version:        1.0.0');
+      expect(update.output).toContain('docker compose pull');
+      expect(envOf(dir).FILUFLOW_IMAGE).toBe(`${RELEASE_IMAGE}:1.1.0`);
+      expect(count(readFileSync(join(dir, '.env'), 'utf8'), 'FILUFLOW_IMAGE=')).toBe(1);
+
+      const rerun = install(['--dir', dir, '--port', '5680'], { FILUFLOW_INSTALL_LATEST_VERSION: '1.2.0' });
+      expect(rerun.status, rerun.output).toBe(0);
+      expect(rerun.output).toContain('(unchanged)');
+      expect(conf(dir).VERSION).toBe('1.1.0');
+
+      const pin = install(['--update', '--dir', dir, '--version', '1.0.5'], { FILUFLOW_INSTALL_LATEST_VERSION: '1.2.0' });
+      expect(pin.status, pin.output).toBe(0);
+      expect(envOf(dir).FILUFLOW_IMAGE).toBe(`${RELEASE_IMAGE}:1.0.5`);
+      expect(conf(dir)).toMatchObject({ VERSION: '1.0.5', PORT: '5680' });
+    });
+
+    it('keeps building from source on --update when installed with --build, --ref or --source', () => {
+      const build = tempDir();
+      expect(install(['--dir', build, '--build'], { FILUFLOW_INSTALL_LATEST_VERSION: '1.0.0' }).status).toBe(0);
+      const update = install(['--update', '--dir', build], { FILUFLOW_INSTALL_LATEST_VERSION: '1.1.0' });
+      expect(update.status, update.output).toBe(0);
+      expect(update.output).toContain('fetch --depth 1 origin v1.1.0');
+      expect(compose(build)).toContain('context: ./app');
+      expect(conf(build)).toMatchObject({ KIND: 'release', VERSION: '1.1.0', BUILD: 'true' });
+      // back to the published image
+      expect(install(['--update', '--dir', build, '--no-build']).status).toBe(0);
+      expect(envOf(build).FILUFLOW_IMAGE).toBe(`${RELEASE_IMAGE}:${LATEST}`);
+      expect(conf(build).BUILD).toBe('false');
+
+      const ref = tempDir();
+      expect(install(['--dir', ref, '--ref', 'main']).status).toBe(0);
+      const refUpdate = install(['--update', '--dir', ref]);
+      expect(refUpdate.status, refUpdate.output).toBe(0);
+      expect(refUpdate.output).toContain('fetch --depth 1 origin main');
+      expect(refUpdate.output).toContain('version: git ref main (built from source) (unchanged)');
+      expect(conf(ref).KIND).toBe('ref');
+      // --version switches a ref installation to releases and keeps building
+      expect(install(['--update', '--dir', ref, '--version', 'latest']).status).toBe(0);
+      expect(conf(ref)).toMatchObject({ KIND: 'release', VERSION: LATEST, BUILD: 'true', REF: '' });
+
+      const source = tempDir();
+      expect(install(['--dir', source, '--source', resolve(import.meta.dirname, '..')]).status).toBe(0);
+      const sourceUpdate = install(['--update', '--dir', source]);
+      expect(sourceUpdate.status, sourceUpdate.output).toBe(0);
+      expect(sourceUpdate.output).toContain('Copying the local checkout');
+      expect(conf(source).KIND).toBe('source');
+    });
+
+    it('keeps an own image on --update and switches to releases with --version', () => {
+      const dir = tempDir();
+      expect(install(['--dir', dir, '--image', 'registry.example.com/filuflow:custom']).status).toBe(0);
+      expect(install(['--update', '--dir', dir]).status).toBe(0);
+      expect(envOf(dir).FILUFLOW_IMAGE).toBe('registry.example.com/filuflow:custom');
+      expect(install(['--update', '--dir', dir, '--version', '2.0.0']).status).toBe(0);
+      expect(envOf(dir).FILUFLOW_IMAGE).toBe(`${RELEASE_IMAGE}:2.0.0`);
+      expect(conf(dir)).toMatchObject({ KIND: 'release', IMAGE: '', BUILD: 'false' });
+    });
+
+    it('falls back to the latest image tag when the release cannot be determined', () => {
+      const dir = tempDir();
+      const run = install(['--dir', dir], { FILUFLOW_INSTALL_LATEST_VERSION: '' });
+      expect(run.status, run.output).toBe(0);
+      expect(run.stderr).toContain('could not determine the latest release');
+      expect(envOf(dir).FILUFLOW_IMAGE).toBe(`${RELEASE_IMAGE}:latest`);
+      expect(conf(dir).VERSION).toBe('');
+      // building needs a tag: the dry run shows main
+      const native = tempDir();
+      const nativeRun = install(['--dir', native, '--method', 'native'], { FILUFLOW_INSTALL_LATEST_VERSION: '' });
+      expect(nativeRun.status, nativeRun.output).toBe(0);
+      expect(nativeRun.output).toContain('fetch --depth 1 origin main');
+    });
+
+    it('treats an installation from before versions as a git ref installation', () => {
+      const dir = tempDir();
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, '.install.conf'), 'MODE=serve\nMETHOD=docker\nPORT=5678\nREF=main\nIMAGE=\nSOURCE=\n');
+      const run = install(['--update', '--dir', dir]);
+      expect(run.status, run.output).toBe(0);
+      expect(run.output).toContain('fetch --depth 1 origin main');
+      expect(conf(dir)).toMatchObject({ KIND: 'ref', REF: 'main' });
+    });
   });
 });

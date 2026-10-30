@@ -5,11 +5,15 @@
 #   curl -fsSL https://raw.githubusercontent.com/mebytede/filuflow/main/scripts/install.sh | sudo bash -s -- --mode serve
 #   sudo bash scripts/install.sh --help
 #
-# Full guide: docs/INSTALL.md. Re-running the installer updates an existing installation (keeps settings, secrets and
-# data). Everything runs inside main(), so a partially downloaded script does nothing.
+# Installs the latest release by default (Docker: the published image, native: built from the release tag).
+# Full guide: docs/INSTALL.md. Re-running the installer applies changed settings to an existing installation, --update
+# moves it to the latest release (both keep settings, secrets and data). Everything runs inside main(), so a partially
+# downloaded script does nothing.
 set -euo pipefail
 
 REPO_DEFAULT="https://github.com/mebytede/filuflow.git"
+# Release images (tags X.Y.Z, X.Y and latest, see .github/workflows/release.yml)
+IMAGE_REPO="ghcr.io/mebytede/filuflow"
 RAW_URL="https://raw.githubusercontent.com/mebytede/filuflow/main/scripts/install.sh"
 SERVICE_NAME="filuflow"
 SERVICE_USER="filuflow"
@@ -27,6 +31,8 @@ DIR=""
 DATA_DIR=""
 PORT=""
 REF=""
+VERSION=""
+BUILD=""
 IMAGE=""
 SOURCE=""
 REPO=""
@@ -48,6 +54,17 @@ EXISTING=0
 GENERATED_API_KEY=""
 GENERATED_ENC_KEY=""
 GENERATED_ADMIN_PASSWORD=""
+# What is installed: release (a released version: Docker image, or built from its git tag with --build or natively),
+# ref (a git branch, tag or commit, built from source), source (a local checkout) or image (an own image)
+KIND=""
+VERSION_CHECKED=0
+# The stored installation (from load_state)
+S_KIND=""
+S_VERSION=""
+S_BUILD=""
+S_REF=""
+S_IMAGE=""
+S_SOURCE=""
 OS_ID=""
 OS_LIKE=""
 OS_CODENAME=""
@@ -78,7 +95,8 @@ Usage:
   curl -fsSL https://raw.githubusercontent.com/mebytede/filuflow/main/scripts/install.sh | sudo bash -s -- [options]
 
 Actions (default: install, or update if an installation exists in --dir):
-  --update                 update an existing installation (fetch, rebuild, restart; keeps settings and data)
+  --update                 update an existing installation to the latest release (or --version), restart;
+                           keeps settings, data and the way it was installed
   --uninstall              stop and remove the service; keeps data and settings
   --purge                  with --uninstall: also delete data, settings and the install directory
 
@@ -94,10 +112,14 @@ Installation:
   --email <address>            contact address for Let's Encrypt (recommended with --domain)
   --public-url <url>           public base URL when you run your own reverse proxy (instead of --domain)
   --timezone <zone>            time zone for schedules (default: the server's, else Europe/Berlin)
-  --ref, --version <git ref>   branch, tag or commit to install (default: main)
+  --version <X.Y.Z|latest>     release to install (default: the latest release; "v" prefix optional)
+  --build                      Docker only: build the image from the release's source instead of pulling
+                               ghcr.io/mebytede/filuflow:<version>
+  --no-build                   Docker only: go back from --build to the published image
+  --ref <git ref>              build a branch, tag or commit from source instead of a release (e.g. main)
   --repo <url>                 git repository (default: https://github.com/mebytede/filuflow.git)
-  --source <path>              use a local checkout instead of cloning
-  --image <image>              Docker only: use this prebuilt image instead of building from source
+  --source <path>              build from a local checkout instead of cloning
+  --image <image>              Docker only: use this image instead of the release image
   --with-python                install Python 3 for "Python (Native)" in the Code node
 
 Secrets (generated when not given; environment variables with the same names work too):
@@ -116,7 +138,8 @@ Examples:
   sudo bash install.sh --mode serve --domain flows.example.com --email admin@example.com --yes
   sudo bash install.sh --mode worker --method native --port 5678
   sudo bash install.sh --mode master --domain filuflow.example.com --admin-email ada@example.com
-  sudo bash install.sh --update
+  sudo bash install.sh --update                  # latest release
+  sudo bash install.sh --update --version 0.1.0  # a specific release
   sudo bash install.sh --uninstall
 EOF
 }
@@ -285,7 +308,10 @@ parse_args() {
       --dir) need_value "$@"; DIR="$2"; shift 2 ;;
       --data-dir) need_value "$@"; DATA_DIR="$2"; shift 2 ;;
       --port) need_value "$@"; PORT="$2"; shift 2 ;;
-      --ref | --version) need_value "$@"; REF="$2"; shift 2 ;;
+      --ref) need_value "$@"; REF="$2"; shift 2 ;;
+      --version) need_value "$@"; VERSION="$2"; shift 2 ;;
+      --build) BUILD="true"; shift ;;
+      --no-build) BUILD="false"; shift ;;
       --repo) need_value "$@"; REPO="$2"; shift 2 ;;
       --source) need_value "$@"; SOURCE="$2"; shift 2 ;;
       --image) need_value "$@"; IMAGE="$2"; shift 2 ;;
@@ -307,12 +333,18 @@ parse_args() {
   done
   if [ "$PURGE" -eq 1 ] && [ "$ACTION" != "uninstall" ]; then die "--purge only works together with --uninstall"; fi
   if [ -n "$DOMAIN" ] && [ "$NO_DOMAIN" -eq 1 ]; then die "--domain and --no-domain exclude each other"; fi
+  if [ -n "$IMAGE" ] && [ -n "$VERSION$REF$SOURCE$BUILD" ]; then die "--image cannot be combined with --version, --ref, --source, --build or --no-build"; fi
+  if [ -n "$SOURCE" ] && [ -n "$VERSION$REF" ]; then die "--source cannot be combined with --version or --ref"; fi
+  if [ -n "$REF" ] && [ -n "$VERSION" ]; then die "--ref and --version exclude each other (--ref builds a git ref, --version installs a release)"; fi
+  if [ "$BUILD" = "false" ] && [ -n "$REF$SOURCE" ]; then die "--no-build cannot be combined with --ref or --source (they always build)"; fi
   return 0
 }
 
 valid_domain() {
   [ "${#1}" -le 253 ] && printf '%s' "$1" | grep -qE '^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z][A-Za-z0-9-]{0,61}[A-Za-z0-9]$'
 }
+# X.Y.Z with an optional "v" and an optional pre-release suffix (X.Y.Z-rc.1), as the release workflow tags them
+valid_version() { printf '%s' "$1" | grep -qE '^v?[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.]*)?$'; }
 valid_email() { printf '%s' "$1" | grep -qE '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$'; }
 # Values written into env files: no quotes, backslashes, dollar signs or line breaks
 valid_plain() { case "$1" in *[\'\"\\\$\`]* | *$'\n'* | *$'\r'*) return 1 ;; *) return 0 ;; esac; }
@@ -335,7 +367,11 @@ validate() {
   case "$DATA_DIR" in /*) ;; *) die "--data-dir must be an absolute path (got '$DATA_DIR')" ;; esac
   case "$DIR" in / | /bin | /boot | /dev | /etc | /home | /lib | /proc | /root | /sbin | /sys | /usr | /var) die "--dir $DIR is not allowed" ;; esac
   case "$DATA_DIR" in / | /bin | /boot | /dev | /etc | /home | /lib | /proc | /root | /sbin | /sys | /usr | /var) die "--data-dir $DATA_DIR is not allowed" ;; esac
-  printf '%s' "$REF" | grep -qE '^[A-Za-z0-9._/-]+$' || die "--ref '$REF' contains invalid characters"
+  if [ -n "$REF" ]; then printf '%s' "$REF" | grep -qE '^[A-Za-z0-9._/-]+$' || die "--ref '$REF' contains invalid characters"; fi
+  if [ -n "$VERSION" ] && [ "$VERSION" != "latest" ]; then
+    valid_version "$VERSION" || die "--version must be a release version like 0.1.0 or v0.1.0, or latest (got '$VERSION'); use --ref for branches and commits"
+  fi
+  if [ "$BUILD" = "false" ] && [ "$METHOD" != "docker" ]; then die "--no-build only works with --method docker (the native method always builds)"; fi
   if [ -n "$IMAGE" ]; then
     [ "$METHOD" = "docker" ] || die "--image only works with --method docker"
     printf '%s' "$IMAGE" | grep -qE '^[a-z0-9][a-z0-9._/:@-]*$' || die "--image '$IMAGE' is not a valid image reference"
@@ -431,7 +467,7 @@ load_state() {
   [ -n "$file" ] || return 0
   EXISTING=1
   local key value
-  local s_mode="" s_method="" s_domain="" s_email="" s_port="" s_ref="" s_image="" s_source="" s_repo="" s_data="" s_public="" s_tz="" s_python=""
+  local s_mode="" s_method="" s_domain="" s_email="" s_port="" s_repo="" s_data="" s_public="" s_tz="" s_python=""
   while IFS='=' read -r key value; do
     case "$key" in
       MODE) s_mode="$value" ;;
@@ -439,9 +475,12 @@ load_state() {
       DOMAIN) s_domain="$value" ;;
       EMAIL) s_email="$value" ;;
       PORT) s_port="$value" ;;
-      REF) s_ref="$value" ;;
-      IMAGE) s_image="$value" ;;
-      SOURCE) s_source="$value" ;;
+      KIND) S_KIND="$value" ;;
+      VERSION) S_VERSION="$value" ;;
+      BUILD) S_BUILD="$value" ;;
+      REF) S_REF="$value" ;;
+      IMAGE) S_IMAGE="$value" ;;
+      SOURCE) S_SOURCE="$value" ;;
       REPO) s_repo="$value" ;;
       DATA_DIR) s_data="$value" ;;
       PUBLIC_URL) s_public="$value" ;;
@@ -455,9 +494,10 @@ load_state() {
   METHOD="$s_method"
   if [ "$NO_DOMAIN" -eq 1 ]; then DOMAIN=""; EMAIL=""; else DOMAIN="${DOMAIN:-$s_domain}"; EMAIL="${EMAIL:-$s_email}"; fi
   PORT="${PORT:-$s_port}"
-  REF="${REF:-$s_ref}"
-  IMAGE="${IMAGE:-$s_image}"
-  SOURCE="${SOURCE:-$s_source}"
+  # installations from before KIND existed always built from source (a git ref, a local checkout) or used --image
+  if [ -z "$S_KIND" ]; then
+    if [ -n "$S_IMAGE" ]; then S_KIND="image"; elif [ -n "$S_SOURCE" ]; then S_KIND="source"; else S_KIND="ref"; S_REF="${S_REF:-main}"; fi
+  fi
   REPO="${REPO:-$s_repo}"
   DATA_DIR="${DATA_DIR:-$s_data}"
   PUBLIC_URL="${PUBLIC_URL:-$s_public}"
@@ -476,6 +516,9 @@ METHOD=$METHOD
 DOMAIN=$DOMAIN
 EMAIL=$EMAIL
 PORT=$PORT
+KIND=$KIND
+VERSION=$VERSION
+BUILD=$BUILD
 REF=$REF
 IMAGE=$IMAGE
 SOURCE=$SOURCE
@@ -524,7 +567,6 @@ fill_defaults() {
   METHOD="${METHOD:-docker}"
   DIR="${DIR%/}"
   if [ -z "$PORT" ]; then if [ "$MODE" = "master" ]; then PORT=5679; else PORT=5678; fi; fi
-  REF="${REF:-main}"
   REPO="${REPO:-$REPO_DEFAULT}"
   if [ -z "$DATA_DIR" ]; then
     if [ "$METHOD" = "docker" ]; then DATA_DIR="$DIR/data"; else DATA_DIR="/var/lib/filuflow"; fi
@@ -533,6 +575,126 @@ fill_defaults() {
   TIMEZONE="${TIMEZONE:-$(default_timezone)}"
   if [ -n "$SOURCE" ]; then SOURCE="$(cd "$SOURCE" 2>/dev/null && pwd || printf '%s' "$SOURCE")"; fi
   return 0
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Version: what is installed and which release
+
+with_timeout() { if have timeout; then timeout 30 "$@"; else "$@"; fi; }
+
+# Chooses what is installed from the flags, or keeps what the existing installation uses (so an installation made with
+# --build, --ref, --source or --image keeps that on --update).
+decide_kind() {
+  if [ -n "$IMAGE" ]; then KIND="image"
+  elif [ -n "$SOURCE" ]; then KIND="source"
+  elif [ -n "$REF" ]; then KIND="ref"
+  elif [ -n "$VERSION$BUILD" ]; then KIND="release"
+  elif [ "$EXISTING" -eq 1 ]; then
+    KIND="$S_KIND"
+    case "$KIND" in
+      release) ;;
+      ref) REF="$S_REF" ;;
+      source) SOURCE="$S_SOURCE" ;;
+      image) IMAGE="$S_IMAGE" ;;
+      *) die "unknown KIND '$KIND' in the installation state of $DIR" ;;
+    esac
+  else
+    KIND="release"
+  fi
+  if [ "$ACTION" != "uninstall" ] && [ "$KIND" = "source" ] && { [ ! -f "$SOURCE/package.json" ] || [ ! -f "$SOURCE/bin/filuflow.js" ]; }; then
+    die "the local checkout $SOURCE is gone or not a filuflow checkout; pass --source, --version or --ref"
+  fi
+  if [ "$KIND" = "release" ] && [ "$METHOD" = "docker" ]; then
+    if [ -z "$BUILD" ]; then
+      # keep building from source when the installation did so before
+      if [ "$EXISTING" -eq 1 ] && { [ "$S_BUILD" = "true" ] || [ "$S_KIND" = "ref" ] || [ "$S_KIND" = "source" ]; }; then BUILD="true"; else BUILD="false"; fi
+    fi
+  else
+    BUILD=""
+  fi
+  return 0
+}
+
+# Prints the highest released version X.Y.Z (pre-releases are ignored) from the git tags of the repository, or fails.
+# FILUFLOW_INSTALL_LATEST_VERSION replaces the lookup (tests, offline mirrors); set but empty it simulates a failure.
+latest_release() {
+  if [ -n "${FILUFLOW_INSTALL_LATEST_VERSION+x}" ]; then
+    [ -n "$FILUFLOW_INSTALL_LATEST_VERSION" ] || return 1
+    valid_version "$FILUFLOW_INSTALL_LATEST_VERSION" || die "FILUFLOW_INSTALL_LATEST_VERSION '$FILUFLOW_INSTALL_LATEST_VERSION' is not a version"
+    printf '%s' "${FILUFLOW_INSTALL_LATEST_VERSION#v}"
+    return 0
+  fi
+  local tags="" url=""
+  if have git; then
+    tags="$(GIT_TERMINAL_PROMPT=0 with_timeout git ls-remote --tags --refs "$REPO" 'v*' 2>/dev/null || true)"
+    tags="$(printf '%s\n' "$tags" | sed -n 's#^.*refs/tags/v\([0-9]\{1,\}\.[0-9]\{1,\}\.[0-9]\{1,\}\)$#\1#p')"
+  elif have curl && case "$REPO" in https://github.com/*) true ;; *) false ;; esac; then
+    # without git: GitHub redirects /releases/latest to the newest release that is not a pre-release
+    url="$(curl -fsSL --max-time 20 -o /dev/null -w '%{url_effective}' "${REPO%.git}/releases/latest" 2>/dev/null || true)"
+    tags="$(printf '%s\n' "$url" | sed -n 's#^.*/releases/tag/v\([0-9]\{1,\}\.[0-9]\{1,\}\.[0-9]\{1,\}\)$#\1#p')"
+  fi
+  [ -n "$tags" ] || return 1
+  printf '%s\n' "$tags" | sort -t. -k1,1n -k2,2n -k3,3n | tail -n 1
+}
+
+# Sets VERSION for a release installation: the given one, the installed one on a plain re-run, else the latest release.
+resolve_version() {
+  if [ "$KIND" != "release" ]; then VERSION=""; return 0; fi
+  if [ -n "$VERSION" ] && [ "$VERSION" != "latest" ]; then VERSION="${VERSION#v}"; return 0; fi
+  if [ -z "$VERSION" ] && [ "$EXISTING" -eq 1 ] && [ "$ACTION" != "update" ] && [ "$S_KIND" = "release" ] && [ -n "$S_VERSION" ]; then
+    # re-running without --update changes the settings, not the version
+    VERSION="$S_VERSION"
+    return 0
+  fi
+  local latest=""
+  info "Looking up the latest release in $REPO"
+  latest="$(latest_release)" || latest=""
+  VERSION="$latest"
+  if [ -n "$VERSION" ]; then note "latest release: $VERSION"; return 0; fi
+  if uses_source; then
+    if [ "$DRY_RUN" -eq 1 ]; then
+      warn "could not determine the latest release; the dry run shows main instead"
+      return 0
+    fi
+    die "could not determine the latest release from $REPO (needs git and network access). Pass --version X.Y.Z, or --ref main for the development state"
+  fi
+  warn "could not determine the latest release from $REPO; using the image tag latest (pin a version with --version X.Y.Z)"
+}
+
+# HTTP status of the release image's manifest in the registry (anonymous pull token, like docker pull), 000 on errors
+image_manifest_status() {
+  local registry="${IMAGE_REPO%%/*}" name="${IMAGE_REPO#*/}" token
+  token="$(curl -fsS --max-time 20 "https://$registry/token?scope=repository:$name:pull" 2>/dev/null | sed -n 's/.*"token":"\([^"]*\)".*/\1/p' || true)"
+  curl -sS -o /dev/null -w '%{http_code}' --max-time 20 -I -H "Authorization: Bearer $token" \
+    -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json' \
+    "https://$registry/v2/$name/manifests/$1" 2>/dev/null || true
+}
+
+# Checks that the chosen release exists, without changing anything: the image tag in the registry, or the git tag when
+# building. A missing release stops the installer; an unreachable registry or repository only warns (pulling or cloning
+# reports it again). Skipped in a dry run, and postponed while git is not installed yet.
+verify_version() {
+  [ "$VERSION_CHECKED" -eq 0 ] || return 0
+  if [ "$DRY_RUN" -eq 1 ] || [ "$KIND" != "release" ] || [ -z "$VERSION" ]; then VERSION_CHECKED=1; return 0; fi
+  local status=0
+  if uses_source; then
+    have git || return 0
+    GIT_TERMINAL_PROMPT=0 with_timeout git ls-remote --exit-code --tags "$REPO" "refs/tags/v$VERSION" >/dev/null 2>&1 || status=$?
+    case "$status" in
+      0) ;;
+      2) die "release $VERSION not found: $REPO has no tag v$VERSION (releases: ${REPO%.git}/releases)" ;;
+      *) warn "could not check the tag v$VERSION in $REPO (git exit code $status)" ;;
+    esac
+  else
+    have curl || return 0
+    status="$(image_manifest_status "$VERSION")"
+    case "$status" in
+      200) ;;
+      404) die "image $(pulled_image) not found. Check the version (releases: ${REPO_DEFAULT%.git}/releases); the image of a new release appears a few minutes after its tag" ;;
+      *) warn "could not check the image $(pulled_image) in the registry (HTTP status $status)" ;;
+    esac
+  fi
+  VERSION_CHECKED=1
 }
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -551,7 +713,32 @@ app_dir() { printf '%s/app' "$DIR"; }
 env_file_target() { if [ "$METHOD" = "docker" ]; then printf '%s/.env' "$DIR"; else printf '/etc/filuflow/filuflow.env'; fi; }
 unit_target() { printf '/etc/systemd/system/%s.service' "$SERVICE_NAME"; }
 caddy_site_target() { printf '/etc/caddy/filuflow.caddy'; }
-uses_source() { [ "$METHOD" = "native" ] || [ -z "$IMAGE" ]; }
+# true when the code is fetched (or copied) and built on this server; false when a Docker image is pulled
+uses_source() { [ "$METHOD" = "native" ] || [ "$KIND" = "ref" ] || [ "$KIND" = "source" ] || { [ "$KIND" = "release" ] && [ "$BUILD" = "true" ]; }; }
+# the image the compose file runs when nothing is built
+pulled_image() {
+  if [ "$KIND" = "image" ]; then printf '%s' "$IMAGE"; else printf '%s:%s' "$IMAGE_REPO" "${VERSION:-latest}"; fi
+}
+# the git ref that is fetched: the release tag, or the given ref
+fetch_ref() {
+  if [ "$KIND" = "ref" ]; then printf '%s' "$REF"; elif [ -n "$VERSION" ]; then printf 'v%s' "$VERSION"; else printf 'main'; fi
+}
+# describe_version <kind> <version> <build> <ref> <image> <source>: one line for the plan and the summary
+describe_version() {
+  case "$1" in
+    release)
+      if [ -z "$2" ] && { [ "$METHOD" = "native" ] || [ "$3" = "true" ]; }; then printf 'main (latest release not determined)'
+      elif [ -z "$2" ]; then printf 'latest (image %s:latest; exact version not determined)' "$IMAGE_REPO"
+      elif [ "$METHOD" = "native" ] || [ "$3" = "true" ]; then printf '%s (built from git tag v%s)' "$2" "$2"
+      else printf '%s (image %s:%s)' "$2" "$IMAGE_REPO" "$2"
+      fi
+      ;;
+    ref) printf 'git ref %s (built from source)' "$4" ;;
+    source) printf 'local checkout %s (built from source)' "$6" ;;
+    image) printf 'image %s' "$5" ;;
+    *) printf 'unknown' ;;
+  esac
+}
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Prerequisites
@@ -702,16 +889,16 @@ fetch_source() {
     run rm -rf "$dest"
     run mv "$dest.new" "$dest"
   elif [ -d "$dest/.git" ]; then
-    info "Fetching $REF from $REPO"
+    info "Fetching $(fetch_ref) from $REPO"
     run git -C "$dest" remote set-url origin "$REPO"
-    run git -C "$dest" fetch --depth 1 origin "$REF"
+    run git -C "$dest" fetch --depth 1 origin "$(fetch_ref)"
     run git -C "$dest" checkout -q -f FETCH_HEAD
   else
-    info "Cloning $REPO ($REF) to $dest"
+    info "Cloning $REPO ($(fetch_ref)) to $dest"
     run mkdir -p "$dest"
     run git -C "$dest" init -q
     run git -C "$dest" remote add origin "$REPO"
-    run git -C "$dest" fetch --depth 1 origin "$REF"
+    run git -C "$dest" fetch --depth 1 origin "$(fetch_ref)"
     run git -C "$dest" checkout -q -f FETCH_HEAD
   fi
   run chmod -R go+rX "$dest"
@@ -729,7 +916,8 @@ write_env() {
   if [ ! -f "$out" ]; then
     write_file "$target" 600 <<EOF
 # filuflow settings, written by scripts/install.sh. Contains secrets: keep it private (mode 600) and back it up.
-# Re-running the installer keeps the secrets and your own additions; it only updates the address settings.
+# Re-running the installer keeps the secrets and your own additions; it only updates the address settings
+# and FILUFLOW_IMAGE (the release image).
 # All variables: README.md (Configuration) and docs/INSTALL.md.
 EOF
   else
@@ -761,6 +949,11 @@ EOF
     if [ -z "$(env_get "$out" FILUFLOW_TIMEZONE)" ]; then env_set "$out" FILUFLOW_TIMEZONE "$TIMEZONE"; fi
   fi
 
+  # Docker: the image the compose file runs (docker compose reads .env for ${FILUFLOW_IMAGE})
+  if [ "$METHOD" = "docker" ]; then
+    if uses_source; then env_del "$out" FILUFLOW_IMAGE; else env_set "$out" FILUFLOW_IMAGE "$(pulled_image)"; fi
+  fi
+
   if [ "$METHOD" = "native" ]; then
     env_set "$out" NODE_ENV production
     env_set "$out" FILUFLOW_HOST "$(bind_host)"
@@ -787,8 +980,9 @@ write_compose() {
     worker) command='["node", "/app/bin/filuflow.js", "worker"]' ;;
     master) command='["node", "/app/bin/filuflow.js", "master", "--db", "/data/master.db"]' ;;
   esac
-  if [ -n "$IMAGE" ]; then
-    image="$IMAGE"
+  if ! uses_source; then
+    # shellcheck disable=SC2016 # interpolated by docker compose from .env, not by the shell
+    image='${FILUFLOW_IMAGE:?FILUFLOW_IMAGE missing in .env}'
     build=""
   else
     image="filuflow:local"
@@ -801,7 +995,7 @@ write_compose() {
   write_file "$DIR/docker-compose.yml" 644 <<EOF
 # filuflow ($MODE), written by scripts/install.sh. Re-running the installer rewrites this file:
 # put your own changes into docker-compose.override.yml next to it (docker compose reads both).
-# Settings and secrets are in .env, data (workflows, database, credentials) in ./data.
+# Settings, secrets and the image (FILUFLOW_IMAGE) are in .env, data (workflows, database, credentials) in ./data.
 name: filuflow
 services:
   filuflow:
@@ -967,8 +1161,8 @@ read_setup_token() {
 }
 
 start_docker() {
-  if [ -n "$IMAGE" ]; then
-    info "Pulling $IMAGE and starting"
+  if ! uses_source; then
+    info "Pulling $(pulled_image) and starting"
     dc pull
     dc up -d --remove-orphans
   else
@@ -1004,7 +1198,7 @@ start_native() {
 }
 
 print_summary() {
-  local url env_out logs_cmd update_cmd token=""
+  local old_label="$1" new_label="$2" url env_out logs_cmd update_cmd token=""
   url="$(base_url)"
   env_out="$(out_path "$(env_file_target)")"
   if [ "$METHOD" = "docker" ]; then logs_cmd="cd $DIR && docker compose logs -f"; else logs_cmd="journalctl -u $SERVICE_NAME -f"; fi
@@ -1016,6 +1210,11 @@ print_summary() {
 
   printf '\n%s%s%s\n' "$C_BOLD" "filuflow $( [ "$DRY_RUN" -eq 1 ] && printf 'dry run finished (nothing was installed or started)' || printf 'is running')" "$C_RESET"
   printf '  Mode / method:  %s / %s\n' "$MODE" "$METHOD"
+  if [ -n "$old_label" ] && [ "$old_label" != "$new_label" ]; then
+    printf '  Version:        %s -> %s\n' "$old_label" "$new_label"
+  else
+    printf '  Version:        %s\n' "$new_label"
+  fi
   printf '  Address:        %s/\n' "$url"
   [ -n "$DOMAIN" ] || [ -n "$PUBLIC_URL" ] || printf '                  (plain HTTP; use --domain for HTTPS before using it over a network)\n'
   case "$MODE" in
@@ -1050,6 +1249,12 @@ print_summary() {
   [ -z "$DOMAIN" ] || printf '  Caddy site:     %s\n' "$(out_path "$(caddy_site_target)")"
   printf '  Logs:           %s\n' "$logs_cmd"
   printf '  Update:         %s\n' "$update_cmd"
+  case "$KIND" in
+    release) printf '                  (moves to the latest release; add --version X.Y.Z to pin or change the version)\n' ;;
+    ref) printf '                  (fetches %s again and rebuilds; --version X.Y.Z or --version latest switches to releases)\n' "$REF" ;;
+    source) printf '                  (copies %s again and rebuilds; --version X.Y.Z switches to releases)\n' "$SOURCE" ;;
+    image) printf '                  (pulls %s again; --version X.Y.Z switches to the release images)\n' "$IMAGE" ;;
+  esac
   if [ "$METHOD" = "docker" ]; then
     printf '  Back up:        cd %s && docker compose stop && tar -czf /root/filuflow-backup.tgz .env .install.conf data && docker compose start\n' "$DIR"
   else
@@ -1083,32 +1288,41 @@ print_summary() {
 # Actions
 
 do_install() {
-  local verb="Installing"
+  local verb="Installing" new_label old_label=""
   [ "$EXISTING" -eq 1 ] && verb="Updating"
+  new_label="$(describe_version "$KIND" "$VERSION" "$BUILD" "$REF" "$IMAGE" "$SOURCE")"
+  [ "$EXISTING" -eq 0 ] || old_label="$(describe_version "$S_KIND" "$S_VERSION" "$S_BUILD" "$S_REF" "$S_IMAGE" "$S_SOURCE")"
   info "$verb filuflow: mode $MODE, method $METHOD, directory $DIR"
   check_prerequisites
+  verify_version
   if [ "$EXISTING" -eq 0 ] && port_in_use "$PORT"; then warn "port $PORT is already in use on this machine"; fi
   if [ -n "$DOMAIN" ] && [ "$EXISTING" -eq 0 ] && ! have caddy && { port_in_use 80 || port_in_use 443; }; then
     warn "port 80 or 443 is already in use; Caddy needs both for HTTPS"
   fi
 
   info "Plan"
+  if [ "$EXISTING" -eq 0 ]; then note "version: $new_label"
+  elif [ "$old_label" = "$new_label" ]; then note "version: $new_label (unchanged)"
+  else note "version: $old_label -> $new_label"
+  fi
   if [ "${#MISSING[@]}" -gt 0 ]; then
     note "install missing prerequisites:"
     describe_missing
   fi
   if uses_source; then
-    if [ -n "$SOURCE" ]; then note "copy the local checkout $SOURCE to $(app_dir)"; else note "get $REPO ($REF) into $(app_dir)"; fi
+    if [ -n "$SOURCE" ]; then note "copy the local checkout $SOURCE to $(app_dir)"; else note "get $REPO ($(fetch_ref)) into $(app_dir)"; fi
   fi
   if [ "$METHOD" = "docker" ]; then
-    if [ -n "$IMAGE" ]; then note "use the image $IMAGE"; else note "build the Docker image filuflow:local"; fi
+    if uses_source; then note "build the Docker image filuflow:local"; else note "pull the image $(pulled_image)"; fi
     note "write $DIR/docker-compose.yml and $DIR/.env (mode 600), data in $DATA_DIR"
   else
     note "create the system user $SERVICE_USER, data in $DATA_DIR"
     note "npm ci, npm run build, remove dev dependencies"
     note "write /etc/filuflow/filuflow.env (mode 600) and $(unit_target)"
   fi
-  if [ "$WITH_PYTHON" = "true" ] && [ -n "$IMAGE" ]; then warn "--with-python has no effect with --image (the image decides whether Python is included)"; fi
+  if [ "$WITH_PYTHON" = "true" ] && [ "$METHOD" = "docker" ] && ! uses_source; then
+    warn "--with-python has no effect with a prebuilt image (the image decides whether Python is included; use --build)"
+  fi
   [ -z "$DOMAIN" ] || note "configure Caddy for https://$DOMAIN -> 127.0.0.1:$PORT (filuflow listens on 127.0.0.1 only)"
   note "start filuflow and wait for /healthz"
   [ "$DRY_RUN" -eq 0 ] || note "(dry run: only the configuration files are written, into $DIR)"
@@ -1116,6 +1330,7 @@ do_install() {
 
   [ "$DRY_RUN" -eq 1 ] && mkdir -p "$DIR"
   install_prerequisites
+  verify_version
   run mkdir -p "$DIR"
   if uses_source; then fetch_source; fi
 
@@ -1149,7 +1364,7 @@ do_install() {
     # the master only reads it while there are no users; do not keep the password on disk
     env_del "$(env_file_target)" FILUFLOW_ADMIN_PASSWORD
   fi
-  print_summary
+  print_summary "$old_label" "$new_label"
 }
 
 do_uninstall() {
@@ -1193,6 +1408,9 @@ do_uninstall() {
     if [ "$METHOD" = "docker" ]; then note "$DIR"; else note "$DATA_DIR, /etc/filuflow, $(app_dir)"; fi
     note "Run the installer again to start it again, or uninstall with --purge to delete everything."
   fi
+  if [ "$METHOD" = "docker" ] && [ "$PURGE" -eq 1 ] && ! uses_source; then
+    note "The image $(pulled_image) stays in Docker's image cache: docker image rm $(pulled_image)"
+  fi
   note "Docker, Node.js and Caddy themselves stay installed."
 }
 
@@ -1209,12 +1427,16 @@ main() {
   case "$ACTION" in
     uninstall)
       fill_defaults
+      decide_kind
+      VERSION="$S_VERSION"
       do_uninstall
       ;;
     update)
       [ "$EXISTING" -eq 1 ] || die "no installation found in $DIR; run without --update to install"
       fill_defaults
       validate
+      decide_kind
+      resolve_version
       do_install
       ;;
     install)
@@ -1222,6 +1444,8 @@ main() {
       prompt_missing
       fill_defaults
       validate
+      decide_kind
+      resolve_version
       do_install
       ;;
   esac

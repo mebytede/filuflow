@@ -329,6 +329,7 @@ Engine order, expressions (including raw value vs. string), every node, filter o
 | M42 | Installation | `scripts/install.sh` for serve, master and worker with Docker or systemd, optional Caddy with Let's Encrypt, updates and uninstall; `docs/INSTALL.md` |
 | M43 | Public release preparation | AGPL-3.0-or-later license with third-party notices, community files (contributing, code of conduct, security policy, issue forms, Dependabot), release workflow with multi-arch images and GitHub releases from the changelog, `docs/RELEASING.md` with the GitHub settings checklist |
 | M44 | Neutral naming | The reference product's name removed from prose, interface, messages, docs, comments and tests; only technical identifiers required by the format or packages keep it; `N8N_*` environment aliases removed |
+| M45 | Installer installs releases | `scripts/install.sh` pulls the published release image by default (Docker) or builds the release tag (native); `--version`, `--build`, `--ref`, `--source`, `--image`; `--update` moves to the latest release and keeps the way of installing |
 
 After each milestone: update `docs/STATUS.md` (what works, what is missing) and make a commit with a meaningful message.
 
@@ -416,6 +417,21 @@ Preparing the repository for publication on GitHub:
   images with OCI labels (`X.Y.Z`, `X.Y`, `latest`) and creates the GitHub release with the changelog section.
 - `CHANGELOG.md` (Keep a Changelog), `docs/RELEASING.md` (procedure and one-time GitHub settings), README with badges,
   status note, license and contributing sections and a trademark note (removed again in M44).
+
+## Installer installs releases (M45)
+After the first public release the installer installs released versions instead of `main`:
+- Docker pulls `ghcr.io/mebytede/filuflow:<version>`, recorded as `FILUFLOW_IMAGE` in `.env` and used by the compose
+  file; native builds the git tag `v<version>`.
+- `<version>`: `--version X.Y.Z` (with or without `v`, pre-releases allowed when given), otherwise the latest release
+  from the repository's tags (highest `vX.Y.Z`, pre-releases ignored); if that fails, Docker uses the image tag `latest`
+  with a note, building needs `--version` or `--ref`.
+- `--build` builds the release from source, `--ref` a branch or commit, `--source` a local checkout, `--image` an own
+  image; conflicting combinations are rejected.
+- The image or git tag is checked before anything changes (not in a dry run). The plan and the summary show the version
+  and how to pin or update it.
+- `--update` re-resolves the latest release (or takes `--version`), prints old and new version and keeps the way of
+  installing (stored in the state file); a plain re-run keeps the version.
+- Tests inject the latest release with `FILUFLOW_INSTALL_LATEST_VERSION`.
 
 ## Neutral naming (M44)
 filuflow keeps full compatibility with the common workflow JSON format and community node packages, but no longer uses
