@@ -1,7 +1,8 @@
 // M38: supervisor in the master with a real worker. Worker findings and proposals filtered by permissions (supervisor.read),
 // analyzing and proposing only with supervisor.use, accepting in the master as a new version (workflow.edit) with deployment,
 // on the worker only marked as accepted; accepting directly on the worker is blocked; stale proposals (newer version in the
-// master); new workflow from the chat in the project; settings per worker for admins with audit.
+// master); new workflow from the chat in the project; settings per worker for admins with audit. 0.1.1: proposals for new
+// workflows are visible and usable only in the project they were created in.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
@@ -177,6 +178,83 @@ describe('Supervisor in the master', () => {
     expect(list.find((w) => w.name === 'From the chat')).toMatchObject({ active: false });
     // Chat about a workflow of a foreign project: invisible
     expect((await s.editor.post('/api/supervisor/chat', { workflowId: s.b.id, messages: [{ role: 'user', content: 'Hello' }] })).statusCode).toBe(404);
+  });
+
+  it('scopes proposals for new workflows to the project they were created in', async () => {
+    const s = await setup();
+    await admin.put(`/api/admin/workers/${s.workerId}/supervisor/settings`, { model: { provider: 'openAi', credential: 'OpenAI', model: 'gpt-4.1-mini' } });
+    // Editor of project "Two" on the same worker; the editor of "One" is also an editor in "Two"
+    const other = await addUser(master, admin, 'other@example.org');
+    await admin.put(`/api/projects/${s.p2}/members/${other.id}`, { role: 'editor' });
+    const editorId = ((await admin.get('/api/admin/users')).json().data as Array<{ id: string; email: string }>).find((x) => x.email === 'editor@example.org')!.id;
+    await admin.put(`/api/projects/${s.p2}/members/${editorId}`, { role: 'editor' });
+    const draft = (id: string, name: string) => [
+      call(id, 'propose_workflow', { title: name, summary: 'A manual start.', operations: [{ op: 'setName', name }, { op: 'addNode', node: { name: 'Go', type: 'n8n-nodes-base.manualTrigger', typeVersion: 1, parameters: {} } }] }),
+      { role: 'assistant', content: 'Proposal is ready.' },
+    ];
+    const workerGet = async (id: string) => (await worker.app.inject({ method: 'GET', url: `/api/supervisor/proposals/${id}`, headers: { 'x-api-key': WORKER_KEY } })).json() as { projectId?: string; kind: string };
+    const listed = async (c: Client) => (await c.get('/api/supervisor/proposals')).json() as { data: Array<{ id: string; projectId?: string; projectName?: string; canAccept: boolean; canUse: boolean }> };
+
+    // Chat without a workflow in project "One": the worker stores the project with the proposal
+    http.script = draft('a', 'Scoped draft');
+    const created = ((await s.editor.post('/api/supervisor/chat', { projectId: s.p1, messages: [{ role: 'user', content: 'New workflow' }] })).json() as { proposals: Array<{ id: string }> }).proposals[0];
+    expect(await workerGet(created.id)).toMatchObject({ kind: 'new', projectId: s.p1 });
+    const base = `/api/supervisor/workers/${s.workerId}/proposals/${created.id}`;
+
+    // An editor of another project on the same worker neither sees nor uses it
+    expect((await listed(other.client)).data.map((p) => p.id)).not.toContain(created.id);
+    expect((await other.client.get(`/api/supervisor/proposals?project=${s.p2}`)).json().data).toEqual([]);
+    expect((await other.client.get(base)).statusCode).toBe(404);
+    for (const action of ['test', 'reject', 'accept']) expect((await other.client.post(`${base}/${action}`, { projectId: s.p2 })).statusCode, action).toBe(404);
+
+    // A viewer of the project sees it but may not accept or reject it
+    const readerView = (await listed(s.reader)).data.find((p) => p.id === created.id);
+    expect(readerView).toMatchObject({ projectId: s.p1, projectName: 'One', canAccept: false, canUse: false });
+    expect((await s.reader.get(base)).statusCode).toBe(200);
+    expect((await s.reader.post(`${base}/accept`)).statusCode).toBe(403);
+    expect((await s.reader.post(`${base}/reject`)).statusCode).toBe(403);
+
+    // The project filter of the list
+    expect((await s.editor.get(`/api/supervisor/proposals?project=${s.p2}`)).json().data.map((p: { id: string }) => p.id)).not.toContain(created.id);
+    expect((await s.editor.get(`/api/supervisor/proposals?project=${s.p1}`)).json().data.map((p: { id: string }) => p.id)).toContain(created.id);
+
+    // Accepting only into its own project, even for someone who may edit another project on the worker
+    const wrong = await s.editor.post(`${base}/accept`, { projectId: s.p2 });
+    expect(wrong.statusCode).toBe(400);
+    expect(wrong.json().message).toBe('This proposal can only be accepted in the project it was created in');
+    const accepted = await s.editor.post(`${base}/accept`, {});
+    expect(accepted.statusCode).toBe(200);
+    expect(accepted.json().projectId).toBe(s.p1);
+    expect(((await s.editor.get(`/api/projects/${s.p2}/workflows`)).json().data as Array<{ name: string }>).some((w) => w.name === 'Scoped draft')).toBe(false);
+
+    // A new workflow drafted in the chat about a workflow belongs to that workflow's project
+    http.script = draft('b', 'From workflow chat');
+    const fromWorkflow = ((await s.editor.post('/api/supervisor/chat', { workflowId: s.a.id, messages: [{ role: 'user', content: 'Make me a new one' }] })).json() as { proposals: Array<{ id: string }> }).proposals[0];
+    expect(await workerGet(fromWorkflow.id)).toMatchObject({ kind: 'new', projectId: s.p1 });
+    expect((await other.client.get(`/api/supervisor/workers/${s.workerId}/proposals/${fromWorkflow.id}`)).statusCode).toBe(404);
+
+    // Proposals from before 0.1.1 (no project): global admins only, who choose the project
+    http.script = draft('c', 'Legacy draft');
+    const legacy = (await worker.app.inject({ method: 'POST', url: '/api/supervisor/chat', headers: { 'x-api-key': WORKER_KEY, 'content-type': 'application/json' }, payload: JSON.stringify({ messages: [{ role: 'user', content: 'New' }] }) })).json() as { proposals: Array<{ id: string; projectId?: string }> };
+    const old = legacy.proposals[0];
+    expect(old.projectId).toBeUndefined();
+    expect((await listed(s.editor)).data.map((p) => p.id)).not.toContain(old.id);
+    expect((await s.editor.get(`/api/supervisor/workers/${s.workerId}/proposals/${old.id}`)).statusCode).toBe(404);
+    expect((await s.editor.post(`/api/supervisor/workers/${s.workerId}/proposals/${old.id}/accept`, { projectId: s.p1 })).statusCode).toBe(404);
+    expect((await listed(admin)).data.find((p) => p.id === old.id)).toMatchObject({ canAccept: true });
+    const adminAccept = await admin.post(`/api/supervisor/workers/${s.workerId}/proposals/${old.id}/accept`, { projectId: s.p2 });
+    expect(adminAccept.statusCode).toBe(200);
+    expect(adminAccept.json().projectId).toBe(s.p2);
+  });
+
+  it('forwards invalid query parameters to the worker as 400 without SQL errors', async () => {
+    const s = await setup();
+    const res = await admin.get(`/api/admin/workers/${s.workerId}/supervisor/findings?limit=abc`);
+    expect(res.statusCode).toBe(400);
+    expect(res.json().message).toContain('Invalid parameter "limit"');
+    expect(res.body).not.toMatch(/SQLITE|syntax error/i);
+    const reader = await s.reader.get('/api/executions?limit=-1');
+    expect(reader.statusCode).toBe(400);
   });
 
   it('custom roles with the new actions', async () => {

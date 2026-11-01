@@ -385,7 +385,7 @@ export class Supervisor {
    * Create a proposal: apply operations to the saved version (or an empty workflow) and validate. New
    * errors other than missing credentials prevent the proposal (the message goes back to the model).
    */
-  async createProposal(o: { kind: 'change' | 'new'; workflowId?: string; findingId?: string; title: string; summary: string; operations: ProposalOperation[] }): Promise<Proposal> {
+  async createProposal(o: { kind: 'change' | 'new'; workflowId?: string; projectId?: string; findingId?: string; title: string; summary: string; operations: ProposalOperation[] }): Promise<Proposal> {
     this.needsProposals();
     let base: Workflow | undefined;
     if (o.kind === 'change') {
@@ -413,6 +413,7 @@ export class Supervisor {
       kind: o.kind,
       ...(o.workflowId ? { workflowId: o.workflowId } : {}),
       workflowName: proposed.name,
+      ...(o.kind === 'new' && o.projectId ? { projectId: o.projectId } : {}),
       ...(o.findingId ? { findingId: o.findingId } : {}),
       title: clip(String(o.title || 'Proposal'), 200),
       summary: clip(String(o.summary || ''), 4000),
@@ -431,7 +432,7 @@ export class Supervisor {
   }
 
   /** Tool for the model: submit a proposal (change of a workflow or a new workflow) */
-  proposeTool(target: { kind: 'change'; workflowId: string; findingId?: string } | { kind: 'new' }, created: Proposal[]): SupervisorTool {
+  proposeTool(target: { kind: 'change'; workflowId: string; findingId?: string } | { kind: 'new'; projectId?: string }, created: Proposal[]): SupervisorTool {
     const change = target.kind === 'change';
     return {
       name: change ? 'propose_change' : 'propose_workflow',
@@ -450,7 +451,7 @@ export class Supervisor {
       run: async (a) => {
         const p = await this.createProposal({
           kind: target.kind,
-          ...(change ? { workflowId: target.workflowId, ...(target.findingId ? { findingId: target.findingId } : {}) } : {}),
+          ...(change ? { workflowId: target.workflowId, ...(target.findingId ? { findingId: target.findingId } : {}) } : target.projectId ? { projectId: target.projectId } : {}),
           title: String(a.title ?? ''),
           summary: String(a.summary ?? ''),
           operations: a.operations as ProposalOperation[],
@@ -603,9 +604,10 @@ export class Supervisor {
 
   /**
    * One reply in the conversation. With workflowId it is about this workflow (questions, changes as proposals), without it
-   * about a new workflow. New workflows and changes are only created as proposals.
+   * about a new workflow. New workflows and changes are only created as proposals. projectId (sent by the master) is
+   * stored with proposals for new workflows, so the master offers them only in that project.
    */
-  async chat(o: { messages: Array<{ role: string; content: string }>; workflowId?: string; language?: SupervisorLanguage }): Promise<{ reply: string; proposals: Proposal[]; tokens: number }> {
+  async chat(o: { messages: Array<{ role: string; content: string }>; workflowId?: string; projectId?: string; language?: SupervisorLanguage }): Promise<{ reply: string; proposals: Proposal[]; tokens: number }> {
     this.needsProposals();
     if (!Array.isArray(o.messages) || !o.messages.length) throw new ProposalError('Message is missing', 400);
     const history = o.messages.slice(-30).map((m) => {
@@ -638,7 +640,7 @@ export class Supervisor {
       'If an error message comes back when submitting, correct the proposal. At the end, say in a few sentences what the proposal does and that it is waiting for the person to approve it. Ask if the request is unclear instead of guessing.',
     ].join('\n');
     const created: Proposal[] = [];
-    const tools = [...this.readTools(), ...(o.workflowId ? [this.proposeTool({ kind: 'change', workflowId: o.workflowId }, created)] : []), this.proposeTool({ kind: 'new' }, created)];
+    const tools = [...this.readTools(), ...(o.workflowId ? [this.proposeTool({ kind: 'change', workflowId: o.workflowId }, created)] : []), this.proposeTool({ kind: 'new', ...(o.projectId ? { projectId: o.projectId } : {}) }, created)];
     const outcome = await runChat({ runner: this.o.runner, store: this.store, settings: () => this.settings() }, [{ role: 'system', content: `${systemPrompt(o.language ?? s.language)}\n${guide}${context}` }, ...history], tools, { maxSteps: 12, signal: this.abort.signal });
     // Per target the last proposal counts; earlier versions of the same reply are replaced
     const latest = new Map<string, Proposal>();

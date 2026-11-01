@@ -276,7 +276,8 @@ export class ExecutionStore {
       where.push("(id = ? OR workflow_name LIKE ? ESCAPE '\\' OR last_node LIKE ? ESCAPE '\\' OR error LIKE ? ESCAPE '\\')");
       args.push(filter.q.trim(), like, like, like);
     }
-    const limit = Math.min(Math.max(1, filter.limit ?? 20), 1000);
+    // Defensive: the routes validate the limit; here it is only forced into a whole number in range
+    const limit = Math.min(Math.max(1, Math.trunc(filter.limit ?? 20) || 20), 1000);
     const sql = `SELECT * FROM executions ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY started_at DESC, rowid DESC LIMIT ${limit}`;
     return (this.db.prepare(sql).all(...args) as Row[]).map(toSummary);
   }

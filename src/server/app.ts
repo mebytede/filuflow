@@ -37,6 +37,7 @@ import { UndiciHttpClient } from '../http.js';
 import { Supervisor } from '../supervisor/supervisor.js';
 import { registerSupervisorApi } from '../supervisor/api.js';
 import { validateWorkflow } from '../validator.js';
+import { installErrorHandler, intParam, internalError, stringParam } from './httpErrors.js';
 
 export interface ServerOptions {
   dir: string;
@@ -77,6 +78,8 @@ export interface FiluflowServer {
   close(): Promise<void>;
 }
 
+/** Most executions per list request (larger limits are capped) */
+const EXECUTION_LIST_MAX = 1000;
 const WEBHOOK_METHODS = ['DELETE', 'GET', 'HEAD', 'PATCH', 'POST', 'PUT'];
 
 /** Code node or Code Tool with Python via Pyodide */
@@ -291,6 +294,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
     // Express "extended" query parser as in the reference (abstract-server.ts: app.set('query parser', 'extended'))
     routerOptions: { querystringParser: (str: string) => qs.parse(str, { allowPrototypes: true }) as Record<string, unknown> },
   });
+  installErrorHandler(app, logger);
 
   app.get('/healthz', async () => ({ status: 'ok' }));
   // Callback from the OAuth2 or OAuth1 provider (without API key; secured by the one-time state)
@@ -313,7 +317,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
   // Chat with response nodes (human in the loop): channel to the chat page and replies, secured by the sessionId
   const chatSessions = new ChatSessions({ manager, store, logger });
   const chatError = (reply: FastifyReply, error: unknown) =>
-    error instanceof ChatSessionError ? reply.code(error.statusCode).send({ message: error.message }) : reply.code(500).send({ message: (error as Error).message });
+    error instanceof ChatSessionError ? reply.code(error.statusCode).send({ message: error.message }) : internalError(reply, error, logger);
   app.get('/chat/:executionId/events', async (request, reply) => {
     const { executionId } = request.params as { executionId: string };
     const sessionId = String((request.query as { sessionId?: unknown }).sessionId ?? '');
@@ -496,10 +500,14 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
     }
 
     api.get('/api/executions', async (request) => {
-      const q = request.query as { workflow?: string; workflowIds?: string; status?: string; limit?: string; q?: string; from?: string; to?: string; before?: string; mode?: string };
-      const workflowIds = q.workflowIds !== undefined ? q.workflowIds.split(',').filter(Boolean).slice(0, 1000) : undefined;
+      // limit: default 20, at most 1000 (larger values are capped); invalid or below 1: 400
+      const q = request.query;
+      const text = (k: string) => stringParam(q, k, 200);
+      const ids = (q as { workflowIds?: unknown }).workflowIds === '' ? '' : stringParam(q, 'workflowIds', 1_000_000);
+      const workflowIds = ids !== undefined ? ids.split(',').filter(Boolean).slice(0, 1000) : undefined;
+      const limit = intParam(q, 'limit', { default: 20, max: EXECUTION_LIST_MAX });
       return {
-        data: store.list({ workflow: q.workflow, workflowIds, status: q.status, limit: q.limit ? Number(q.limit) : undefined, q: q.q, from: q.from, to: q.to, before: q.before, mode: q.mode }),
+        data: store.list({ workflow: text('workflow'), workflowIds, status: text('status'), limit, q: text('q'), from: text('from'), to: text('to'), before: text('before'), mode: text('mode') }),
       };
     });
 
@@ -517,7 +525,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
           from: text('from'),
           to: text('to'),
           before: text('before'),
-          limit: typeof b.limit === 'number' ? b.limit : undefined,
+          limit: intParam(b, 'limit', { default: 20, max: EXECUTION_LIST_MAX }),
         }),
       };
     });

@@ -122,6 +122,11 @@ export interface Proposal {
   kind: 'change' | 'new';
   workflowId?: string;
   workflowName: string;
+  /**
+   * Only for kind "new" on a worker: the master project the conversation took place in (0.1.1). The master shows and
+   * accepts the proposal only in this project. Missing on a single server and on proposals created before 0.1.1.
+   */
+  projectId?: string;
   findingId?: string;
   title: string;
   summary: string;

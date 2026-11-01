@@ -8,6 +8,7 @@ import { oauthCallbackPage } from '../server/credentialsApi.js';
 import type { Logger } from '../logger.js';
 import { getLogger } from '../logger.js';
 import { registerUi } from '../server/ui.js';
+import { installErrorHandler } from '../server/httpErrors.js';
 import { MasterDb, type UserRow } from './db.js';
 import { SecretBox, randomToken } from './auth.js';
 import { CSRF_HEADER, RateLimiter, Sessions, type AuthContext } from './session.js';
@@ -93,6 +94,7 @@ export async function createMasterServer(options: MasterOptions): Promise<Master
   const oidc = options.oidc ? new OidcClient(options.oidc) : undefined;
 
   const app = Fastify({ logger: false, bodyLimit: 16 * 1024 * 1024, exposeHeadRoutes: false, trustProxy: options.trustProxy ?? false });
+  installErrorHandler(app, logger);
 
   const ctx: MasterContext = {
     db,

@@ -42,6 +42,10 @@ Still:
   (Basic, Header, Bearer, JWT) with credentials from `credentials.json`. Basic, Header and Bearer values of webhooks, forms,
   the chat and waiting executions are compared in constant time as well.
 - The Docker container runs as user `node` (not root).
+- Query parameters are validated (since 0.1.1): numeric ones such as `limit` must be whole numbers of at least 1 (400
+  otherwise, larger values are capped at the endpoint's maximum), filters must be single values. Unexpected errors are
+  answered with a generic "Internal server error" (500) and only logged, so SQL or other internal error texts never
+  reach the client (single server, worker and master).
 - Request bodies are limited to `FILUFLOW_PAYLOAD_SIZE_MAX` MB (default 16, like the reference implementation). Webhook bodies
   with `Content-Encoding: gzip` or `deflate` are limited to the same size after decompression (413 otherwise), so a small
   compressed body cannot exhaust the memory.
@@ -120,7 +124,11 @@ The Supervisor changes nothing on its own. Its tools only read; changes arise as
 that actually executes nodes only starts after a confirmation. Anyone allowed to use the server's REST API may also
 accept proposals; in the master this is governed by roles (M38): findings and proposals are visible to anyone with
 `supervisor.read` for the workflow, analyses, proposals and conversations (costs, data sent to the model) need
-`supervisor.use`, accepting additionally `workflow.edit`. Proposals cannot be accepted on the worker itself. Findings,
+`supervisor.use`, accepting additionally `workflow.edit`. Proposals for a new workflow (drafted in the editor chat) belong
+to the project the conversation took place in (since 0.1.1): only members of that project see them (`supervisor.read`),
+reject them (`supervisor.use`), test them (`workflow.run`) and accept them (`workflow.edit`), and they are only created in
+that project, even if other projects use the same worker. Such proposals from before 0.1.1 carry no project and are visible
+to global admins only. Proposals cannot be accepted on the worker itself. Findings,
 analyses and proposals go to the master, no execution data; the Supervisor settings per worker can only be changed by global
 admins (with an audit entry).
 Model responses are displayed as text, not as HTML. The daily budget limits costs even when an

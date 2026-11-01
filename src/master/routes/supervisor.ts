@@ -4,6 +4,10 @@
 // supervisor.use. Proposals are accepted in the master: the proposed state becomes a new version of the workflow
 // (workflow.edit) and is distributed like any version; afterwards the worker only marks the proposal as accepted.
 // Global admins maintain settings and reports per worker through the forwarding under /api/admin/workers/:id/supervisor.
+// Proposals for new workflows (kind "new", from the chat) belong to the project the conversation took place in (0.1.1):
+// the worker stores that projectId, and the master shows, tests, rejects and accepts them only for members of that
+// project with the matching permission, and accepts them only into that project. Older proposals without a project are
+// visible to global admins only.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { MasterContext } from '../app.js';
 import type { ProjectRow, UserRow, WorkerRow, WorkflowRow } from '../db.js';
@@ -21,6 +25,7 @@ interface RemoteProposal {
   id: string;
   kind: 'change' | 'new';
   workflowId?: string;
+  projectId?: string;
   baseVersion?: number;
   workflow?: Workflow;
   status: string;
@@ -59,6 +64,21 @@ export function registerSupervisorRoutes(api: FastifyInstance, ctx: MasterContex
 
   /** Projects in which the user may create new workflows (for new workflows from the chat) */
   const editableProjects = (user: UserRow): ProjectRow[] => db.listProjects().filter((p) => p.worker_id && allows(projectRoleOf(user, p.id), 'workflow.edit'));
+
+  /** Project role from membership (or global admin); access through single shared workflows does not count */
+  const memberRoleOf = (user: UserRow, projectId: string): AccessRole | undefined => effectiveRole(user.role, db.getMemberRole(projectId, user.id));
+
+  /**
+   * Access to a proposal for a new workflow: only in its originating project on the same worker, with the action in
+   * that project. Proposals from before 0.1.1 without a project: global admins only (they may choose the project).
+   * undefined: not visible or not allowed.
+   */
+  const newProposalAccess = (user: UserRow, worker: WorkerRow, proposal: RemoteProposal, action: ProjectAction): { project?: ProjectRow } | undefined => {
+    if (!proposal.projectId) return user.role === 'admin' ? {} : undefined;
+    const project = db.getProject(proposal.projectId);
+    if (!project || project.worker_id !== worker.id) return undefined;
+    return allows(memberRoleOf(user, project.id), action) ? { project } : undefined;
+  };
 
   const workerError = (reply: FastifyReply, error: unknown) => {
     if (error instanceof WorkerError) {
@@ -112,18 +132,25 @@ export function registerSupervisorRoutes(api: FastifyInstance, ctx: MasterContex
 
   api.get('/api/supervisor/proposals', async (request) => {
     const u = user(request);
+    const project = (request.query as { project?: unknown }).project;
     const visible = visibleWorkflows(u, 'supervisor.read');
-    const editable = editableProjects(u);
-    const workers = new Set([...[...visible.values()].map((v) => v.workerId), ...editable.map((p) => p.worker_id!)]);
+    // Workers of the visible workflows and of the projects whose new-workflow proposals the user may see
+    const readable = db.listProjects().filter((p) => p.worker_id && allows(memberRoleOf(u, p.id), 'supervisor.read'));
+    const workers = new Set([...[...visible.values()].map((v) => v.workerId), ...readable.map((p) => p.worker_id!)]);
     const { items, errors } = await gather<RemoteProposal>(workers, `/api/supervisor/proposals?status=${statusParam(request)}&limit=500`);
-    const data = items
-      .filter(({ worker, item }) => (item.kind === 'new' ? editable.some((p) => p.worker_id === worker.id) : visible.get(item.workflowId ?? '')?.workerId === worker.id))
-      .map(({ worker, item }) => {
-        const row = item.kind === 'change' ? visible.get(item.workflowId ?? '')?.row : undefined;
-        const canAccept = row ? workflowAllows(u, row, 'workflow.edit') : true;
-        const canUse = row ? workflowAllows(u, row, 'supervisor.use') : true;
-        return { ...item, ...tag(worker, { canAccept, canUse, ...(row ? { projectId: row.project_id } : {}) }) };
-      });
+    const data = items.flatMap(({ worker, item }) => {
+      if (item.kind === 'new') {
+        const access = newProposalAccess(u, worker, item, 'supervisor.read');
+        if (!access || (typeof project === 'string' && project && access.project?.id !== project)) return [];
+        const p = access.project;
+        const canAccept = p ? allows(memberRoleOf(u, p.id), 'workflow.edit') : true;
+        const canUse = p ? allows(memberRoleOf(u, p.id), 'supervisor.use') : true;
+        return [{ ...item, ...tag(worker, { canAccept, canUse, ...(p ? { projectId: p.id, projectName: p.name } : {}) }) }];
+      }
+      const v = visible.get(item.workflowId ?? '');
+      if (!v || v.workerId !== worker.id || (typeof project === 'string' && project && v.project.id !== project)) return [];
+      return [{ ...item, ...tag(worker, { canAccept: workflowAllows(u, v.row, 'workflow.edit'), canUse: workflowAllows(u, v.row, 'supervisor.use'), projectId: v.project.id, projectName: v.project.name }) }];
+    });
     return { data, errors };
   });
 
@@ -187,15 +214,24 @@ export function registerSupervisorRoutes(api: FastifyInstance, ctx: MasterContex
     }
   });
 
-  /** Fetch the proposal from the worker and check access (change: see the workflow; new: project with edit permission) */
-  const proposalFor = async (request: FastifyRequest, reply: FastifyReply, worker: WorkerRow, action: ProjectAction): Promise<{ proposal: RemoteProposal; row?: WorkflowRow } | undefined> => {
+  /**
+   * Fetch the proposal from the worker and check access (change: see the workflow; new: see it in its originating
+   * project, see newProposalAccess). Not visible: 404; visible without the action: 403.
+   */
+  const proposalFor = async (request: FastifyRequest, reply: FastifyReply, worker: WorkerRow, action: ProjectAction): Promise<{ proposal: RemoteProposal; row?: WorkflowRow; project?: ProjectRow } | undefined> => {
     const proposal = await hub.call<RemoteProposal>(worker, 'GET', `/api/supervisor/proposals/${encodeURIComponent((request.params as { pid: string }).pid)}`);
     if (proposal.kind === 'new') {
-      if (!editableProjects(user(request)).some((p) => p.worker_id === worker.id)) {
+      const u = user(request);
+      if (!newProposalAccess(u, worker, proposal, 'supervisor.read')) {
         void reply.code(404).send({ message: 'Not found' });
         return undefined;
       }
-      return { proposal };
+      const access = newProposalAccess(u, worker, proposal, action);
+      if (!access) {
+        void reply.code(403).send({ message: 'No permission for this action' });
+        return undefined;
+      }
+      return { proposal, ...(access.project ? { project: access.project } : {}) };
     }
     const row = workflowFor(reply, user(request), worker, proposal.workflowId, action);
     return row ? { proposal, row } : undefined;
@@ -274,7 +310,15 @@ export function registerSupervisorRoutes(api: FastifyInstance, ctx: MasterContex
         }
         project = db.getProject(row.project_id)!;
         wf = { ...wf, id: row.id, active: row.active === 1 };
+      } else if (found.project) {
+        // New workflow: only into the project the proposal was created in
+        const projectId = (request.body as { projectId?: unknown } | undefined)?.projectId;
+        if (projectId !== undefined && projectId !== found.project.id) return reply.code(400).send({ message: 'This proposal can only be accepted in the project it was created in', projects: [{ id: found.project.id, name: found.project.name }] });
+        project = found.project;
+        delete wf.id;
+        wf.active = false;
       } else {
+        // Proposal from before 0.1.1 without a project (global admins only): choose a project of this worker
         const projectId = (request.body as { projectId?: unknown } | undefined)?.projectId;
         const candidates = editableProjects(u).filter((x) => x.worker_id === worker.id);
         const chosen = typeof projectId === 'string' ? candidates.find((x) => x.id === projectId) : candidates.length === 1 ? candidates[0] : undefined;
@@ -307,6 +351,8 @@ export function registerSupervisorRoutes(api: FastifyInstance, ctx: MasterContex
     const body = (request.body ?? {}) as { projectId?: unknown; workflowId?: unknown; messages?: unknown; language?: unknown };
     let worker: WorkerRow | undefined;
     let workflowId: string | undefined;
+    // Project of the conversation: stored by the worker with proposals for new workflows (0.1.1)
+    let projectId: string;
     if (typeof body.workflowId === 'string' && body.workflowId) {
       const row = db.getWorkflow(body.workflowId);
       const project = row ? db.getProject(row.project_id) : undefined;
@@ -314,16 +360,18 @@ export function registerSupervisorRoutes(api: FastifyInstance, ctx: MasterContex
       if (!workflowAllows(u, row, 'supervisor.use')) return reply.code(403).send({ message: 'No permission to use the supervisor' });
       worker = project.worker_id ? db.getWorker(project.worker_id) : undefined;
       workflowId = row.id;
+      projectId = project.id;
     } else {
       const project = typeof body.projectId === 'string' ? db.getProject(body.projectId) : undefined;
       const role = project ? projectRoleOf(u, project.id) : undefined;
       if (!project || !role) return reply.code(404).send({ message: 'Project not found' });
       if (!allows(role, 'workflow.edit') || !allows(role, 'supervisor.use')) return reply.code(403).send({ message: 'No permission to design workflows with the supervisor' });
       worker = project.worker_id ? db.getWorker(project.worker_id) : undefined;
+      projectId = project.id;
     }
     if (!worker) return reply.code(409).send({ message: 'The project has no worker' });
     try {
-      const result = await hub.call<{ reply: string; proposals: RemoteProposal[]; tokens: number }>(worker, 'POST', '/api/supervisor/chat', { messages: body.messages, ...(workflowId ? { workflowId } : {}), ...(body.language === 'en' || body.language === 'de' ? { language: body.language } : {}) }, 600_000);
+      const result = await hub.call<{ reply: string; proposals: RemoteProposal[]; tokens: number }>(worker, 'POST', '/api/supervisor/chat', { messages: body.messages, projectId, ...(workflowId ? { workflowId } : {}), ...(body.language === 'en' || body.language === 'de' ? { language: body.language } : {}) }, 600_000);
       return { ...result, proposals: result.proposals.map((p) => ({ ...p, ...tag(worker!) })) };
     } catch (error) {
       return workerError(reply, error);

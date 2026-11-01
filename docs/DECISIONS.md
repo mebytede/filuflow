@@ -647,3 +647,23 @@ allowlists and environment access, import key, HMAC secret, file access restrict
 only the `FILUFLOW_*` names apply. The key for importing encrypted credential exports is now
 `FILUFLOW_IMPORT_ENCRYPTION_KEY` (CLI `--import-key`), replacing `FILUFLOW_N8N_ENCRYPTION_KEY` and `--n8n-key`. Since no release
 has shipped the aliases yet (0.1.0 is unreleased), no transition period is needed.
+
+## Proposals for new workflows belong to their project (M46, 0.1.1)
+**Why.** Proposals of kind "new" (a workflow drafted by the Supervisor in the editor chat) had no project. The master
+showed them to anyone who could edit any project on the same worker, so drafts (names, nodes, credential names) leaked
+across projects that share a worker. The owner decided: a "new" proposal is visible and usable only in the project where
+it was created.
+
+**How.** The master sends the project of every chat (`projectId`; for a chat about a workflow, that workflow's project) and
+the worker stores it in the proposal's JSON (no schema change, the column layout stays the same). The master checks the
+member role in that project: `supervisor.read` to list and view, `supervisor.use` to reject, `workflow.run` to test,
+`workflow.edit` to accept, and accepting creates the workflow only in that project (another `projectId` gives 400).
+Access through single shared workflows (guest) does not count, because a guest cannot create workflows in the project.
+
+**Old proposals.** "New" proposals from 0.1.0 have no project and cannot be assigned reliably. They are visible only to
+global admins, who already see every project and choose the target project when accepting; everyone else no longer sees
+them. Hiding them entirely was rejected because open drafts would then be stuck without a way to reject them.
+
+**Query parameters.** Invalid numeric query parameters are answered with 400 instead of falling back to the default, so
+a typo in a script is noticed instead of silently returning a different page size; values above the maximum are capped
+as before, because a large limit is a clear intent ("as many as possible").

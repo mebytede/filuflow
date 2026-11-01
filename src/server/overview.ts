@@ -8,6 +8,7 @@ import type { Workflow } from '../types.js';
 import { getIntervals, type ScheduleInterval } from '../nodes/scheduleTrigger.js';
 import type { ExecutionStore } from './store.js';
 import type { ExecutionManager } from './executions.js';
+import { stringParam } from './httpErrors.js';
 
 export interface TriggerInfo {
   kind: 'webhook' | 'schedule' | 'error' | 'manual' | 'workflow' | 'chat' | 'form' | 'other';
@@ -81,8 +82,10 @@ export function registerOverview(
   o: { workflows: () => WorkflowManager; store: ExecutionStore; manager: ExecutionManager; scheduler: Scheduler },
 ): void {
   api.get('/api/overview', async (request) => {
-    const q = request.query as { workflowIds?: string };
-    const ids = q.workflowIds !== undefined ? q.workflowIds.split(',').filter(Boolean).slice(0, 1000) : undefined;
+    const q = request.query as { workflowIds?: unknown };
+    // Empty list: no workflows (not all); repeated keys are rejected with 400
+    const raw = q.workflowIds === '' ? '' : stringParam(q, 'workflowIds', 1_000_000);
+    const ids = raw !== undefined ? raw.split(',').filter(Boolean).slice(0, 1000) : undefined;
     const since = new Date(Date.now() - DAYS * 86400_000).toISOString();
     const stats = o.store.stats(since, ids);
     const wm = o.workflows();

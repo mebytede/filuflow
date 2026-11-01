@@ -6,6 +6,7 @@ import { OperationError } from './operations.js';
 import { PROVIDERS } from './settings.js';
 import { BudgetExceededError, SupervisorModelError } from './llm.js';
 import type { FindingStatus, Proposal, ProposalStatus } from './types.js';
+import { intParam, internalError, stringParam } from '../server/httpErrors.js';
 
 export interface SupervisorApiOptions {
   prefix: string;
@@ -20,7 +21,7 @@ export function modelErrorReply(reply: FastifyReply, error: unknown): FastifyRep
   if (error instanceof OperationError) return reply.code(400).send({ message: error.message });
   if (error instanceof BudgetExceededError) return reply.code(429).send({ message: error.message });
   if (error instanceof SupervisorModelError) return reply.code(502).send({ message: error.message });
-  return reply.code(500).send({ message: (error as Error).message });
+  return internalError(reply, error);
 }
 
 /** List without the complete workflow and operations */
@@ -65,10 +66,13 @@ export async function registerSupervisorApi(api: FastifyInstance, o: SupervisorA
   api.get(`${p}/findings`, async (request, reply) => {
     const s = sup(reply);
     if (!s) return reply;
-    const q = request.query as { status?: string; workflow?: string; severity?: string; limit?: string };
-    if (q.status && !STATUSES.includes(q.status)) return reply.code(400).send({ message: `Unknown status: ${q.status}` });
+    const q = request.query;
+    const status = stringParam(q, 'status', 50);
+    if (status && !STATUSES.includes(status)) return reply.code(400).send({ message: `Unknown status: ${status}` });
+    // limit: default 500, at most 5000
+    const limit = intParam(q, 'limit', { default: 500, max: 5000 });
     return {
-      data: s.store.listFindings({ status: (q.status as FindingStatus | 'all') ?? 'open', workflowId: q.workflow || undefined, severity: q.severity || undefined, limit: q.limit ? Number(q.limit) : undefined }),
+      data: s.store.listFindings({ status: (status as FindingStatus | 'all' | undefined) ?? 'open', workflowId: stringParam(q, 'workflow', 200), severity: stringParam(q, 'severity', 50), limit }),
       counts: s.store.counts(),
     };
   });
@@ -122,10 +126,14 @@ export async function registerSupervisorApi(api: FastifyInstance, o: SupervisorA
   api.get(`${p}/proposals`, async (request, reply) => {
     const s = sup(reply);
     if (!s) return reply;
-    const q = request.query as { status?: string; workflow?: string; limit?: string };
-    if (q.status && !PROPOSAL_STATUSES.includes(q.status)) return reply.code(400).send({ message: `Unknown status: ${q.status}` });
+    const q = request.query;
+    const status = stringParam(q, 'status', 50);
+    if (status && !PROPOSAL_STATUSES.includes(status)) return reply.code(400).send({ message: `Unknown status: ${status}` });
+    // limit: default 200, at most 2000
+    const limit = intParam(q, 'limit', { default: 200, max: 2000 });
+    const workflowId = stringParam(q, 'workflow', 200);
     await s.refreshProposals();
-    return { data: s.store.listProposals({ status: (q.status as ProposalStatus | 'all') ?? 'open', workflowId: q.workflow || undefined, limit: q.limit ? Number(q.limit) : undefined }).map(proposalSummary) };
+    return { data: s.store.listProposals({ status: (status as ProposalStatus | 'all' | undefined) ?? 'open', ...(workflowId ? { workflowId } : {}), limit }).map(proposalSummary) };
   });
 
   api.get(`${p}/proposals/:id`, async (request, reply) => {
@@ -185,9 +193,11 @@ export async function registerSupervisorApi(api: FastifyInstance, o: SupervisorA
     const s = sup(reply);
     if (!s) return reply;
     if (!s.settings().model) return reply.code(400).send({ message: 'No model is configured for the supervisor (Supervisor, Settings)' });
-    const body = (request.body ?? {}) as { messages?: unknown; workflowId?: unknown; language?: unknown };
+    const body = (request.body ?? {}) as { messages?: unknown; workflowId?: unknown; projectId?: unknown; language?: unknown };
+    // projectId: master project of the conversation (worker only), stored with proposals for new workflows
+    const projectId = typeof body.projectId === 'string' && body.projectId ? body.projectId.slice(0, 200) : undefined;
     try {
-      const result = await s.chat({ messages: body.messages as Array<{ role: string; content: string }>, ...(typeof body.workflowId === 'string' && body.workflowId ? { workflowId: body.workflowId } : {}), ...(body.language === 'en' || body.language === 'de' ? { language: body.language } : {}) });
+      const result = await s.chat({ messages: body.messages as Array<{ role: string; content: string }>, ...(typeof body.workflowId === 'string' && body.workflowId ? { workflowId: body.workflowId } : {}), ...(projectId ? { projectId } : {}), ...(body.language === 'en' || body.language === 'de' ? { language: body.language } : {}) });
       return { reply: result.reply, tokens: result.tokens, proposals: result.proposals.map(proposalSummary) };
     } catch (error) {
       return modelErrorReply(reply, error);
@@ -205,7 +215,8 @@ export async function registerSupervisorApi(api: FastifyInstance, o: SupervisorA
   api.get(`${p}/reports`, async (request, reply) => {
     const s = sup(reply);
     if (!s) return reply;
-    const limit = Number((request.query as { limit?: string }).limit) || 30;
+    // limit: default 30, at most 90 (the number of reports kept)
+    const limit = intParam(request.query, 'limit', { default: 30, max: 90 });
     return { data: s.store.listReports(limit) };
   });
 
