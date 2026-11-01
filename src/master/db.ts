@@ -848,6 +848,7 @@ export class MasterDb {
   }
 
   listAudit(limit = 200, before?: number): AuditRow[] {
+    limit = Math.min(Math.max(Math.trunc(limit) || 200, 1), 500);
     return (
       before
         ? this.db.prepare('SELECT * FROM audit WHERE id < ? ORDER BY id DESC LIMIT ?').all(before, limit)

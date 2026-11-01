@@ -330,6 +330,7 @@ Engine order, expressions (including raw value vs. string), every node, filter o
 | M43 | Public release preparation | AGPL-3.0-or-later license with third-party notices, community files (contributing, code of conduct, security policy, issue forms, Dependabot), release workflow with multi-arch images and GitHub releases from the changelog, `docs/RELEASING.md` with the GitHub settings checklist |
 | M44 | Neutral naming | The reference product's name removed from prose, interface, messages, docs, comments and tests; only technical identifiers required by the format or packages keep it; `N8N_*` environment aliases removed |
 | M45 | Installer installs releases | `scripts/install.sh` pulls the published release image by default (Docker) or builds the release tag (native); `--version`, `--build`, `--ref`, `--source`, `--image`; `--update` moves to the latest release and keeps the way of installing |
+| M46 | Fixes for 0.1.1 | Numeric query parameters validated in the single server, worker and master (400 for invalid values, capped at the maximum, no internal error texts in responses); proposals for new workflows scoped to the project they were created in |
 
 After each milestone: update `docs/STATUS.md` (what works, what is missing) and make a commit with a meaningful message.
 
@@ -432,6 +433,19 @@ After the first public release the installer installs released versions instead 
 - `--update` re-resolves the latest release (or takes `--version`), prints old and new version and keeps the way of
   installing (stored in the state file); a plain re-run keeps the version.
 - Tests inject the latest release with `FILUFLOW_INSTALL_LATEST_VERSION`.
+
+## Fixes for 0.1.1 (M46)
+- Numeric query parameters (`limit`, the audit log's `before`, `limit` in the execution search body): missing or empty
+  means the endpoint's default; letters, decimals, zero, negative numbers and repeated keys are answered with 400 and a
+  message naming the parameter; values above the maximum are capped (executions 1000 on the server, 500 in the master,
+  audit log 500, supervisor findings 5000, proposals 2000, reports 90). Text filters must be single values. One helper
+  (`src/server/httpErrors.ts`) for all three servers.
+- Error handler in the server and the master: errors without a deliberate status are answered with a generic 500 and
+  logged; their text (e.g. SQL errors) never reaches the response.
+- Supervisor proposals of kind "new" record the master project of the conversation (`projectId`, sent by the master with
+  every chat). The master lists, shows, tests, rejects and accepts them only for members of that project with the
+  matching action, and accepts them only into that project. Older proposals without a project: global admins only. On a
+  single server nothing changes (no projects).
 
 ## Neutral naming (M44)
 filuflow keeps full compatibility with the common workflow JSON format and community node packages, but no longer uses

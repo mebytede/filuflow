@@ -5,6 +5,7 @@ import type { MasterContext } from '../app.js';
 import type { GlobalRole } from '../db.js';
 import { checkPasswordPolicy, hashPassword } from '../auth.js';
 import { userView } from './auth.js';
+import { intParam } from '../../server/httpErrors.js';
 
 function str(v: unknown, max = 500): string {
   return typeof v === 'string' ? v.slice(0, max) : '';
@@ -108,8 +109,10 @@ export function registerAdminRoutes(api: FastifyInstance, ctx: MasterContext): v
 
   api.get('/api/admin/audit', async (request, reply) => {
     if (!ctx.requireAdmin(request, reply)) return;
-    const q = request.query as { limit?: string; before?: string };
-    const rows = db.listAudit(Math.min(500, Number(q.limit ?? 200) || 200), q.before ? Number(q.before) : undefined);
+    // limit: default 200, at most 500; before: entry ID for paging
+    const limit = intParam(request.query, 'limit', { default: 200, max: 500 });
+    const before = intParam(request.query, 'before');
+    const rows = db.listAudit(limit, before);
     return { data: rows.map((r) => ({ ...r, details: r.details ? (JSON.parse(r.details) as unknown) : null })) };
   });
 }

@@ -20,6 +20,7 @@ import { getDefaultRegistry } from '../../nodes/index.js';
 import { validateWorkflow } from '../../validator.js';
 import { asWorkflow, describeNodes, nodeTypeList } from '../../server/editorApi.js';
 import { triggersOf } from '../../server/overview.js';
+import { intParam, stringParam } from '../../server/httpErrors.js';
 
 function str(v: unknown, max = 500): string {
   return typeof v === 'string' ? v.slice(0, max) : '';
@@ -394,6 +395,7 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     const { id, version } = request.params as { id: string; version: string };
     const a = workflowAccess(request, reply, id, 'workflow.read');
     if (!a) return;
+    if (!/^\d{1,9}$/.test(version)) return reply.code(404).send({ message: 'Version not found' });
     const data = db.getVersion(a.row.id, Number(version));
     if (!data) return reply.code(404).send({ message: 'Version not found' });
     return { version: Number(version), workflow: JSON.parse(data) as Workflow };
@@ -522,14 +524,17 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
   api.get('/api/projects/:pid/executions', async (request, reply) => {
     const a = access(request, reply, (request.params as { pid: string }).pid, 'execution.read', true);
     if (!a) return;
+    // limit: default 100, at most 500 (checked before anything else, also without a worker)
+    const limit = intParam(request.query, 'limit', { default: 100, max: 500 });
+    const workflow = stringParam(request.query, 'workflow', 200);
+    const status = stringParam(request.query, 'status', 50);
     const worker = hub.workerForProject(a.project.id);
     if (!worker) return { data: [] };
-    const q = request.query as { workflow?: string; status?: string; limit?: string };
     const ids = workflowsWith(request.auth!.user, a.project.id, a.role, 'execution.read').map((w) => w.row.id);
-    const wanted = q.workflow ? ids.filter((id) => id === q.workflow) : ids;
+    const wanted = workflow ? ids.filter((id) => id === workflow) : ids;
     if (!wanted.length) return { data: [] };
-    const params = new URLSearchParams({ workflowIds: wanted.join(','), limit: String(Math.min(500, Number(q.limit ?? 100) || 100)) });
-    if (q.status) params.set('status', q.status);
+    const params = new URLSearchParams({ workflowIds: wanted.join(','), limit: String(limit) });
+    if (status) params.set('status', status);
     try {
       return await hub.call(worker, 'GET', `/api/executions?${params.toString()}`, undefined, 15_000);
     } catch (error) {
@@ -541,8 +546,9 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
   // the readable workflow IDs, results merged and sorted by start; unreachable workers are listed in errors.
   api.get('/api/executions', async (request) => {
     const user = request.auth!.user;
-    const q = request.query as Record<string, string | undefined>;
-    const limit = Math.min(500, Math.max(1, Number(q.limit ?? 100) || 100));
+    // limit: default 100, at most 500; the other filters must be single text values
+    const limit = intParam(request.query, 'limit', { default: 100, max: 500 });
+    const q = Object.fromEntries(['project', 'worker', 'tenant', 'workflow', 'status', 'mode', 'q', 'from', 'to', 'before'].map((k) => [k, stringParam(request.query, k, 200)])) as Record<string, string | undefined>;
     const projects: Array<{ p: ProjectRow; role: AccessRole }> =
       user.role === 'admin'
         ? db.listProjects().map((p) => ({ p, role: 'admin' }))

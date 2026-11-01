@@ -8,6 +8,8 @@ breaking changes; they are listed under "Changed" or "Removed".
 
 ## [Unreleased]
 
+## [0.1.1] - Unreleased
+
 ### Changed
 
 - **The installer uses the published image and installs releases by default.** `scripts/install.sh` with Docker pulls
@@ -18,6 +20,25 @@ breaking changes; they are listed under "Changed" or "Removed".
   new version and keeps the way the installation was made; a plain re-run keeps the version. `--version` is no longer an
   alias of `--ref`. Docker installations made with the 0.1.0 installer keep building their git ref;
   `--update --version latest --no-build` switches them to the release image.
+
+### Fixed
+
+- **Invalid numeric query parameters no longer cause a 500 with an SQL error.** `limit` (and the audit log's `before`) on
+  the list endpoints of the single server, the worker and the master, and `limit` in the execution search body, must be
+  whole numbers of at least 1; anything else (letters, decimals, zero, negative numbers, repeated keys) is answered with
+  400 and a message naming the parameter. Values above the endpoint's maximum are capped. Text filters given several
+  times are rejected with 400 as well.
+
+### Security
+
+- **Internal error texts are no longer sent to clients.** Unexpected errors in the server, worker and master are
+  answered with a generic "Internal server error" (500) and logged instead of returning the original message, which
+  could contain SQL errors.
+- **Supervisor proposals for new workflows are scoped to their project.** A workflow drafted in the editor chat of the
+  master was visible to, and could be accepted by, editors of any project on the same worker. Such proposals now record
+  the project of the conversation; only members of that project can see, test, reject or accept them, and they are only
+  created in that project. Proposals of this kind created before this release have no project and are visible to
+  global admins only.
 
 ## [0.1.0] - 2026-10-30
 
@@ -69,5 +90,6 @@ First public release.
   workflow JSON format", "reference implementation"); node and credential type strings in workflows stay unchanged.
 - **License**: AGPL-3.0-or-later, with notices for bundled third-party components in `THIRD_PARTY_NOTICES.md`.
 
-[Unreleased]: https://github.com/mebytede/filuflow/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/mebytede/filuflow/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/mebytede/filuflow/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/mebytede/filuflow/releases/tag/v0.1.0

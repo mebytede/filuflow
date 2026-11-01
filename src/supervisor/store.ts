@@ -161,7 +161,7 @@ export class SupervisorStore {
       where.push('severity = ?');
       args.push(filter.severity);
     }
-    const limit = Math.min(Math.max(filter.limit ?? 500, 1), 5000);
+    const limit = Math.min(Math.max(Math.trunc(filter.limit ?? 500) || 500, 1), 5000);
     const sql = `SELECT * FROM supervisor_findings ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY ${SEVERITY_ORDER}, last_seen DESC LIMIT ${limit}`;
     return (this.db.prepare(sql).all(...args) as FindingRow[]).map(toFinding);
   }
@@ -258,7 +258,7 @@ export class SupervisorStore {
       where.push(`(workflow_id IS NULL OR workflow_id IN (${filter.workflowIds.map(() => '?').join(',')}))`);
       args.push(...filter.workflowIds);
     }
-    const limit = Math.min(Math.max(filter.limit ?? 200, 1), 2000);
+    const limit = Math.min(Math.max(Math.trunc(filter.limit ?? 200) || 200, 1), 2000);
     const sql = `SELECT data FROM supervisor_proposals ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY created_at DESC LIMIT ${limit}`;
     return (this.db.prepare(sql).all(...args) as Array<{ data: string }>).map((r) => JSON.parse(r.data) as Proposal);
   }
@@ -273,7 +273,7 @@ export class SupervisorStore {
   }
 
   listReports(limit = 30): Report[] {
-    return (this.db.prepare(`SELECT data FROM supervisor_reports ORDER BY created_at DESC LIMIT ?`).all(Math.min(Math.max(limit, 1), 90)) as Array<{ data: string }>).map((r) => JSON.parse(r.data) as Report);
+    return (this.db.prepare(`SELECT data FROM supervisor_reports ORDER BY created_at DESC LIMIT ?`).all(Math.min(Math.max(Math.trunc(limit) || 30, 1), 90)) as Array<{ data: string }>).map((r) => JSON.parse(r.data) as Report);
   }
 
   // Usage
