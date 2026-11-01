@@ -105,6 +105,27 @@ The links in "Send and Wait for Response" emails are signed with HMAC-SHA256 (se
 (e.g. `approved=false` instead of `true`) is rejected with 401, link previews of bots do not count as an answer. Anyone
 who has the email can answer, as in the reference implementation.
 
+## Dynamic option lists (M47a)
+`POST /api/editor/load-options` (single server and worker, API key) and `POST /api/projects/:pid/load-options` (master,
+session or API token) load option lists for the editor by calling node methods with the node's credentials.
+- Permissions in the master: `workflow.edit`, for the given workflow (`workflowId`, which must belong to the project) or,
+  for a new workflow, for at least one workflow of the project. Workflows with role "none" answer 404. Credentials that
+  are not shared with the project are refused (403) before the worker is asked. The master forwards only the known body
+  fields (`kind`, `node` with type, version, parameters and credential references, `path`, `method`, `filter`,
+  `paginationToken`).
+- Only methods defined by the node type run (own function properties of `methods.loadOptions` / `methods.listSearch`,
+  no prototype names). Each call is stopped after 15 seconds; results contain only names, values, descriptions and
+  http(s) links, with caps on count and length.
+- Errors are returned without stack traces or credential objects. Credential secret values are masked, as are typical
+  token patterns (`Bearer ...`, `key=`, `access_token=`, `client_secret` in JSON). The debug log records node type,
+  method, status and duration, never parameters or credential values. Requests are not written to the audit log
+  (searches are frequent).
+- Rate limits: single server 120 requests per minute and 4 at a time per API key and address (429 above that); the master
+  120 per minute per user; a worker allows requests forwarded by the master 1200 per minute and 16 at a time.
+- SSRF and credential use: a method sends the credential to the URLs the node uses, some of which come from parameters or
+  the credential (for example a base URL). This is the same power as running an own workflow state, which is why the
+  master requires `workflow.edit`. Treat the endpoint like the editor's "Test run".
+
 ## Supervisor (M35)
 The Supervisor sends data to the configured model, i.e. to that model's provider. What goes out:
 - always: the workflow structure (nodes, parameters, connections, settings), error messages, status and runtimes

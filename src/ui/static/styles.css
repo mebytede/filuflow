@@ -403,6 +403,28 @@ a.cell-name:hover { color: var(--ff-text); text-decoration: underline; }
 .param-input.mono, textarea.param-input.mono { font-family: var(--ff-font-mono); font-size: 13px; }
 .param-bool { align-items: center; }
 .param-multi { display: flex; flex-direction: column; gap: 4px; }
+.dyn-field { display: flex; flex-direction: column; gap: 6px; }
+.dyn-field .dyn-mode { align-self: flex-start; }
+.dyn-combo { position: relative; flex: 1; min-width: 0; display: flex; }
+.dyn-combo .dyn-input { flex: 1; width: 100%; }
+.dyn-list {
+  position: absolute; z-index: 30; top: calc(100% + 2px); left: 0; right: 0; max-height: 260px; overflow-y: auto;
+  border: 1px solid var(--ff-line-strong); border-radius: var(--ff-radius-field); background: var(--ff-surface-raised);
+}
+.dyn-option { display: flex; align-items: center; gap: 8px; padding: 6px 10px; cursor: pointer; font-size: 13px; line-height: 18px; }
+.dyn-option.active, .dyn-option:hover { background: var(--ff-surface); }
+.dyn-option.selected .dyn-name { font-weight: 600; }
+.dyn-option .dyn-desc { margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 50%; }
+.dyn-option.dyn-manual { border-top: 1px solid var(--ff-line); color: var(--ff-link); }
+.dyn-check { width: 14px; height: 14px; flex: none; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--ff-field-line); border-radius: 3px; }
+.dyn-state { padding: 8px 10px; font-size: 13px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.dyn-error { color: var(--ff-error); }
+.dyn-refresh { height: 36px; width: 32px; }
+.dyn-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.dyn-chips:empty { display: none; }
+.dyn-chip { display: inline-flex; align-items: center; gap: 2px; padding: 0 0 0 8px; border: 1px solid var(--ff-line-strong); border-radius: var(--ff-radius-field); background: var(--ff-surface); font-size: 13px; line-height: 22px; }
+.dyn-chip.unknown { border-style: dashed; }
+.dyn-chip .icon-btn { width: 22px; height: 22px; }
 .param-color { width: 36px; height: 36px; padding: 2px; border: 1px solid var(--ff-field-line); background: var(--ff-field-bg); border-radius: var(--ff-radius-field); }
 .param-rl-mode { flex: 0 0 110px; }
 .sf-collection, .sf-fixed, .param-assignments, .param-filter { display: flex; flex-direction: column; gap: 10px; padding-left: 12px; border-left: 1px solid var(--ff-line-strong); }

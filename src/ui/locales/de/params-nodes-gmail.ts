@@ -35,8 +35,9 @@ export const de: Record<string, string> = {
   'Addresses of the recipients, separated by commas, such as jay@getsby.com, jon@smith.com.': 'E-Mail-Adressen der Empfänger. Mehrere Adressen durch Kommas trennen, z. B. jay@getsby.com, jon@smith.com.',
   'info@example.com': 'info@example.com',
   'reply@example.com': 'reply@example.com',
-  'From Alias Name or ID': 'Absender-Alias',
-  'Sender alias, one of the account\'s "send as" addresses': 'Alias, mit dem die E-Mail versendet wird (eine der "Senden als"-Adressen des Kontos)',
+  'From Alias Name or ID': 'Name oder ID des Absender-Alias',
+  'Sender alias, one of the account\'s "send as" addresses. Choose from the list, or specify an ID using an expression.':
+    'Alias, mit dem die E-Mail versendet wird (eine der "Senden als"-Adressen des Kontos). Wählen Sie ihn aus der Liste aus oder geben Sie die ID als Ausdruck an.',
   'Send Replies To': 'Antworten senden an',
   'Recipient address of the reply': 'E-Mail-Adresse, an die Antworten gesendet werden',
   'Thread ID': 'Thread-ID',
@@ -63,8 +64,8 @@ export const de: Record<string, string> = {
   'Get many labels': 'Mehrere Labels abrufen',
   'Label Name': 'Name des Labels',
   'invoices': 'Rechnungen',
-  'Label ID': 'Label-ID',
-  'The ID of the label': 'ID des Labels',
+  'Label Name or ID': 'Name oder ID des Labels',
+  'The label. Choose from the list, or specify an ID using an expression.': 'Das Label. Wählen Sie es aus der Liste aus oder geben Sie die ID als Ausdruck an.',
   'Label List Visibility': 'Sichtbarkeit in der Label-Liste',
   'Whether the label is listed in the label list of the Gmail web interface': 'Sichtbarkeit des Labels in der Label-Liste der Gmail-Weboberfläche',
   'Hide': 'Ausblenden',
@@ -107,13 +108,12 @@ export const de: Record<string, string> = {
   'Loading many messages can be slow. Filters make it faster': 'Das Abrufen vieler Nachrichten kann lange dauern. Filter beschleunigen den Vorgang',
   'Filters': 'Filter',
   'Add Filter': 'Filter hinzufügen',
-  'Label Names or IDs': 'Label-IDs',
-  'Label ID Names or IDs': 'Label-IDs',
-  'Label IDs as a JSON list, e.g. ["INBOX", "Label_12"], or an expression': 'Label-IDs als JSON-Liste, z. B. ["INBOX", "Label_12"], oder als Ausdruck',
-  'Only messages that carry every one of these labels. Label IDs as a JSON list, e.g. ["INBOX", "Label_12"], or an expression':
-    'Nur Nachrichten, die alle angegebenen Labels tragen. Label-IDs als JSON-Liste, z. B. ["INBOX", "Label_12"], oder als Ausdruck',
-  'Only threads that carry every one of these labels. Label IDs as a JSON list, e.g. ["INBOX", "Label_12"], or an expression':
-    'Nur Konversationen, die alle angegebenen Labels tragen. Label-IDs als JSON-Liste, z. B. ["INBOX", "Label_12"], oder als Ausdruck',
+  'Label Names or IDs': 'Namen oder IDs der Labels',
+  'Label ID Names or IDs': 'Namen oder IDs der Labels',
+  'Only messages that carry every one of these labels. Choose from the list, or specify IDs using an expression.':
+    'Nur Nachrichten, die alle angegebenen Labels tragen. Wählen Sie die Labels aus der Liste aus oder geben Sie die IDs als Ausdruck an.',
+  'Only threads that carry every one of these labels. Choose from the list, or specify IDs using an expression.':
+    'Nur Konversationen, die alle angegebenen Labels tragen. Wählen Sie die Labels aus der Liste aus oder geben Sie die IDs als Ausdruck an.',
   'Search query in the syntax of the Gmail search box; only matching messages are returned.': 'Nur Nachrichten, die zur Suche passen. Gleiches Format wie im Gmail-Suchfeld.',
   'has:attachment': 'has:attachment',
   'Read Status': 'Lesestatus',
@@ -167,8 +167,9 @@ export const de: Record<string, string> = {
   'Untrash': 'Aus dem Papierkorb holen',
   'Untrash a thread': 'Eine Konversation aus dem Papierkorb wiederherstellen',
   'ID of the thread': 'ID der Konversation, die bearbeitet wird',
-  'Message Snippet or ID': 'Nachrichten-ID',
-  'ID of the message in the thread that gets the reply': 'ID der Nachricht in der Konversation, auf die geantwortet wird',
+  'Message Snippet or ID': 'Ausschnitt oder ID der Nachricht',
+  'Message in the thread that gets the reply. Choose from the list, or specify an ID using an expression.':
+    'Nachricht in der Konversation, auf die geantwortet wird. Wählen Sie sie aus der Liste aus oder geben Sie die ID als Ausdruck an.',
   'Return Only Messages': 'Nur Nachrichten ausgeben',
   'Whether only the messages of the thread are returned': 'Ob nur die Nachrichten der Konversation ausgegeben werden',
   // Gmail Trigger (M41) and "Poll Times"

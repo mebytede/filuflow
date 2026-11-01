@@ -20,6 +20,7 @@ import { DateTime } from 'luxon';
 import type { ExecContext, NodeIssue, NodeType } from './types.js';
 import type { Item } from '../types.js';
 import { gmailTriggerParameters } from './shared/gmailParams.js';
+import { gmailTriggerMethods } from './shared/gmailLoadOptions.js';
 import { googleApiRequest, parseRawEmail, prepareQuery, simplifyOutput, type Json } from './shared/gmail.js';
 import { pollingTrigger, type PollRun } from './shared/polling.js';
 
@@ -133,6 +134,7 @@ export const gmailTriggerNode: NodeType = {
   versions: [1, 1.1, 1.2, 1.3],
   group: 'Services',
   parameters: gmailTriggerParameters,
+  methods: gmailTriggerMethods,
   outputs: () => 1,
   credentialTypes: (node) => [node.parameters.authentication === 'serviceAccount' ? 'googleApi' : 'gmailOAuth2'],
   validate(node) {

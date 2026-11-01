@@ -538,9 +538,10 @@ emails stay valid after a restart. The values the form pages need (title, descri
 email is sent and stored in the node context of the waiting execution, so the webhook does not have to evaluate
 expressions without the execution's data.
 
-The reference loads labels, aliases and thread messages for its option lists via the API. filuflow's forms have no dynamic option
-lists yet, so label IDs are a JSON list (stored as an array, as in the reference) and alias and message ID are text fields; the node
-also accepts label IDs as JSON text or comma separated text.
+Labels, aliases and thread messages are loaded for the option lists via the API like the reference (since M47a, see "Dynamic
+option lists"). The stored values did not change: label IDs are an array, alias and message ID a string. The node still
+accepts label IDs as JSON text or comma separated text, so workflows saved before M47a keep working; the form shows such
+text as selected entries and writes an array only when the selection is changed.
 
 ## Built-in poll nodes (M41)
 Poll nodes from community node packages (M31) already had activation with "Poll Times", the first poll on activation and the
@@ -667,3 +668,36 @@ them. Hiding them entirely was rejected because open drafts would then be stuck 
 **Query parameters.** Invalid numeric query parameters are answered with 400 instead of falling back to the default, so
 a typo in a script is noticed instead of silently returning a different page size; values above the maximum are capped
 as before, because a large limit is a clear intent ("as many as possible").
+
+## Dynamic option lists (M47a)
+**Why.** Parameters such as Gmail labels, aliases or the messages of a thread only make sense with the values of the
+connected account. Typing IDs by hand was error prone. The reference loads such lists through node methods
+(`methods.loadOptions`, `methods.listSearch`); filuflow rebuilds that interface for its own nodes.
+
+**Only the edited node is sent.** The editor sends the node's type, version, parameters and credential references, never
+the whole workflow. The server builds a temporary one-node workflow from it (mode "manual", no input data) and calls the
+method with a context of that node. This keeps requests small and makes the master's permission and sharing checks simple
+(one node, its credentials).
+
+**Expressions are resolved on the server.** The reference resolves parameters in the browser before the request. filuflow
+resolves them on the server with the same expression engine as executions (with `$vars` and `$env`, without input data).
+Parameters listed in `loadOptions.dependsOn` must resolve, otherwise the request fails with a clear message; any other
+expression that fails becomes `null`, like the reference editor does. The editor shows "Depends on ...: please set it
+first" while a dependsOn parameter is empty.
+
+**No cache on the server.** Lists depend on the account behind a credential and change (new labels). The server always
+asks the service; the browser keeps a list for 5 minutes per page (key: node type and version, method, path, credential
+names, dependsOn values) and "Refresh list" reloads it. Stored values are never rewritten: a value that is not in the
+list stays as it is and is shown as "(not in the list)".
+
+**Method allow-list.** The request names a method; the server accepts only an own function property of the node type's
+`methods.loadOptions` or `methods.listSearch` (no inherited properties, no names that exist on `Object.prototype`, a
+plain identifier of at most 100 characters). Results are sanitized (name, value, description, for searches an http(s)
+URL), capped (1000 options, 200 search results, 500 characters per text, pagination tokens up to 2 KB) and the call is
+stopped after 15 seconds.
+
+**Own addition.** The Gmail "Label ID" of label:get and label:delete is a string field in the reference; filuflow offers
+the label list there too (the stored value is still the ID string).
+
+**Later.** Searchable resource locator lists with pagination, ID/URL modes with validation, chat model lists and the
+workflow picker follow in M47b; methods of community node packages and declarative `loadOptions.routing` in M47c.

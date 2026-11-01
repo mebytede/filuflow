@@ -145,6 +145,7 @@ export interface ParamSchema {
   show?: DisplayRule;
   hide?: DisplayRule;
   options?: ParamOption[];
+  loadOptions?: { method: string; dependsOn?: string[] };
   rows?: number;
   password?: boolean;
   language?: string;
@@ -156,7 +157,43 @@ export interface ParamSchema {
   children?: ParamSchema[];
   groups?: Array<{ name: string; label: string; children: ParamSchema[] }>;
   addLabel?: string;
-  modes?: Array<{ name: string; label: string; placeholder?: string }>;
+  modes?: Array<{
+    name: string;
+    label: string;
+    placeholder?: string;
+    type?: 'list' | 'id' | 'url' | 'string';
+    searchListMethod?: string;
+    searchable?: boolean;
+    searchFilterRequired?: boolean;
+    extractValue?: { regex: string };
+    validation?: Array<{ regex: string; errorMessage: string }>;
+  }>;
+}
+
+/** Request for a dynamic option list (POST /api/editor/load-options, M47a) */
+export interface LoadOptionsRequest {
+  kind: 'options' | 'listSearch';
+  node: { type: string; typeVersion: number; parameters: Record<string, unknown>; credentials?: Record<string, { id?: string | null; name: string }> };
+  /** Path of the parameter, e.g. "parameters.filters.labelIds" */
+  path: string;
+  method: string;
+  filter?: string;
+  paginationToken?: unknown;
+}
+
+export interface LoadedOption {
+  name: string;
+  value: string | number | boolean;
+  description?: string;
+  url?: string;
+}
+
+export interface LoadOptionsResponse {
+  /** kind "options" */
+  data?: LoadedOption[];
+  /** kind "listSearch" */
+  results?: LoadedOption[];
+  paginationToken?: unknown;
 }
 
 export interface CredentialInfo {

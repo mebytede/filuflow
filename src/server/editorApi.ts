@@ -1,6 +1,7 @@
 // REST endpoints for the web interface (M8): node types, credentials (without values), checking and running
 // unsaved workflows, saving and deleting workflow files.
 // All routes are in the API scope and require the X-API-Key.
+import { createHash } from 'node:crypto';
 import { hostname } from 'node:os';
 import type { FastifyInstance } from 'fastify';
 import type { Item, Workflow, WorkflowNode } from '../types.js';
@@ -15,6 +16,8 @@ import type { ExecutionManager } from './executions.js';
 import type { ExecutionStore } from './store.js';
 import { WorkflowConflictError, WorkflowNotFoundError, type WorkflowManager } from './workflows.js';
 import type { WebhookService } from './webhooks.js';
+import type { Logger } from '../logger.js';
+import { LoadOptionsError, LoadOptionsLimiter, parseLoadOptionsRequest, runLoadOptions } from './loadOptions.js';
 
 export interface EditorApiOptions {
   registry: NodeRegistry;
@@ -27,6 +30,9 @@ export interface EditorApiOptions {
   webhookBaseUrl: string;
   /** For "Wait for test call" */
   webhooks?: WebhookService;
+  logger?: Logger;
+  /** Rate limit of the option lists (default: 120 per minute, 4 at a time per API key and address) */
+  loadOptionsLimiter?: LoadOptionsLimiter;
 }
 
 /** Inputs and outputs of a node for drawing in the editor */
@@ -189,6 +195,25 @@ export async function registerEditorApi(api: FastifyInstance, o: EditorApiOption
     if (!entry) return reply.code(204).send();
     const execution = await entry.promise;
     return o.store.get(execution.id);
+  });
+
+  // Dynamic option lists (M47a): only the edited node is sent; values of credentials never leave the server
+  // A worker serves every user of the master with one key: the master limits per user, here a wider limit applies
+  const limiter = o.loadOptionsLimiter ?? new LoadOptionsLimiter();
+  const masterLimiter = new LoadOptionsLimiter(1200, 16);
+  api.post('/api/editor/load-options', async (request, reply) => {
+    const key = createHash('sha256').update(String(request.headers['x-api-key'] ?? '')).digest('hex').slice(0, 16);
+    const release = (request.headers['x-filuflow-master'] === '1' ? masterLimiter : limiter).acquire(`${key}|${request.ip}`);
+    if (!release) return reply.code(429).send({ message: 'Too many option list requests, please wait a moment' });
+    try {
+      const req = parseLoadOptionsRequest(request.body);
+      return await runLoadOptions({ registry: o.registry, runner: o.runner, credentials: o.credentials, logger: o.logger }, req);
+    } catch (error) {
+      if (error instanceof LoadOptionsError) return reply.code(error.status).send(error.body());
+      throw error;
+    } finally {
+      release();
+    }
   });
 
   api.get('/api/workflows/:id/source', async (request, reply) => {

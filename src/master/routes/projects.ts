@@ -16,6 +16,8 @@ import {
   type ProjectAction,
 } from '../permissions.js';
 import { WorkerError } from '../workers.js';
+import { RateLimiter } from '../session.js';
+import { LoadOptionsError, parseLoadOptionsRequest } from '../../server/loadOptions.js';
 import { getDefaultRegistry } from '../../nodes/index.js';
 import { validateWorkflow } from '../../validator.js';
 import { asWorkflow, describeNodes, nodeTypeList } from '../../server/editorApi.js';
@@ -474,6 +476,51 @@ export function registerProjectRoutes(api: FastifyInstance, ctx: MasterContext):
     }
     const result = validateWorkflow(wf, { registry, checkCredentials: false });
     return { valid: result.valid && !shareIssues.length, issues: [...result.issues, ...shareIssues], nodes: describeNodes(wf, registry), worker: worker ? 'offline' : 'none' };
+  });
+
+  // Dynamic option lists (M47a): forwarded to the project's worker. Needs workflow.edit (for the given workflow, or for at
+  // least one workflow of the project when it is new); credentials not shared with the project are refused. Only the
+  // whitelisted body fields are forwarded. No audit entry per request (searches are frequent); rate limit per user.
+  const loadOptionsLimiter = new RateLimiter(120, 60_000);
+  api.post('/api/projects/:pid/load-options', async (request, reply) => {
+    const pid = (request.params as { pid: string }).pid;
+    const body = (request.body ?? {}) as { workflowId?: unknown };
+    let projectId: string;
+    if (typeof body.workflowId === 'string' && body.workflowId) {
+      const a = workflowAccess(request, reply, body.workflowId, 'workflow.edit');
+      if (!a) return;
+      if (a.row.project_id !== pid) return reply.code(404).send({ message: 'Workflow not found' });
+      projectId = a.project.id;
+    } else {
+      const a = access(request, reply, pid, 'workflow.edit', true);
+      if (!a) return;
+      projectId = a.project.id;
+    }
+    if (!loadOptionsLimiter.hit(request.auth!.user.id)) return reply.code(429).send({ message: 'Too many option list requests, please wait a moment' });
+    let forward;
+    try {
+      forward = parseLoadOptionsRequest(request.body);
+    } catch (error) {
+      if (error instanceof LoadOptionsError) return reply.code(error.status).send(error.body());
+      throw error;
+    }
+    const blocked = blockedCredentials(projectId, { nodes: [{ name: 'node', credentials: forward.node.credentials }] } as unknown as Workflow);
+    if (blocked.length) return reply.code(403).send({ message: blockedMessage(blocked) });
+    const worker = hub.workerForProject(projectId);
+    if (!worker) return reply.code(409).send({ message: 'Project has no worker' });
+    try {
+      return await hub.call(worker, 'POST', '/api/editor/load-options', forward, 20_000);
+    } catch (error) {
+      if (!(error instanceof WorkerError)) throw error;
+      if (error.status === 0 || error.status === 401) return reply.code(502).send({ message: error.message });
+      if (error.status === 404) return reply.code(501).send({ message: 'The project\'s worker does not offer option lists yet; update the worker' });
+      const b = (error.body && typeof error.body === 'object' ? error.body : {}) as { httpCode?: unknown; description?: unknown };
+      return reply.code(error.status).send({
+        message: error.message,
+        ...(typeof b.httpCode === 'string' ? { httpCode: b.httpCode } : {}),
+        ...(typeof b.description === 'string' ? { description: b.description } : {}),
+      });
+    }
   });
 
   api.post('/api/workflows/:id/run', async (request, reply) => {

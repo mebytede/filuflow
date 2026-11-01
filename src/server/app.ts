@@ -486,7 +486,7 @@ export async function createServer(options: ServerOptions): Promise<FiluflowServ
     await registerPackagesApi(api, { prefix: '/api/community-packages', packages, enabled: packagesEnabled, logger });
     if (options.worker) await registerPackagesApi(api, { prefix: '/api/worker/community-packages', packages, enabled: packagesEnabled, logger });
     await registerSupervisorApi(api, { prefix: '/api/supervisor', supervisor: () => supervisor });
-    await registerEditorApi(api, { registry, credentials, runner, manager, store, workflows: () => workflows!, webhookBaseUrl: options.webhookBaseUrl, webhooks });
+    await registerEditorApi(api, { registry, credentials, runner, manager, store, workflows: () => workflows!, webhookBaseUrl: options.webhookBaseUrl, webhooks, logger });
     if (options.worker) {
       await registerWorkerApi(api, {
         version: options.worker.version,

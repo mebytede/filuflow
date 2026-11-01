@@ -7,6 +7,7 @@ import { t as tr, tl } from '../i18n.js';
 import { icon } from '../icons.js';
 import type { ParamSchema } from '../types.js';
 import { newId } from './model.js';
+import { dynamicMultiOptionsInput, dynamicOptionsInput, type DynamicFieldContext, type DynamicOptionsHost } from './dynamicOptions.js';
 
 import { clone, entryDefaults, isExpr, valueOf, visibleDefs, type Level, type Values } from './schemaVisibility.js';
 
@@ -18,6 +19,8 @@ export interface SchemaFormContext {
   onChange(key: string): void;
   /** Change after which the form is re-rendered (visibility may change) */
   onStructure(key: string): void;
+  /** Loading of dynamic option lists (M47a); without it fields with loadOptions are plain inputs */
+  dynamic?: DynamicOptionsHost;
 }
 
 function autoGrow(ta: HTMLTextAreaElement): void {
@@ -59,7 +62,16 @@ function expressionInput(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext):
     let next: unknown = raw;
     if (def.type === 'number') next = raw.trim() !== '' && !Number.isNaN(Number(raw)) ? Number(raw) : (def.default ?? 0);
     else if (def.type === 'boolean') next = raw === 'true' ? true : raw === 'false' ? false : (def.default ?? false);
+    else if (def.type === 'options' && def.loadOptions) next = raw;
     else if (def.type === 'options') next = def.options?.some((o) => String(o.value) === raw) ? def.options.find((o) => String(o.value) === raw)!.value : def.default;
+    else if (def.type === 'multiOptions' && def.loadOptions) {
+      try {
+        const parsed = JSON.parse(raw) as unknown;
+        next = Array.isArray(parsed) ? parsed : raw;
+      } catch {
+        next = raw;
+      }
+    }
     io.set(next);
     ctx.onStructure(`${io.key}#fx`);
   };
@@ -506,8 +518,11 @@ function fieldFor(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext, root: L
     case 'boolean':
       return booleanInput(def, io, ctx);
     case 'options':
+      if (def.loadOptions) return ctx.dynamic ? dynamicOptionsInput(def, io, dynamicContext(def, io, ctx), ctx.dynamic) : textInput({ ...def, type: 'string' }, io, ctx);
       return optionsInput(def, io, ctx);
     case 'multiOptions':
+      // Without a backend: the list as JSON (stored as an array), as before M47a
+      if (def.loadOptions) return ctx.dynamic ? dynamicMultiOptionsInput(def, io, dynamicContext(def, io, ctx), ctx.dynamic) : textInput({ ...def, type: 'json' }, io, ctx);
       return multiOptionsInput(def, io, ctx);
     case 'resourceLocator':
       return resourceLocatorInput(def, io, ctx);
@@ -522,6 +537,15 @@ function fieldFor(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext, root: L
     default:
       return textInput(def, io, ctx);
   }
+}
+
+function dynamicContext(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext): DynamicFieldContext {
+  return {
+    readonly: ctx.readonly,
+    onChange: (key) => ctx.onChange(key),
+    onStructure: (key) => ctx.onStructure(key),
+    fx: () => (def.noExpression ? null : fxButton(false, ctx, () => toExpression(io, ctx))),
+  };
 }
 
 function fieldRow(def: ParamSchema, level: Level, ctx: SchemaFormContext, root: Level, path: string, removable?: () => void): HTMLElement {
@@ -550,7 +574,7 @@ function fieldRow(def: ParamSchema, level: Level, ctx: SchemaFormContext, root: 
       removable && !ctx.readonly ? h('button', { type: 'button', class: 'icon-btn sf-remove', title: tr('Remove'), 'aria-label': tr('Remove {name}', { name: tl(def.label) }), onclick: removable }, icon('x', 14)) : null,
     ),
     fieldFor(def, io, ctx, root),
-    def.description && !['options'].includes(def.type) ? h('div', { class: 'muted small param-hint' }, tl(def.description)) : null,
+    def.description && (def.type !== 'options' || def.loadOptions) ? h('div', { class: 'muted small param-hint' }, tl(def.description)) : null,
   );
 }
 
