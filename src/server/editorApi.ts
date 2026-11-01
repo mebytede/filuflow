@@ -1,7 +1,6 @@
 // REST endpoints for the web interface (M8): node types, credentials (without values), checking and running
 // unsaved workflows, saving and deleting workflow files.
 // All routes are in the API scope and require the X-API-Key.
-import { createHash } from 'node:crypto';
 import { hostname } from 'node:os';
 import type { FastifyInstance } from 'fastify';
 import type { Item, Workflow, WorkflowNode } from '../types.js';
@@ -202,8 +201,8 @@ export async function registerEditorApi(api: FastifyInstance, o: EditorApiOption
   const limiter = o.loadOptionsLimiter ?? new LoadOptionsLimiter();
   const masterLimiter = new LoadOptionsLimiter(1200, 16);
   api.post('/api/editor/load-options', async (request, reply) => {
-    const key = createHash('sha256').update(String(request.headers['x-api-key'] ?? '')).digest('hex').slice(0, 16);
-    const release = (request.headers['x-filuflow-master'] === '1' ? masterLimiter : limiter).acquire(`${key}|${request.ip}`);
+    // The route is only reachable with the server's single API key (or the worker key), so the caller's address is the bucket
+    const release = (request.headers['x-filuflow-master'] === '1' ? masterLimiter : limiter).acquire(request.ip);
     if (!release) return reply.code(429).send({ message: 'Too many option list requests, please wait a moment' });
     try {
       const req = parseLoadOptionsRequest(request.body);

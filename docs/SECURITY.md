@@ -120,7 +120,7 @@ session or API token) load option lists for the editor by calling node methods w
   token patterns (`Bearer ...`, `key=`, `access_token=`, `client_secret` in JSON). The debug log records node type,
   method, status and duration, never parameters or credential values. Requests are not written to the audit log
   (searches are frequent).
-- Rate limits: single server 120 requests per minute and 4 at a time per API key and address (429 above that); the master
+- Rate limits: single server 120 requests per minute and 4 at a time per address (the route requires the API key) (429 above that); the master
   120 per minute per user; a worker allows requests forwarded by the master 1200 per minute and 16 at a time.
 - SSRF and credential use: a method sends the credential to the URLs the node uses, some of which come from parameters or
   the credential (for example a base URL). This is the same power as running an own workflow state, which is why the
