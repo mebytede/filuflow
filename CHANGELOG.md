@@ -8,6 +8,8 @@ breaking changes; they are listed under "Changed" or "Removed".
 
 ## [Unreleased]
 
+## [0.1.1] - Unreleased
+
 ### Changed
 
 - **The installer uses the published image and installs releases by default.** `scripts/install.sh` with Docker pulls
@@ -88,5 +90,6 @@ First public release.
   workflow JSON format", "reference implementation"); node and credential type strings in workflows stay unchanged.
 - **License**: AGPL-3.0-or-later, with notices for bundled third-party components in `THIRD_PARTY_NOTICES.md`.
 
-[Unreleased]: https://github.com/mebytede/filuflow/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/mebytede/filuflow/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/mebytede/filuflow/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/mebytede/filuflow/releases/tag/v0.1.0
