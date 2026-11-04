@@ -90,7 +90,46 @@ describe('Parameter descriptions', () => {
         }
       });
     }
-    expect(found).toBeGreaterThanOrEqual(8);
+    expect(found).toBeGreaterThanOrEqual(19);
+    expect(problems).toEqual([]);
+  });
+
+  it('resource locator modes (M47b): list sources, extractValue with exactly one group, valid validation rules', () => {
+    const problems: string[] = [];
+    let pickers = 0;
+    for (const t of types) {
+      walk(t.parameters ?? [], (def, _siblings, path) => {
+        const where = `${t.type} ${path}`;
+        if (def.modes && def.type !== 'resourceLocator') problems.push(`${where}: modes on a ${def.type} field`);
+        for (const mode of def.modes ?? []) {
+          const m = `${where} mode ${mode.name}`;
+          if (mode.type === 'list' && !mode.searchListMethod && !mode.listSource) problems.push(`${m}: list mode without searchListMethod or listSource`);
+          if ((mode.searchListMethod || mode.listSource || mode.searchable || mode.searchFilterRequired) && mode.type !== 'list') problems.push(`${m}: list options on a mode of type ${mode.type}`);
+          if (mode.listSource) {
+            pickers++;
+            if (mode.listSource !== 'workflows') problems.push(`${m}: unknown listSource`);
+          }
+          if (mode.searchListMethod && typeof t.methods?.listSearch?.[mode.searchListMethod] !== 'function') problems.push(`${m}: searchListMethod is not a function`);
+          if (mode.extractValue) {
+            try {
+              const groups = (new RegExp(`${mode.extractValue.regex}|`).exec('') ?? []).length - 1;
+              if (groups !== 1) problems.push(`${m}: extractValue needs exactly one group, has ${groups}`);
+            } catch {
+              problems.push(`${m}: extractValue regex does not compile`);
+            }
+          }
+          for (const rule of mode.validation ?? []) {
+            if (!rule.errorMessage) problems.push(`${m}: validation without errorMessage`);
+            try {
+              new RegExp(rule.regex);
+            } catch {
+              problems.push(`${m}: validation regex does not compile`);
+            }
+          }
+        }
+      });
+    }
+    expect(pickers).toBe(2);
     expect(problems).toEqual([]);
   });
 

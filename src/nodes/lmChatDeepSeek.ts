@@ -6,6 +6,7 @@ import type { NodeType } from './types.js';
 import { OpenAiChatModel } from '../ai/models/openai.js';
 import { compatibleOptions, MODEL_NOTICE, modelParam } from './shared/chatModelParams.js';
 import { compatibleSupplyData } from './lmChatOpenRouter.js';
+import { compatibleModels } from './shared/modelLists.js';
 
 export const lmChatDeepSeekNode: NodeType = {
   type: '@n8n/n8n-nodes-langchain.lmChatDeepSeek',
@@ -17,6 +18,7 @@ export const lmChatDeepSeekNode: NodeType = {
   inputs: () => 0,
   outputs: () => 0,
   credentialTypes: () => ['deepSeekApi'],
+  methods: { loadOptions: { getModels: compatibleModels('deepSeekApi') } },
   async execute() {
     return null;
   },

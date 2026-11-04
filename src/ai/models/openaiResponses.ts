@@ -7,6 +7,7 @@
 import type { ExecContext } from '../../nodes/types.js';
 import type { ChatMessage, ContentPart, ToolCall } from '../messages.js';
 import { ChatModel, type ChatResult, type ModelCallOptions } from './base.js';
+import { OPENAI_DEFAULT_URL } from './openai.js';
 
 export interface OpenAiResponsesOptions {
   apiKey: string;
@@ -147,7 +148,7 @@ export class OpenAiResponsesModel extends ChatModel {
       ...(o.modelKwargs ?? {}),
     };
     body.stream = false;
-    const base = (o.baseURL || 'https://api.openai.com/v1').replace(/\/+$/, '');
+    const base = (o.baseURL || OPENAI_DEFAULT_URL).replace(/\/+$/, '');
     const headers = { Authorization: `Bearer ${o.apiKey}`, 'Content-Type': 'application/json', ...(o.headers ?? {}) };
     const res = options.onToken ? await this.stream(`${base}/responses`, headers, body, options.signal, options.onToken) : await this.postJson(`${base}/responses`, headers, body, options.signal);
     return this.toResult(res);

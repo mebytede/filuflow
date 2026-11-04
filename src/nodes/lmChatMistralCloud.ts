@@ -5,6 +5,7 @@ import type { NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
 import { MistralChatModel } from '../ai/models/mistral.js';
 import { MODEL_NOTICE, modelParam } from './shared/chatModelParams.js';
+import { getMistralModels } from './shared/modelLists.js';
 
 const parameters: ParamSchema[] = [
   MODEL_NOTICE,
@@ -36,6 +37,7 @@ export const lmChatMistralCloudNode: NodeType = {
   inputs: () => 0,
   outputs: () => 0,
   credentialTypes: () => ['mistralCloudApi'],
+  methods: { loadOptions: { getModels: getMistralModels } },
   async execute() {
     return null;
   },

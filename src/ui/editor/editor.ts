@@ -41,6 +41,8 @@ export interface EditorBackend {
   lastExecution?(id: string): Promise<Execution | undefined>;
   /** Dynamic option list of a parameter (M47a); without it the fields stay plain inputs */
   loadOptions?(req: LoadOptionsRequest, signal?: AbortSignal): Promise<LoadOptionsResponse>;
+  /** Workflows for the workflow picker of Execute Workflow and the workflow tool (M47b) */
+  listWorkflows?(): Promise<Array<{ id: string; name: string }>>;
 }
 
 export const standaloneBackend: EditorBackend = {
@@ -49,6 +51,7 @@ export const standaloneBackend: EditorBackend = {
   run: (workflow, trigger, input, destination) => api.run(workflow, trigger, input, destination),
   listen: (workflow, signal) => api.listen(workflow, signal),
   loadOptions: (req, signal) => api.loadOptions(req, signal),
+  listWorkflows: async () => (await api.workflows()).map((w) => ({ id: w.id, name: w.name })),
   async lastExecution(id) {
     const [last] = await api.executions({ workflow: id, limit: 1 });
     return last ? api.execution(last.id) : undefined;
@@ -205,6 +208,7 @@ export class Editor {
       ...(opts.readonly ? {} : { runTo: (name: string) => void this.run(name) }),
       ...(!opts.readonly && this.backend.listen ? { listen: () => void this.listen(), listening: () => !!this.listening } : {}),
       ...(!opts.readonly && this.backend.loadOptions ? { loadOptions: (req: LoadOptionsRequest, signal?: AbortSignal) => this.backend.loadOptions!(req, signal) } : {}),
+      ...(!opts.readonly && this.backend.listWorkflows ? { listWorkflows: () => this.backend.listWorkflows!() } : {}),
     });
 
     this.runPanel = new RunPanel({

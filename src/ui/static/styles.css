@@ -427,6 +427,10 @@ a.cell-name:hover { color: var(--ff-text); text-decoration: underline; }
 .dyn-chip .icon-btn { width: 22px; height: 22px; }
 .param-color { width: 36px; height: 36px; padding: 2px; border: 1px solid var(--ff-field-line); background: var(--ff-field-bg); border-radius: var(--ff-radius-field); }
 .param-rl-mode { flex: 0 0 110px; }
+.param-rl { display: flex; flex-direction: column; gap: 4px; }
+.param-error { color: var(--ff-error); }
+.param-error[hidden] { display: none; }
+.dyn-rl .dyn-open { height: 36px; width: 32px; display: inline-flex; align-items: center; justify-content: center; }
 .sf-collection, .sf-fixed, .param-assignments, .param-filter { display: flex; flex-direction: column; gap: 10px; padding-left: 12px; border-left: 1px solid var(--ff-line-strong); }
 .sf-entry { display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; border: 1px solid var(--ff-line); background: var(--ff-bg); }
 .sf-entry-head { display: flex; align-items: center; justify-content: space-between; }

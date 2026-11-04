@@ -7,6 +7,9 @@ import type { ExecContext } from '../../nodes/types.js';
 import type { ChatMessage, ToolCall } from '../messages.js';
 import { ChatModel, type ChatResult, type ModelCallOptions } from './base.js';
 
+
+/** API of Mistral Cloud without a URL in the credential */
+export const MISTRAL_DEFAULT_URL = 'https://api.mistral.ai';
 export interface MistralOptions {
   apiKey: string;
   model: string;
@@ -84,7 +87,7 @@ export class MistralChatModel extends ChatModel {
       tools: options.tools?.length ? options.tools.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.schema } })) : undefined,
       safe_prompt: o.safePrompt ?? false,
     };
-    const url = `${(o.serverURL || 'https://api.mistral.ai').replace(/\/+$/, '')}/v1/chat/completions`;
+    const url = `${(o.serverURL || MISTRAL_DEFAULT_URL).replace(/\/+$/, '')}/v1/chat/completions`;
     let text = '';
     const calls: Array<{ id: string; name: string; arguments: string }> = [];
     let usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | undefined;

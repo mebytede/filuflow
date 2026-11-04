@@ -4,6 +4,7 @@
 // Log on the embeddings node like the reference logWrapper: embedDocuments { documents } -> { response }, embedQuery { query }.
 import type { ExecContext } from '../nodes/types.js';
 import { LlmHttpError } from './models/base.js';
+import { OPENAI_DEFAULT_URL } from './models/openai.js';
 import { NodeApiError } from '../errors.js';
 
 export interface Embeddings {
@@ -61,7 +62,7 @@ export class OpenAiEmbeddings implements Embeddings {
     if (this.o.dimensions) body.dimensions = this.o.dimensions;
     // OpenAI SDK: encoding_format base64 if nothing is set; the response is then decoded
     body.encoding_format = this.o.encodingFormat ?? 'base64';
-    const url = `${(this.o.baseURL || 'https://api.openai.com/v1').replace(/\/+$/, '')}/embeddings`;
+    const url = `${(this.o.baseURL || OPENAI_DEFAULT_URL).replace(/\/+$/, '')}/embeddings`;
     const res = await this.ctx.helpers.http.request({
       method: 'POST',
       url,

@@ -338,4 +338,8 @@ export const de: Record<string, string> = {
   'Selected: {name}': 'Ausgewählt: {name}',
   'Add "{value}"': '"{value}" hinzufügen',
   'Type a value to enter it manually': 'Geben Sie einen Wert ein, um ihn manuell hinzuzufügen',
+  // Resource locator lists and workflow picker (M47b)
+  'Not available here': 'Hier nicht verfügbar',
+  'Enter a search term to see results': 'Geben Sie einen Suchbegriff ein, um Ergebnisse zu sehen',
+  'Open in a new tab': 'In neuem Tab öffnen',
 };

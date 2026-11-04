@@ -88,7 +88,10 @@ export interface ParamSchema {
   groups?: Array<{ name: string; label: string; children: ParamSchema[] }>;
   /** collection, fixedCollection: label of the add button */
   addLabel?: string;
-  /** resourceLocator: modes (e.g. list, id, url); "list" is offered as free input until the mode has a searchListMethod */
+  /**
+   * resourceLocator: modes (e.g. list, id, url). A "list" mode with searchListMethod (or listSource) opens a searchable
+   * list in the editor (M47b); without them it is a text field.
+   */
   modes?: ResourceLocatorMode[];
 }
 
@@ -115,4 +118,9 @@ export interface ResourceLocatorMode {
   extractValue?: { regex: string };
   /** id, url: checks in the editor */
   validation?: Array<{ regex: string; errorMessage: string }>;
+  /**
+   * list: list provided by the editor instead of a node method; "workflows" lists the workflows the editor can see (the
+   * reference workflowSelector: standalone all workflows of the server, master the workflows of the same project)
+   */
+  listSource?: 'workflows';
 }

@@ -1,7 +1,8 @@
 // Anthropic Chat Model, @n8n/n8n-nodes-langchain.lmChatAnthropic (typeVersion 1 to 1.3)
 // Rebuilt after the reference version 1.123.0, packages/@n8n/nodes-langchain/nodes/llms/LMChatAnthropic/LmChatAnthropic.node.ts
 import type { NodeType } from './types.js';
-import { AnthropicChatModel } from '../ai/models/anthropic.js';
+import { ANTHROPIC_DEFAULT_URL, AnthropicChatModel } from '../ai/models/anthropic.js';
+import { searchAnthropicModels } from './shared/modelLists.js';
 import type { ParamSchema } from './params.js';
 
 const MODEL_DEFAULTS: Record<string, string> = { '1': 'claude-2', '1.1': 'claude-3-sonnet-20240229', '1.2': 'claude-3-5-sonnet-20240620' };
@@ -9,7 +10,7 @@ const MIN_THINKING_BUDGET = 1024;
 const DEFAULT_MAX_TOKENS = 4096;
 
 // Parameters like LmChatAnthropic.node.ts (properties and modelField, reference version 1.123.0).
-// From v1.3 the reference loads the models via API (searchModels); here the model is then a free input.
+// From v1.3 the model is a resource locator whose list comes from the API (searchModels, see shared/modelLists.ts).
 const MODEL_OPTIONS = [
   { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet (20241022)' },
   { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus (20240229)' },
@@ -50,8 +51,8 @@ const parameters: ParamSchema[] = [
     default: { mode: 'list', value: 'claude-sonnet-4-5-20250929', cachedResultName: 'Claude Sonnet 4.5' },
     required: true,
     modes: [
-      { name: 'list', label: 'From List', placeholder: 'e.g. claude-sonnet-4-5-20250929' },
-      { name: 'id', label: 'ID', placeholder: 'claude-sonnet-4-5-20250929' },
+      { name: 'list', label: 'From List', type: 'list', placeholder: 'Select a model...', searchListMethod: 'searchModels', searchable: true },
+      { name: 'id', label: 'ID', type: 'string', placeholder: 'claude-sonnet-4-5-20250929' },
     ],
     description: 'Pick a model or enter its ID',
     show: { '@version': [{ _cnd: { gte: 1.3 } }] },
@@ -128,6 +129,7 @@ export const lmChatAnthropicNode: NodeType = {
   inputs: () => 0,
   outputs: () => 0,
   credentialTypes: () => ['anthropicApi'],
+  methods: { listSearch: { searchModels: searchAnthropicModels } },
   async execute() {
     return null;
   },
@@ -160,7 +162,7 @@ export const lmChatAnthropicNode: NodeType = {
     // Reference: topP only if set; with topP set and no temperature, the default temperature is omitted
     return new AnthropicChatModel(ctx, {
       apiKey: String(credentials.apiKey ?? ''),
-      baseURL: String(credentials.url ?? 'https://api.anthropic.com'),
+      baseURL: String(credentials.url ?? ANTHROPIC_DEFAULT_URL),
       model,
       maxTokens: options.maxTokensToSample,
       temperature: options.temperature,

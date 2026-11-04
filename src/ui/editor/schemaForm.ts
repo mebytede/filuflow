@@ -7,7 +7,8 @@ import { t as tr, tl } from '../i18n.js';
 import { icon } from '../icons.js';
 import type { ParamSchema } from '../types.js';
 import { newId } from './model.js';
-import { dynamicMultiOptionsInput, dynamicOptionsInput, type DynamicFieldContext, type DynamicOptionsHost } from './dynamicOptions.js';
+import { dynamicMultiOptionsInput, dynamicOptionsInput, resourceLocatorListInput, type DynamicFieldContext, type DynamicOptionsHost } from './dynamicOptions.js';
+import { canListMode, locatorValidationError } from './locatorModes.js';
 
 import { clone, entryDefaults, isExpr, valueOf, visibleDefs, type Level, type Values } from './schemaVisibility.js';
 
@@ -222,25 +223,54 @@ function multiOptionsInput(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext
   );
 }
 
+/**
+ * Resource locator ({ __rl, mode, value }): mode selection and the field of the mode. "list" modes with a search method
+ * (or the workflow picker) open a searchable list (M47b, dynamicOptions.ts), other modes are text fields checked against
+ * the mode's validation rules. Switching the mode keeps the value (to "url": the cached URL of the chosen entry).
+ */
 function resourceLocatorInput(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext): HTMLElement {
   const raw = io.get();
-  const rl = raw && typeof raw === 'object' && (raw as { __rl?: boolean }).__rl ? (raw as { mode?: string; value?: unknown }) : undefined;
+  const rl = raw && typeof raw === 'object' && (raw as { __rl?: boolean }).__rl ? (raw as { mode?: string; value?: unknown; cachedResultUrl?: unknown }) : undefined;
   const modes = def.modes?.length ? def.modes : [{ name: 'id', label: 'ID' }];
   const mode = rl?.mode ?? (typeof raw === 'string' ? 'id' : modes[0].name);
+  const modeDef = modes.find((m) => m.name === mode);
   const value = rl ? rl.value : raw;
   const write = (m: string, v: unknown) => io.set({ __rl: true, mode: m, value: v });
   const sel = h(
     'select',
-    { class: 'param-input param-rl-mode', disabled: ctx.readonly, 'aria-label': tr('{name}: mode', { name: tl(def.label) }), onchange: () => (write(sel.value, value ?? ''), ctx.onStructure(io.key)) },
-    modes.map((m) => h('option', { value: m.name, selected: m.name === mode }, m.name === 'list' ? tr('Name') : tl(m.label))),
+    {
+      class: 'param-input param-rl-mode',
+      disabled: ctx.readonly,
+      'aria-label': tr('{name}: mode', { name: tl(def.label) }),
+      onchange: () => {
+        const next = sel.value === 'url' && typeof rl?.cachedResultUrl === 'string' ? rl.cachedResultUrl : (value ?? '');
+        write(sel.value, next);
+        ctx.onStructure(io.key);
+      },
+    },
+    modes.map((m) => h('option', { value: m.name, selected: m.name === mode }, tl(m.label))),
   );
-  const input = h('input', { type: 'text', class: `param-input${isExpr(value) ? ' expr' : ''}`, value: value === undefined || value === null ? '' : String(value), placeholder: tl(modes.find((m) => m.name === mode)?.placeholder) ?? tl(def.placeholder) ?? '', disabled: ctx.readonly, 'aria-label': tl(def.label) });
+  if (canListMode(modeDef, ctx.dynamic) && !isExpr(value)) {
+    const dctx: DynamicFieldContext = { readonly: ctx.readonly, onChange: (key) => ctx.onChange(key), onStructure: (key) => ctx.onStructure(key), fx: () => null };
+    return h('div', { class: 'param-rl' }, resourceLocatorListInput(def, modeDef!, io, dctx, ctx.dynamic!, [sel]));
+  }
+  const input = h('input', { type: 'text', class: `param-input${isExpr(value) ? ' expr' : ''}`, value: value === undefined || value === null ? '' : String(value), placeholder: tl(modeDef?.placeholder) ?? tl(def.placeholder) ?? '', disabled: ctx.readonly, 'aria-label': tl(def.label) });
+  const error = h('div', { class: 'muted small param-hint param-error', role: 'alert' });
+  const check = () => {
+    const message = locatorValidationError(modeDef, input.value);
+    input.classList.toggle('invalid', !!message);
+    input.setAttribute('aria-invalid', String(!!message));
+    error.textContent = message ? tl(message) : '';
+    error.hidden = !message;
+  };
+  check();
   input.addEventListener('input', () => {
     input.classList.toggle('expr', input.value.startsWith('='));
     write(mode, input.value);
+    check();
     ctx.onChange(io.key);
   });
-  return h('div', { class: 'param-text-row param-rl' }, sel, input);
+  return h('div', { class: 'param-rl' }, h('div', { class: 'param-text-row' }, sel, input), error);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -518,11 +548,11 @@ function fieldFor(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext, root: L
     case 'boolean':
       return booleanInput(def, io, ctx);
     case 'options':
-      if (def.loadOptions) return ctx.dynamic ? dynamicOptionsInput(def, io, dynamicContext(def, io, ctx), ctx.dynamic) : textInput({ ...def, type: 'string' }, io, ctx);
+      if (def.loadOptions) return ctx.dynamic?.load ? dynamicOptionsInput(def, io, dynamicContext(def, io, ctx), ctx.dynamic) : textInput({ ...def, type: 'string' }, io, ctx);
       return optionsInput(def, io, ctx);
     case 'multiOptions':
       // Without a backend: the list as JSON (stored as an array), as before M47a
-      if (def.loadOptions) return ctx.dynamic ? dynamicMultiOptionsInput(def, io, dynamicContext(def, io, ctx), ctx.dynamic) : textInput({ ...def, type: 'json' }, io, ctx);
+      if (def.loadOptions) return ctx.dynamic?.load ? dynamicMultiOptionsInput(def, io, dynamicContext(def, io, ctx), ctx.dynamic) : textInput({ ...def, type: 'json' }, io, ctx);
       return multiOptionsInput(def, io, ctx);
     case 'resourceLocator':
       return resourceLocatorInput(def, io, ctx);

@@ -669,7 +669,7 @@ them. Hiding them entirely was rejected because open drafts would then be stuck 
 a typo in a script is noticed instead of silently returning a different page size; values above the maximum are capped
 as before, because a large limit is a clear intent ("as many as possible").
 
-## Dynamic option lists (M47a)
+## Dynamic option lists (M47a, M47b)
 **Why.** Parameters such as Gmail labels, aliases or the messages of a thread only make sense with the values of the
 connected account. Typing IDs by hand was error prone. The reference loads such lists through node methods
 (`methods.loadOptions`, `methods.listSearch`); filuflow rebuilds that interface for its own nodes.
@@ -699,5 +699,33 @@ stopped after 15 seconds.
 **Own addition.** The Gmail "Label ID" of label:get and label:delete is a string field in the reference; filuflow offers
 the label list there too (the stored value is still the ID string).
 
-**Later.** Searchable resource locator lists with pagination, ID/URL modes with validation, chat model lists and the
-workflow picker follow in M47b; methods of community node packages and declarative `loadOptions.routing` in M47c.
+**Resolved values are not evaluated again (M47b).** The context of the temporary node reads the parameters that were
+resolved before the call. An expression whose result starts with "=" (for example a text that contains an expression)
+stays that text; before M47b the context treated it as a new expression.
+
+**Resource locator lists (M47b).** The "list" mode searches on the server only for `searchable` modes, 300 ms after the
+last key, and caches each page (filter and token in the key) for 5 minutes like option lists. The chosen entry is stored
+with `cachedResultName` (and `cachedResultUrl` if the method returns an http(s) link) so the closed field needs no
+request; values without a cached name show the value. Switching to the ID mode keeps the value; there is no conversion
+between modes beyond that (to "url" the cached URL is taken if there is one).
+
+**extractValue in the engine (M47b).** The reference applies the URL mode's regex when a node reads a resource locator with
+`extractValue`. filuflow did return the raw value, which would break URL modes. The field is looked up in the description
+of the node's version (the first visible field of that name), so version-specific modes are honored; nodes in the package
+format use the properties of their version, also for defaults.
+
+**Model lists (M47b).** The reference describes most model lists declaratively (`loadOptions.routing`); filuflow rebuilds
+them as node methods with the same request, filter and sort, and takes base URL and authentication from the same
+credential definitions the nodes use for their requests. Own changes: HTTP errors are shown with the service's message
+(the reference ignores the status and shows an empty list); the Anthropic list pages with "Load more" (100 per page,
+`after_id`) instead of reading only the API's first page of 20; the Gemini list follows every page; the OpenAI filter
+treats only `api.openai.com` as the official API. The Azure OpenAI deployment name stays a text field (deployments are not
+listed by the model API). Model fields keep their stored values: a name that is not in the list stays and is marked.
+
+**Workflow picker (M47b).** The reference offers it in the editor (workflowSelector), not as a node method. filuflow lists
+the workflows the editor already sees: standalone the server's workflow list, in the master the workflows of the same
+project from the master's database. The worker is never asked, so the picker cannot reveal workflows of other projects
+on the same worker. The list is filtered in the browser.
+
+**Later.** Methods of community node packages, declarative `loadOptions.routing` and the resource locator modes of package
+descriptions in the form follow in M47c.

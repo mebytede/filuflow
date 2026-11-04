@@ -4,8 +4,9 @@
 // Authorization only with an API key.
 import type { NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
-import { OllamaChatModel, ollamaModelOptions } from '../ai/models/ollama.js';
+import { OLLAMA_DEFAULT_URL, OllamaChatModel, ollamaModelOptions } from '../ai/models/ollama.js';
 import { MODEL_NOTICE, modelParam } from './shared/chatModelParams.js';
+import { getOllamaModels } from './shared/modelLists.js';
 
 const parameters: ParamSchema[] = [
   MODEL_NOTICE,
@@ -59,6 +60,7 @@ export const lmChatOllamaNode: NodeType = {
   inputs: () => 0,
   outputs: () => 0,
   credentialTypes: () => ['ollamaApi'],
+  methods: { loadOptions: { getModels: getOllamaModels } },
   async execute() {
     return null;
   },
@@ -66,7 +68,7 @@ export const lmChatOllamaNode: NodeType = {
     const credentials = await ctx.getCredentials('ollamaApi', itemIndex);
     const options = ctx.getParam<Record<string, unknown>>('options', itemIndex, {});
     return new OllamaChatModel(ctx, {
-      baseUrl: String(credentials.baseUrl || 'http://localhost:11434'),
+      baseUrl: String(credentials.baseUrl || OLLAMA_DEFAULT_URL),
       model: ctx.getParam<string>('model', itemIndex, ''),
       ...(credentials.apiKey ? { apiKey: String(credentials.apiKey) } : {}),
       format: options.format === 'default' ? undefined : (options.format as string | undefined),

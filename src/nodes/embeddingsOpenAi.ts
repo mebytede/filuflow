@@ -4,13 +4,15 @@
 import type { NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
 import { loggedEmbeddings, OpenAiEmbeddings } from '../ai/embeddings.js';
+import { getOpenAiEmbeddingModels, openAiBaseUrl } from './shared/modelLists.js';
 
 const model = (dflt: string): Omit<ParamSchema, 'show' | 'hide'> => ({
   name: 'model',
   label: 'Model',
-  type: 'string',
+  type: 'options',
   default: dflt,
-  description: 'Embedding model; the reference loads the choices via API, enter it directly here',
+  loadOptions: { method: 'getModels' },
+  description: 'Model that generates the embeddings',
 });
 
 const parameters: ParamSchema[] = [
@@ -58,6 +60,7 @@ export const embeddingsOpenAiNode: NodeType = {
   inputs: () => 0,
   outputs: () => 0,
   credentialTypes: () => ['openAiApi'],
+  methods: { loadOptions: { getModels: getOpenAiEmbeddingModels } },
   async execute() {
     return null;
   },
@@ -68,7 +71,7 @@ export const embeddingsOpenAiNode: NodeType = {
       ctx,
       new OpenAiEmbeddings(ctx, {
         apiKey: String(credentials.apiKey ?? ''),
-        baseURL: (options.baseURL as string | undefined) || (credentials.url as string | undefined) || undefined,
+        baseURL: openAiBaseUrl(credentials, options),
         model: ctx.getParam<string>('model', itemIndex, 'text-embedding-3-small'),
         batchSize: options.batchSize as number | undefined,
         stripNewLines: options.stripNewLines as boolean | undefined,

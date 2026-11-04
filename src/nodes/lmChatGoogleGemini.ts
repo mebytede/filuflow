@@ -2,7 +2,8 @@
 // Rebuilt after the reference version 1.123.0, packages/@n8n/nodes-langchain/nodes/llms/LmChatGoogleGemini/LmChatGoogleGemini.node.ts
 // Sub-node: supplies a chat model that the parent node calls via ai_languageModel.
 import type { NodeType } from './types.js';
-import { GeminiChatModel } from '../ai/models/gemini.js';
+import { GEMINI_DEFAULT_HOST, GeminiChatModel } from '../ai/models/gemini.js';
+import { getGeminiModels } from './shared/modelLists.js';
 import type { ParamSchema } from './params.js';
 
 // Parameters like LmChatGoogleGemini.node.ts (properties) and gemini-common/additional-options.ts as well as
@@ -14,9 +15,9 @@ const parameters: ParamSchema[] = [
   {
     name: 'modelName',
     label: 'Model',
-    type: 'string',
+    type: 'options',
     default: 'models/gemini-2.5-flash',
-    placeholder: 'e.g. models/gemini-2.5-flash',
+    loadOptions: { method: 'getModels' },
     description: 'Model that produces the answer',
   },
   {
@@ -118,6 +119,7 @@ export const lmChatGoogleGeminiNode: NodeType = {
   inputs: () => 0,
   outputs: () => 0,
   credentialTypes: () => ['googlePalmApi'],
+  methods: { loadOptions: { getModels: getGeminiModels } },
   async execute() {
     return null;
   },
@@ -133,7 +135,7 @@ export const lmChatGoogleGeminiNode: NodeType = {
     const safetySettings = ctx.getParam<Array<{ category: string; threshold: string }> | null>('options.safetySettings.values', itemIndex, null);
     return new GeminiChatModel(ctx, {
       apiKey: String(credentials.apiKey ?? ''),
-      host: String(credentials.host ?? 'https://generativelanguage.googleapis.com'),
+      host: String(credentials.host ?? GEMINI_DEFAULT_HOST),
       model: modelName,
       temperature: options.temperature,
       topK: options.topK,

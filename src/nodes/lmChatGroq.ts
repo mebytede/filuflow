@@ -5,6 +5,7 @@ import type { NodeType } from './types.js';
 import type { ParamSchema } from './params.js';
 import { GroqChatModel } from '../ai/models/compatible.js';
 import { MODEL_NOTICE, modelParam } from './shared/chatModelParams.js';
+import { getGroqModels } from './shared/modelLists.js';
 
 const parameters: ParamSchema[] = [
   MODEL_NOTICE,
@@ -32,6 +33,7 @@ export const lmChatGroqNode: NodeType = {
   inputs: () => 0,
   outputs: () => 0,
   credentialTypes: () => ['groqApi'],
+  methods: { loadOptions: { getModels: getGroqModels } },
   async execute() {
     return null;
   },
