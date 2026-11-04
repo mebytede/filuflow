@@ -2,7 +2,7 @@
 // running on the project's worker, viewing and restoring versions.
 import { ApiError } from '../api.js';
 import { dialog, formatDate, h, toast } from '../dom.js';
-import type { CredentialInfo, NodeTypeInfo, Workflow, WorkflowStatus } from '../types.js';
+import type { CredentialInfo, LoadOptionsRequest, NodeTypeInfo, Workflow, WorkflowStatus } from '../types.js';
 import { Editor, type EditorBackend } from '../editor/editor.js';
 import { executionDetailView } from '../views/executions.js';
 import { mapi } from './api.js';
@@ -63,6 +63,7 @@ export async function masterWorkflowView(id: string, types: NodeTypeInfo[], user
       }
     },
     run: (workflow, trigger, input, destination) => mapi.run(id, workflow, trigger, input, destination),
+    ...(project.worker && can(detail, 'workflow.edit') ? { loadOptions: (req: LoadOptionsRequest, signal?: AbortSignal) => mapi.loadOptions(project.id, id, req, signal) } : {}),
     async lastExecution(wid) {
       if (!project.worker) return undefined;
       const [last] = await mapi.executions(project.id, { workflow: wid });

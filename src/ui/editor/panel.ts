@@ -2,9 +2,10 @@
 import { h, toast } from '../dom.js';
 import { t, tl } from '../i18n.js';
 import { iconButton } from '../shell.js';
-import type { CredentialInfo, Item, NodePorts, NodeTypeInfo, TaskData, ValidationIssue, Workflow, WorkflowNode } from '../types.js';
+import type { CredentialInfo, Item, LoadOptionsRequest, LoadOptionsResponse, NodePorts, NodeTypeInfo, TaskData, ValidationIssue, Workflow, WorkflowNode } from '../types.js';
 import { codeTemplate } from './templates.js';
 import { paramEditor } from './paramForm.js';
+import type { DynamicOptionsHost } from './dynamicOptions.js';
 import { itemsView } from './dataView.js';
 
 export interface PanelHost {
@@ -27,6 +28,8 @@ export interface PanelHost {
   /** Wait for a call of the test URL or stop waiting; missing if the backend cannot do it */
   listen?(): void;
   listening?(): boolean;
+  /** Dynamic option lists of parameters (M47a); missing in read-only views and without a backend */
+  loadOptions?(req: LoadOptionsRequest, signal?: AbortSignal): Promise<LoadOptionsResponse>;
 }
 
 type Tab = 'params' | 'settings' | 'output';
@@ -173,6 +176,20 @@ export class Panel {
       { class: 'panel-issues' },
       issues.map((i) => h('div', { class: `issue issue-${i.severity}` }, h('strong', null, `${i.severity === 'error' ? t('Error') : t('Warning')}: `), i.message, i.path ? h('span', { class: 'muted' }, ` (${i.path})`) : null)),
     );
+  }
+
+  /** Loading of option lists for the node (current state at the time of loading) */
+  private dynamicHost(name: string): DynamicOptionsHost {
+    const current = () => this.host.workflow().nodes.find((n) => n.name === name);
+    return {
+      load: (req, signal) => this.host.loadOptions!(req, signal),
+      node: current,
+      missingCredential: () => {
+        const n = current();
+        if (!n) return undefined;
+        return (this.host.ports(n.name)?.credentialTypes ?? []).find((type) => !n.credentials?.[type]?.name);
+      },
+    };
   }
 
   private mutateNode(name: string, fn: (n: WorkflowNode) => void, key?: string): void {
@@ -324,6 +341,7 @@ export class Panel {
         schema,
         nodeType: node.type,
         version: node.typeVersion,
+        ...(this.host.loadOptions && !this.host.readonly ? { dynamic: this.dynamicHost(node.name) } : {}),
         onChange: (key) =>
           this.mutateNode(
             node.name,

@@ -8,6 +8,7 @@ import type { ExecContext, NodeIssue, NodeType } from './types.js';
 import type { Item, WorkflowNode } from '../types.js';
 import { NodeOperationError } from '../errors.js';
 import { gmailParameters } from './shared/gmailParams.js';
+import { gmailMethods } from './shared/gmailLoadOptions.js';
 import {
   addThreadHeadersToEmail,
   encodeEmail,
@@ -264,6 +265,7 @@ export const gmailNode: NodeType = {
   versions: [2, 2.1, 2.2],
   group: 'Services',
   parameters: gmailParameters,
+  methods: gmailMethods,
   outputs: () => 1,
   credentialTypes: (node) => [node.parameters.authentication === 'serviceAccount' ? 'googleApi' : 'gmailOAuth2'],
   validate(node) {

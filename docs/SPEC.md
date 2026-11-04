@@ -331,6 +331,7 @@ Engine order, expressions (including raw value vs. string), every node, filter o
 | M44 | Neutral naming | The reference product's name removed from prose, interface, messages, docs, comments and tests; only technical identifiers required by the format or packages keep it; `N8N_*` environment aliases removed |
 | M45 | Installer installs releases | `scripts/install.sh` pulls the published release image by default (Docker) or builds the release tag (native); `--version`, `--build`, `--ref`, `--source`, `--image`; `--update` moves to the latest release and keeps the way of installing |
 | M46 | Fixes for 0.1.1 | Numeric query parameters validated in the single server, worker and master (400 for invalid values, capped at the maximum, no internal error texts in responses); proposals for new workflows scoped to the project they were created in |
+| M47a | Dynamic option lists: core and Gmail | Node methods `loadOptions` / `listSearch`, `POST /api/editor/load-options` (single server and worker) and the master route with permission and sharing checks, combobox and multi-select in the form with lazy loading, cache, refresh, manual entry and German texts; Gmail labels, aliases and thread messages, Gmail Trigger labels |
 
 After each milestone: update `docs/STATUS.md` (what works, what is missing) and make a commit with a meaningful message.
 
@@ -362,7 +363,10 @@ shared credentials for multiple workers: M33)
 
 ### 11.4 Interface and master
 (Test data by click, Variables page: M18; chat view: M16; parameter forms: M19; roles per workflow and central
-execution search: M23; freely definable roles: M34)
+execution search: M23; freely definable roles: M34; dynamic option lists with Gmail: M47a)
+- Dynamic option lists, continued: searchable resource locator lists with pagination and `cachedResultName`, ID and URL
+  modes with validation (and the URL `extractValue` in the engine), chat model and embeddings lists, workflow picker
+  (M47b); methods of community node packages and declarative `loadOptions.routing` (M47c)
 
 ---
 
@@ -460,3 +464,22 @@ the reference product's name:
 - The `N8N_*` environment variable aliases are no longer read; only the `FILUFLOW_*` names apply.
 - Source references in comments name package, version and path, e.g. `Reference: n8n-nodes-base 1.121.0,
   nodes/Set/v2/SetV2.node.ts`.
+
+## Dynamic option lists (M47a)
+- Parameter description: `loadOptions: { method, dependsOn? }` on `options` and `multiOptions` fields (dependsOn paths
+  from the top level, `&name` relative to the field's level); resource locator modes can carry `type`,
+  `searchListMethod`, `searchable`, `searchFilterRequired`, `extractValue` and `validation` (used from M47b).
+- Node types: `methods.loadOptions[name](ctx)` returns `[{ name, value, description? }]`,
+  `methods.listSearch[name](ctx, filter?, paginationToken?)` returns `{ results, paginationToken? }`. The context is an
+  execution context of a temporary one-node workflow plus `path`, `getCurrentNodeParameter(path, { extractValue })` and
+  `getCurrentNodeParameters()`.
+- `POST /api/editor/load-options` with `{ kind: "options" | "listSearch", node: { type, typeVersion, parameters,
+  credentials }, path, method, filter?, paginationToken? }` answers `{ data }` or `{ results, paginationToken? }`;
+  errors `{ message, httpCode?, description? }` with 400 (request, parameters, missing credential), 502 (service), 504
+  (timeout after 15 s) or 429 (rate limit). The master offers the same as `POST /api/projects/:pid/load-options` with an
+  optional `workflowId` (409 without worker, 502 if the worker is unreachable).
+- Editor: lists load when the field opens, are filtered in the browser and cached for 5 minutes; refresh, loading, error
+  with retry, empty and "select a credential first" states; a value outside the list stays and is marked; manual entry
+  and the fx toggle are always available. Without a backend (execution view) the fields stay text inputs.
+- Gmail: `getLabels` (all label fields, Gmail Trigger label filter, label get/delete), `getGmailAliases` (draft alias),
+  `getThreadMessages` (thread reply message, depends on `threadId`).

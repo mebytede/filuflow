@@ -2,8 +2,10 @@
 // (authentication, resource), MessageDescription.js, LabelDescription.js, DraftDescription.js, ThreadDescription.js and
 // utils/sendAndWait/utils.js getSendAndWaitProperties (operation sendAndWait, v2.1 and later).
 // Differences in the description only (values and structure as in the reference):
-// - The reference loads labels, thread messages and aliases via API (loadOptions getLabels, getThreadMessages, getGmailAliases).
-//   Here label IDs are a JSON list (type json, value is an array as in the reference), message ID and alias are free text.
+// - Labels, thread messages and aliases are loaded via API like the reference (loadOptions getLabels, getThreadMessages,
+//   getGmailAliases, see src/nodes/shared/gmailLoadOptions.ts, M47a). Stored values are unchanged: label IDs an array,
+//   message ID and alias a string. The node still accepts label IDs as JSON text or comma separated text.
+//   Own addition: "Label ID" of label:get and label:delete is a list too (a string in the reference).
 // Gmail Trigger (M41, typeVersion 1 to 1.3): GmailTrigger.node.js of the same version, see gmailTriggerParameters.
 // - The callout "Sort your Gmail inbox using our pre-built" (template advertisement) is left out; hints are part of the
 //   description where the reference has no description.
@@ -14,7 +16,7 @@ import { pollTimesParam } from './polling.js';
 const opts = (...pairs: Array<[string, string]>) => pairs.map(([value, label]) => ({ value, label }));
 const on = (resource: string, ...operation: string[]) => ({ resource: [resource], operation });
 
-const labelIdsHint = 'Label IDs as a JSON list, e.g. ["INBOX", "Label_12"], or an expression';
+const getLabels = { method: 'getLabels' };
 
 const authenticationParam: ParamSchema = {
   name: 'authentication',
@@ -137,9 +139,10 @@ function messageFilterChildren(): ParamSchema[] {
     {
       name: 'labelIds',
       label: 'Label Names or IDs',
-      type: 'json',
+      type: 'multiOptions',
+      loadOptions: getLabels,
       default: [],
-      description: `Only messages that carry every one of these labels. ${labelIdsHint}`,
+      description: 'Only messages that carry every one of these labels. Choose from the list, or specify IDs using an expression.',
     },
     searchParam,
     readStatusParam,
@@ -327,7 +330,14 @@ export const gmailParameters: ParamSchema[] = [
       attachmentsParam('Attachment Field Name (in Input)', ''),
       bccParam,
       ccParam,
-      { name: 'fromAlias', label: 'From Alias Name or ID', type: 'string', default: '', description: 'Sender alias, one of the account\'s "send as" addresses' },
+      {
+        name: 'fromAlias',
+        label: 'From Alias Name or ID',
+        type: 'options',
+        loadOptions: { method: 'getGmailAliases' },
+        default: '',
+        description: 'Sender alias, one of the account\'s "send as" addresses. Choose from the list, or specify an ID using an expression.',
+      },
       { name: 'replyTo', label: 'Send Replies To', type: 'string', default: '', placeholder: 'reply@example.com', description: 'Recipient address of the reply' },
       { name: 'threadId', label: 'Thread ID', type: 'string', default: '', placeholder: '18cc573e2431878f', description: 'ID of the thread the draft belongs to' },
       { name: 'sendTo', label: 'To Email', type: 'string', default: '', placeholder: 'info@example.com', description: emailListDescription('recipients') },
@@ -375,7 +385,7 @@ export const gmailParameters: ParamSchema[] = [
     ],
   },
   { name: 'name', label: 'Name', type: 'string', default: '', required: true, placeholder: 'invoices', description: 'Label Name', show: on('label', 'create') },
-  { name: 'labelId', label: 'Label ID', type: 'string', default: '', required: true, description: 'The ID of the label', show: on('label', 'get', 'delete') },
+  { name: 'labelId', label: 'Label Name or ID', type: 'options', loadOptions: getLabels, default: '', required: true, description: 'The label. Choose from the list, or specify an ID using an expression.', show: on('label', 'get', 'delete') },
   {
     name: 'options',
     label: 'Options',
@@ -486,7 +496,7 @@ export const gmailParameters: ParamSchema[] = [
     hide: { simple: [true] },
     children: [attachmentPrefixParam(), downloadAttachmentsParam('Whether attachments of the email are downloaded and added to the output')],
   },
-  { name: 'labelIds', label: 'Label Names or IDs', type: 'json', default: [], required: true, description: labelIdsHint, show: on('message', 'addLabels', 'removeLabels') },
+  { name: 'labelIds', label: 'Label Names or IDs', type: 'multiOptions', loadOptions: getLabels, default: [], required: true, show: on('message', 'addLabels', 'removeLabels') },
   ...sendAndWaitParameters,
   // Thread (ThreadDescription.js)
   {
@@ -508,7 +518,15 @@ export const gmailParameters: ParamSchema[] = [
     ],
   },
   { name: 'threadId', label: 'Thread ID', type: 'string', default: '', required: true, description: 'ID of the thread', show: on('thread', 'get', 'delete', 'reply', 'trash', 'untrash') },
-  { name: 'messageId', label: 'Message Snippet or ID', type: 'string', default: '', description: 'ID of the message in the thread that gets the reply', show: on('thread', 'reply') },
+  {
+    name: 'messageId',
+    label: 'Message Snippet or ID',
+    type: 'options',
+    loadOptions: { method: 'getThreadMessages', dependsOn: ['threadId'] },
+    default: '',
+    description: 'Message in the thread that gets the reply. Choose from the list, or specify an ID using an expression.',
+    show: on('thread', 'reply'),
+  },
   { name: 'emailType', label: 'Email Type', type: 'options', default: 'text', required: true, noExpression: true, options: opts(['text', 'Text'], ['html', 'HTML']), show: on('thread', 'reply') },
   { name: 'message', label: 'Message', type: 'string', default: '', required: true, show: on('thread', 'reply') },
   {
@@ -552,7 +570,14 @@ export const gmailParameters: ParamSchema[] = [
     show: on('thread', 'getAll'),
     children: [
       { name: 'includeSpamTrash', label: 'Include Spam and Trash', type: 'boolean', default: false, description: 'Whether threads in SPAM and TRASH are included' },
-      { name: 'labelIds', label: 'Label ID Names or IDs', type: 'json', default: [], description: `Only threads that carry every one of these labels. ${labelIdsHint}` },
+      {
+        name: 'labelIds',
+        label: 'Label ID Names or IDs',
+        type: 'multiOptions',
+        loadOptions: getLabels,
+        default: [],
+        description: 'Only threads that carry every one of these labels. Choose from the list, or specify IDs using an expression.',
+      },
       searchParam,
       readStatusParam,
       receivedParam('receivedAfter'),
@@ -560,12 +585,12 @@ export const gmailParameters: ParamSchema[] = [
     ],
   },
   { name: 'threadId', label: 'Thread ID', type: 'string', default: '', required: true, placeholder: '172ce2c4a72cc243', show: on('thread', 'addLabels', 'removeLabels') },
-  { name: 'labelIds', label: 'Label Names or IDs', type: 'json', default: [], required: true, description: labelIdsHint, show: on('thread', 'addLabels', 'removeLabels') },
+  { name: 'labelIds', label: 'Label Names or IDs', type: 'multiOptions', loadOptions: getLabels, default: [], required: true, show: on('thread', 'addLabels', 'removeLabels') },
 ];
 
 // -------------------------------------------------------------------------------------------------------------------
 // Gmail Trigger (GmailTrigger.node.js, n8n-nodes-base 1.121.0): "Poll Times" first like every poll node
-// (commonPollingParameters). The output pane hint of the reference is a notice here. Label IDs as in the Gmail node.
+// (commonPollingParameters). The output pane hint of the reference is a notice here. Labels as in the Gmail node (loadOptions getLabels).
 // -------------------------------------------------------------------------------------------------------------------
 
 export const gmailTriggerParameters: ParamSchema[] = [
@@ -592,9 +617,10 @@ export const gmailTriggerParameters: ParamSchema[] = [
       {
         name: 'labelIds',
         label: 'Label Names or IDs',
-        type: 'json',
+        type: 'multiOptions',
+        loadOptions: getLabels,
         default: [],
-        description: `Only messages that carry every one of these labels. ${labelIdsHint}`,
+        description: 'Only messages that carry every one of these labels. Choose from the list, or specify IDs using an expression.',
       },
       searchParam,
       readStatusParam,

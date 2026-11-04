@@ -8,6 +8,15 @@ breaking changes; they are listed under "Changed" or "Removed".
 
 ## [Unreleased]
 
+### Added
+
+- **Dynamic option lists in the editor.** Fields whose values come from a connected account are now picked from a list
+  loaded from the service when the field opens, with search, refresh and manual entry; expressions keep working. First
+  users: Gmail labels (all label fields, also in the Gmail Trigger), the "send as" alias of drafts and the message of a
+  thread reply. Stored values do not change, so existing workflows keep working. New endpoints
+  `POST /api/editor/load-options` (single server and worker) and `POST /api/projects/:pid/load-options` (master, needs the
+  "Edit" permission and checks credential sharing), with rate limits and masked error messages. German texts included.
+
 ## [0.1.1] - 2026-11-04
 
 ### Changed

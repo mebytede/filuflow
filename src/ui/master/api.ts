@@ -1,6 +1,6 @@
 // REST client for the master. Authentication via the session cookie (HttpOnly), modifying requests with a CSRF header.
 import { request } from '../api.js';
-import type { CommunityPackage, CommunityPackageList, CredentialDetail, CredentialImportResult, CredentialInfo, CredentialList, CredentialSaveBody, CredentialTypeCatalog, Execution, InspectResult, NodeTypeInfo, Overview as WorkerOverview, VariableEntry, Workflow } from '../types.js';
+import type { CommunityPackage, CommunityPackageList, CredentialDetail, CredentialImportResult, CredentialInfo, CredentialList, CredentialSaveBody, CredentialTypeCatalog, Execution, InspectResult, LoadOptionsRequest, LoadOptionsResponse, NodeTypeInfo, Overview as WorkerOverview, VariableEntry, Workflow } from '../types.js';
 import type {
   ApiToken,
   AuditEntry,
@@ -133,6 +133,9 @@ export const mapi = {
   inspect: (projectId: string, workflow: Workflow) => request<InspectResult & { worker: string }>('POST', `/api/projects/${e(projectId)}/inspect`, workflow),
   run: (id: string, workflow: Workflow, trigger?: string, input?: unknown, destination?: string) =>
     request<Execution>('POST', `/api/workflows/${e(id)}/run`, { workflow, trigger, input, ...(destination ? { destination } : {}) }),
+  /** Dynamic option list, answered by the project's worker (M47a) */
+  loadOptions: (projectId: string, workflowId: string | undefined, req: LoadOptionsRequest, signal?: AbortSignal) =>
+    request<LoadOptionsResponse>('POST', `/api/projects/${e(projectId)}/load-options`, { ...req, ...(workflowId ? { workflowId } : {}) }, signal),
   credentials: (projectId: string) => request<{ data: CredentialInfo[] }>('GET', `/api/projects/${e(projectId)}/credentials`).then((r) => r.data),
   executions: (projectId: string, filter: { workflow?: string; status?: string } = {}) => {
     const q = new URLSearchParams();

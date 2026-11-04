@@ -10,6 +10,7 @@ import { StaticCredentialProvider } from '../src/credentials/store.js';
 import { LayeredCredentialProvider } from '../src/credentials/managed.js';
 import type { MasterServer } from '../src/master/app.js';
 import type { Workflow } from '../src/types.js';
+import type { HttpClient } from '../src/http.js';
 import { addUser, Client, setupAdmin, startMaster } from './helpers/master.js';
 
 const WORKER_KEY = 'worker-key-0123456789';
@@ -798,5 +799,103 @@ describe('Worker unreachable', () => {
     expect(master.db.getWorker(wk.id)!.status).toBe('online');
     expect(JSON.parse(readFileSync(join(back.dir, 'workflows', `${wf.id}.json`), 'utf8')).name).toBe('Offline changed');
     expect((await admin.get(`/api/workflows/${wf.id}`)).json().deployment).toMatchObject({ upToDate: true, error: null, version: 2 });
+  });
+});
+
+describe('Dynamic option lists through the master (M47a)', () => {
+  // Gmail labels from a simulated API on the worker (no network)
+  const fakeHttp: HttpClient = {
+    async request(req) {
+      const path = new URL(req.url).pathname;
+      const body = path.endsWith('/labels') ? { labels: [{ id: 'Label_1', name: 'Invoices' }, { id: 'INBOX', name: 'INBOX' }] } : { error: { code: 404, message: 'no route' } };
+      return { statusCode: path.endsWith('/labels') ? 200 : 404, statusMessage: '', headers: { 'content-type': 'application/json' }, body: Buffer.from(JSON.stringify(body)), url: req.url };
+    },
+  };
+  const gmailCred = (name: string) => ({ type: 'gmailOAuth2', data: { clientId: 'c', clientSecret: 'secret-value', oauthTokenData: { access_token: `tok-${name}`, token_type: 'Bearer' } } });
+
+  async function gmailWorker(onBody?: (body: unknown) => void): Promise<TestWorker> {
+    const dir = join(root, 'gw');
+    mkdirSync(join(dir, 'workflows'), { recursive: true });
+    const base = new StaticCredentialProvider([{ name: 'Gmail', ...gmailCred('a') }, { name: 'Only B', ...gmailCred('b') }]);
+    const credentials = await new LayeredCredentialProvider(base, join(dir, 'credentials.managed.json')).load();
+    const server = await createServer({ dir: join(dir, 'workflows'), dbFile: ':memory:', apiKey: WORKER_KEY, webhookBaseUrl: 'https://gw.example/', watch: false, uiDir: false, worker: { version: '1.2.3', credentials }, http: fakeHttp });
+    if (onBody) server.app.addHook('preHandler', async (req) => void (req.url === '/api/editor/load-options' && onBody(req.body)));
+    await server.app.listen({ port: 0, host: '127.0.0.1' });
+    const url = `http://127.0.0.1:${(server.app.server.address() as AddressInfo).port}`;
+    const w: TestWorker = { server, url, dir, credentials, close: () => server.close() };
+    workers.push(w);
+    return w;
+  }
+
+  const request = (credential = 'Gmail', extra: Record<string, unknown> = {}) => ({
+    kind: 'options',
+    node: { type: 'n8n-nodes-base.gmail', typeVersion: 2.1, parameters: { resource: 'label', operation: 'get' }, credentials: { gmailOAuth2: { id: null, name: credential } } },
+    path: 'parameters.labelId',
+    method: 'getLabels',
+    ...extra,
+  });
+
+  it('checks permissions, credential sharing and forwards to the worker', async () => {
+    const w = await gmailWorker();
+    const wk = await registerWorker(w);
+    const pa = await project('A', wk.id);
+    const pb = await project('B', wk.id);
+    const noWorker = await project('Empty', null);
+    await admin.put(`/api/admin/workers/${wk.id}/credentials/Only%20B/access`, { projects: [pb] });
+    const wf = await createWorkflow(pa, manual('Mail'));
+    const secret = await createWorkflow(pa, manual('Secret'));
+
+    // Admin: list from the worker
+    const ok = await admin.post(`/api/projects/${pa}/load-options`, request());
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json()).toEqual({ data: [{ name: 'INBOX', value: 'INBOX' }, { name: 'Invoices', value: 'Label_1' }] });
+    expect((await admin.post(`/api/projects/${pa}/load-options`, request('Gmail', { workflowId: wf.id }))).statusCode).toBe(200);
+
+    // Unshared credential: 403 before the worker is asked
+    const blocked = await admin.post(`/api/projects/${pa}/load-options`, request('Only B'));
+    expect(blocked.statusCode).toBe(403);
+    expect(blocked.json().message).toBe('Credential "Only B" is not shared with this project');
+    expect((await admin.post(`/api/projects/${pb}/load-options`, request('Only B'))).statusCode).toBe(200);
+
+    // Workflow of another project, no worker, invalid body, method checks on the worker
+    expect((await admin.post(`/api/projects/${pb}/load-options`, request('Gmail', { workflowId: wf.id }))).statusCode).toBe(404);
+    expect((await admin.post(`/api/projects/${noWorker}/load-options`, request())).statusCode).toBe(409);
+    expect((await admin.post(`/api/projects/${pa}/load-options`, { kind: 'options' })).statusCode).toBe(400);
+    const proto = await admin.post(`/api/projects/${pa}/load-options`, request('Gmail', { method: 'constructor' }));
+    expect(proto.statusCode).toBe(400);
+    expect(proto.json().message).toContain('no option list method "constructor"');
+
+    // Viewer: 403; editor: ok; workflow-level "none": 404; outsider: 404
+    const vera = await addUser(master, admin, 'vera@example.org');
+    const eddy = await addUser(master, admin, 'eddy@example.org');
+    const otto = await addUser(master, admin, 'otto@example.org');
+    await admin.put(`/api/projects/${pa}/members/${vera.id}`, { role: 'viewer' });
+    await admin.put(`/api/projects/${pa}/members/${eddy.id}`, { role: 'editor' });
+    expect((await vera.client.post(`/api/projects/${pa}/load-options`, request())).statusCode).toBe(403);
+    expect((await vera.client.post(`/api/projects/${pa}/load-options`, request('Gmail', { workflowId: wf.id }))).statusCode).toBe(403);
+    expect((await eddy.client.post(`/api/projects/${pa}/load-options`, request('Gmail', { workflowId: wf.id }))).statusCode).toBe(200);
+    await admin.put(`/api/workflows/${secret.id}/members/${eddy.id}`, { role: 'none' });
+    expect((await eddy.client.post(`/api/projects/${pa}/load-options`, request('Gmail', { workflowId: secret.id }))).statusCode).toBe(404);
+    expect((await otto.client.post(`/api/projects/${pa}/load-options`, request())).statusCode).toBe(404);
+    // A viewer who is editor of a single workflow may load lists for that workflow (and for new ones in the project)
+    await admin.put(`/api/workflows/${wf.id}/members/${vera.id}`, { role: 'editor' });
+    expect((await vera.client.post(`/api/projects/${pa}/load-options`, request('Gmail', { workflowId: wf.id }))).statusCode).toBe(200);
+
+    // Worker offline: 502
+    await w.close();
+    const offline = await admin.post(`/api/projects/${pa}/load-options`, request());
+    expect(offline.statusCode).toBe(502);
+    expect(offline.json().message).toContain('unreachable');
+  });
+
+  it('forwards only the whitelisted fields', async () => {
+    let seen: unknown;
+    const w = await gmailWorker((body) => (seen = body));
+    const wk = await registerWorker(w);
+    const pa = await project('A', wk.id);
+    const res = await admin.post(`/api/projects/${pa}/load-options`, { ...request(), workflow: { nodes: [{ name: 'Other' }] }, extra: 1, filter: 'in' });
+    expect(res.statusCode).toBe(200);
+    expect(Object.keys(seen as object).sort()).toEqual(['filter', 'kind', 'method', 'node', 'path']);
+    expect(Object.keys((seen as { node: object }).node).sort()).toEqual(['credentials', 'parameters', 'type', 'typeVersion']);
   });
 });

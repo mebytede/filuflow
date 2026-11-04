@@ -224,6 +224,43 @@ export interface PackageWebhookResult {
   noWebhookResponse?: boolean;
 }
 
+/**
+ * Context of a dynamic option list in the editor (M47a; reference: n8n-core 1.123.0,
+ * dist/execution-engine/node-execution-context/load-options-context.js). An ExecContext of a temporary one-node workflow
+ * (mode "manual", no input data) whose parameters are the current, already resolved parameters of the edited node.
+ */
+export interface LoadOptionsContext extends ExecContext {
+  /** Path of the parameter the list is for, e.g. "parameters.filters.labelIds" */
+  readonly path: string;
+  /**
+   * Current value of a parameter. Paths start at the top level ("parameters." may be left out); a leading "&" is relative
+   * to the level of the edited field (reference: getCurrentNodeParameter).
+   */
+  getCurrentNodeParameter(path: string, options?: { extractValue?: boolean }): unknown;
+  /** All current parameters */
+  getCurrentNodeParameters(): Record<string, unknown>;
+}
+
+/** One entry of a loaded list (reference: INodePropertyOptions; listSearch: INodeListSearchItems) */
+export interface LoadedOption {
+  name: string;
+  value: string | number | boolean;
+  description?: string;
+  /** listSearch: link to the resource */
+  url?: string;
+}
+
+export interface ListSearchResult {
+  results: LoadedOption[];
+  paginationToken?: unknown;
+}
+
+/** Methods for the editor (reference: INodeType.methods) */
+export interface NodeMethods {
+  loadOptions?: Record<string, (ctx: LoadOptionsContext) => Promise<LoadedOption[]>>;
+  listSearch?: Record<string, (ctx: LoadOptionsContext, filter?: string, paginationToken?: unknown) => Promise<ListSearchResult>>;
+}
+
 export interface NodeType {
   /** e.g. "n8n-nodes-base.set" */
   type: string;
@@ -262,6 +299,8 @@ export interface NodeType {
   source?: string;
   /** Description of the parameters for the form in the editor (M19), across all supported versions */
   parameters?: ParamSchema[];
+  /** Dynamic option lists for the editor (M47a); version differences via ctx.node.typeVersion */
+  methods?: NodeMethods;
   /**
    * Chat reply for a waiting node (reference: INodeType.onMessage): returns its output on resume,
    * undefined passes the input data through

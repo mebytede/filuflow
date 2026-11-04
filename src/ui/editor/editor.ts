@@ -7,7 +7,7 @@ import { button, editorHeader, iconButton, statusWord, shortTime } from '../shel
 import { RunPanel } from './runPanel.js';
 import { SupervisorDrawer, type SupervisorChatBackend } from './supervisorDrawer.js';
 import { ChatView, replyText } from '../chat/view.js';
-import type { CredentialInfo, Execution, InspectResult, NodePorts, NodeTypeInfo, SupervisorProposal, ValidationIssue, Workflow, WorkflowNode, WorkflowStatus } from '../types.js';
+import type { CredentialInfo, Execution, InspectResult, LoadOptionsRequest, LoadOptionsResponse, NodePorts, NodeTypeInfo, SupervisorProposal, ValidationIssue, Workflow, WorkflowNode, WorkflowStatus } from '../types.js';
 import { Canvas, GRID, NODE_H, NODE_W, type CanvasModel } from './canvas.js';
 import { Panel } from './panel.js';
 import { palette } from './palette.js';
@@ -39,6 +39,8 @@ export interface EditorBackend {
   listen?(workflow: Workflow, signal: AbortSignal): Promise<Execution | undefined>;
   /** Last execution of the workflow (for the "Last run" area) */
   lastExecution?(id: string): Promise<Execution | undefined>;
+  /** Dynamic option list of a parameter (M47a); without it the fields stay plain inputs */
+  loadOptions?(req: LoadOptionsRequest, signal?: AbortSignal): Promise<LoadOptionsResponse>;
 }
 
 export const standaloneBackend: EditorBackend = {
@@ -46,6 +48,7 @@ export const standaloneBackend: EditorBackend = {
   save: (id, workflow) => (id ? api.save(id, workflow) : api.create(workflow)),
   run: (workflow, trigger, input, destination) => api.run(workflow, trigger, input, destination),
   listen: (workflow, signal) => api.listen(workflow, signal),
+  loadOptions: (req, signal) => api.loadOptions(req, signal),
   async lastExecution(id) {
     const [last] = await api.executions({ workflow: id, limit: 1 });
     return last ? api.execution(last.id) : undefined;
@@ -201,6 +204,7 @@ export class Editor {
       close: () => this.select([], false),
       ...(opts.readonly ? {} : { runTo: (name: string) => void this.run(name) }),
       ...(!opts.readonly && this.backend.listen ? { listen: () => void this.listen(), listening: () => !!this.listening } : {}),
+      ...(!opts.readonly && this.backend.loadOptions ? { loadOptions: (req: LoadOptionsRequest, signal?: AbortSignal) => this.backend.loadOptions!(req, signal) } : {}),
     });
 
     this.runPanel = new RunPanel({

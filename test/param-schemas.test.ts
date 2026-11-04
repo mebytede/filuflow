@@ -32,7 +32,8 @@ describe('Parameter descriptions', () => {
         const where = `${t.type} ${path}`;
         if (!def.name || !def.label || !def.type) problems.push(`${where}: name, label or type missing`);
         if (/\u2014/.test(`${def.label} ${def.description ?? ''} ${def.placeholder ?? ''}`)) problems.push(`${where}: em dash`);
-        if ((def.type === 'options' || def.type === 'multiOptions') && !def.options?.length) problems.push(`${where}: options without a list`);
+        if ((def.type === 'options' || def.type === 'multiOptions') && !def.options?.length && !def.loadOptions) problems.push(`${where}: options without a list`);
+        if (def.loadOptions && def.type !== 'options' && def.type !== 'multiOptions') problems.push(`${where}: loadOptions on a ${def.type} field`);
         if (def.type === 'options' && def.default !== undefined && def.default !== '' && !(typeof def.default === 'string' && def.default.startsWith('=')) && def.options && !def.options.some((o) => o.value === def.default)) {
           problems.push(`${where}: Default ${JSON.stringify(def.default)} not in the options`);
         }
@@ -62,6 +63,37 @@ describe('Parameter descriptions', () => {
     expect(problems).toEqual([]);
   });
 
+  it('dynamic option lists (M47a): every method exists on the node type and dependsOn names existing parameters', () => {
+    const problems: string[] = [];
+    let found = 0;
+    for (const t of types) {
+      walk(t.parameters ?? [], (def, siblings, path) => {
+        const where = `${t.type} ${path}`;
+        if (def.loadOptions) {
+          found++;
+          const table = t.methods?.loadOptions;
+          if (!table || !Object.prototype.hasOwnProperty.call(table, def.loadOptions.method) || typeof table[def.loadOptions.method] !== 'function') {
+            problems.push(`${where}: loadOptions method "${def.loadOptions.method}" missing in methods.loadOptions`);
+          }
+          for (const dep of def.loadOptions.dependsOn ?? []) {
+            const ok = dep.startsWith('&')
+              ? siblings.some((s) => s.name === dep.slice(1))
+              : (t.parameters ?? []).some((d) => d.name === dep.replace(/^\//, '').split('.')[0]);
+            if (!ok) problems.push(`${where}: dependsOn "${dep}" names no parameter`);
+          }
+        }
+        for (const mode of def.modes ?? []) {
+          if (!mode.searchListMethod) continue;
+          found++;
+          const table = t.methods?.listSearch;
+          if (!table || !Object.prototype.hasOwnProperty.call(table, mode.searchListMethod)) problems.push(`${where}: searchListMethod "${mode.searchListMethod}" missing in methods.listSearch`);
+        }
+      });
+    }
+    expect(found).toBeGreaterThanOrEqual(8);
+    expect(problems).toEqual([]);
+  });
+
   it('knows all parameters of the fixture workflows (exported from the reference)', () => {
     const dir = join(import.meta.dirname, '..', 'fixtures');
     const problems: string[] = [];
@@ -88,6 +120,8 @@ describe('Parameter descriptions', () => {
         for (const def of visibleDefs(root, root, node.typeVersion)) {
           const v = node.parameters?.[def.name];
           if (v === undefined || (typeof v === 'string' && v.startsWith('='))) continue;
+          // Loaded lists are only known at runtime
+          if (def.loadOptions) continue;
           const allowed = (def.options ?? []).map((o) => o.value);
           // fixtures/12-data-nodes sets dateTime "to" to "day" by hand; the reference only offers "month"
           if (node.type === 'n8n-nodes-base.dateTime' && def.name === 'to' && v === 'day') continue;

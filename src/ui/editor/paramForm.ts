@@ -7,6 +7,7 @@ import { icon } from '../icons.js';
 import { newId } from './model.js';
 import type { ParamSchema } from '../types.js';
 import { schemaForm, syncFilterOptions } from './schemaForm.js';
+import type { DynamicOptionsHost } from './dynamicOptions.js';
 
 export type ParamChange = (coalesceKey: string) => void;
 
@@ -235,7 +236,16 @@ let preferredMode: 'schema' | 'form' | 'json' = 'schema';
 /** Parameter form: form from the node type description (if available), tree or JSON */
 export function paramEditor(
   params: Record<string, unknown>,
-  opts: { readonly: boolean; onChange: ParamChange; onReplace: (p: Record<string, unknown>) => void; schema?: ParamSchema[]; nodeType?: string; version?: number },
+  opts: {
+    readonly: boolean;
+    onChange: ParamChange;
+    onReplace: (p: Record<string, unknown>) => void;
+    schema?: ParamSchema[];
+    nodeType?: string;
+    version?: number;
+    /** Dynamic option lists (M47a) */
+    dynamic?: DynamicOptionsHost;
+  },
 ): HTMLElement {
   const hasSchema = !!opts.schema;
   let mode: 'schema' | 'form' | 'json' = preferredMode === 'schema' && !hasSchema ? 'form' : preferredMode;
@@ -254,6 +264,7 @@ export function paramEditor(
           readonly: opts.readonly,
           nodeType: opts.nodeType ?? '',
           version: opts.version ?? 1,
+          ...(opts.dynamic ? { dynamic: opts.dynamic } : {}),
           onChange: (key) => (sync(), opts.onChange(key)),
           onStructure: (key) => {
             sync();

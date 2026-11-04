@@ -60,8 +60,14 @@ export interface ParamSchema {
   required?: boolean;
   show?: DisplayRule;
   hide?: DisplayRule;
-  /** options, multiOptions */
+  /** options, multiOptions: static list (empty or missing when the list is loaded, see loadOptions) */
   options?: ParamOption[];
+  /**
+   * options, multiOptions: list loaded from the node's methods.loadOptions[method] in the editor (M47a, like the reference
+   * typeOptions.loadOptionsMethod and loadOptionsDependsOn). dependsOn: parameter paths from the top level, or "&name"
+   * relative to the field's level; the list is reloaded when they change and they must resolve when they are expressions.
+   */
+  loadOptions?: LoadOptionsSpec;
   /** string: multi-line with this number of rows (typeOptions.rows) */
   rows?: number;
   /** string: masked input (typeOptions.password) */
@@ -82,6 +88,31 @@ export interface ParamSchema {
   groups?: Array<{ name: string; label: string; children: ParamSchema[] }>;
   /** collection, fixedCollection: label of the add button */
   addLabel?: string;
-  /** resourceLocator: modes (e.g. list, id, url); "list" is offered as free input */
-  modes?: Array<{ name: string; label: string; placeholder?: string }>;
+  /** resourceLocator: modes (e.g. list, id, url); "list" is offered as free input until the mode has a searchListMethod */
+  modes?: ResourceLocatorMode[];
+}
+
+export interface LoadOptionsSpec {
+  /** Name of the function in methods.loadOptions of the node type */
+  method: string;
+  dependsOn?: string[];
+}
+
+/** Mode of a resource locator (reference: INodePropertyMode) */
+export interface ResourceLocatorMode {
+  name: string;
+  label: string;
+  placeholder?: string;
+  /** Kind of input (reference: type); without it the mode is a text field */
+  type?: 'list' | 'id' | 'url' | 'string';
+  /** list: function in methods.listSearch of the node type */
+  searchListMethod?: string;
+  /** list: the search runs on the server with the filter text */
+  searchable?: boolean;
+  /** list: nothing is loaded without a filter text */
+  searchFilterRequired?: boolean;
+  /** url: regular expression whose first group is the value used by the node */
+  extractValue?: { regex: string };
+  /** id, url: checks in the editor */
+  validation?: Array<{ regex: string; errorMessage: string }>;
 }

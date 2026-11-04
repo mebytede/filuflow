@@ -11,6 +11,8 @@ import type {
   Execution,
   InspectResult,
   InstanceInfo,
+  LoadOptionsRequest,
+  LoadOptionsResponse,
   Overview,
   NodeTypeInfo,
   SupervisorFinding,
@@ -113,6 +115,8 @@ export const api = {
   listen: (workflow: Workflow, signal?: AbortSignal) => request<Execution | undefined>('POST', '/api/editor/listen', { workflow, timeout: 300 }, signal),
   run: (workflow: Workflow, trigger?: string, input?: unknown, destination?: string) =>
     request<Execution>('POST', '/api/editor/run', { workflow, trigger, input, ...(destination ? { destination } : {}) }),
+  /** Dynamic option list of a parameter (M47a) */
+  loadOptions: (req: LoadOptionsRequest, signal?: AbortSignal) => request<LoadOptionsResponse>('POST', '/api/editor/load-options', req, signal),
   info: () => request<InstanceInfo>('GET', '/api/editor/info'),
   overview: () => request<Overview>('GET', '/api/overview'),
   nodeTypes: () => request<{ data: NodeTypeInfo[] }>('GET', '/api/editor/node-types').then((r) => r.data),
