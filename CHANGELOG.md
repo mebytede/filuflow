@@ -8,7 +8,7 @@ breaking changes; they are listed under "Changed" or "Removed".
 
 ## [Unreleased]
 
-## [0.1.1] - 2026-11-01
+## [0.1.1] - 2026-11-04
 
 ### Changed
 
