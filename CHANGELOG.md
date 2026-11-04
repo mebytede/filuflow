@@ -17,7 +17,7 @@ breaking changes; they are listed under "Changed" or "Removed".
   `POST /api/editor/load-options` (single server and worker) and `POST /api/projects/:pid/load-options` (master, needs the
   "Edit" permission and checks credential sharing), with rate limits and masked error messages. German texts included.
 
-## [0.1.1] - Unreleased
+## [0.1.1] - 2026-11-04
 
 ### Changed
 
