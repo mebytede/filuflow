@@ -333,6 +333,7 @@ Engine order, expressions (including raw value vs. string), every node, filter o
 | M46 | Fixes for 0.1.1 | Numeric query parameters validated in the single server, worker and master (400 for invalid values, capped at the maximum, no internal error texts in responses); proposals for new workflows scoped to the project they were created in |
 | M47a | Dynamic option lists: core and Gmail | Node methods `loadOptions` / `listSearch`, `POST /api/editor/load-options` (single server and worker) and the master route with permission and sharing checks, combobox and multi-select in the form with lazy loading, cache, refresh, manual entry and German texts; Gmail labels, aliases and thread messages, Gmail Trigger labels |
 | M47b | Dynamic option lists: resource locators, models, workflows | Resource locator list mode with server search, pagination ("Load more") and `cachedResultName`; ID and URL modes with validation and `extractValue` in the engine and for package nodes; model lists of the chat model and embeddings nodes; workflow picker for Execute Workflow and the workflow tool; resolved "=" values are not evaluated again |
+| M47c | Dynamic option lists for community node packages | `methods.loadOptions` / `methods.listSearch` of package nodes per version with a load options context (`getCurrentNodeParameter`, `getCurrentNodeParameters`, `getNodeParameter` without item index, request helpers); declarative `typeOptions.loadOptions.routing` via the routing runner; option fields with `loadOptionsMethod` and the resource locator modes of package descriptions in the form |
 
 After each milestone: update `docs/STATUS.md` (what works, what is missing) and make a commit with a meaningful message.
 
@@ -365,9 +366,9 @@ shared credentials for multiple workers: M33)
 ### 11.4 Interface and master
 (Test data by click, Variables page: M18; chat view: M16; parameter forms: M19; roles per workflow and central
 execution search: M23; freely definable roles: M34; dynamic option lists with Gmail: M47a; resource locator lists, model
-lists and workflow picker: M47b)
-- Dynamic option lists, continued: methods of community node packages, declarative `loadOptions.routing` and the
-  resource locator modes of package descriptions in the form (M47c)
+lists and workflow picker: M47b; dynamic option lists of community node packages: M47c)
+- Resource mapper fields (`methods.resourceMapping`, `resourceMapper` parameters) of community node packages, and the
+  other method kinds (`localResourceMapping`, `actionHandler`)
 
 ---
 

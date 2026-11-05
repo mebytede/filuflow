@@ -128,6 +128,10 @@ session or API token) load option lists for the editor by calling node methods w
   call the provider's model endpoint with the selected credential (for OpenAI also the node's "Base URL" option).
 - Workflow picker (M47b): the list of workflows comes from the editor's own workflow list (standalone server, or the
   master's project workflows with `workflow.edit`), never from a worker, so it shows nothing the user could not open.
+- Community packages (M47c): the methods of the requested node version run with the package's own code, which is
+  trusted like the package itself (see "Plugins"). Declarative lists (`typeOptions.loadOptions.routing`) are
+  named `__routing:<parameter path>`; the server takes the routing from the installed description of that version and
+  only for a property that has one, never from the request, and requires `requestDefaults.baseURL`.
 
 ## Supervisor (M35)
 The Supervisor sends data to the configured model, i.e. to that model's provider. What goes out:

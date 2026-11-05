@@ -24,6 +24,10 @@ breaking changes; they are listed under "Changed" or "Removed".
   provider's models (Azure OpenAI stays a text field). Execute Workflow and the workflow tool offer a workflow picker
   (in the master: the workflows of the same project). Stored values do not change. A resolved expression whose result
   starts with "=" is no longer evaluated a second time when a list loads.
+- **Dynamic option lists for community node packages.** Fields of package nodes that load their values
+  (`loadOptionsMethod`, resource locator lists with `searchListMethod`, declarative `loadOptions.routing`) now show the
+  loaded list in the editor instead of a text field, using the methods of the node's own version. Resource locator modes
+  of packages keep their URL extraction and format checks. Stored values do not change.
 
 ## [0.1.1] - 2026-11-04
 
