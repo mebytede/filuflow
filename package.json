@@ -51,7 +51,7 @@
     "astring": "^1.9.0",
     "better-sqlite3": "^13.0.3",
     "cheerio": "1.0.0-rc.6",
-    "croner": "^10.0.1",
+    "croner": "^11.0.0",
     "fastify": "^5.12.7",
     "html-to-text": "9.0.5",
     "jmespath": "0.16.0",
