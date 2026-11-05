@@ -68,9 +68,11 @@ const ERROR_RESPONSES: Record<string, string> = {
     'The authorization server is currently unable to handle the request due to a temporary overloading or maintenance of the server.',
 };
 
+// The key identifies the client and request, not its secret: the client secret is never hashed or stored here
+// (a rotated secret keeps using the still valid cached token until it expires)
 function cacheKey(cred: Record<string, unknown>): string {
   return createHash('sha256')
-    .update(JSON.stringify([cred.accessTokenUrl, cred.clientId, cred.clientSecret, cred.scope, cred.authentication, cred.additionalBodyProperties]))
+    .update(JSON.stringify([cred.accessTokenUrl, cred.clientId, cred.scope, cred.authentication, cred.additionalBodyProperties]))
     .digest('hex');
 }
 
