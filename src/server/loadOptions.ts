@@ -4,8 +4,10 @@
 // one-node workflow with the current parameters and the given credentials, then methods.loadOptions[name] or
 // methods.listSearch[name] of the node type. Differences: only the edited node is sent (never the whole workflow),
 // expressions are resolved here on the server (the reference resolves them in the editor), the method must be an own
-// function of the node type's methods (no prototype names, no declarative routing yet), results are sanitized and
-// capped, errors are masked, and nothing is cached on the server.
+// function of the node type's methods (no prototype names), results are sanitized and capped, errors are masked, and
+// nothing is cached on the server. Nodes from community node packages (M47c) offer their methods per version
+// (NodeType.methodsFor); declarative option lists (typeOptions.loadOptions.routing) appear there as synthetic names
+// "__routing:<parameter path>" that the node type builds from its own description, never from request data.
 import { cleanupParameterData, getByPath } from '../expressions/resolve.js';
 import { extractSchemaValue } from '../engine/extractValue.js';
 import { maskSecrets, type CredentialProvider } from '../credentials/store.js';
@@ -54,7 +56,8 @@ export class LoadOptionsError extends Error {
 }
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
-const METHOD_NAME = /^[A-Za-z_$][\w$]{0,99}$/;
+// Method names: identifiers, or the synthetic names of declarative option lists ("__routing:" and a dotted parameter path)
+const METHOD_NAME = /^(?:[A-Za-z_$][\w$]{0,99}|__routing:[A-Za-z_$][\w$-]{0,99}(?:\.[A-Za-z_$][\w$-]{0,99}){0,9})$/;
 
 /** Body fields the endpoint accepts; everything else is dropped (the master forwards only these) */
 export function parseLoadOptionsRequest(body: unknown): LoadOptionsRequest {
@@ -99,9 +102,11 @@ export function parseLoadOptionsRequest(body: unknown): LoadOptionsRequest {
  * Method of the node type: only an own function property of methods.loadOptions or methods.listSearch. Names that exist
  * on Object.prototype (constructor, __proto__, toString …) are refused even if the node defines them.
  */
-export function findMethod(type: NodeType, kind: LoadOptionsKind, name: string): ((...args: never[]) => unknown) | undefined {
+export function findMethod(type: NodeType, kind: LoadOptionsKind, name: string, typeVersion?: number): ((...args: never[]) => unknown) | undefined {
   if (name in Object.prototype || name === 'prototype') return undefined;
-  const table = (kind === 'options' ? type.methods?.loadOptions : type.methods?.listSearch) as Record<string, unknown> | undefined;
+  // Versions with their own methods (community packages): only the methods of the requested version
+  const methods = type.methodsFor && typeVersion !== undefined ? type.methodsFor(typeVersion) : type.methods;
+  const table = (kind === 'options' ? methods?.loadOptions : methods?.listSearch) as Record<string, unknown> | undefined;
   if (!table || typeof table !== 'object' || !Object.prototype.hasOwnProperty.call(table, name)) return undefined;
   const fn = table[name];
   return typeof fn === 'function' ? (fn as (...args: never[]) => unknown) : undefined;
@@ -133,11 +138,11 @@ function defsAt(defs: ParamSchema[] | undefined, segments: string[]): ParamSchem
 }
 
 /** dependsOn of the field that uses this method at this path (from the node type, never from the request) */
-function dependsOnOf(type: NodeType, kind: LoadOptionsKind, path: string, method: string): string[] {
+function dependsOnOf(schema: ParamSchema[] | undefined, kind: LoadOptionsKind, path: string, method: string): string[] {
   const segments = segmentsOf(path);
   const parent = segments.slice(0, -1);
   const out = new Set<string>();
-  for (const def of defsAt(type.parameters, segments)) {
+  for (const def of defsAt(schema, segments)) {
     if (kind !== 'options' || def.loadOptions?.method !== method) continue;
     for (const d of def.loadOptions.dependsOn ?? []) {
       if (d.startsWith('&')) out.add([...parent, d.slice(1)].join('.'));
@@ -259,7 +264,8 @@ export async function runLoadOptions(deps: LoadOptionsDeps, req: LoadOptionsRequ
   const secrets = () => deps.credentials.secretValues?.() ?? [];
   const type = deps.registry.getVersioned(req.node.type, req.node.typeVersion);
   if (!type) throw new LoadOptionsError(`Unknown node type "${req.node.type}" (version ${req.node.typeVersion})`, 400);
-  const fn = findMethod(type, req.kind, req.method);
+  const fn = findMethod(type, req.kind, req.method, req.node.typeVersion);
+  const schema = type.parametersFor?.(req.node.typeVersion) ?? type.parameters;
   if (!fn) throw new LoadOptionsError(`The node type has no ${req.kind === 'options' ? 'option list' : 'search'} method "${req.method}"`, 400);
 
   const controller = new AbortController();
@@ -270,7 +276,7 @@ export async function runLoadOptions(deps: LoadOptionsDeps, req: LoadOptionsRequ
     // 1. Resolve expressions with the parameters as sent (no input data, $vars and $env available)
     const raw = structuredClone(req.node.parameters);
     const probe = deps.runner.activationContext({ workflow: tempWorkflow(req, raw), mode: 'manual', signal: controller.signal }, TEMP_NODE);
-    const dependsOn = dependsOnOf(type, req.kind, req.path, req.method);
+    const dependsOn = dependsOnOf(schema, req.kind, req.path, req.method);
     const resolved = resolveExpressions(raw, (expr) => probe.evaluateExpression(expr, 0), '', dependsOn) as Record<string, unknown>;
     cleanupParameterData(resolved);
 
@@ -278,7 +284,7 @@ export async function runLoadOptions(deps: LoadOptionsDeps, req: LoadOptionsRequ
     const base = deps.runner.activationContext({ workflow: tempWorkflow(req, resolved), mode: 'manual', signal: controller.signal }, TEMP_NODE);
     const parentSegments = segmentsOf(req.path).slice(0, -1);
     const node = { name: TEMP_NODE, typeVersion: req.node.typeVersion, parameters: resolved };
-    const extract = (v: unknown, path: string) => extractSchemaValue(v, path, type.parameters, node);
+    const extract = (v: unknown, path: string) => extractSchemaValue(v, path, schema, node);
     const ctx = Object.create(base, {
       path: { value: req.path, enumerable: true },
       // The parameters are resolved already: a result that itself starts with "=" is a value, not an expression, so it is

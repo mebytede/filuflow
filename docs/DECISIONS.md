@@ -669,7 +669,7 @@ them. Hiding them entirely was rejected because open drafts would then be stuck 
 a typo in a script is noticed instead of silently returning a different page size; values above the maximum are capped
 as before, because a large limit is a clear intent ("as many as possible").
 
-## Dynamic option lists (M47a, M47b)
+## Dynamic option lists (M47a, M47b, M47c)
 **Why.** Parameters such as Gmail labels, aliases or the messages of a thread only make sense with the values of the
 connected account. Typing IDs by hand was error prone. The reference loads such lists through node methods
 (`methods.loadOptions`, `methods.listSearch`); filuflow rebuilds that interface for its own nodes.
@@ -727,5 +727,30 @@ the workflows the editor already sees: standalone the server's workflow list, in
 project from the master's database. The worker is never asked, so the picker cannot reveal workflows of other projects
 on the same worker. The list is filtered in the browser.
 
-**Later.** Methods of community node packages, declarative `loadOptions.routing` and the resource locator modes of package
-descriptions in the form follow in M47c.
+**Community node packages (M47c).** Package nodes expose `methods.loadOptions` and `methods.listSearch` of the node
+version the request names (`nodeVersions[v].methods`; a version without the method answers 400, like a missing method),
+through `NodeType.methodsFor(version)`; the parameter description used for `dependsOn` and `extractValue` is the one of
+that version too (`parametersFor`). Each call gets a `this` context like the reference ILoadOptionsFunctions (n8n-core
+1.123.0, load-options-context.js): credentials, the request helpers of execute nodes, `getNodeParameter(name, fallback,
+options)` reading item 0, `getCurrentNodeParameter(path, { extractValue })` with "&" relative to the edited field's
+level, `getCurrentNodeParameters()`, `getNode()`, `logger`, mode "internal". The allow-list is unchanged: only own
+function properties the package declares, never prototype names. One deliberate difference: "&name" on the top level
+gives the top-level parameter, the reference builds a path with a leading dot that finds nothing.
+
+**Declarative lists (M47c).** The reference editor sends the `loadOptions` object itself and the server runs its routing.
+filuflow never takes a routing from the request: the form gets the synthetic method name `__routing:<parameter path>`
+(dotted path through collections and fixedCollection groups) and the server builds these names from the installed
+description of the version, only for properties with `typeOptions.loadOptions.routing`, and checks that the name matches
+the requested parameter. The routing runs through the routing runner of declarative nodes on one empty item with a
+temporary description that holds only a nameless property with that routing, plus the node's `requestDefaults`,
+credentials and `requestOperations` (as the reference service does); `requestDefaults.baseURL` is required with the
+reference's message. The output items' json is the list (postReceive steps such as `rootProperty`, `setKeyValue` and
+`sort` shape it), sanitized like every other list.
+
+**Form (M47c).** Option fields with `loadOptionsMethod` stay options/multiOptions with `loadOptions { method, dependsOn:
+loadOptionsDependsOn }` instead of becoming text fields with the hint "loaded at runtime"; the hint stays only for
+`loadOptions` without routing. Resource locator modes keep `type`, `searchListMethod`, `searchable`,
+`searchFilterRequired`, the `extractValue` regex and the regex `validation` rules (function rules have no editor check).
+
+**Later.** Resource mapper fields (`methods.resourceMapping`) and the other method kinds of packages
+(`localResourceMapping`, `actionHandler`) are not offered yet: such fields stay as they are in the form.

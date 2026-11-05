@@ -302,6 +302,13 @@ export interface NodeType {
   /** Dynamic option lists for the editor (M47a); version differences via ctx.node.typeVersion */
   methods?: NodeMethods;
   /**
+   * Methods of one version (M47c, nodes from community node packages whose versions declare different methods); when
+   * present the load options service uses it instead of `methods`
+   */
+  methodsFor?(typeVersion: number): NodeMethods | undefined;
+  /** Parameter description of one version (M47c); when present it is used instead of `parameters` on the server */
+  parametersFor?(typeVersion: number): ParamSchema[] | undefined;
+  /**
    * Chat reply for a waiting node (reference: INodeType.onMessage): returns its output on resume,
    * undefined passes the input data through
    */

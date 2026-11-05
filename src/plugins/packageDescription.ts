@@ -1,7 +1,7 @@
 // Convert descriptions from packages in the community node format (INodeTypeDescription, INodeProperties, ICredentialType) into filuflow formats
 // and fill in defaults like the reference (M24). Behavior after the reference version 1.123.0 packages/workflow/src/interfaces.ts and
 // node-helpers.ts (displayParameter, getNodeParameters); own, simplified implementation.
-import type { DisplayRule, ParamSchema, ParamType } from '../nodes/params.js';
+import type { DisplayRule, LoadOptionsSpec, ParamSchema, ParamType, ResourceLocatorMode } from '../nodes/params.js';
 import type { CredentialField, CredentialTypeSchema } from '../credentials/types.js';
 
 /** Excerpt of INodeProperties that filuflow evaluates */
@@ -19,7 +19,7 @@ export interface PackageProperty {
   typeOptions?: Record<string, unknown>;
   /** options/multiOptions: values; collection: sub-parameters; fixedCollection: groups */
   options?: Array<Omit<PackageProperty, 'type'> & { type?: string; value?: string | number | boolean; values?: PackageProperty[] }>;
-  modes?: Array<{ name: string; displayName?: string; placeholder?: string; type?: string; extractValue?: { type?: string; regex?: unknown }; typeOptions?: Record<string, unknown> }>;
+  modes?: Array<{ name: string; displayName?: string; placeholder?: string; type?: string; extractValue?: { type?: string; regex?: unknown }; validation?: unknown[]; typeOptions?: Record<string, unknown> }>;
   routing?: unknown;
 }
 
@@ -60,15 +60,73 @@ const TYPE_MAP: Record<string, ParamType> = {
   hidden: 'hidden',
 };
 
-/** INodeProperties -> ParamSchema (form in the editor) */
-export function propertiesToSchema(props: PackageProperty[]): ParamSchema[] {
+/** Prefix of the synthetic method names for declarative option lists (typeOptions.loadOptions.routing, M47c) */
+export const ROUTING_METHOD_PREFIX = '__routing:';
+
+/** Routing of a declarative option list (typeOptions.loadOptions.routing), if the property has one */
+export function loadOptionsRouting(p: Pick<PackageProperty, 'type' | 'typeOptions'>): Record<string, unknown> | undefined {
+  if (p.type !== 'options' && p.type !== 'multiOptions') return undefined;
+  const lo = p.typeOptions?.loadOptions as { routing?: unknown } | undefined;
+  return lo && typeof lo === 'object' && lo.routing && typeof lo.routing === 'object' ? (lo.routing as Record<string, unknown>) : undefined;
+}
+
+/** Validation rules of a resource locator mode (INodePropertyRegexValidation); function rules have no editor check */
+function modeValidation(rules: unknown): Array<{ regex: string; errorMessage: string }> {
+  if (!Array.isArray(rules)) return [];
+  const out: Array<{ regex: string; errorMessage: string }> = [];
+  for (const r of rules) {
+    if (!r || typeof r !== 'object' || (r as { type?: unknown }).type !== 'regex') continue;
+    const props = (r as { properties?: { regex?: unknown; errorMessage?: unknown } }).properties ?? {};
+    const regex = props.regex instanceof RegExp ? props.regex.source : props.regex;
+    if (typeof regex === 'string') out.push({ regex, errorMessage: typeof props.errorMessage === 'string' ? props.errorMessage : 'Invalid value' });
+  }
+  return out;
+}
+
+const MODE_TYPES = new Set(['list', 'id', 'url', 'string']);
+
+/**
+ * Resource locator mode (INodePropertyMode) -> filuflow mode: type, typeOptions.searchListMethod, searchable,
+ * searchFilterRequired, extractValue (regex) and regex validation rules (M47c).
+ * Reference: n8n-workflow 1.123.0, dist/esm/interfaces.d.ts (INodePropertyMode, INodePropertyModeTypeOptions,
+ * INodePropertyRegexValidation).
+ */
+function modeToSchema(m: NonNullable<PackageProperty['modes']>[number]): ResourceLocatorMode {
+  const t = m.typeOptions ?? {};
+  const mode: ResourceLocatorMode = { name: m.name, label: m.displayName ?? m.name, ...(m.placeholder ? { placeholder: m.placeholder } : {}) };
+  if (typeof m.type === 'string' && MODE_TYPES.has(m.type)) mode.type = m.type as ResourceLocatorMode['type'];
+  if (typeof t.searchListMethod === 'string' && t.searchListMethod) mode.searchListMethod = t.searchListMethod;
+  if (t.searchable === true) mode.searchable = true;
+  if (t.searchFilterRequired === true) mode.searchFilterRequired = true;
+  const regex = m.extractValue?.regex instanceof RegExp ? m.extractValue.regex.source : m.extractValue?.regex;
+  if (typeof regex === 'string' && (m.extractValue?.type === undefined || m.extractValue.type === 'regex')) mode.extractValue = { regex };
+  const validation = modeValidation(m.validation);
+  if (validation.length) mode.validation = validation;
+  return mode;
+}
+
+/**
+ * INodeProperties -> ParamSchema (form in the editor). `prefix` is the dotted path of the level (collection name,
+ * fixedCollection name and group name), used for the synthetic method names of declarative option lists.
+ */
+export function propertiesToSchema(props: PackageProperty[], prefix = ''): ParamSchema[] {
   return props.map((p) => {
     const t = p.typeOptions ?? {};
-    // Option lists that the reference loads at runtime (loadOptionsMethod) become free input
-    const dynamic = (p.type === 'options' || p.type === 'multiOptions') && (t.loadOptionsMethod || t.loadOptions);
-    const type: ParamType = dynamic ? 'string' : (TYPE_MAP[p.type] ?? (p.type === 'credentialsSelect' ? 'string' : 'json'));
+    const isOptions = p.type === 'options' || p.type === 'multiOptions';
+    // Option lists that the reference loads in the editor (M47c): a method of the package (loadOptionsMethod) or a
+    // declarative request (loadOptions.routing, as a synthetic method name the server resolves from the description)
+    const method = typeof t.loadOptionsMethod === 'string' && t.loadOptionsMethod ? t.loadOptionsMethod : undefined;
+    const routing = loadOptionsRouting(p) ? `${ROUTING_METHOD_PREFIX}${prefix}${p.name}` : undefined;
+    const loadOptions: LoadOptionsSpec | undefined = isOptions && (method ?? routing) ? { method: (method ?? routing)! } : undefined;
+    if (loadOptions && Array.isArray(t.loadOptionsDependsOn)) {
+      const dependsOn = t.loadOptionsDependsOn.filter((d): d is string => typeof d === 'string' && d !== '');
+      if (dependsOn.length) loadOptions.dependsOn = dependsOn;
+    }
+    // Other runtime lists (e.g. loadOptions without routing) stay free input
+    const unsupported = isOptions && !loadOptions && !!t.loadOptions;
+    const type: ParamType = unsupported ? 'string' : (TYPE_MAP[p.type] ?? (p.type === 'credentialsSelect' ? 'string' : 'json'));
     const schema: ParamSchema = { name: p.name, label: p.displayName ?? p.name, type, ...(p.default !== undefined ? { default: p.default } : {}) };
-    const description = [p.description, dynamic ? 'Please enter values directly; this list is loaded at runtime in the original node.' : undefined].filter(Boolean).join(' ');
+    const description = [p.description, unsupported ? 'Please enter values directly; this list is loaded at runtime in the original node.' : undefined].filter(Boolean).join(' ');
     if (description) schema.description = description;
     if (p.placeholder) schema.placeholder = p.placeholder;
     if (p.required) schema.required = true;
@@ -82,14 +140,16 @@ export function propertiesToSchema(props: PackageProperty[]): ParamSchema[] {
     if (typeof t.numberPrecision === 'number') schema.precision = t.numberPrecision;
     if (t.multipleValues) schema.multiple = true;
     if (typeof t.multipleValueButtonText === 'string') schema.addLabel = t.multipleValueButtonText;
-    if (!dynamic && (p.type === 'options' || p.type === 'multiOptions')) {
+    if (loadOptions) schema.loadOptions = loadOptions;
+    if (isOptions && !unsupported) {
       schema.options = (p.options ?? []).map((o) => ({ value: o.value ?? o.name, label: o.name, ...(o.description ? { description: o.description } : {}) }));
+      if (loadOptions && !schema.options.length) delete schema.options;
     }
-    if (p.type === 'collection') schema.children = propertiesToSchema((p.options ?? []) as PackageProperty[]);
+    if (p.type === 'collection') schema.children = propertiesToSchema((p.options ?? []) as PackageProperty[], `${prefix}${p.name}.`);
     if (p.type === 'fixedCollection') {
-      schema.groups = (p.options ?? []).map((g) => ({ name: g.name, label: g.displayName ?? g.name, children: propertiesToSchema(g.values ?? []) }));
+      schema.groups = (p.options ?? []).map((g) => ({ name: g.name, label: g.displayName ?? g.name, children: propertiesToSchema(g.values ?? [], `${prefix}${p.name}.${g.name}.`) }));
     }
-    if (p.type === 'resourceLocator') schema.modes = (p.modes ?? []).map((m) => ({ name: m.name, label: m.displayName ?? m.name, ...(m.placeholder ? { placeholder: m.placeholder } : {}) }));
+    if (p.type === 'resourceLocator') schema.modes = (p.modes ?? []).map(modeToSchema);
     if (p.placeholder && (p.type === 'collection' || p.type === 'fixedCollection')) schema.addLabel = p.placeholder;
     return schema;
   });

@@ -180,7 +180,8 @@ export async function runRoutingNode(ctx: ExecContext, rawDescription: PackageNo
       | undefined;
     if (routing) {
       let parameterValue: unknown;
-      if ('type' in prop) {
+      // routing-node.ts: only properties with a name (the temporary property of option lists has none)
+      if (basePath + prop.name && 'type' in prop) {
         const extractValue = (prop as { extractValue?: unknown }).extractValue !== undefined || prop.type === 'resourceLocator';
         parameterValue = (thisArgs.getNodeParameter as (n: string, f?: unknown, o?: Values) => unknown)(basePath + prop.name, undefined, { extractValue });
       }
@@ -406,7 +407,8 @@ export async function runRoutingNode(ctx: ExecContext, rawDescription: PackageNo
       request.options[key] = value(v, itemIndex, { $credentials: credentials, $version: version });
     }
     for (const prop of description.properties) {
-      const propValue = value(getByPath(params, prop.name) ?? [], itemIndex, { $credentials: credentials, $version: version });
+      // lodash get with an empty path gives undefined (getByPath would return the whole object)
+      const propValue = value((prop.name ? getByPath(params, prop.name) : undefined) ?? [], itemIndex, { $credentials: credentials, $version: version });
       mergeResult(request, optionsFrom(thisArgs, prop, itemIndex, '', { $credentials: credentials, $value: propValue, $version: version }));
     }
     if (requestOptions.proxy) {
@@ -450,4 +452,20 @@ export async function runRoutingNode(ctx: ExecContext, rawDescription: PackageNo
     returnData.push(...list);
   }
   return [returnData];
+}
+
+/**
+ * Declarative option list (typeOptions.loadOptions.routing, M47c): runs the routing of a temporary property on one empty
+ * item with the node's requestDefaults, credentials and requestOperations, and returns the json of the output items.
+ * Reference: n8n 1.123.0 dist/services/dynamic-node-parameters.service.js (getOptionsViaLoadOptions): requestDefaults.baseURL
+ * is required, the temporary description holds only a nameless string property with this routing. Own implementation.
+ */
+export async function runLoadOptionsRouting(ctx: ExecContext, description: PackageNodeDescription, routing: Values): Promise<unknown[]> {
+  if (!description.requestDefaults?.baseURL) {
+    throw new NodeOperationError(ctx.node, 'Node type does not exist or does not have "requestDefaults.baseURL" defined!');
+  }
+  const temp: PackageNodeDescription = { ...description, properties: [{ displayName: '', type: 'string', name: '', default: '', routing }] };
+  const single = Object.create(ctx, { inputs: { value: [[{ json: {} }]] } }) as ExecContext;
+  const output = await runRoutingNode(single, temp);
+  return (output[0] ?? []).map((item) => item.json);
 }
