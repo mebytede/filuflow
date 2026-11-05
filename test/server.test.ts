@@ -156,7 +156,7 @@ describe('Execution in the server', () => {
   });
 
   it('does not activate invalid workflows and reports the reason', async () => {
-    const bad = wf('bad', [n('Hook', 'n8n-nodes-base.webhook', 2, [0, 0], { path: 'x', httpMethod: 'POST' }), n('Slack', 'n8n-nodes-base.slack', 2, [200, 0])], ['Hook', 'Slack'], { active: true });
+    const bad = wf('bad', [n('Hook', 'n8n-nodes-base.webhook', 2, [0, 0], { path: 'x', httpMethod: 'POST' }), n('Slack', 'n8n-nodes-base.slack', 1, [200, 0])], ['Hook', 'Slack'], { active: true });
     await start([bad]);
     const detail = await api('GET', '/api/workflows/bad');
     expect(detail.json!.active).toBe(false);

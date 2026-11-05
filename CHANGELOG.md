@@ -10,6 +10,13 @@ breaking changes; they are listed under "Changed" or "Removed".
 
 ### Added
 
+- **Slack node.** Channels (create, archive, history, replies, members, invite, kick and more), messages (send as text,
+  blocks or attachments to a channel or user, as thread reply or ephemeral message; update, delete, permalink, search),
+  files (upload from binary data, get, list), reactions, stars, users (profile and status) and user groups, with an
+  access token or OAuth2. "Send and Wait for Response" posts a message with approval buttons or a link to a response
+  form and continues the workflow when someone answers. Channels and users are picked from searchable lists in the
+  editor, also by ID, name or URL. Exported workflows with Slack nodes of version 2 to 2.4 run without changes; version 1
+  is reported as not supported. German texts included.
 - **Dynamic option lists in the editor.** Fields whose values come from a connected account are now picked from a list
   loaded from the service when the field opens, with search, refresh and manual entry; expressions keep working. First
   users: Gmail labels (all label fields, also in the Gmail Trigger), the "send as" alias of drafts and the message of a

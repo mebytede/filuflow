@@ -754,3 +754,37 @@ loadOptionsDependsOn }` instead of becoming text fields with the hint "loaded at
 
 **Later.** Resource mapper fields (`methods.resourceMapping`) and the other method kinds of packages
 (`localResourceMapping`, `actionHandler`) are not offered yet: such fields stay as they are in the form.
+
+## Slack node (M48)
+The Slack node follows n8n-nodes-base 1.121.0 nodes/Slack/V2 for typeVersion 2 to 2.4: parameter names (including the
+odd ones such as `Options` for creating and `option` for enabling a user group), defaults, request shapes and outputs are
+those of the reference, also where the reference sends more than Slack needs (the remaining message options such as
+`includeLinkToWorkflow` and `sendAsUser` go into the body, `customFieldUi` stays in the profile next to `fields`, the user
+group channels go out as the list `channelIds`) or less (the option "Include Num of Members" of channel:get is not sent).
+Version 1 (the old description with its own operations) is not implemented and reported as an unsupported version.
+
+Deliberate differences:
+- "Include Link to Workflow" (on by default from 2.1) appends a line with a link to the workflow and the reference's
+  name and campaign parameters. filuflow keeps the option and passes it on like the reference, but appends no line; the
+  attribution section of "Send and Wait" messages is not added either (as with the Gmail attribution).
+- The reference marks the hints for missing scopes, plans and roles as warnings; filuflow reports them as normal node
+  errors with the same message and description.
+- Items of failed items with "Continue On Fail" carry `pairedItem` like every other output item, and thrown errors get the
+  item index; messages are unchanged.
+- "Attachments" of message:post is a collection with several entries in the reference. The form of filuflow has no
+  repeatable collections, so the field is a JSON list there; the stored value is the same list of attachment objects, and
+  the node also accepts the list as JSON text.
+- `status_expiration` of "Update User's Profile" is converted with luxon in the workflow time zone instead of
+  moment-timezone (same seconds for ISO dates; an invalid date is sent as null, as the reference's NaN is).
+
+The OAuth2 credential is the existing `slackOAuth2Api` (M28) with the bot scope `chat:write` and the user scopes of the
+reference; like requestOAuth2 with the options of the reference the node sends the user token
+(`authed_user.access_token`) and renews the token once after HTTP 401. The access token credential is `slackApi`.
+
+"Send and Wait for Response" reuses the infrastructure of the Gmail node: the parameters come from
+`src/nodes/shared/sendAndWaitParams.ts` (`sendAndWaitProperties`, the Slack node leaves out the subject as the reference
+does) and the buttons with signed resume URLs from `sendAndWaitConfig`, which the Gmail email uses too. The server's
+waiting webhook is the same for both nodes; Slack's link previews (user agent "Slackbot-LinkExpanding") count as bots and
+do not resume an approval.
+
+The Slack Trigger (Events API) is not part of this milestone.
