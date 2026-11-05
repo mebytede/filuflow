@@ -19,7 +19,7 @@ export interface PackageProperty {
   typeOptions?: Record<string, unknown>;
   /** options/multiOptions: values; collection: sub-parameters; fixedCollection: groups */
   options?: Array<Omit<PackageProperty, 'type'> & { type?: string; value?: string | number | boolean; values?: PackageProperty[] }>;
-  modes?: Array<{ name: string; displayName?: string; placeholder?: string }>;
+  modes?: Array<{ name: string; displayName?: string; placeholder?: string; type?: string; extractValue?: { type?: string; regex?: unknown }; typeOptions?: Record<string, unknown> }>;
   routing?: unknown;
 }
 

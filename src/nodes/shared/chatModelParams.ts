@@ -4,14 +4,18 @@ import type { ParamSchema } from '../params.js';
 
 export const MODEL_NOTICE: ParamSchema = { name: 'notice', label: 'Connect this node to an AI chain or an AI agent.', type: 'notice', default: '' };
 
-/** Model as free input (the reference loads the list via API) */
-export const modelParam = (defaultModel: string, label = 'Model'): ParamSchema => ({
+/**
+ * Model as an option list loaded from the provider (M47b, methods.loadOptions[method] of the node, see modelLists.ts). The
+ * stored value stays the model name as text; a name that is not in the list stays as it is.
+ */
+export const modelParam = (defaultModel: string, method = 'getModels'): ParamSchema => ({
   name: 'model',
-  label,
-  type: 'string',
+  label: 'Model',
+  type: 'options',
   default: defaultModel,
   required: true,
-  description: 'Name of the model; the reference loads the choices from the provider, enter it directly here',
+  loadOptions: { method },
+  description: 'Model that produces the answer',
 });
 
 export function compatibleOptions(o: { temperatureMax: number; timeout: number }): ParamSchema {

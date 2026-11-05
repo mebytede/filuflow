@@ -3,15 +3,22 @@
 // route). Loaded lazily when the list opens, filtered in the browser, cached per page for 5 minutes. Stored values are never
 // rewritten: a value that is not in the list stays as it is and is shown with "(not in the list)"; a value can always be
 // entered by hand, and the fx toggle switches to an expression as for every other field.
+// M47b: the "list" mode of resource locators searches on the server (methods.listSearch, 300 ms after typing), pages with
+// "Load more" and stores { __rl, mode: "list", value, cachedResultName, cachedResultUrl? }; the closed field shows
+// cachedResultName without a request. The workflow picker (listSource "workflows") lists the editor's workflows.
 import { h } from '../dom.js';
 import { t as tr, tl } from '../i18n.js';
 import { icon } from '../icons.js';
 import { ApiError } from '../api.js';
 import type { LoadedOption, LoadOptionsRequest, LoadOptionsResponse, ParamSchema, WorkflowNode } from '../types.js';
+import type { LocatorMode } from './locatorModes.js';
 
 /** What the form needs from the editor to load lists */
 export interface DynamicOptionsHost {
-  load(req: LoadOptionsRequest, signal?: AbortSignal): Promise<LoadOptionsResponse>;
+  /** Loading from the node's methods; without it fields with loadOptions stay text inputs */
+  load?(req: LoadOptionsRequest, signal?: AbortSignal): Promise<LoadOptionsResponse>;
+  /** Workflows the editor can see (workflow picker; standalone: the server's, master: the project's) */
+  workflows?(): Promise<Array<{ id: string; name: string }>>;
   /** Current state of the edited node */
   node(): WorkflowNode | undefined;
   /** Credential type the node needs but has not set (then nothing is loaded) */
@@ -73,6 +80,7 @@ function cacheKey(req: LoadOptionsRequest, dependsOn: unknown[]): string {
 /** Forget every cached list (tests, sign-out) */
 export function clearOptionsCache(): void {
   cache.clear();
+  searchCache.clear();
 }
 
 type State =
@@ -97,6 +105,7 @@ class FieldLoader {
   /** Request and cache key, or a reason why nothing can be loaded */
   private prepare(): { req: LoadOptionsRequest; key: string } | { blocked: string } {
     const node = this.host.node();
+    if (!this.host.load) return { blocked: tr('Options could not be loaded: {message}', { message: tr('Not available here') }) };
     if (!node) return { blocked: tr('Options could not be loaded: {message}', { message: tr('Node not found') }) };
     const missing = this.host.missingCredential();
     if (missing) return { blocked: tr('Please select a credential first') };
@@ -140,7 +149,7 @@ class FieldLoader {
       this.controller = controller;
       const entry: CacheEntry = {
         at: Date.now(),
-        promise: this.host.load(p.req, controller.signal).then((r) => r.data ?? []),
+        promise: this.host.load!(p.req, controller.signal).then((r) => r.data ?? []),
       };
       entry.promise.then(
         (list) => (entry.resolved = list),
@@ -184,6 +193,12 @@ const display = (v: unknown) => (v === undefined || v === null ? '' : typeof v =
 // ---------------------------------------------------------------------------------------------
 // Shared dropdown
 
+/** What the dropdown needs from a loader: the state and a reload (retry) */
+interface StateSource {
+  state: State;
+  load(refresh: boolean, onState: () => void): Promise<void>;
+}
+
 interface Dropdown {
   wrap: HTMLElement;
   input: HTMLInputElement;
@@ -204,10 +219,12 @@ function dropdown(
   o: {
     multiple: boolean;
     placeholder: string;
-    loader: FieldLoader;
+    loader: StateSource;
     renderItems(query: string, add: (el: HTMLElement, choose: () => void) => void): void;
     onOpen(): void;
     onClose(): void;
+    /** Typing in the open field (before the list is drawn again) */
+    onInput?(): void;
   },
 ): Dropdown {
   const id = `dyn-${++uid}`;
@@ -286,7 +303,10 @@ function dropdown(
   input.addEventListener('blur', doClose);
   input.addEventListener('input', () => {
     if (!open) doOpen();
-    else render();
+    else {
+      o.onInput?.();
+      render();
+    }
   });
   input.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowDown') {
@@ -313,7 +333,7 @@ function dropdown(
   return { wrap, input, list, isOpen: () => open, open: doOpen, close: doClose, render };
 }
 
-function refreshButton(def: ParamSchema, ctx: DynamicFieldContext, loader: FieldLoader, after: () => void, focus: () => void): HTMLElement {
+function refreshButton(def: ParamSchema, ctx: DynamicFieldContext, loader: StateSource, after: () => void, focus: () => void): HTMLElement {
   return h(
     'button',
     {
@@ -501,4 +521,260 @@ export function dynamicMultiOptionsInput(def: ParamSchema, field: DynamicField, 
   });
   renderChips();
   return h('div', { class: 'dyn-field' }, chips, h('div', { class: 'param-text-row' }, dd.wrap, refreshButton(def, ctx, loader, () => (renderChips(), dd.isOpen() && dd.render()), () => dd.input.focus()), ctx.fx()));
+}
+
+// ---------------------------------------------------------------------------------------------
+// Resource locator, mode "list" (M47b): server search with pagination, or the workflow picker
+
+
+/** Value of a resource locator as stored ({ __rl, mode, value, cachedResultName?, cachedResultUrl? }) */
+export interface LocatorValue {
+  __rl: true;
+  mode: string;
+  value: unknown;
+  cachedResultName?: string;
+  cachedResultUrl?: string;
+}
+
+const SEARCH_DEBOUNCE_MS = 300;
+
+interface ListSearchResult {
+  results: LoadedOption[];
+  paginationToken?: unknown;
+}
+
+interface SearchCacheEntry {
+  at: number;
+  promise: Promise<ListSearchResult>;
+  resolved?: ListSearchResult;
+}
+const searchCache = new Map<string, SearchCacheEntry>();
+
+/** Results of a search: pages appended with "Load more" */
+class SearchLoader implements StateSource {
+  state: State = { kind: 'idle' };
+  results: LoadedOption[] = [];
+  token: unknown;
+  more = false;
+  filter = '';
+  private controller?: AbortController;
+  private generation = 0;
+  constructor(
+    private readonly mode: LocatorMode,
+    private readonly field: DynamicField,
+    private readonly host: DynamicOptionsHost,
+  ) {}
+
+  /** Filtering on the server (searchable search methods); lists without it are filtered in the browser */
+  get serverFilter(): boolean {
+    return this.mode.listSource !== 'workflows' && this.mode.searchable === true;
+  }
+
+  private request(token: unknown): { req: LoadOptionsRequest; key: string } | { blocked: string } {
+    const node = this.host.node();
+    if (!node) return { blocked: tr('Options could not be loaded: {message}', { message: tr('Node not found') }) };
+    if (this.host.missingCredential()) return { blocked: tr('Please select a credential first') };
+    const filter = this.serverFilter ? this.filter : '';
+    if (this.mode.searchFilterRequired && !filter) return { blocked: tr('Enter a search term to see results') };
+    const req: LoadOptionsRequest = {
+      kind: 'listSearch',
+      node: { type: node.type, typeVersion: node.typeVersion, parameters: node.parameters ?? {}, ...(node.credentials ? { credentials: node.credentials } : {}) },
+      path: this.field.key,
+      method: this.mode.searchListMethod ?? '',
+      ...(filter ? { filter } : {}),
+      ...(token !== undefined ? { paginationToken: token } : {}),
+    };
+    return { req, key: cacheKey(req, []) };
+  }
+
+  private fetch(req: LoadOptionsRequest, key: string, refresh: boolean, signal: AbortSignal): Promise<ListSearchResult> {
+    let hit = searchCache.get(key);
+    if (refresh || !hit || Date.now() - hit.at > TTL_MS) {
+      if (hit) searchCache.delete(key);
+      const entry: SearchCacheEntry = {
+        at: Date.now(),
+        promise: this.host.load!(req, signal).then((r) => ({ results: r.results ?? [], ...(r.paginationToken !== undefined ? { paginationToken: r.paginationToken } : {}) })),
+      };
+      entry.promise.then(
+        (r) => (entry.resolved = r),
+        () => searchCache.get(key) === entry && searchCache.delete(key),
+      );
+      searchCache.set(key, entry);
+      hit = entry;
+    }
+    return hit.promise;
+  }
+
+  /** First page for the current filter */
+  async load(refresh: boolean, onState: () => void): Promise<void> {
+    const generation = ++this.generation;
+    this.controller?.abort();
+    const controller = new AbortController();
+    this.controller = controller;
+    this.more = false;
+    if (this.mode.listSource === 'workflows') {
+      this.state = { kind: 'loading' };
+      onState();
+      try {
+        const list = await this.host.workflows!();
+        if (generation !== this.generation) return;
+        this.results = list.map((w) => ({ name: w.name || w.id, value: w.id, description: w.id }));
+        this.token = undefined;
+        this.state = { kind: 'ready', options: this.results };
+      } catch (error) {
+        if (generation !== this.generation) return;
+        this.state = { kind: 'error', message: errorText(error) };
+      }
+      onState();
+      return;
+    }
+    const p = this.request(undefined);
+    if ('blocked' in p) {
+      this.state = { kind: 'blocked', message: p.blocked };
+      this.results = [];
+      this.token = undefined;
+      onState();
+      return;
+    }
+    const cached = !refresh ? searchCache.get(p.key) : undefined;
+    if (!cached?.resolved || Date.now() - cached.at > TTL_MS) {
+      this.state = { kind: 'loading' };
+      onState();
+    }
+    try {
+      const page = await this.fetch(p.req, p.key, refresh, controller.signal);
+      if (generation !== this.generation) return;
+      this.results = [...page.results];
+      this.token = page.paginationToken;
+      this.state = { kind: 'ready', options: this.results };
+    } catch (error) {
+      if ((error as Error).name === 'AbortError' || generation !== this.generation) return;
+      this.state = { kind: 'error', message: errorText(error) };
+    }
+    onState();
+  }
+
+  /** Next page (paginationToken of the last answer), appended to the results */
+  async loadMore(onState: () => void): Promise<void> {
+    if (this.token === undefined || this.more) return;
+    const generation = this.generation;
+    const p = this.request(this.token);
+    if ('blocked' in p) return;
+    this.more = true;
+    onState();
+    try {
+      const page = await this.fetch(p.req, p.key, false, this.controller?.signal ?? new AbortController().signal);
+      if (generation !== this.generation) return;
+      const seen = new Set(this.results.map((r) => String(r.value)));
+      this.results = [...this.results, ...page.results.filter((r) => !seen.has(String(r.value)))];
+      this.token = page.paginationToken;
+      this.state = { kind: 'ready', options: this.results };
+    } catch (error) {
+      if ((error as Error).name === 'AbortError' || generation !== this.generation) return;
+      this.state = { kind: 'error', message: errorText(error) };
+    } finally {
+      if (generation === this.generation) this.more = false;
+    }
+    onState();
+  }
+
+  abort(): void {
+    this.generation++;
+    this.controller?.abort();
+  }
+}
+
+/** Current resource locator value of the field (plain text from old workflows counts as a value without a mode) */
+function locatorOf(v: unknown): Partial<LocatorValue> {
+  if (v && typeof v === 'object' && !Array.isArray(v)) return v as Partial<LocatorValue>;
+  return { value: v };
+}
+
+/**
+ * Field of the "list" mode: combobox whose closed state shows cachedResultName (or the value), opening loads the first
+ * page, typing searches on the server after 300 ms, "Load more" appends the next page, choosing writes the value with
+ * cachedResultName and cachedResultUrl.
+ */
+export function resourceLocatorListInput(def: ParamSchema, mode: LocatorMode, field: DynamicField, ctx: DynamicFieldContext, host: DynamicOptionsHost, extras: HTMLElement[] = []): HTMLElement {
+  const loader = new SearchLoader(mode, field, host);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const current = () => locatorOf(field.get());
+  const closedText = () => {
+    const v = current();
+    if (v.value === undefined || v.value === null || v.value === '') return '';
+    if (v.cachedResultName) return v.cachedResultName;
+    const hit = loader.results.find((r) => String(r.value) === String(v.value));
+    return hit ? hit.name : display(v.value);
+  };
+  const placeholder = tl(mode.placeholder) || tr('Search…');
+  const redraw = () => dd.isOpen() && dd.render();
+  const dd = dropdown(def, ctx, {
+    multiple: false,
+    placeholder,
+    loader,
+    onOpen: () => {
+      dd.input.value = '';
+      dd.input.placeholder = closedText() || placeholder;
+      loader.filter = '';
+      void loader.load(false, redraw);
+    },
+    onClose: () => {
+      if (timer) clearTimeout(timer);
+      dd.input.value = closedText();
+      dd.input.placeholder = placeholder;
+    },
+    onInput: () => {
+      if (!loader.serverFilter) return;
+      if (timer) clearTimeout(timer);
+      const filter = dd.input.value.trim();
+      timer = setTimeout(() => {
+        loader.filter = filter;
+        void loader.load(false, redraw);
+      }, SEARCH_DEBOUNCE_MS);
+    },
+    renderItems: (query, add) => {
+      const v = current();
+      if (loader.state.kind !== 'ready') return;
+      const shown = loader.serverFilter ? loader.results : loader.results.filter((o) => matches(o, query));
+      for (const o of shown) {
+        const selected = String(o.value) === String(v.value ?? '');
+        add(
+          h(
+            'div',
+            { class: `dyn-option${selected ? ' selected' : ''}`, role: 'option', 'aria-selected': String(selected), title: String(o.value) },
+            h('span', { class: 'dyn-name' }, o.name),
+            o.description && o.description !== o.name ? h('span', { class: 'dyn-desc muted small' }, o.description) : null,
+          ),
+          () => {
+            const next: LocatorValue = { __rl: true, mode: mode.name, value: o.value, cachedResultName: o.name };
+            if (o.url) next.cachedResultUrl = o.url;
+            field.set(next);
+            dd.close();
+            ctx.onStructure(field.key);
+          },
+        );
+      }
+      if (!shown.length) dd.list.append(h('div', { class: 'dyn-state muted' }, tr('No matches')));
+      if (loader.more) dd.list.append(h('div', { class: 'dyn-state muted' }, tr('Loading options…')));
+      else if (loader.token !== undefined) {
+        add(h('div', { class: 'dyn-option dyn-manual dyn-more', role: 'option', 'aria-selected': 'false' }, tr('Load more')), () => void loader.loadMore(redraw));
+      }
+    },
+  });
+  dd.input.value = closedText();
+  const v = current();
+  const link =
+    mode.listSource === 'workflows' && v.value
+      ? h('a', { class: 'icon-btn dyn-open', href: `#/workflow/${encodeURIComponent(String(v.value))}`, target: '_blank', rel: 'noopener', title: tr('Open workflow'), 'aria-label': tr('Open workflow') }, icon('link', 14))
+      : typeof v.cachedResultUrl === 'string' && /^https?:\/\//.test(v.cachedResultUrl)
+        ? h('a', { class: 'icon-btn dyn-open', href: v.cachedResultUrl, target: '_blank', rel: 'noopener noreferrer', title: tr('Open in a new tab'), 'aria-label': tr('Open in a new tab') }, icon('link', 14))
+        : null;
+  return h(
+    'div',
+    { class: 'param-text-row dyn-rl' },
+    ...extras,
+    dd.wrap,
+    refreshButton(def, ctx, loader, () => (dd.isOpen() ? dd.render() : (dd.input.value = closedText())), () => dd.input.focus()),
+    link,
+  );
 }

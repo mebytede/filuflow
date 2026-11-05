@@ -5,6 +5,7 @@ import type { ExecContext, NodeType } from './types.js';
 import { OpenAiChatModel, type OpenAiOptions } from '../ai/models/openai.js';
 import type { ChatModel } from '../ai/models/base.js';
 import { compatibleOptions, MODEL_NOTICE, modelParam } from './shared/chatModelParams.js';
+import { compatibleModels } from './shared/modelLists.js';
 
 /** supplyData of DeepSeek and OpenRouter (same structure in the reference) */
 export async function compatibleSupplyData(ctx: ExecContext, itemIndex: number, credentialType: string, defaultUrl: string, create: (opts: OpenAiOptions) => ChatModel): Promise<ChatModel> {
@@ -33,6 +34,7 @@ export const lmChatOpenRouterNode: NodeType = {
   inputs: () => 0,
   outputs: () => 0,
   credentialTypes: () => ['openRouterApi'],
+  methods: { loadOptions: { getModels: compatibleModels('openRouterApi') } },
   async execute() {
     return null;
   },

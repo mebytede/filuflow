@@ -16,6 +16,14 @@ breaking changes; they are listed under "Changed" or "Removed".
   thread reply. Stored values do not change, so existing workflows keep working. New endpoints
   `POST /api/editor/load-options` (single server and worker) and `POST /api/projects/:pid/load-options` (master, needs the
   "Edit" permission and checks credential sharing), with rate limits and masked error messages. German texts included.
+- **Searchable resource lists, model lists and a workflow picker.** Resource locator fields in "From list" mode search on
+  the service while you type, load further pages with "Load more" and remember the chosen entry's name, so the closed
+  field shows it without a request; ID and URL modes check their format while typing, and the engine now extracts the ID
+  from URL mode values like the reference (also for nodes from community packages). The model fields of the OpenAI,
+  Anthropic, Gemini, Groq, Mistral, DeepSeek, OpenRouter and Ollama chat models and of Embeddings OpenAI list the
+  provider's models (Azure OpenAI stays a text field). Execute Workflow and the workflow tool offer a workflow picker
+  (in the master: the workflows of the same project). Stored values do not change. A resolved expression whose result
+  starts with "=" is no longer evaluated a second time when a list loads.
 
 ## [0.1.1] - 2026-11-04
 

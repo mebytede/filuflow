@@ -6,11 +6,12 @@
 // expressions are resolved here on the server (the reference resolves them in the editor), the method must be an own
 // function of the node type's methods (no prototype names, no declarative routing yet), results are sanitized and
 // capped, errors are masked, and nothing is cached on the server.
-import { getByPath } from '../expressions/resolve.js';
+import { cleanupParameterData, getByPath } from '../expressions/resolve.js';
+import { extractSchemaValue } from '../engine/extractValue.js';
 import { maskSecrets, type CredentialProvider } from '../credentials/store.js';
 import { NodeApiError, NodeOperationError } from '../errors.js';
 import type { NodeRegistry } from '../nodes/registry.js';
-import type { ListSearchResult, LoadedOption, LoadOptionsContext, NodeType } from '../nodes/types.js';
+import type { GetParamOptions, ListSearchResult, LoadedOption, LoadOptionsContext, NodeType } from '../nodes/types.js';
 import type { ParamSchema } from '../nodes/params.js';
 import type { Runner } from '../runner.js';
 import type { Logger } from '../logger.js';
@@ -271,18 +272,35 @@ export async function runLoadOptions(deps: LoadOptionsDeps, req: LoadOptionsRequ
     const probe = deps.runner.activationContext({ workflow: tempWorkflow(req, raw), mode: 'manual', signal: controller.signal }, TEMP_NODE);
     const dependsOn = dependsOnOf(type, req.kind, req.path, req.method);
     const resolved = resolveExpressions(raw, (expr) => probe.evaluateExpression(expr, 0), '', dependsOn) as Record<string, unknown>;
+    cleanupParameterData(resolved);
 
     // 2. Context of the temporary node with the resolved parameters
     const base = deps.runner.activationContext({ workflow: tempWorkflow(req, resolved), mode: 'manual', signal: controller.signal }, TEMP_NODE);
     const parentSegments = segmentsOf(req.path).slice(0, -1);
+    const node = { name: TEMP_NODE, typeVersion: req.node.typeVersion, parameters: resolved };
+    const extract = (v: unknown, path: string) => extractSchemaValue(v, path, type.parameters, node);
     const ctx = Object.create(base, {
       path: { value: req.path, enumerable: true },
+      // The parameters are resolved already: a result that itself starts with "=" is a value, not an expression, so it is
+      // never evaluated a second time (the context of the temporary node would treat it as one)
+      getParam: {
+        value: <T>(p: string, _itemIndex: number, fallback?: T, options: GetParamOptions = {}): T => {
+          let v = getByPath(resolved, p);
+          if (v === undefined) v = fallback;
+          if (v === undefined) throw new NodeOperationError(TEMP_NODE, `Could not get parameter "${p}"`);
+          try {
+            v = structuredClone(v);
+          } catch {
+            // values that cannot be copied (functions from expressions) are passed as they are
+          }
+          return (options.extractValue ? extract(v, p) : v) as T;
+        },
+      },
       getCurrentNodeParameter: {
         value: (p: string, options: { extractValue?: boolean } = {}) => {
           const segments = p.startsWith('&') ? [...parentSegments, ...segmentsOf(p.slice(1))] : segmentsOf(p.replace(/^\/+/, ''));
-          let v = getByPath(resolved, segments.join('.'));
-          if (options.extractValue && isPlainObject(v) && v.__rl) v = v.value;
-          return v;
+          const v = getByPath(resolved, segments.join('.'));
+          return options.extractValue ? extract(v, segments.join('.')) : v;
         },
       },
       getCurrentNodeParameters: { value: () => resolved },

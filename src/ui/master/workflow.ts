@@ -64,6 +64,8 @@ export async function masterWorkflowView(id: string, types: NodeTypeInfo[], user
     },
     run: (workflow, trigger, input, destination) => mapi.run(id, workflow, trigger, input, destination),
     ...(project.worker && can(detail, 'workflow.edit') ? { loadOptions: (req: LoadOptionsRequest, signal?: AbortSignal) => mapi.loadOptions(project.id, id, req, signal) } : {}),
+    // Workflow picker: only the workflows of this project from the master (never a list from the worker)
+    ...(can(detail, 'workflow.edit') ? { listWorkflows: async () => (await mapi.workflows(project.id)).map((w) => ({ id: w.id, name: w.name })) } : {}),
     async lastExecution(wid) {
       if (!project.worker) return undefined;
       const [last] = await mapi.executions(project.id, { workflow: wid });

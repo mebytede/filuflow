@@ -9,12 +9,15 @@ import type { ChatMessage } from '../messages.js';
 import type { ModelCallOptions } from './base.js';
 import { OpenAiChatModel, type OpenAiOptions } from './openai.js';
 
+
+/** Groq API (fixed in the reference) */
+export const GROQ_URL = 'https://api.groq.com/openai/v1';
 export class GroqChatModel extends OpenAiChatModel {
   override readonly provider = 'groq';
 
   constructor(ctx: ExecContext, opts: OpenAiOptions) {
     // ChatGroq: temperature = 0.7 if the reference passes no value
-    super(ctx, { ...opts, temperature: opts.temperature ?? 0.7, baseURL: opts.baseURL ?? 'https://api.groq.com/openai/v1' });
+    super(ctx, { ...opts, temperature: opts.temperature ?? 0.7, baseURL: opts.baseURL ?? GROQ_URL });
   }
 
   /** convertMessagesToGroqParams: roles without developer, tool calls in OpenAI format */

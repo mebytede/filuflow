@@ -165,8 +165,8 @@ const parameters: ParamSchema[] = [
     default: '',
     required: true,
     modes: [
-      { name: 'list', label: 'From list', placeholder: 'Select a workflow' },
-      { name: 'id', label: 'By ID', placeholder: 'Workflow ID' },
+      { name: 'list', label: 'From list', type: 'list', placeholder: 'Select a workflow', listSource: 'workflows', searchable: true },
+      { name: 'id', label: 'By ID', type: 'string', placeholder: 'Workflow ID' },
     ],
     show: { source: ['database'], '@version': [{ _cnd: { gte: 1.1 } }] },
   },

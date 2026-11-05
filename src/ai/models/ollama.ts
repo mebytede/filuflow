@@ -6,6 +6,9 @@ import type { ExecContext } from '../../nodes/types.js';
 import type { ChatMessage, ContentPart, ToolCall } from '../messages.js';
 import { ChatModel, LlmHttpError, type ChatResult, type ModelCallOptions } from './base.js';
 
+
+/** Ollama without a base URL in the credential */
+export const OLLAMA_DEFAULT_URL = 'http://localhost:11434';
 export interface OllamaOptions {
   baseUrl: string;
   model: string;

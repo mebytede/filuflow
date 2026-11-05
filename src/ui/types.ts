@@ -167,6 +167,7 @@ export interface ParamSchema {
     searchFilterRequired?: boolean;
     extractValue?: { regex: string };
     validation?: Array<{ regex: string; errorMessage: string }>;
+    listSource?: 'workflows';
   }>;
 }
 

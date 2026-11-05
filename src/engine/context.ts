@@ -9,6 +9,7 @@ import { NodeOperationError } from '../errors.js';
 import { createDataProxy, type ExecuteData } from '../expressions/proxy.js';
 import { cleanupParameterData, getByPath, resolveParameterValue, resolveSimpleValue } from '../expressions/resolve.js';
 import type { WorkflowExecutor } from './executor.js';
+import { extractSchemaValue } from './extractValue.js';
 
 /** Copy of the input data for code nodes (reference: augmentArray: changes stay local) */
 function structuredCloneItems(items: Item[]): Item[] {
@@ -134,8 +135,10 @@ export class NodeExecutionContext implements ExecContext {
     if (options.rawExpressions) return value as T;
     let result = this.resolve(value, itemIndex, path);
     cleanupParameterData(result);
-    if (options.extractValue && result && typeof result === 'object' && (result as Record<string, unknown>).__rl) {
-      result = (result as Record<string, unknown>).value;
+    if (options.extractValue) {
+      // URL mode of resource locators: the mode's extractValue regex of the node's version (M47b)
+      const schema = this.executor.registry.getVersioned(this.node.type, this.node.typeVersion)?.parameters;
+      result = extractSchemaValue(result, path, schema, this.node, itemIndex);
     }
     return result as T;
   }

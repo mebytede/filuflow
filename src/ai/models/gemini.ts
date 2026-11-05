@@ -8,6 +8,9 @@ import type { ChatMessage, ContentPart, ToolCall } from '../messages.js';
 import { ChatModel, type ChatResult, type ModelCallOptions, type ToolDefinition } from './base.js';
 import { hasNoParameters, toGeminiParameters } from './toolSchemas.js';
 
+
+/** Gemini API without a host in the credential */
+export const GEMINI_DEFAULT_HOST = 'https://generativelanguage.googleapis.com';
 export interface GeminiOptions {
   apiKey: string;
   host: string;
@@ -125,7 +128,7 @@ export class GeminiChatModel extends ChatModel {
       systemInstruction,
       contents,
     };
-    const host = this.opts.host || 'https://generativelanguage.googleapis.com';
+    const host = this.opts.host || GEMINI_DEFAULT_HOST;
     const headers = { 'Content-Type': 'application/json', 'x-goog-api-client': 'genai-js/0.24.1', 'x-goog-api-key': this.opts.apiKey };
     if (options.onToken) {
       // generateContentStream: streamGenerateContent?alt=sse, chunks are merged into one response

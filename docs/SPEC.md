@@ -332,6 +332,7 @@ Engine order, expressions (including raw value vs. string), every node, filter o
 | M45 | Installer installs releases | `scripts/install.sh` pulls the published release image by default (Docker) or builds the release tag (native); `--version`, `--build`, `--ref`, `--source`, `--image`; `--update` moves to the latest release and keeps the way of installing |
 | M46 | Fixes for 0.1.1 | Numeric query parameters validated in the single server, worker and master (400 for invalid values, capped at the maximum, no internal error texts in responses); proposals for new workflows scoped to the project they were created in |
 | M47a | Dynamic option lists: core and Gmail | Node methods `loadOptions` / `listSearch`, `POST /api/editor/load-options` (single server and worker) and the master route with permission and sharing checks, combobox and multi-select in the form with lazy loading, cache, refresh, manual entry and German texts; Gmail labels, aliases and thread messages, Gmail Trigger labels |
+| M47b | Dynamic option lists: resource locators, models, workflows | Resource locator list mode with server search, pagination ("Load more") and `cachedResultName`; ID and URL modes with validation and `extractValue` in the engine and for package nodes; model lists of the chat model and embeddings nodes; workflow picker for Execute Workflow and the workflow tool; resolved "=" values are not evaluated again |
 
 After each milestone: update `docs/STATUS.md` (what works, what is missing) and make a commit with a meaningful message.
 
@@ -363,10 +364,10 @@ shared credentials for multiple workers: M33)
 
 ### 11.4 Interface and master
 (Test data by click, Variables page: M18; chat view: M16; parameter forms: M19; roles per workflow and central
-execution search: M23; freely definable roles: M34; dynamic option lists with Gmail: M47a)
-- Dynamic option lists, continued: searchable resource locator lists with pagination and `cachedResultName`, ID and URL
-  modes with validation (and the URL `extractValue` in the engine), chat model and embeddings lists, workflow picker
-  (M47b); methods of community node packages and declarative `loadOptions.routing` (M47c)
+execution search: M23; freely definable roles: M34; dynamic option lists with Gmail: M47a; resource locator lists, model
+lists and workflow picker: M47b)
+- Dynamic option lists, continued: methods of community node packages, declarative `loadOptions.routing` and the
+  resource locator modes of package descriptions in the form (M47c)
 
 ---
 
@@ -483,3 +484,26 @@ the reference product's name:
   and the fx toggle are always available. Without a backend (execution view) the fields stay text inputs.
 - Gmail: `getLabels` (all label fields, Gmail Trigger label filter, label get/delete), `getGmailAliases` (draft alias),
   `getThreadMessages` (thread reply message, depends on `threadId`).
+
+## Resource locator lists, model lists and workflow picker (M47b)
+- Resource locator mode `list` with `searchListMethod`: combobox that loads the first page when it opens, searches on the
+  server 300 ms after typing (`filter`, only for `searchable` modes; others filter in the browser), appends the next page
+  with "Load more" (`paginationToken`) and with `searchFilterRequired` asks for a search term first. Choosing writes
+  `{ __rl: true, mode: "list", value, cachedResultName, cachedResultUrl? }`; the closed field shows `cachedResultName`
+  (or the value) without a request. Other modes are text fields; `validation` rules (`{ regex, errorMessage }`) are
+  checked while typing, empty values and expressions are not checked. Switching the mode keeps the value (to `url`: the
+  cached URL of the chosen entry).
+- `extractValue` (`{ regex }`, package format `{ type: "regex", regex }`): `getParam(path, i, fallback, { extractValue })`
+  of built-in nodes, `getCurrentNodeParameter(path, { extractValue })` and `getNodeParameter` of package nodes look the
+  field up in the description of the node's version (visibility rules) and return the regex's first group for the
+  resource locator's mode; a value that does not match fails with "ERROR: <field> parameter's value is invalid. This is
+  likely because the URL entered is incorrect", a regex without exactly one group and non-text values fail as in the
+  reference. Modes without `extractValue` return the plain value.
+- Model lists: OpenAI Chat Model from 1.2 `listSearch.searchModels` (chat capable models on the official API, every model
+  on other hosts, sorted by ID), up to 1.1 `loadOptions.getModels`; Embeddings OpenAI `getModels` (models containing
+  "embed" on the official API); Anthropic 1.3 `searchModels` (display name, newest first, 100 per page with "Load more");
+  Gemini, Groq, Mistral Cloud, DeepSeek, OpenRouter and Ollama `getModels`. The Azure OpenAI deployment stays a text
+  field. Values stay plain model names, names outside the list remain.
+- Workflow picker: resource locator modes with `listSource: "workflows"` (Execute Workflow from 1.1, workflow tool from
+  1.2) list the workflows the editor sees: standalone the server's workflows, in the master the workflows of the same
+  project (from the master, never from the worker). The value is the workflow ID.

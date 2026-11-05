@@ -5,6 +5,9 @@ import type { ExecContext } from '../../nodes/types.js';
 import type { ChatMessage, ContentPart, ToolCall } from '../messages.js';
 import { ChatModel, type ChatResult, type ModelCallOptions } from './base.js';
 
+
+/** Anthropic API without a URL in the credential */
+export const ANTHROPIC_DEFAULT_URL = 'https://api.anthropic.com';
 export interface AnthropicOptions {
   apiKey: string;
   baseURL: string;
@@ -188,7 +191,7 @@ export class AnthropicChatModel extends ChatModel {
     const payload = this.toPayload(messages);
     body.messages = payload.messages;
     body.system = payload.system;
-    const base = (o.baseURL || 'https://api.anthropic.com').replace(/\/+$/, '');
+    const base = (o.baseURL || ANTHROPIC_DEFAULT_URL).replace(/\/+$/, '');
     const headers = { 'anthropic-version': '2023-06-01', 'x-api-key': o.apiKey, 'content-type': 'application/json', ...(o.headers ?? {}) };
     const res = options.onToken
       ? await this.streamMessages(`${base}/v1/messages`, headers, body, options.signal, options.onToken)

@@ -30,6 +30,8 @@ export interface PanelHost {
   listening?(): boolean;
   /** Dynamic option lists of parameters (M47a); missing in read-only views and without a backend */
   loadOptions?(req: LoadOptionsRequest, signal?: AbortSignal): Promise<LoadOptionsResponse>;
+  /** Workflows for the workflow picker (M47b); missing in read-only views */
+  listWorkflows?(): Promise<Array<{ id: string; name: string }>>;
 }
 
 type Tab = 'params' | 'settings' | 'output';
@@ -182,7 +184,8 @@ export class Panel {
   private dynamicHost(name: string): DynamicOptionsHost {
     const current = () => this.host.workflow().nodes.find((n) => n.name === name);
     return {
-      load: (req, signal) => this.host.loadOptions!(req, signal),
+      ...(this.host.loadOptions ? { load: (req: LoadOptionsRequest, signal?: AbortSignal) => this.host.loadOptions!(req, signal) } : {}),
+      ...(this.host.listWorkflows ? { workflows: () => this.host.listWorkflows!() } : {}),
       node: current,
       missingCredential: () => {
         const n = current();
@@ -341,7 +344,7 @@ export class Panel {
         schema,
         nodeType: node.type,
         version: node.typeVersion,
-        ...(this.host.loadOptions && !this.host.readonly ? { dynamic: this.dynamicHost(node.name) } : {}),
+        ...((this.host.loadOptions || this.host.listWorkflows) && !this.host.readonly ? { dynamic: this.dynamicHost(node.name) } : {}),
         onChange: (key) =>
           this.mutateNode(
             node.name,

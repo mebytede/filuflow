@@ -6,6 +6,9 @@ import type { ExecContext } from '../../nodes/types.js';
 import type { ChatMessage, ToolCall } from '../messages.js';
 import { ChatModel, type ChatResult, type ModelCallOptions } from './base.js';
 
+
+/** OpenAI API without a base URL */
+export const OPENAI_DEFAULT_URL = 'https://api.openai.com/v1';
 export interface OpenAiOptions {
   apiKey: string;
   baseURL?: string;
@@ -97,7 +100,7 @@ export class OpenAiChatModel extends ChatModel {
 
   /** Endpoint of the Chat Completions (Azure: deployment and api-version) */
   protected requestUrl(): string {
-    return `${(this.opts.baseURL || 'https://api.openai.com/v1').replace(/\/+$/, '')}/chat/completions`;
+    return `${(this.opts.baseURL || OPENAI_DEFAULT_URL).replace(/\/+$/, '')}/chat/completions`;
   }
 
   protected requestHeaders(): Record<string, string> {

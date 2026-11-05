@@ -124,7 +124,10 @@ session or API token) load option lists for the editor by calling node methods w
   120 per minute per user; a worker allows requests forwarded by the master 1200 per minute and 16 at a time.
 - SSRF and credential use: a method sends the credential to the URLs the node uses, some of which come from parameters or
   the credential (for example a base URL). This is the same power as running an own workflow state, which is why the
-  master requires `workflow.edit`. Treat the endpoint like the editor's "Test run".
+  master requires `workflow.edit`. Treat the endpoint like the editor's "Test run". The model lists of the AI nodes (M47b)
+  call the provider's model endpoint with the selected credential (for OpenAI also the node's "Base URL" option).
+- Workflow picker (M47b): the list of workflows comes from the editor's own workflow list (standalone server, or the
+  master's project workflows with `workflow.edit`), never from a worker, so it shows nothing the user could not open.
 
 ## Supervisor (M35)
 The Supervisor sends data to the configured model, i.e. to that model's provider. What goes out:

@@ -13,6 +13,7 @@ import { neededCredentials, propertiesToSchema, withDefaults, type PackageNodeDe
 import { withCredentialDefaults } from '../credentials/authenticate.js';
 import { executeHelpers } from '../nodes/shared/executeHelpers.js';
 import { getByPath } from '../expressions/resolve.js';
+import { extractPackageValue } from '../engine/extractValue.js';
 import { isDeclarative, runRoutingNode, withRequestOptions } from './routingNode.js';
 import { activateTrigger, executeTrigger, withPollTimes, type PackageTriggerImpl } from './triggerNode.js';
 import { hasPackageWebhooks, packageWebhooks, type PackageWebhookImpl } from './webhookNode.js';
@@ -68,14 +69,14 @@ export function executeFunctions(ctx: ExecContext, description: PackageNodeDescr
   return {
     getInputData: (inputIndex = 0) => ctx.inputs[inputIndex] ?? [],
     getNodeParameter(name: string, itemIndex: number, fallbackValue?: unknown, options: { extractValue?: boolean; rawExpressions?: boolean } = {}) {
+      // extractValue with the properties of this node version (URL mode regex of resource locators, M47b)
+      const extract = (v: unknown) => (options.extractValue ? extractPackageValue(v, name, description.properties, { ...node, parameters: defaults }, itemIndex) : v);
       const own = getByPath(node.parameters, name);
-      if (own !== undefined) return ctx.getParam(name, itemIndex, fallbackValue, options);
+      if (own !== undefined) return extract(ctx.getParam(name, itemIndex, fallbackValue, { ...options, extractValue: false }));
       const value = getByPath(defaults, name) ?? fallbackValue;
       if (value === undefined) throw new ApplicationError('Could not get parameter', { extra: { parameterName: name } });
       if (options.rawExpressions) return value;
-      const resolved = ctx.resolveValue(structuredClone(value), itemIndex);
-      if (options.extractValue && resolved && typeof resolved === 'object' && '__rl' in resolved) return (resolved as { value?: unknown }).value;
-      return resolved;
+      return extract(ctx.resolveValue(structuredClone(value), itemIndex));
     },
     getNode: () => ({ ...node, parameters: defaults }),
     getWorkflow: () => ({ id: ctx.workflow.id, name: ctx.workflow.name, active: ctx.workflow.workflow.active === true }),

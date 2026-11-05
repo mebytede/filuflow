@@ -7,13 +7,14 @@ import { OpenAiChatModel } from '../ai/models/openai.js';
 import { OpenAiResponsesModel } from '../ai/models/openaiResponses.js';
 import { NodeOperationError } from '../errors.js';
 import type { ParamSchema } from './params.js';
+import { getOpenAiChatModels, openAiBaseUrl, searchOpenAiModels } from './shared/modelLists.js';
 
 function responsesApiEnabled(node: WorkflowNode): boolean {
   return node.typeVersion >= 1.3 && node.parameters.responsesApiEnabled !== false;
 }
 
-// Parameters like LmChatOpenAi.node.ts (properties, reference version 1.123.0). The reference loads the model via API (loadOptions or
-// searchModels); here it is a free input.
+// Parameters like LmChatOpenAi.node.ts (properties, reference version 1.123.0). The model list comes from the API: up to 1.1
+// methods.loadOptions.getModels, from 1.2 the resource locator's methods.listSearch.searchModels (shared/modelLists.ts).
 // Deviations, because the editor knows no nested paths in "/name" and no regex:
 // - The notices about JSON responses (INCLUDE_JSON_WARNING, visible for /options.responseFormat or
 //   /options.textFormat.textOptions.type = json_object) and about "Base URL" (/options.baseURL) are in the
@@ -67,9 +68,9 @@ const parameters: ParamSchema[] = [
   {
     name: 'model',
     label: 'Model',
-    type: 'string',
+    type: 'options',
     default: 'gpt-4o-mini',
-    placeholder: 'e.g. gpt-4o-mini',
+    loadOptions: { method: 'getModels' },
     description: 'Model that produces the answer',
     hide: { '@version': [{ _cnd: { gte: 1.2 } }] },
   },
@@ -80,8 +81,8 @@ const parameters: ParamSchema[] = [
     default: { mode: 'list', value: 'gpt-4.1-mini' },
     required: true,
     modes: [
-      { name: 'list', label: 'From List', placeholder: 'e.g. gpt-4.1-mini' },
-      { name: 'id', label: 'ID', placeholder: 'gpt-4.1-mini' },
+      { name: 'list', label: 'From List', type: 'list', placeholder: 'Select a model...', searchListMethod: 'searchModels', searchable: true },
+      { name: 'id', label: 'ID', type: 'string', placeholder: 'gpt-4.1-mini' },
     ],
     description: 'Pick a model or enter its ID',
     hide: { '@version': [{ _cnd: { lte: 1.1 } }] },
@@ -467,6 +468,7 @@ export const lmChatOpenAiNode: NodeType = {
   inputs: () => 0,
   outputs: () => 0,
   credentialTypes: () => ['openAiApi'],
+  methods: { loadOptions: { getModels: getOpenAiChatModels }, listSearch: { searchModels: searchOpenAiModels } },
   async execute() {
     return null;
   },
@@ -475,7 +477,7 @@ export const lmChatOpenAiNode: NodeType = {
     const version = ctx.node.typeVersion;
     const model = version >= 1.2 ? ctx.getParam<string>('model.value', itemIndex, 'gpt-4.1-mini') : ctx.getParam<string>('model', itemIndex, 'gpt-4o-mini');
     const options = ctx.getParam<Record<string, unknown>>('options', itemIndex, {});
-    const baseURL = (options.baseURL as string | undefined) || (credentials.url as string | undefined) || undefined;
+    const baseURL = openAiBaseUrl(credentials, options);
     const headers: Record<string, string> = {};
     if (credentials.header && typeof credentials.headerName === 'string' && credentials.headerName && typeof credentials.headerValue === 'string') {
       headers[credentials.headerName] = credentials.headerValue;
