@@ -11,7 +11,7 @@
 // The reference stores the token in the credential and uses it until the API answers with 401; then it fetches a
 // new token and repeats the request once. filuflow keeps the token in memory and, in the server, additionally in the
 // database (setOAuth2TokenStore) so that it survives a restart.
-import { createHash } from 'node:crypto';
+import { scryptSync } from 'node:crypto';
 import qs from 'qs';
 import { credentialRefOf } from './store.js';
 import { stringify as qsStringify, parse as qsParse } from 'node:querystring';
@@ -68,12 +68,18 @@ const ERROR_RESPONSES: Record<string, string> = {
     'The authorization server is currently unable to handle the request due to a temporary overloading or maintenance of the server.',
 };
 
-// The key identifies the client and request, not its secret: the client secret is never hashed or stored here
-// (a rotated secret keeps using the still valid cached token until it expires)
+// The key identifies the client and request, not its secret. It is stored with the token, so it is derived with
+// scrypt (a slow key derivation, never a plain hash of credential data) and memoized per process
+const cacheKeys = new Map<string, string>();
 function cacheKey(cred: Record<string, unknown>): string {
-  return createHash('sha256')
-    .update(JSON.stringify([cred.accessTokenUrl, cred.clientId, cred.scope, cred.authentication, cred.additionalBodyProperties]))
-    .digest('hex');
+  const raw = JSON.stringify([cred.accessTokenUrl, cred.clientId, cred.scope, cred.authentication, cred.additionalBodyProperties]);
+  let key = cacheKeys.get(raw);
+  if (!key) {
+    key = scryptSync(raw, 'filuflow-oauth2-token-cache', 32).toString('hex');
+    if (cacheKeys.size > 1000) cacheKeys.clear();
+    cacheKeys.set(raw, key);
+  }
+  return key;
 }
 
 function parseBody(contentType: string, body: string, status: number): Record<string, unknown> {
