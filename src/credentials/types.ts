@@ -298,7 +298,9 @@ export const CREDENTIAL_TYPES: CredentialTypeSchema[] = [
     description: 'Bot or user token for Slack.',
     fields: [
       { name: 'accessToken', label: 'Access Token', kind: 'password', default: '' },
-      { name: 'signatureSecret', label: 'Signature Secret', kind: 'password', default: '' },
+      // Reference: n8n-nodes-base 1.121.0, credentials/SlackApi.credentials.js (description of signatureSecret); used by the
+      // Slack Trigger to verify X-Slack-Signature (M49)
+      { name: 'signatureSecret', label: 'Signature Secret', kind: 'password', default: '', hint: 'The signature secret is used to verify the authenticity of requests sent by Slack.' },
     ],
   },
   {

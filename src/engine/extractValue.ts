@@ -32,6 +32,13 @@ function levelValues(v: unknown): Values {
   return isObject(v) ? v : {};
 }
 
+/** Values of one level with the defaults of fields that are not stored */
+function withDefaults(level: ReadonlyArray<{ name: string; default?: unknown }>, values: Values): Values {
+  const out: Values = {};
+  for (const d of level) if (d.default !== undefined && !(d.name in out)) out[d.name] = d.default;
+  return { ...out, ...values };
+}
+
 /** Field of the filuflow description at a path, chosen among fields of the same name by the visibility rules */
 export function findParamSchema(defs: ParamSchema[] | undefined, path: string, params: Values, version: number): ParamSchema | undefined {
   const parts = segmentsOf(path);
@@ -41,7 +48,10 @@ export function findParamSchema(defs: ParamSchema[] | undefined, path: string, p
   for (let i = 0; i < parts.length; i++) {
     const name = parts[i];
     const candidates = level.filter((d) => d.name === name);
-    found = candidates.find((d) => isDisplayed({ show: d.show, hide: d.hide }, values, params, version));
+    // Visibility uses stored values, and defaults for fields that are not stored (like the editor and the reference)
+    const shown = withDefaults(level, values);
+    const root = level === (defs ?? []) ? shown : params;
+    found = candidates.find((d) => isDisplayed({ show: d.show, hide: d.hide }, shown, root, version));
     if (!found) return undefined;
     if (i === parts.length - 1) break;
     const next = levelValues(values[name]);
@@ -68,7 +78,9 @@ export function findPackageProperty(props: PackageProperty[] | undefined, path: 
   let found: (typeof level)[number] | undefined;
   for (let i = 0; i < parts.length; i++) {
     const name = parts[i];
-    found = level.find((p) => p.name === name && isDisplayed(p.displayOptions, values, params, version));
+    const shown = withDefaults(level, values);
+    const root = level === (props ?? []) ? shown : params;
+    found = level.find((p) => p.name === name && isDisplayed(p.displayOptions, shown, root, version));
     if (!found) return undefined;
     if (i === parts.length - 1) break;
     if ('values' in found && Array.isArray(found.values)) {

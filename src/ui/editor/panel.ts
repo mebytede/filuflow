@@ -224,6 +224,25 @@ export class Panel {
       );
     }
 
+    // Slack Trigger: the URL is entered in the Slack app as the Request URL (Event Subscriptions); path like
+    // getNodeWebhookPath: <webhookId>/webhook, without a webhook ID <workflow ID>/<node name>/webhook
+    if (node.type === 'n8n-nodes-base.slackTrigger') {
+      const base = this.host.webhookBaseUrl();
+      const wf = this.host.workflow();
+      const path = node.webhookId ? `${node.webhookId}/webhook` : `${wf.id ?? '__UNSAVED__'}/${encodeURIComponent(node.name.toLowerCase())}/webhook`;
+      box.append(
+        h(
+          'div',
+          { class: 'info-box' },
+          h('div', null, h('strong', null, `${t('Production')}: `), h('code', null, `${base}/webhook/${path}`)),
+          h('div', null, h('strong', null, `${t('Test')}: `), h('code', null, `${base}/webhook-test/${path}`)),
+          h('div', { class: 'muted' }, t('Enter the production URL in your Slack app under "Event Subscriptions" as the Request URL. Slack accepts only one URL per app: use the test URL there while testing.')),
+          h('div', { class: 'muted' }, t('The production URL only works for active, saved workflows.')),
+          this.listenButton(),
+        ),
+      );
+    }
+
     // Form and chat addresses
     if (node.type === 'n8n-nodes-base.formTrigger' || node.type === '@n8n/n8n-nodes-langchain.chatTrigger') {
       const base = this.host.webhookBaseUrl();

@@ -105,6 +105,16 @@ The links in "Send and Wait for Response" emails are signed with HMAC-SHA256 (se
 (e.g. `approved=false` instead of `true`) is rejected with 401, link previews of bots do not count as an answer. Anyone
 who has the email can answer, as in the reference implementation.
 
+## Slack Trigger (M49)
+When the `slackApi` credential has a "Signature Secret", every call of the trigger's production and test URL is checked
+before anything else: `X-Slack-Signature` must be `v0=` plus the HMAC SHA-256 of `v0:<X-Slack-Request-Timestamp>:<raw
+body>` with the secret, compared in constant time, and the timestamp must be at most 5 minutes from the server time (a
+replay window as in Slack's guidance; there is no nonce store). Failed checks answer 401 without an execution. The raw
+body bytes are used, never a re-serialized JSON. Without a secret the check is skipped, as in the reference
+implementation: anyone who knows the URL (it contains the random webhook ID) can then start executions, so set the
+secret for production use. The secret and the access token are never logged; the file download sends the access token
+only to the `url_private_download` URLs in the (verified) event.
+
 ## Dynamic option lists (M47a)
 `POST /api/editor/load-options` (single server and worker, API key) and `POST /api/projects/:pid/load-options` (master,
 session or API token) load option lists for the editor by calling node methods with the node's credentials.

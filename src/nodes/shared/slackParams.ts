@@ -875,3 +875,93 @@ export const slackParameters: ParamSchema[] = [
   ...userParameters,
   ...userGroupParameters,
 ];
+
+// -------------------------------------------------------------------------------------------------------------------
+// Slack Trigger (M49)
+// Reference: n8n-nodes-base 1.121.0, nodes/Slack/SlackTrigger.node.js (description.properties, version 1). Names,
+// defaults, options and visibility rules as in the reference; the notices are filuflow's own texts without links to the
+// reference documentation, the descriptions likewise.
+// -------------------------------------------------------------------------------------------------------------------
+
+/** Events whose channel can be watched (reference: show rule of watchWorkspace and its notice) */
+const CHANNEL_EVENTS = ['any_event', 'message', 'reaction_added', 'file_share', 'app_mention'];
+
+export const slackTriggerParameters: ParamSchema[] = [
+  { name: 'authentication', label: 'Authentication', type: 'hidden', default: 'accessToken' },
+  {
+    name: 'notice',
+    label:
+      'Set up a webhook in your Slack app to enable this node: enter the production URL as the Request URL under "Event Subscriptions" and subscribe to the bot events you need. We also recommend setting a signing secret ("Signature Secret" in the credential) to ensure the authenticity of requests.',
+    type: 'notice',
+    default: '',
+  },
+  {
+    name: 'trigger',
+    label: 'Trigger On',
+    type: 'multiOptions',
+    default: [],
+    options: [
+      { value: 'any_event', label: 'Any Event', description: 'Triggers on any event' },
+      { value: 'app_mention', label: 'Bot / App Mention', description: 'When your bot or app is mentioned in a channel the app is added to' },
+      { value: 'file_public', label: 'File Made Public', description: 'When a file is made public' },
+      { value: 'file_share', label: 'File Shared', description: 'When a file is shared in a channel the app is added to' },
+      { value: 'message', label: 'New Message Posted to Channel', description: 'When a message is posted to a channel the app is added to' },
+      { value: 'channel_created', label: 'New Public Channel Created', description: 'When a new public channel is created' },
+      { value: 'team_join', label: 'New User', description: 'When a new user is added to Slack' },
+      { value: 'reaction_added', label: 'Reaction Added', description: 'When a reaction is added to a message the app is added to' },
+    ],
+  },
+  {
+    name: 'watchWorkspace',
+    label: 'Watch Whole Workspace',
+    type: 'boolean',
+    default: false,
+    description: 'Whether to watch for the event in the whole workspace, rather than a specific channel',
+    show: { trigger: CHANNEL_EVENTS },
+  },
+  {
+    name: 'notice',
+    label: 'This will use one execution for every event in any channel your bot is in, use with caution',
+    type: 'notice',
+    default: '',
+    show: { trigger: CHANNEL_EVENTS, watchWorkspace: [true] },
+  },
+  {
+    name: 'channelId',
+    label: 'Channel to Watch',
+    type: 'resourceLocator',
+    required: true,
+    default: { mode: 'list', value: '' },
+    placeholder: 'Select a channel...',
+    description: 'The Slack channel to listen to events from. Applies to events: Bot/App mention, File Shared, New Message Posted on Channel, Reaction Added.',
+    show: { watchWorkspace: [false] },
+    modes: channelModes(false),
+  },
+  {
+    name: 'downloadFiles',
+    label: 'Download Files',
+    type: 'boolean',
+    default: false,
+    description: 'Whether to download the files and add it to the output',
+    show: { trigger: ['any_event', 'file_share'] },
+  },
+  {
+    name: 'options',
+    label: 'Options',
+    type: 'collection',
+    default: {},
+    placeholder: 'Add Field',
+    addLabel: 'Add Field',
+    children: [
+      { name: 'resolveIds', label: 'Resolve IDs', type: 'boolean', default: false, description: 'Whether to resolve the IDs to their respective names and return them' },
+      {
+        name: 'userIds',
+        label: 'Usernames or IDs to Ignore',
+        type: 'multiOptions',
+        loadOptions: getUsers,
+        default: [],
+        description: 'Users whose events do not start the workflow; pick them from the list or give user IDs with an expression',
+      },
+    ],
+  },
+];

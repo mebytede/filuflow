@@ -96,6 +96,8 @@ export interface NodeTypeInfo {
   aiOutput?: string;
   outputs: number;
   group: string;
+  /** Webhooks from the node description (package nodes, Slack Trigger): the node gets a webhook ID when added */
+  webhook?: boolean;
   /** Parameter description for the form (src/nodes/params.ts) */
   parameters?: ParamSchema[];
 }

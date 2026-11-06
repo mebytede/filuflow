@@ -80,3 +80,25 @@ export const slackMethods: NodeMethods = {
   listSearch: { getChannels: searchChannels, getUsers: searchUsers },
   loadOptions: { getUsers, getChannels, getChannelsName, getTeamFields },
 };
+
+/**
+ * Slack Trigger (M49). Reference: n8n-nodes-base 1.121.0, nodes/Slack/SlackTrigger.node.js methods.listSearch.getChannels
+ * (all pages of conversations.list with limit 100, filtered by name or ID, sorted by lowercased name, no pagination
+ * token) and methods.loadOptions.getUsers (same as the Slack node)
+ */
+async function searchAllChannels(ctx: LoadOptionsContext, filter?: string): Promise<ListSearchResult> {
+  const channels = await slackApiRequestAllItems(ctx, 'channels', 'GET', '/conversations.list', {}, { types: CHANNEL_TYPES });
+  const results = byName(
+    matching(
+      channels.map((c) => ({ name: String(c.name ?? ''), value: String(c.id ?? '') })),
+      filter,
+    ),
+    true,
+  );
+  return { results };
+}
+
+export const slackTriggerMethods: NodeMethods = {
+  listSearch: { getChannels: searchAllChannels },
+  loadOptions: { getUsers },
+};

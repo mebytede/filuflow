@@ -66,6 +66,7 @@ import { toolVectorStoreNode } from './toolVectorStore.js';
 import { gmailNode } from './gmail.js';
 import { gmailTriggerNode } from './gmailTrigger.js';
 import { slackNode } from './slack.js';
+import { slackTriggerNode } from './slackTrigger.js';
 
 export const builtinNodeTypes: NodeType[] = [
   manualTriggerNode,
@@ -133,6 +134,7 @@ export const builtinNodeTypes: NodeType[] = [
   gmailNode,
   gmailTriggerNode,
   slackNode,
+  slackTriggerNode,
 ];
 
 let defaultRegistry: NodeRegistry | undefined;

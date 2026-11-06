@@ -10,6 +10,12 @@ breaking changes; they are listed under "Changed" or "Removed".
 
 ### Added
 
+- **Slack Trigger.** Starts a workflow on Slack events (any event, mentions of the app, shared or public files, new
+  messages, new public channels, new users, reactions) sent by the Slack Events API to the trigger's URL, for one
+  channel or the whole workspace. Requests are checked against the app's signing secret ("Signature Secret" in the Slack
+  credential) and Slack's URL check is answered automatically. Options resolve user and channel IDs to names, ignore
+  chosen users and download shared files as binary data. The editor shows the production and test URL to enter in the
+  Slack app. Exported workflows with the Slack Trigger run without changes. German texts included.
 - **Slack node.** Channels (create, archive, history, replies, members, invite, kick and more), messages (send as text,
   blocks or attachments to a channel or user, as thread reply or ephemeral message; update, delete, permalink, search),
   files (upload from binary data, get, list), reactions, stars, users (profile and status) and user groups, with an
