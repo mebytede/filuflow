@@ -10,6 +10,14 @@ breaking changes; they are listed under "Changed" or "Removed".
 
 ### Added
 
+- **Microsoft Outlook node.** Messages (send with attachments, reply, move, update, get and list with search, filters
+  and attachment download, the whole message as an .eml file, delete), drafts, mail folders and the messages of a
+  folder, message attachments (add, also large files, download, list), calendars, events (also all-day events and
+  events of all calendars) and contacts of a Microsoft 365 or Outlook.com mailbox, also of a shared mailbox, through
+  Microsoft Graph. "Send and Wait for Response" sends an email with approval buttons or a link to a response form and
+  continues the workflow when someone answers. Calendars, contacts, drafts, messages, events, folders and attachments
+  are picked from searchable lists in the editor, categories and folders from option lists. Exported workflows with
+  Outlook nodes of version 2 run without changes; version 1 is reported as not supported. German texts included.
 - **Slack Trigger.** Starts a workflow on Slack events (any event, mentions of the app, shared or public files, new
   messages, new public channels, new users, reactions) sent by the Slack Events API to the trigger's URL, for one
   channel or the whole workspace. Requests are checked against the app's signing secret ("Signature Secret" in the Slack

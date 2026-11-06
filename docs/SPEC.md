@@ -336,6 +336,7 @@ Engine order, expressions (including raw value vs. string), every node, filter o
 | M47c | Dynamic option lists for community node packages | `methods.loadOptions` / `methods.listSearch` of package nodes per version with a load options context (`getCurrentNodeParameter`, `getCurrentNodeParameters`, `getNodeParameter` without item index, request helpers); declarative `typeOptions.loadOptions.routing` via the routing runner; option fields with `loadOptionsMethod` and the resource locator modes of package descriptions in the form |
 | M48 | Slack node | All resources and operations of Slack v2 to 2.4 with access token and OAuth2, Block Kit messages, file uploads, cursor pagination, channel and user lists, send and wait for a response |
 | M49 | Slack Trigger | Events API webhook with signature check, url_verification, event, channel and user filters, resolved names, file download, production and test URL |
+| M50 | Microsoft Outlook node | All resources and operations of the Outlook node v2 against Microsoft Graph (calendars, contacts, drafts, events, folders, folder messages, messages, message attachments) with paging, filters, output modes, attachments in and out, option lists and send and wait for a response |
 
 After each milestone: update `docs/STATUS.md` (what works, what is missing) and make a commit with a meaningful message.
 
@@ -356,9 +357,9 @@ Open features, roughly ordered by benefit. Each is implemented like a milestone 
   vector stores (e.g. PGVector, Qdrant), files such as PDF in the Data Loader
   (Responses API, Groq, Mistral, Ollama, DeepSeek, OpenRouter, Azure OpenAI, Think Tool: M26; Embeddings, Simple Vector
   Store, Retriever, Q&A Chain: M27)
-- Outlook / Microsoft 365 next, then more integrations; poll triggers use the mechanism for built-in poll nodes, webhook
-  triggers the webhook mechanism for nodes with description webhooks (Gmail and Gmail Trigger: M40, M41; Slack node and
-  Slack Trigger: M48, M49)
+- Outlook Trigger next (poll trigger on the mechanism for built-in poll nodes), then more Microsoft 365 and other
+  integrations; poll triggers use the mechanism for built-in poll nodes, webhook triggers the webhook mechanism for nodes
+  with description webhooks (Gmail and Gmail Trigger: M40, M41; Slack node and Slack Trigger: M48, M49; Outlook node: M50)
 - Community nodes: AI sub-nodes from community node packages (plugin interface and programmatic nodes: M24; declarative
   nodes: M29; installation from the interface: M30; poll and trigger nodes: M31; webhook nodes: M32)
 

@@ -1,4 +1,5 @@
-// "Send and Wait for Response" (operation sendAndWait of Gmail, M40, and Slack, M48). Behavior as in n8n-nodes-base 1.121.0
+// "Send and Wait for Response" (operation sendAndWait of Gmail, M40, Slack, M48, and Microsoft Outlook, M50).
+// Behavior as in n8n-nodes-base 1.121.0
 // utils/sendAndWait/utils.js (getSendAndWaitConfig, createEmail, sendAndWaitWebhook), configureWaitTillDate.util.js,
 // n8n-core 1.122.0 node-execution-context.js getSignedResumeUrl with utils/signature-helpers.js (HMAC-SHA256 over
 // host, path and query, query parameter "signature") and the reference version 1.123.0, webhooks/waiting-webhooks.ts (signature check,
@@ -156,15 +157,24 @@ export function sendAndWaitConfig(ctx: ExecContext): SendAndWaitConfig {
  */
 export function createSendAndWaitEmail(ctx: ExecContext): Email {
   const to = String(ctx.getParam('sendTo', 0, '') ?? '').trim();
-  const config = sendAndWaitConfig(ctx);
-  const buttons = config.options.map((b) => button(b.url, b.label, b.style));
+  const { subject, html } = sendAndWaitEmailBody(ctx);
   if (!to.includes('@') || (to.match(/@/g) ?? []).length > 1) {
     throw new NodeOperationError(ctx.node.name, 'Invalid email address', {
       description: `The email address '${to}' in the 'To' field isn't valid or contains multiple addresses. Please provide only a single email address.`,
       itemIndex: 0,
     });
   }
-  return { to, subject: config.title, body: '', htmlBody: emailBody(config.title, config.message, buttons.join('\n')) };
+  return { to, subject, body: '', htmlBody: html };
+}
+
+/**
+ * Subject and HTML body of the "Send and Wait" email (message and the buttons of sendAndWaitConfig), shared by the Gmail
+ * email and the Outlook message (M50). The attribution of the reference is not added (docs/DECISIONS.md).
+ */
+export function sendAndWaitEmailBody(ctx: ExecContext): { subject: string; html: string } {
+  const config = sendAndWaitConfig(ctx);
+  const buttons = config.options.map((b) => button(b.url, b.label, b.style));
+  return { subject: config.title, html: emailBody(config.title, config.message, buttons.join('\n')) };
 }
 
 const UNIT_MS: Record<string, number> = { minutes: 60_000, hours: 3_600_000, days: 86_400_000 };
