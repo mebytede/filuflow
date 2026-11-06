@@ -1,4 +1,4 @@
-// Parameters of the Microsoft Outlook node (typeVersion 2) like n8n-nodes-base 1.121.0
+// Parameters of the Microsoft Outlook node (typeVersion 2) and the Microsoft Outlook Trigger (typeVersion 1) like n8n-nodes-base 1.121.0
 // nodes/Microsoft/Outlook/v2/actions/node.description.js with the operation files under v2/actions/<resource>/,
 // v2/descriptions/rlc.description.js, v2/descriptions/common.descriptions.js and the send and wait properties of
 // utils/sendAndWait/utils.js (getSendAndWaitProperties with "To"). Names, defaults, options and visibility rules as in
@@ -11,6 +11,7 @@
 import { DateTime } from 'luxon';
 import type { ParamSchema, ResourceLocatorMode } from '../params.js';
 import { sendAndWaitProperties } from './sendAndWaitParams.js';
+import { pollTimesParam } from './polling.js';
 import { CONTACT_FIELDS, EVENT_FIELDS, MESSAGE_FIELDS } from './outlook.js';
 
 const opts = (...pairs: Array<[string, string]>) => pairs.map(([value, label]) => ({ value, label }));
@@ -934,3 +935,43 @@ export const outlookParameters: ParamSchema[] = [
 
 /** Time zone values of "Create Event" (for tests) */
 export const OUTLOOK_TIME_ZONES = TIME_ZONES;
+
+// -------------------------------------------------------------------------------------------------------------------
+// Microsoft Outlook Trigger (M51): MicrosoftOutlookTrigger.node.js and trigger/MessageDescription.js of the same version
+// -------------------------------------------------------------------------------------------------------------------
+
+export const outlookTriggerParameters: ParamSchema[] = [
+  pollTimesParam,
+  {
+    name: 'multipleItemsNotice',
+    label: 'Several messages arriving within one polling interval produce several items, so the workflow has to cope with more than one item.',
+    type: 'notice',
+    default: '',
+  },
+  { name: 'event', label: 'Trigger On', type: 'options', default: 'messageReceived', options: opts(['messageReceived', 'Message Received']) },
+  ...outputParams(MESSAGE_FIELDS),
+  {
+    name: 'filters',
+    label: 'Filters',
+    type: 'collection',
+    default: {},
+    placeholder: 'Add Filter',
+    addLabel: 'Add Filter',
+    children: [
+      { ...filterQuery('custom', 'e.g. isRead eq false', 'messages'), description: 'OData filter expression ($filter) for the messages, combined with the other filters' },
+      { name: 'hasAttachments', label: 'Has Attachments', type: 'boolean', default: false },
+      { name: 'foldersToExclude', label: 'Folders to Exclude', type: 'multiOptions', loadOptions: getFolders, default: [], description: 'Folders whose messages are left out; pick them or give IDs with an expression' },
+      { name: 'foldersToInclude', label: 'Folders to Include', type: 'multiOptions', loadOptions: getFolders, default: [], description: 'Only messages of these folders; pick them or give IDs with an expression' },
+      {
+        name: 'readStatus',
+        label: 'Read Status',
+        type: 'options',
+        default: 'unread',
+        description: 'Whether read, unread or all messages start the workflow',
+        options: opts(['both', 'Unread and read messages'], ['unread', 'Unread messages only'], ['read', 'Read messages only']),
+      },
+      { name: 'sender', label: 'Sender', type: 'string', default: '', description: 'Name or email address of the sender' },
+    ],
+  },
+  { name: 'options', label: 'Options', type: 'collection', default: {}, placeholder: 'Add option', addLabel: 'Add option', children: attachmentDownloadOptions },
+];

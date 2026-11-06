@@ -1,5 +1,5 @@
 // German translations (params-nodes-outlook). Keys are the English source texts.
-// Node: microsoftOutlook (src/nodes/shared/outlookParams.ts). Texts already translated in other catalogs (e.g. "Options",
+// Nodes: microsoftOutlook and microsoftOutlookTrigger (src/nodes/shared/outlookParams.ts). Texts already translated in other catalogs (e.g. "Options",
 // "Message", "Subject", "To", "Limit", the send and wait fields) are not repeated here. Field names of Microsoft Graph
 // in the "Fields" lists and the time zone names are technical identifiers and stay untranslated.
 export const de: Record<string, string> = {
@@ -240,4 +240,9 @@ export const de: Record<string, string> = {
   'Get the details of the attachments of a message': 'Die Angaben zu den Anhängen einer Nachricht abrufen',
   'Name of the attachment; without it the file name of the binary data is used': 'Name des Anhangs; ohne Angabe wird der Dateiname der Binärdaten verwendet',
   'Select a attachment...': 'Anhang auswählen …',
+
+  // Microsoft Outlook Trigger (M51)
+  'Microsoft Outlook Trigger': 'Microsoft-Outlook-Trigger',
+  'OData filter expression ($filter) for the messages, combined with the other filters': 'OData-Filterausdruck ($filter) für die Nachrichten, kombiniert mit den anderen Filtern',
+  'Whether read, unread or all messages start the workflow': 'Ob gelesene, ungelesene oder alle Nachrichten den Workflow starten',
 };

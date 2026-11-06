@@ -10,6 +10,10 @@ breaking changes; they are listed under "Changed" or "Removed".
 
 ### Added
 
+- **Microsoft Outlook Trigger.** Starts a workflow when new messages arrive in a Microsoft 365 or Outlook.com mailbox,
+  checked at the chosen poll times. Messages can be filtered by folders (picked from a list), sender, attachments, read
+  status or a custom filter query; the output is simplified, raw or limited to chosen fields, and attachments can be
+  downloaded as binary data. A test run in the editor fetches the latest matching message. German texts included.
 - **Microsoft Outlook node.** Messages (send with attachments, reply, move, update, get and list with search, filters
   and attachment download, the whole message as an .eml file, delete), drafts, mail folders and the messages of a
   folder, message attachments (add, also large files, download, list), calendars, events (also all-day events and

@@ -847,5 +847,13 @@ Deliberate differences:
   items get the item index.
 
 The credential is the existing `microsoftOutlookOAuth2Api` (M28, scopes of the reference, "Use Shared Mailbox" with the
-user principal name); the node renews the token once after HTTP 401 like requestOAuth2. The Outlook Trigger follows in
-a later milestone.
+user principal name); the node renews the token once after HTTP 401 like requestOAuth2.
+
+## Microsoft Outlook Trigger (M51)
+The Outlook Trigger follows n8n-nodes-base 1.121.0 MicrosoftOutlookTrigger.node.js on the mechanism for built-in poll
+nodes (M41). Unlike the Gmail Trigger the reference keeps no list of possible duplicates: the window is half open
+(`ge` start, `lt` end) and the next window starts at the previous end, so a message is delivered once as long as
+Microsoft Graph reports it with its receive time. filuflow keeps that behavior instead of adding its own deduplication,
+so exported workflows see the same items. An error of the very first poll (no stored window yet) is thrown like in the
+reference, which makes it an activation error; later errors are only logged and the window still moves on, so messages
+received during a failed poll are not fetched again (same as the reference).

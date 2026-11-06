@@ -68,6 +68,7 @@ import { gmailTriggerNode } from './gmailTrigger.js';
 import { slackNode } from './slack.js';
 import { slackTriggerNode } from './slackTrigger.js';
 import { microsoftOutlookNode } from './microsoftOutlook.js';
+import { microsoftOutlookTriggerNode } from './microsoftOutlookTrigger.js';
 
 export const builtinNodeTypes: NodeType[] = [
   manualTriggerNode,
@@ -137,6 +138,7 @@ export const builtinNodeTypes: NodeType[] = [
   slackNode,
   slackTriggerNode,
   microsoftOutlookNode,
+  microsoftOutlookTriggerNode,
 ];
 
 let defaultRegistry: NodeRegistry | undefined;
