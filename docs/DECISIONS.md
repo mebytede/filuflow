@@ -787,4 +787,30 @@ does) and the buttons with signed resume URLs from `sendAndWaitConfig`, which th
 waiting webhook is the same for both nodes; Slack's link previews (user agent "Slackbot-LinkExpanding") count as bots and
 do not resume an approval.
 
-The Slack Trigger (Events API) is not part of this milestone.
+The Slack Trigger (Events API) follows in M49.
+
+## Slack Trigger (M49)
+The Slack Trigger follows n8n-nodes-base 1.121.0 nodes/Slack/SlackTrigger.node.js and SlackTriggerHelpers.js (version
+1). It is a built-in node that uses the same server path as webhook nodes from community packages (`packageWebhooks`,
+M32): one webhook "default", POST, path `webhook` below the webhook ID, response mode "onReceived". The reference
+description has no `responseData`, so a started execution answers with the text `firstEntryJson`, as the reference does;
+filtered events answer `{"message":"Webhook call received"}` without an execution. Like the reference, nothing is
+registered with Slack (the registration methods answer true), the signature is checked before the challenge is answered,
+"File Shared" or "Any Event" let every event type through, and "Watch Whole Workspace" is read even when hidden (default
+false), so events without a channel ID such as `channel_created` only pass with it on.
+
+No new dependency: the raw body for the signature was already kept for every webhook route (fastify buffer parser in
+`src/server/app.ts`); HMAC and the constant-time compare use `node:crypto`.
+
+Deliberate differences:
+- The notice texts are filuflow's own and link nowhere (the reference links to its documentation); the editor shows the
+  production and test URL with a hint for the Slack app's "Event Subscriptions".
+- A request without `event` (other callback types) is rejected with a node error and HTTP 500; the reference fails the
+  same way with a type error.
+- Plan errors (`paid_teams_only`) while resolving names name the resource "message" (the shared Slack helper); the
+  reference reads a non-existent `resource` parameter there.
+- A failed file download (HTTP 400 and above) is reported as an API error with the status text; the reference passes
+  the axios error on. Either way the call answers 500 and no execution starts.
+- New editor nodes with description webhooks (package webhook nodes and the Slack Trigger) get a webhook ID when added,
+  as nodes with webhooks do in the reference editor; before, package webhook nodes without one used the path
+  `<workflow ID>/<node name>/<path>`, which still works for stored workflows.

@@ -38,6 +38,8 @@ export const de: Record<string, string> = {
   'Internal integration secret for Notion.': 'Internal Integration Secret für Notion.',
   'Personal access token for Airtable.': 'Personal Access Token für Airtable.',
   'Bot or user token for Slack.': 'Bot- oder User-Token für Slack.',
+  'The signature secret is used to verify the authenticity of requests sent by Slack.': 'Mit dem Signature Secret wird die Echtheit der Anfragen von Slack geprüft.',
+  'Signature Secret': 'Signature Secret',
   'Secret key for Stripe.': 'Secret Key für Stripe.',
   'Private app token for HubSpot.': 'Private-App-Token für HubSpot.',
   'API key for OpenAI or a compatible service.': 'API-Schlüssel für OpenAI oder einen kompatiblen Dienst.',

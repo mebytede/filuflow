@@ -114,6 +114,8 @@ export function nodeTypeList(registry: NodeRegistry) {
         ...(t.aiOutput ? { aiOutput: t.aiOutput } : {}),
         outputs,
         ...(t.parameters ? { parameters: t.parameters } : {}),
+        // Nodes with webhooks from a description (package nodes, Slack Trigger) get a webhook ID when added
+        ...(t.packageWebhooks ? { webhook: true } : {}),
         group: t.group ?? (t.type === STICKY_NOTE_TYPE ? 'Other' : group(t.type, !!t.isTrigger, !!t.isSubNode)),
       };
     });

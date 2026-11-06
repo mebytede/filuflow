@@ -194,6 +194,7 @@ export const de: Record<string, string> = {
   'Production': 'Produktiv',
   'Test': 'Test',
   'The production URL only works for active, saved workflows.': 'Produktiv-URL gilt nur für aktive, gespeicherte Workflows.',
+  'Enter the production URL in your Slack app under "Event Subscriptions" as the Request URL. Slack accepts only one URL per app: use the test URL there while testing.': 'Tragen Sie die Produktiv-URL in Ihrer Slack-App unter "Event Subscriptions" als Request URL ein. Slack nimmt pro App nur eine URL an: Verwenden Sie dort während des Testens die Test-URL.',
   'The chat page only exists if the chat is public ("public").': 'Die Chat-Seite gibt es nur, wenn der Chat öffentlich ist ("public").',
   'Variables like $input, $json and $now; print output with console.log.': 'Variablen wie $input, $json und $now; print-Ausgaben mit console.log.',
   'Python in the server (Pyodide). Variables with _ instead of $, e.g. _input.all(), _json, _now; output with print().': 'Python im Server (Pyodide). Variablen mit _ statt $, z. B. _input.all(), _json, _now; Ausgaben mit print().',

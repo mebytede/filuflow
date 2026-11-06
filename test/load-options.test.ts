@@ -713,6 +713,15 @@ describe('resolved parameters and extractValue (M47b)', () => {
     expect(findParamSchema(node.parameters, 'parameters.group.inner', {}, 1)?.name).toBe('inner');
     expect(findParamSchema(node.parameters, 'missing', {}, 1)).toBeUndefined();
   });
+
+  it('findParamSchema uses defaults of fields that are not stored for visibility', () => {
+    const defs = [
+      { name: 'wholeWorkspace', type: 'boolean', label: 'Whole workspace', default: false },
+      { name: 'channel', type: 'resourceLocator', label: 'Channel', show: { wholeWorkspace: [false] }, modes: [{ name: 'url', label: 'By URL', extractValue: { regex: 'archives/([A-Z0-9]+)' } }] },
+    ] as unknown as Parameters<typeof findParamSchema>[0];
+    expect(findParamSchema(defs, 'channel', {}, 1)?.modes?.[0].extractValue).toBeDefined();
+    expect(findParamSchema(defs, 'channel', { wholeWorkspace: true }, 1)).toBeUndefined();
+  });
 });
 
 describe('editor helpers of the resource locator (M47b)', () => {

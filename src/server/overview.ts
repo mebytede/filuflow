@@ -70,6 +70,8 @@ export function triggersOf(workflow: Workflow, schedules: RegisteredSchedule[] =
       out.push({ kind: 'chat', label: node.parameters?.public === true ? 'Chat (public)' : 'Chat' });
     } else if (type === 'n8n-nodes-base.executeWorkflowTrigger') {
       out.push({ kind: 'workflow', label: 'Called by workflow' });
+    } else if (type === 'n8n-nodes-base.slackTrigger') {
+      out.push({ kind: 'webhook', label: `Slack POST /${node.webhookId ? `${node.webhookId}/webhook` : 'webhook'}` });
     } else if (/trigger$/i.test(type)) {
       out.push({ kind: 'other', label: type.split('.').pop() ?? type });
     }
