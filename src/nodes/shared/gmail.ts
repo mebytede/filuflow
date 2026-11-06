@@ -11,27 +11,11 @@ import { getOAuth2Token, oauth2ServiceOptions } from '../../credentials/oauth2.j
 import { authenticateRequest, withCredentialDefaults } from '../../credentials/authenticate.js';
 import { GOOGLE_SERVICE_ACCOUNT_SCOPES, GoogleTokenError, getGoogleAccessToken } from '../../credentials/googleServiceAccount.js';
 import { composeMail, parseMail, toBase64Url, type MailAttachment } from './mime.js';
+import { statusCodeMessage } from './apiErrors.js';
 
 export type Json = Record<string, unknown>;
 
 export const GOOGLE_API_BASE = 'https://www.googleapis.com';
-
-/** NodeApiError messages per status code (n8n-workflow node-api.error.ts STATUS_CODE_MESSAGES) */
-const STATUS_CODE_MESSAGES: Record<string, string> = {
-  '4XX': 'Your request is invalid or could not be processed by the service',
-  '400': 'Bad request - please check your parameters',
-  '401': 'Authorization failed - please check your credentials',
-  '402': 'Payment required - perhaps check your payment details?',
-  '403': 'Forbidden - perhaps check your credentials?',
-  '404': 'The resource you are requesting could not be found',
-  '405': 'Method not allowed - please check you are using the right HTTP method',
-  '429': 'The service is receiving too many requests from you',
-  '5XX': 'The service failed to process your request',
-  '500': 'The service was not able to process your request',
-  '502': 'Bad gateway - the service failed to handle your request',
-  '503': 'Service unavailable - try again later or consider setting this node to retry automatically (in the node settings)',
-  '504': 'Gateway timed out - perhaps try again later?',
-};
 
 /** Description of a Google error response ({ error: { message } }, { error_description }) */
 function googleErrorDescription(body: unknown): string | undefined {
@@ -63,7 +47,7 @@ function gmailApiError(ctx: ExecContext, statusCode: number, body: unknown): Nod
   if (code === '404') return make(`${capitalize(resource === 'label' ? 'label ID' : resource)} not found`, '');
   if (code === '409' && resource === 'label') return make('Label name exists already', '');
   if (code === '400' && description) return make(description, '');
-  const message = STATUS_CODE_MESSAGES[code] ?? (code.startsWith('4') ? STATUS_CODE_MESSAGES['4XX'] : code.startsWith('5') ? STATUS_CODE_MESSAGES['5XX'] : `Request failed with status code ${code}`);
+  const message = statusCodeMessage(code);
   return make(message, description);
 }
 

@@ -65,6 +65,7 @@ import { chainRetrievalQaNode } from './chainRetrievalQa.js';
 import { toolVectorStoreNode } from './toolVectorStore.js';
 import { gmailNode } from './gmail.js';
 import { gmailTriggerNode } from './gmailTrigger.js';
+import { slackNode } from './slack.js';
 
 export const builtinNodeTypes: NodeType[] = [
   manualTriggerNode,
@@ -131,6 +132,7 @@ export const builtinNodeTypes: NodeType[] = [
   toolVectorStoreNode,
   gmailNode,
   gmailTriggerNode,
+  slackNode,
 ];
 
 let defaultRegistry: NodeRegistry | undefined;

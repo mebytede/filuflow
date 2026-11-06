@@ -930,7 +930,7 @@ export class WebhookService {
     const method = request.method.toUpperCase();
     const store = this.options.store;
     const stored = store?.get(executionId, false);
-    // Send and wait (Gmail): /webhook-waiting/<executionId>/<node ID> with a signed query (waiting-webhooks.ts)
+    // Send and wait (Gmail, Slack): /webhook-waiting/<executionId>/<node ID> with a signed query (waiting-webhooks.ts)
     const sendAndWaitNode = suffix && stored ? store?.get(executionId)?.workflow?.nodes.find((n) => n.id === suffix && n.parameters.operation === SEND_AND_WAIT_OPERATION) : undefined;
     if (store && stored && sendAndWaitNode && (method === 'GET' || method === 'POST')) return this.handleSendAndWait(executionId, sendAndWaitNode, request);
     if (!store || !stored) return errorResponse(Object.assign(new Error(`The execution "${executionId}" does not exist.`), { statusCode: 404 }));

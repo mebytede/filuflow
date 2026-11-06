@@ -1,4 +1,4 @@
-// "Send and Wait for Response" (Gmail operation sendAndWait, M40). Behavior as in n8n-nodes-base 1.121.0
+// "Send and Wait for Response" (operation sendAndWait of Gmail, M40, and Slack, M48). Behavior as in n8n-nodes-base 1.121.0
 // utils/sendAndWait/utils.js (getSendAndWaitConfig, createEmail, sendAndWaitWebhook), configureWaitTillDate.util.js,
 // n8n-core 1.122.0 node-execution-context.js getSignedResumeUrl with utils/signature-helpers.js (HMAC-SHA256 over
 // host, path and query, query parameter "signature") and the reference version 1.123.0, webhooks/waiting-webhooks.ts (signature check,
@@ -108,37 +108,63 @@ function emailBody(title: string, message: string, buttons: string): string {
 </html>`;
 }
 
+/** One button of the message: label, signed resume URL and style */
+export interface SendAndWaitButton {
+  label: string;
+  url: string;
+  style: string;
+}
+
+/** getSendAndWaitConfig: subject, message (entities turned back, "\\n" and <br> as line breaks) and buttons */
+export interface SendAndWaitConfig {
+  title: string;
+  message: string;
+  options: SendAndWaitButton[];
+  appendAttribution?: unknown;
+}
+
 /**
- * getSendAndWaitConfig and createEmail: one recipient, subject and message, buttons with signed resume URLs
- * (approve, approve and decline, or "Respond" for the forms). The attribution of the reference is not added (docs/DECISIONS.md).
+ * getSendAndWaitConfig: buttons with signed resume URLs (approve, decline and approve, or "Respond" for the forms).
+ * Shared by the Gmail email and the Slack message.
  */
-export function createSendAndWaitEmail(ctx: ExecContext): Email {
-  const to = String(ctx.getParam('sendTo', 0, '') ?? '').trim();
+export function sendAndWaitConfig(ctx: ExecContext): SendAndWaitConfig {
   const message = unescapeEntities(String(ctx.getParam('message', 0, '') ?? '').trim())
     .replace(/\\n/g, '\n')
     .replace(/<br>/g, '\n');
-  const subject = unescapeEntities(String(ctx.getParam('subject', 0, '') ?? ''));
+  const title = unescapeEntities(String(ctx.getParam('subject', 0, '') ?? ''));
   const approval = ctx.getParam<Record<string, string>>('approvalOptions.values', 0, {});
+  const options = ctx.getParam<Record<string, unknown>>('options', 0, {});
   const responseType = ctx.getParam<string>('responseType', 0, 'approval');
   const resumeUrl = String(ctx.evaluateExpression('{{ $execution.resumeUrl }}', 0));
   const nodeId = ctx.node.id;
   const approvedUrl = signedResumeUrl(resumeUrl, nodeId, { approved: 'true' });
-  const buttons: string[] = [];
+  const buttons: SendAndWaitButton[] = [];
   if (responseType === 'freeText' || responseType === 'customForm') {
-    buttons.push(button(approvedUrl, ctx.getParam<string>('options.messageButtonLabel', 0, 'Respond'), 'primary'));
+    buttons.push({ label: ctx.getParam<string>('options.messageButtonLabel', 0, 'Respond'), url: approvedUrl, style: 'primary' });
   } else if (approval.approvalType === 'double') {
-    buttons.push(button(signedResumeUrl(resumeUrl, nodeId, { approved: 'false' }), unescapeEntities(approval.disapproveLabel || 'Disapprove'), approval.buttonDisapprovalStyle || 'secondary'));
-    buttons.push(button(approvedUrl, unescapeEntities(approval.approveLabel || 'Approve'), approval.buttonApprovalStyle || 'primary'));
+    buttons.push({ label: unescapeEntities(approval.disapproveLabel || 'Disapprove'), url: signedResumeUrl(resumeUrl, nodeId, { approved: 'false' }), style: approval.buttonDisapprovalStyle || 'secondary' });
+    buttons.push({ label: unescapeEntities(approval.approveLabel || 'Approve'), url: approvedUrl, style: approval.buttonApprovalStyle || 'primary' });
   } else {
-    buttons.push(button(approvedUrl, unescapeEntities(approval.approveLabel || 'Approve'), approval.buttonApprovalStyle || 'primary'));
+    buttons.push({ label: unescapeEntities(approval.approveLabel || 'Approve'), url: approvedUrl, style: approval.buttonApprovalStyle || 'primary' });
   }
+  return { title, message, options: buttons, appendAttribution: options.appendAttribution };
+}
+
+/**
+ * createEmail: one recipient, subject and message with the buttons of sendAndWaitConfig. The attribution of the reference
+ * is not added (docs/DECISIONS.md).
+ */
+export function createSendAndWaitEmail(ctx: ExecContext): Email {
+  const to = String(ctx.getParam('sendTo', 0, '') ?? '').trim();
+  const config = sendAndWaitConfig(ctx);
+  const buttons = config.options.map((b) => button(b.url, b.label, b.style));
   if (!to.includes('@') || (to.match(/@/g) ?? []).length > 1) {
     throw new NodeOperationError(ctx.node.name, 'Invalid email address', {
       description: `The email address '${to}' in the 'To' field isn't valid or contains multiple addresses. Please provide only a single email address.`,
       itemIndex: 0,
     });
   }
-  return { to, subject, body: '', htmlBody: emailBody(subject, message, buttons.join('\n')) };
+  return { to, subject: config.title, body: '', htmlBody: emailBody(config.title, config.message, buttons.join('\n')) };
 }
 
 const UNIT_MS: Record<string, number> = { minutes: 60_000, hours: 3_600_000, days: 86_400_000 };
