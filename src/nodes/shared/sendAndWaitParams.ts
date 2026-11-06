@@ -1,5 +1,5 @@
-// Parameters of the "Send and Wait for Response" operation (sendAndWait), shared by the Gmail node (M40) and the Slack
-// node (M48). Reference: n8n-nodes-base 1.121.0, utils/sendAndWait/utils.js (getSendAndWaitProperties) and
+// Parameters of the "Send and Wait for Response" operation (sendAndWait), shared by the Gmail node (M40), the Slack
+// node (M48) and the Microsoft Outlook node (M50). Reference: n8n-nodes-base 1.121.0, utils/sendAndWait/utils.js (getSendAndWaitProperties) and
 // utils/sendAndWait/descriptions.js (limitWaitTimeProperties). Values and structure as in the reference, own descriptions.
 import type { ParamSchema } from '../params.js';
 import { formFieldsDefinitionParams } from './formParams.js';

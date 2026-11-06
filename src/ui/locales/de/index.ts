@@ -7,6 +7,7 @@ import { de as nodesB } from './params-nodes-b.js';
 import { de as nodesC } from './params-nodes-c.js';
 import { de as nodesGmail } from './params-nodes-gmail.js';
 import { de as nodesSlack } from './params-nodes-slack.js';
+import { de as nodesOutlook } from './params-nodes-outlook.js';
 import { de as credentials } from './params-credentials.js';
 
-export const de: Record<string, string> = { ...nodesA, ...nodesB, ...nodesC, ...nodesGmail, ...nodesSlack, ...credentials, ...master, ...editor, ...app };
+export const de: Record<string, string> = { ...nodesA, ...nodesB, ...nodesC, ...nodesGmail, ...nodesSlack, ...nodesOutlook, ...credentials, ...master, ...editor, ...app };

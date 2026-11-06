@@ -814,3 +814,46 @@ Deliberate differences:
 - New editor nodes with description webhooks (package webhook nodes and the Slack Trigger) get a webhook ID when added,
   as nodes with webhooks do in the reference editor; before, package webhook nodes without one used the path
   `<workflow ID>/<node name>/<path>`, which still works for stored workflows.
+
+## Microsoft Outlook node (M50)
+The Microsoft Outlook node follows n8n-nodes-base 1.121.0 nodes/Microsoft/Outlook/v2 (typeVersion 2): parameter names,
+defaults, visibility rules, request shapes against Microsoft Graph and outputs are those of the reference, also where the
+reference is odd: the home address of a contact keeps its `{ values }` wrapper (only the business and other address are
+unwrapped), an all-day event always ends 24 hours after its start (the reference compares a duration in milliseconds by
+its hours, which are always 0), "Add" of a message attachment reads the binary field name from the first item, folder
+"Get" also passes an `options.filter` that the form does not offer, and the additional fields of "Create Event" go into
+the body unfiltered. Version 1 (the old description) is not implemented and reported as an unsupported version.
+
+Errors are mapped like the reference's NodeApiError over a request library error: the message comes from the status
+code, the description from the Graph error body (`findErrorDescription` in `src/nodes/shared/apiErrors.ts`, the key
+order of the reference); as in microsoftApiRequest a bad request with a description shows the description as the
+message (with field names replaced by their labels when it has the form "code - JSON - message").
+
+Deliberate differences:
+- The time zone list of "Create Event" holds the IANA names of the runtime (`Intl.supportedValuesOf('timeZone')`) and
+  UTC instead of the names of moment-timezone, which is not a dependency of filuflow; the list has no legacy aliases such
+  as "US/Eastern", but such a stored value is still sent as it is.
+- Attachments (draft create, message send and reply, attachment add) always send the Base64 content of the binary data;
+  the reference sends `binaryData.data` in some operations, which is the storage reference instead of the content when
+  binary data is kept in files.
+- The option list for attachments uses the pagination token of the previous page; the reference's `searchAttachments`
+  has only one parameter and receives the filter text there, so "Load more" starts from the first page again.
+- "Send and Wait for Response" sends filuflow's email body (the same as the Gmail node) without the attribution of the
+  reference.
+- An unknown operation fails with a clear node error (the reference fails with a type error); the validator reports it
+  before the run anyway. A message without `toRecipients` is simplified with an empty `to` list instead of a type error.
+- A failed chunk of an attachment upload session is reported as an API error with the status text.
+- All output items carry `pairedItem` (the reference leaves it out for items with downloaded attachments), and failed
+  items get the item index.
+
+The credential is the existing `microsoftOutlookOAuth2Api` (M28, scopes of the reference, "Use Shared Mailbox" with the
+user principal name); the node renews the token once after HTTP 401 like requestOAuth2.
+
+## Microsoft Outlook Trigger (M51)
+The Outlook Trigger follows n8n-nodes-base 1.121.0 MicrosoftOutlookTrigger.node.js on the mechanism for built-in poll
+nodes (M41). Unlike the Gmail Trigger the reference keeps no list of possible duplicates: the window is half open
+(`ge` start, `lt` end) and the next window starts at the previous end, so a message is delivered once as long as
+Microsoft Graph reports it with its receive time. filuflow keeps that behavior instead of adding its own deduplication,
+so exported workflows see the same items. An error of the very first poll (no stored window yet) is thrown like in the
+reference, which makes it an activation error; later errors are only logged and the window still moves on, so messages
+received during a failed poll are not fetched again (same as the reference).
