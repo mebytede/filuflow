@@ -108,6 +108,7 @@ export interface ParamCondition {
   gt?: number;
   lte?: number;
   lt?: number;
+  between?: { from: number; to: number };
   not?: unknown;
   exists?: boolean;
   startsWith?: string;
@@ -138,6 +139,7 @@ export interface ParamSchema {
     | 'assignments'
     | 'filter'
     | 'resourceLocator'
+    | 'resourceMapper'
     | 'notice'
     | 'hidden';
   default?: unknown;
@@ -171,11 +173,37 @@ export interface ParamSchema {
     validation?: Array<{ regex: string; errorMessage: string }>;
     listSource?: 'workflows';
   }>;
+  resourceMapper?: {
+    method: string;
+    mode: 'add' | 'update' | 'upsert' | 'map';
+    dependsOn?: string[];
+    fieldWords?: { singular: string; plural: string };
+    addAllFields?: boolean;
+    multiKeyMatch?: boolean;
+    supportAutoMap?: boolean;
+    allowEmptyValues?: boolean;
+    showTypeConversionOptions?: boolean;
+  };
+}
+
+/** Field of a resource mapper (mirror of src/nodes/types.ts) */
+export interface ResourceMapperField {
+  id: string;
+  displayName: string;
+  required: boolean;
+  defaultMatch: boolean;
+  display: boolean;
+  type?: string;
+  canBeUsedToMatch?: boolean;
+  readOnly?: boolean;
+  removed?: boolean;
+  options?: Array<{ name: string; value: string | number | boolean }>;
+  defaultValue?: unknown;
 }
 
 /** Request for a dynamic option list (POST /api/editor/load-options, M47a) */
 export interface LoadOptionsRequest {
-  kind: 'options' | 'listSearch';
+  kind: 'options' | 'listSearch' | 'resourceMapping';
   node: { type: string; typeVersion: number; parameters: Record<string, unknown>; credentials?: Record<string, { id?: string | null; name: string }> };
   /** Path of the parameter, e.g. "parameters.filters.labelIds" */
   path: string;
@@ -197,6 +225,9 @@ export interface LoadOptionsResponse {
   /** kind "listSearch" */
   results?: LoadedOption[];
   paginationToken?: unknown;
+  /** kind "resourceMapping" */
+  fields?: ResourceMapperField[];
+  emptyFieldsNotice?: string;
 }
 
 export interface CredentialInfo {

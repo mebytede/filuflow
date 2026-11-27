@@ -362,6 +362,7 @@ export class Panel {
         readonly: this.host.readonly,
         schema,
         nodeType: node.type,
+        serviceName: this.host.types().get(node.type)?.displayName ?? node.type,
         version: node.typeVersion,
         ...((this.host.loadOptions || this.host.listWorkflows) && !this.host.readonly ? { dynamic: this.dynamicHost(node.name) } : {}),
         onChange: (key) =>

@@ -9,12 +9,15 @@ import type { ParamSchema } from '../types.js';
 import { newId } from './model.js';
 import { dynamicMultiOptionsInput, dynamicOptionsInput, resourceLocatorListInput, type DynamicFieldContext, type DynamicOptionsHost } from './dynamicOptions.js';
 import { canListMode, locatorValidationError } from './locatorModes.js';
+import { resourceMapperInput } from './resourceMapper.js';
 
 import { clone, entryDefaults, isExpr, valueOf, visibleDefs, type Level, type Values } from './schemaVisibility.js';
 
 export interface SchemaFormContext {
   readonly: boolean;
   nodeType: string;
+  /** Display name of the node type (texts of the resource mapper) */
+  serviceName?: string;
   version: number;
   /** Change without re-rendering (text input) */
   onChange(key: string): void;
@@ -22,6 +25,8 @@ export interface SchemaFormContext {
   onStructure(key: string): void;
   /** Loading of dynamic option lists (M47a); without it fields with loadOptions are plain inputs */
   dynamic?: DynamicOptionsHost;
+  /** Top-level parameters a resource mapper depends on: a typed change re-renders so that its fields reload (M52) */
+  mapperDependencies?: Set<string>;
 }
 
 function autoGrow(ta: HTMLTextAreaElement): void {
@@ -539,7 +544,7 @@ function filterInput(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext, root
 
 function fieldFor(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext, root: Level): HTMLElement {
   const value = io.get();
-  if (isExpr(value) && !def.noExpression && !['code', 'json', 'collection', 'fixedCollection', 'assignments', 'filter', 'resourceLocator', 'notice'].includes(def.type)) {
+  if (isExpr(value) && !def.noExpression && !['code', 'json', 'collection', 'fixedCollection', 'assignments', 'filter', 'resourceLocator', 'resourceMapper', 'notice'].includes(def.type)) {
     return expressionInput(def, io, ctx);
   }
   switch (def.type) {
@@ -556,6 +561,10 @@ function fieldFor(def: ParamSchema, io: FieldIo, ctx: SchemaFormContext, root: L
       return multiOptionsInput(def, io, ctx);
     case 'resourceLocator':
       return resourceLocatorInput(def, io, ctx);
+    case 'resourceMapper':
+      // Without a backend (or without its options) the value stays editable as JSON
+      if (!def.resourceMapper || !ctx.dynamic?.load) return textInput({ ...def, type: 'json' }, io, ctx);
+      return resourceMapperInput(def, io, { ...dynamicContext(def, io, ctx), serviceName: tl(ctx.serviceName) ?? ctx.nodeType }, ctx.dynamic, (fd, fio) => fieldFor(fd, fio, ctx, root));
     case 'assignments':
       return assignmentsInput(def, io, ctx);
     case 'filter':
@@ -592,10 +601,15 @@ function fieldRow(def: ParamSchema, level: Level, ctx: SchemaFormContext, root: 
       level.values[def.name] = v;
     },
   };
-  const wide = ['collection', 'fixedCollection', 'assignments', 'filter'].includes(def.type);
+  const wide = ['collection', 'fixedCollection', 'assignments', 'filter', 'resourceMapper'].includes(def.type);
+  // Typed values (text fields commit on change); selects and checkboxes re-render already
+  const onCommit =
+    path === 'parameters' && ctx.mapperDependencies?.has(def.name)
+      ? (e: Event) => (e.target instanceof HTMLTextAreaElement || (e.target instanceof HTMLInputElement && e.target.type !== 'checkbox')) && ctx.onStructure(io.key)
+      : undefined;
   return h(
     'div',
-    { class: `sf-row sf-${def.type}${wide ? ' sf-wide' : ''}`, 'data-param': def.name },
+    { class: `sf-row sf-${def.type}${wide ? ' sf-wide' : ''}`, 'data-param': def.name, ...(onCommit ? { onchange: onCommit } : {}) },
     h(
       'div',
       { class: 'sf-label' },
@@ -711,6 +725,7 @@ export function unknownParameters(params: Values, schema: ParamSchema[]): string
 /** Form for all visible top-level parameters */
 export function schemaForm(params: Values, schema: ParamSchema[], ctx: SchemaFormContext): HTMLElement {
   const root: Level = { values: params, defs: schema };
+  ctx.mapperDependencies ??= new Set(schema.flatMap((d) => (d.resourceMapper?.dependsOn ?? []).filter((p) => !p.startsWith('&')).map((p) => p.replace(/^\/+/, '').replace(/^parameters\./, '').split('.')[0])));
   const rows = levelForm(root, ctx, root, 'parameters');
   const unknown = unknownParameters(params, schema);
   return h(

@@ -167,6 +167,10 @@ function matches(value: unknown, allowed: unknown): boolean {
     if (typeof c.gt === 'number') return n > c.gt;
     if (typeof c.lte === 'number') return n <= c.lte;
     if (typeof c.lt === 'number') return n < c.lt;
+    if (c.between && typeof c.between === 'object') {
+      const { from, to } = c.between as { from: number; to: number };
+      return n >= from && n <= to;
+    }
     if (c.exists !== undefined) return (value !== undefined && value !== null && value !== '') === c.exists;
     if (typeof c.startsWith === 'string') return String(value ?? '').startsWith(c.startsWith);
     if (typeof c.endsWith === 'string') return String(value ?? '').endsWith(c.endsWith);
@@ -187,7 +191,9 @@ export function isDisplayed(options: PackageProperty['displayOptions'], values: 
   const check = (rule: DisplayRule | undefined, show: boolean): boolean => {
     if (!rule) return true;
     for (const [key, allowed] of Object.entries(rule)) {
-      const value = lookup(key);
+      let value = lookup(key);
+      // Resource locators count with their value (displayParameter; defaults get __rl in the reference)
+      if (value && typeof value === 'object' && ((value as Values).__rl || ('mode' in value && 'value' in value))) value = (value as Values).value;
       const list = Array.isArray(value) ? value : [value];
       // displayParameter: an expression as value always shows the parameter
       if (show && list.some((v) => typeof v === 'string' && v.charAt(0) === '=')) continue;

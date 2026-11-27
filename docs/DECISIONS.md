@@ -857,3 +857,31 @@ Microsoft Graph reports it with its receive time. filuflow keeps that behavior i
 so exported workflows see the same items. An error of the very first poll (no stored window yet) is thrown like in the
 reference, which makes it an activation error; later errors are only logged and the window still moves on, so messages
 received during a failed poll are not fetched again (same as the reference).
+
+## Resource mapper and Google Sheets node (M52)
+The resource mapper follows the reference (n8n-workflow 1.120.0 ResourceMapperTypeOptions, n8n-core 1.122.0
+validate-value-against-schema.js, the editor components ResourceMapper, MappingModeSelect, MatchingColumnsSelect and
+MappingFields of the reference version 1.123.0): the stored value has the same keys, empty values and keys without a
+field are pruned on every change, and the `removed` flag is only set where the reference sets it (matching columns and
+fields that were removed or added), so exported workflows and workflows edited here look alike. The fields are loaded
+through the existing load options service as a third kind (`resourceMapping`) instead of a separate endpoint: the
+permission checks, sharing checks, masking, limits and the master route apply unchanged. Two parts of the reference
+editor are left out: the check for outdated fields when the browser tab becomes visible again and the reload after an
+execution in "Map Automatically"; "Refresh column list" covers both. The form re-renders after a typed change of a
+parameter a resource mapper depends on, so that a new sheet ID reloads the columns like the reference's watcher.
+
+Visibility rules gained `_cnd.between` and use the value of resource locators, as displayParameter does; before, such
+rules (used by Google Sheets to show the resource mapper of 4.0 to 4.6 and to hide fields until a sheet is chosen) did
+not match.
+
+Google Sheets follows n8n-nodes-base 1.121.0 nodes/Google/Sheet/v2 (typeVersion 3 to 4.7): parameter names, defaults,
+version rules, requests and outputs. Kept on purpose:
+- The default title of a new sheet stays "n8n-sheet" (a value of the format; exported workflows leave defaults out).
+- A sheet ID with the prefix is only understood as "gid=0"; other IDs must be plain numbers (getSheetId).
+- An empty first row keeps a column without a header (removeEmptyColumns runs before leading empty rows are trimmed).
+- With "Continue On Fail" a failed operation returns one item with the first input item and the error, for all items.
+Differences: the cell format "RAW" is labelled "Let filuflow format"; the rewrite of permission errors in the reference
+transport only applies when the message contains PERMISSION_DENIED, which a status message never does, so Google's
+message stays the description; an invalid tab color fails with a clear message instead of a type error; the execution
+hint for empty match values in "Update Row" is not shown (filuflow has no execution hints).
+

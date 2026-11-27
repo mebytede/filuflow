@@ -7,27 +7,14 @@ import { DateTime } from 'luxon';
 import type { ExecContext } from '../types.js';
 import type { BinaryRef, Item } from '../../types.js';
 import { NodeApiError, NodeOperationError } from '../../errors.js';
-import { getOAuth2Token, oauth2ServiceOptions } from '../../credentials/oauth2.js';
-import { authenticateRequest, withCredentialDefaults } from '../../credentials/authenticate.js';
-import { GOOGLE_SERVICE_ACCOUNT_SCOPES, GoogleTokenError, getGoogleAccessToken } from '../../credentials/googleServiceAccount.js';
+import { GOOGLE_SERVICE_ACCOUNT_SCOPES } from '../../credentials/googleServiceAccount.js';
+import { googleAuthorizedRequest, googleErrorDescription, parseGoogleBody } from './googleAuth.js';
 import { composeMail, parseMail, toBase64Url, type MailAttachment } from './mime.js';
 import { statusCodeMessage } from './apiErrors.js';
 
 export type Json = Record<string, unknown>;
 
 export const GOOGLE_API_BASE = 'https://www.googleapis.com';
-
-/** Description of a Google error response ({ error: { message } }, { error_description }) */
-function googleErrorDescription(body: unknown): string | undefined {
-  if (typeof body === 'string') return body || undefined;
-  if (!body || typeof body !== 'object') return undefined;
-  const b = body as { error?: unknown; error_description?: unknown; message?: unknown };
-  if (b.error && typeof b.error === 'object' && typeof (b.error as Json).message === 'string') return (b.error as Json).message as string;
-  if (typeof b.error_description === 'string') return b.error_description;
-  if (typeof b.message === 'string') return b.message;
-  if (typeof b.error === 'string') return b.error;
-  return undefined;
-}
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -58,49 +45,16 @@ function gmailApiError(ctx: ExecContext, statusCode: number, body: unknown): Nod
  */
 export async function googleApiRequest(ctx: ExecContext, method: string, endpoint: string, body: Json = {}, query: Json = {}): Promise<unknown> {
   const search = qs.stringify(query, { arrayFormat: 'repeat' });
-  const url = `${GOOGLE_API_BASE}${endpoint}${search ? `?${search}` : ''}`;
-  const headers: Record<string, string> = { accept: 'application/json', 'content-type': 'application/json' };
-  const payload = Object.keys(body).length ? JSON.stringify(body) : undefined;
-  const authentication = String(ctx.getParam('authentication', 0, 'oAuth2'));
-  const send = (authorization: string) => ctx.helpers.http.request({ method, url, headers: { ...headers, authorization }, body: payload, signal: ctx.signal, timeout: 300_000 });
-  let res;
-  if (authentication === 'serviceAccount') {
-    const credentials = await ctx.getCredentials('googleApi');
-    let token: string;
-    try {
-      token = await getGoogleAccessToken(ctx.helpers.http, credentials, GOOGLE_SERVICE_ACCOUNT_SCOPES.gmail, { signal: ctx.signal });
-    } catch (error) {
-      if (error instanceof GoogleTokenError) {
-        throw new NodeApiError(ctx.node.name, error.message, { httpCode: String(error.statusCode), description: googleErrorDescription(error.body) ?? null });
-      }
-      throw error;
-    }
-    let authorization = `Bearer ${token}`;
-    // requestWithAuthentication('googleApi'): with "Set up for use in HTTP Request node" the credential's own token wins
-    if (credentials.httpNode === true) {
-      const authed = await authenticateRequest('googleApi', credentials, { url, headers: { authorization } }, { http: ctx.helpers.http, signal: ctx.signal });
-      authorization = String((authed.headers as Json | undefined)?.Authorization ?? authorization);
-    }
-    res = await send(authorization);
-  } else {
-    const credentials = withCredentialDefaults('gmailOAuth2', await ctx.getCredentials('gmailOAuth2'));
-    const options = oauth2ServiceOptions('gmailOAuth2');
-    const token = await getOAuth2Token(ctx, credentials, false, options);
-    res = await send(`Bearer ${token.accessToken}`);
-    if (res.statusCode === 401) {
-      const fresh = await getOAuth2Token(ctx, credentials, true, options);
-      res = await send(`Bearer ${fresh.accessToken}`);
-    }
-  }
-  const text = res.body.toString('utf8');
-  let data: unknown = text;
-  if (text) {
-    try {
-      data = JSON.parse(text);
-    } catch {
-      // keep the text
-    }
-  } else data = undefined;
+  const res = await googleAuthorizedRequest(ctx, {
+    method,
+    url: `${GOOGLE_API_BASE}${endpoint}${search ? `?${search}` : ''}`,
+    headers: { accept: 'application/json', 'content-type': 'application/json' },
+    body: Object.keys(body).length ? JSON.stringify(body) : undefined,
+    oauthType: 'gmailOAuth2',
+    scopes: GOOGLE_SERVICE_ACCOUNT_SCOPES.gmail,
+    serviceAccount: String(ctx.getParam('authentication', 0, 'oAuth2')) === 'serviceAccount',
+  });
+  const data = parseGoogleBody(res);
   if (res.statusCode >= 400) throw gmailApiError(ctx, res.statusCode, data);
   return data;
 }

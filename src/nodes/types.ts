@@ -255,10 +255,32 @@ export interface ListSearchResult {
   paginationToken?: unknown;
 }
 
+/** Field of a resource mapper (reference: ResourceMapperField) */
+export interface ResourceMapperField {
+  id: string;
+  displayName: string;
+  required: boolean;
+  defaultMatch: boolean;
+  display: boolean;
+  type?: string;
+  canBeUsedToMatch?: boolean;
+  readOnly?: boolean;
+  removed?: boolean;
+  options?: Array<{ name: string; value: string | number | boolean }>;
+  defaultValue?: unknown;
+}
+
+export interface ResourceMapperFields {
+  fields: ResourceMapperField[];
+  emptyFieldsNotice?: string;
+}
+
 /** Methods for the editor (reference: INodeType.methods) */
 export interface NodeMethods {
   loadOptions?: Record<string, (ctx: LoadOptionsContext) => Promise<LoadedOption[]>>;
   listSearch?: Record<string, (ctx: LoadOptionsContext, filter?: string, paginationToken?: unknown) => Promise<ListSearchResult>>;
+  /** M52: fields of resourceMapper parameters */
+  resourceMapping?: Record<string, (ctx: LoadOptionsContext) => Promise<ResourceMapperFields>>;
 }
 
 export interface NodeType {

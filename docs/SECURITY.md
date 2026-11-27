@@ -123,9 +123,9 @@ session or API token) load option lists for the editor by calling node methods w
   are not shared with the project are refused (403) before the worker is asked. The master forwards only the known body
   fields (`kind`, `node` with type, version, parameters and credential references, `path`, `method`, `filter`,
   `paginationToken`).
-- Only methods defined by the node type run (own function properties of `methods.loadOptions` / `methods.listSearch`,
-  no prototype names). Each call is stopped after 15 seconds; results contain only names, values, descriptions and
-  http(s) links, with caps on count and length.
+- Only methods defined by the node type run (own function properties of `methods.loadOptions`, `methods.listSearch` or
+  `methods.resourceMapping`, no prototype names). Each call is stopped after 15 seconds; results contain only names,
+  values, descriptions and http(s) links (resource mapper: the known field keys), with caps on count and length.
 - Errors are returned without stack traces or credential objects. Credential secret values are masked, as are typical
   token patterns (`Bearer ...`, `key=`, `access_token=`, `client_secret` in JSON). The debug log records node type,
   method, status and duration, never parameters or credential values. Requests are not written to the audit log
