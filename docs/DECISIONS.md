@@ -880,7 +880,9 @@ version rules, requests and outputs. Kept on purpose:
 - A sheet ID with the prefix is only understood as "gid=0"; other IDs must be plain numbers (getSheetId).
 - An empty first row keeps a column without a header (removeEmptyColumns runs before leading empty rows are trimmed).
 - With "Continue On Fail" a failed operation returns one item with the first input item and the error, for all items.
-Differences: the cell format "RAW" is labelled "Let filuflow format"; the rewrite of permission errors in the reference
+Differences: the document search escapes every quote and backslash of the search text (the reference escapes only the
+first quote, so a text with several quotes could change the Drive query); the cell format "RAW" is labelled "Let
+filuflow format"; the rewrite of permission errors in the reference
 transport only applies when the message contains PERMISSION_DENIED, which a status message never does, so Google's
 message stays the description; an invalid tab color fails with a clear message instead of a type error; the execution
 hint for empty match values in "Update Row" is not shown (filuflow has no execution hints).

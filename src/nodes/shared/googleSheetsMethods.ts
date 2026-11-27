@@ -16,8 +16,9 @@ function documentOf(ctx: LoadOptionsContext): string | undefined {
 
 async function spreadSheetsSearch(ctx: LoadOptionsContext, filter?: string, paginationToken?: unknown) {
   const query: string[] = [];
-  // Only the first quote is escaped, like the reference
-  if (filter) query.push(`name contains '${filter.replace("'", "\\'")}'`);
+  // Every backslash and quote is escaped (the reference escapes only the first quote, which lets the filter change the
+  // Drive query)
+  if (filter) query.push(`name contains '${filter.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`);
   query.push("mimeType = 'application/vnd.google-apps.spreadsheet'");
   const qs: Json = {
     q: query.join(' and '),

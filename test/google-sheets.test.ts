@@ -576,6 +576,12 @@ describe('Google Sheets option lists and columns', () => {
   it('searches documents in Drive and lists the grid sheets', async () => {
     const found = await runLoadOptions(deps, req('listSearch', 'spreadSheetsSearch', 'documentId', {}, { filter: "Bob's" }));
     expect(found).toEqual({ results: [{ name: 'Orders', value: DOC, url: `https://docs.google.com/spreadsheets/d/${DOC}/edit` }], paginationToken: 'page-2' });
+    // Every quote and backslash is escaped, so the filter cannot change the Drive query
+    requests = [];
+    await runLoadOptions(deps, req('listSearch', 'spreadSheetsSearch', 'documentId', {}, { filter: "a' or name contains 'b\\" }));
+    expect(requests[0].query.q).toBe("name contains 'a\\' or name contains \\'b\\\\' and mimeType = 'application/vnd.google-apps.spreadsheet'");
+    requests = [];
+    await runLoadOptions(deps, req('listSearch', 'spreadSheetsSearch', 'documentId', {}, { filter: "Bob's" }));
     expect(requests[0].query).toEqual({
       q: "name contains 'Bob\\'s' and mimeType = 'application/vnd.google-apps.spreadsheet'",
       fields: 'nextPageToken, files(id, name, webViewLink)',
