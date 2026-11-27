@@ -8,12 +8,14 @@
 // nothing is cached on the server. Nodes from community node packages (M47c) offer their methods per version
 // (NodeType.methodsFor); declarative option lists (typeOptions.loadOptions.routing) appear there as synthetic names
 // "__routing:<parameter path>" that the node type builds from its own description, never from request data.
+// M52: kind "resourceMapping" calls methods.resourceMapping[name] and returns the fields of a resource mapper
+// ({ fields, emptyFieldsNotice? }, reference getResourceMappingFields of the same service).
 import { cleanupParameterData, getByPath } from '../expressions/resolve.js';
 import { extractSchemaValue } from '../engine/extractValue.js';
 import { maskSecrets, type CredentialProvider } from '../credentials/store.js';
 import { NodeApiError, NodeOperationError } from '../errors.js';
 import type { NodeRegistry } from '../nodes/registry.js';
-import type { GetParamOptions, ListSearchResult, LoadedOption, LoadOptionsContext, NodeType } from '../nodes/types.js';
+import type { GetParamOptions, ListSearchResult, LoadedOption, LoadOptionsContext, NodeType, ResourceMapperField, ResourceMapperFields } from '../nodes/types.js';
 import type { ParamSchema } from '../nodes/params.js';
 import type { Runner } from '../runner.js';
 import type { Logger } from '../logger.js';
@@ -24,9 +26,11 @@ export const MAX_OPTIONS = 1000;
 export const MAX_SEARCH_RESULTS = 200;
 export const MAX_TEXT = 500;
 export const MAX_TOKEN_BYTES = 2048;
+export const MAX_MAPPER_FIELDS = 1000;
 const TEMP_NODE = 'Temp-Node';
 
-export type LoadOptionsKind = 'options' | 'listSearch';
+export type LoadOptionsKind = 'options' | 'listSearch' | 'resourceMapping';
+const KINDS: LoadOptionsKind[] = ['options', 'listSearch', 'resourceMapping'];
 
 export interface LoadOptionsRequest {
   kind: LoadOptionsKind;
@@ -38,7 +42,7 @@ export interface LoadOptionsRequest {
   paginationToken?: unknown;
 }
 
-export type LoadOptionsResponse = { data: LoadedOption[] } | ListSearchResult;
+export type LoadOptionsResponse = { data: LoadedOption[] } | ListSearchResult | ResourceMapperFields;
 
 /** Error with HTTP status; message, httpCode and description are already masked */
 export class LoadOptionsError extends Error {
@@ -62,8 +66,8 @@ const METHOD_NAME = /^(?:[A-Za-z_$][\w$]{0,99}|__routing:[A-Za-z_$][\w$-]{0,99}(
 /** Body fields the endpoint accepts; everything else is dropped (the master forwards only these) */
 export function parseLoadOptionsRequest(body: unknown): LoadOptionsRequest {
   if (!isPlainObject(body)) throw new LoadOptionsError('Request body must be an object', 400);
-  const kind = body.kind ?? 'options';
-  if (kind !== 'options' && kind !== 'listSearch') throw new LoadOptionsError('"kind" must be "options" or "listSearch"', 400);
+  const kind = (body.kind ?? 'options') as LoadOptionsKind;
+  if (!KINDS.includes(kind)) throw new LoadOptionsError('"kind" must be "options", "listSearch" or "resourceMapping"', 400);
   const node = body.node;
   if (!isPlainObject(node)) throw new LoadOptionsError('"node" is missing or is not an object', 400);
   if (typeof node.type !== 'string' || !node.type || node.type.length > 300) throw new LoadOptionsError('"node.type" is missing', 400);
@@ -99,14 +103,14 @@ export function parseLoadOptionsRequest(body: unknown): LoadOptionsRequest {
 }
 
 /**
- * Method of the node type: only an own function property of methods.loadOptions or methods.listSearch. Names that exist
+ * Method of the node type: only an own function property of methods.loadOptions, listSearch or resourceMapping. Names that exist
  * on Object.prototype (constructor, __proto__, toString …) are refused even if the node defines them.
  */
 export function findMethod(type: NodeType, kind: LoadOptionsKind, name: string, typeVersion?: number): ((...args: never[]) => unknown) | undefined {
   if (name in Object.prototype || name === 'prototype') return undefined;
   // Versions with their own methods (community packages): only the methods of the requested version
   const methods = type.methodsFor && typeVersion !== undefined ? type.methodsFor(typeVersion) : type.methods;
-  const table = (kind === 'options' ? methods?.loadOptions : methods?.listSearch) as Record<string, unknown> | undefined;
+  const table = (kind === 'options' ? methods?.loadOptions : kind === 'listSearch' ? methods?.listSearch : methods?.resourceMapping) as Record<string, unknown> | undefined;
   if (!table || typeof table !== 'object' || !Object.prototype.hasOwnProperty.call(table, name)) return undefined;
   const fn = table[name];
   return typeof fn === 'function' ? (fn as (...args: never[]) => unknown) : undefined;
@@ -143,8 +147,9 @@ function dependsOnOf(schema: ParamSchema[] | undefined, kind: LoadOptionsKind, p
   const parent = segments.slice(0, -1);
   const out = new Set<string>();
   for (const def of defsAt(schema, segments)) {
-    if (kind !== 'options' || def.loadOptions?.method !== method) continue;
-    for (const d of def.loadOptions.dependsOn ?? []) {
+    const spec = kind === 'options' ? def.loadOptions : kind === 'resourceMapping' ? def.resourceMapper : undefined;
+    if (spec?.method !== method) continue;
+    for (const d of spec.dependsOn ?? []) {
       if (d.startsWith('&')) out.add([...parent, d.slice(1)].join('.'));
       else out.add(d.replace(/^\/+/, '').replace(/^parameters\./, ''));
     }
@@ -237,6 +242,31 @@ export function sanitizeSearch(result: unknown): ListSearchResult {
   return { results, ...(keep ? { paginationToken: token } : {}) };
 }
 
+const FIELD_TYPES = new Set(['string', 'number', 'boolean', 'dateTime', 'time', 'object', 'array', 'options', 'url', 'jwt', 'any']);
+
+/** Fields of a resource mapper: known keys only, texts clipped, at most MAX_MAPPER_FIELDS */
+export function sanitizeMapperFields(result: unknown): ResourceMapperFields {
+  if (!isPlainObject(result) || !Array.isArray(result.fields)) throw new LoadOptionsError('The node returned no fields', 502);
+  const fields: ResourceMapperField[] = [];
+  for (const raw of result.fields) {
+    if (fields.length >= MAX_MAPPER_FIELDS) break;
+    if (!isPlainObject(raw) || typeof raw.id !== 'string' || !raw.id) continue;
+    const field: ResourceMapperField = {
+      id: clip(raw.id),
+      displayName: clip(typeof raw.displayName === 'string' ? raw.displayName : raw.id),
+      required: raw.required === true,
+      defaultMatch: raw.defaultMatch === true,
+      display: raw.display !== false,
+    };
+    if (typeof raw.type === 'string' && FIELD_TYPES.has(raw.type)) field.type = raw.type;
+    for (const flag of ['canBeUsedToMatch', 'readOnly', 'removed'] as const) if (typeof raw[flag] === 'boolean') field[flag] = raw[flag] as boolean;
+    if (Array.isArray(raw.options)) field.options = raw.options.map((o) => sanitizeEntry(o, false)).filter((o): o is LoadedOption => !!o).map(({ name, value }) => ({ name, value }));
+    if (raw.defaultValue !== undefined && (raw.defaultValue === null || ['string', 'number', 'boolean'].includes(typeof raw.defaultValue))) field.defaultValue = raw.defaultValue;
+    fields.push(field);
+  }
+  return { fields, ...(typeof result.emptyFieldsNotice === 'string' && result.emptyFieldsNotice ? { emptyFieldsNotice: clip(result.emptyFieldsNotice) } : {}) };
+}
+
 export interface LoadOptionsDeps {
   registry: NodeRegistry;
   runner: Runner;
@@ -266,7 +296,7 @@ export async function runLoadOptions(deps: LoadOptionsDeps, req: LoadOptionsRequ
   if (!type) throw new LoadOptionsError(`Unknown node type "${req.node.type}" (version ${req.node.typeVersion})`, 400);
   const fn = findMethod(type, req.kind, req.method, req.node.typeVersion);
   const schema = type.parametersFor?.(req.node.typeVersion) ?? type.parameters;
-  if (!fn) throw new LoadOptionsError(`The node type has no ${req.kind === 'options' ? 'option list' : 'search'} method "${req.method}"`, 400);
+  if (!fn) throw new LoadOptionsError(`The node type has no ${req.kind === 'options' ? 'option list' : req.kind === 'listSearch' ? 'search' : 'field'} method "${req.method}"`, 400);
 
   const controller = new AbortController();
   let timer: NodeJS.Timeout | undefined;
@@ -321,12 +351,12 @@ export async function runLoadOptions(deps: LoadOptionsDeps, req: LoadOptionsRequ
       }, timeoutMs);
     });
     const call =
-      req.kind === 'options'
-        ? (fn as (c: LoadOptionsContext) => Promise<unknown>)(ctx)
-        : (fn as (c: LoadOptionsContext, f?: string, t?: unknown) => Promise<unknown>)(ctx, req.filter, req.paginationToken);
+      req.kind === 'listSearch'
+        ? (fn as (c: LoadOptionsContext, f?: string, t?: unknown) => Promise<unknown>)(ctx, req.filter, req.paginationToken)
+        : (fn as (c: LoadOptionsContext) => Promise<unknown>)(ctx);
     const result = await Promise.race([Promise.resolve(call), timeout]);
-    const response: LoadOptionsResponse = req.kind === 'options' ? { data: sanitizeOptions(result) } : sanitizeSearch(result);
-    log(200, 'data' in response ? response.data.length : response.results.length);
+    const response: LoadOptionsResponse = req.kind === 'options' ? { data: sanitizeOptions(result) } : req.kind === 'listSearch' ? sanitizeSearch(result) : sanitizeMapperFields(result);
+    log(200, 'data' in response ? response.data.length : 'results' in response ? response.results.length : response.fields.length);
     return response;
   } catch (error) {
     const e = toLoadOptionsError(error, secrets());

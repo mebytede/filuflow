@@ -25,6 +25,7 @@ function matchCondition(value: unknown, c: ParamCondition): boolean {
   if (c.gt !== undefined && !(n > c.gt)) return false;
   if (c.lte !== undefined && !(n <= c.lte)) return false;
   if (c.lt !== undefined && !(n < c.lt)) return false;
+  if (c.between !== undefined && !(n >= c.between.from && n <= c.between.to)) return false;
   if (c.not !== undefined && value === c.not) return false;
   if (c.exists !== undefined && (value !== undefined && value !== null && value !== '') !== c.exists) return false;
   if (c.startsWith !== undefined && !String(value ?? '').startsWith(c.startsWith)) return false;
@@ -58,7 +59,9 @@ function isVisible(def: ParamSchema, level: Level, root: Level, version: number)
   const check = (rule: DisplayRule | undefined, mode: 'show' | 'hide'): boolean => {
     if (!rule) return true;
     for (const [key, allowed] of Object.entries(rule)) {
-      const value = key === '@version' ? version : key.startsWith('/') ? rootValue(key.slice(1), root, version) : valueOf(key, level, version);
+      let value = key === '@version' ? version : key.startsWith('/') ? rootValue(key.slice(1), root, version) : valueOf(key, level, version);
+      // Resource locators count with their value (displayParameter; defaults get __rl in the reference)
+      if (value && typeof value === 'object' && ((value as Values).__rl || ('mode' in value && 'value' in value))) value = (value as Values).value;
       // Expressions cannot be evaluated in the editor: dependent fields stay visible
       const values = isExpr(value) ? null : Array.isArray(value) ? value : [value];
       if (mode === 'show') {

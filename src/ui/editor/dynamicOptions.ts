@@ -177,7 +177,7 @@ class FieldLoader {
   }
 }
 
-function errorText(error: unknown): string {
+export function errorText(error: unknown): string {
   if (error instanceof ApiError) {
     const body = error.body as { description?: string } | undefined;
     return body?.description && body.description !== error.message ? `${error.message} (${body.description})` : error.message;

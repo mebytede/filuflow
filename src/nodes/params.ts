@@ -10,6 +10,7 @@ export interface ParamCondition {
   gt?: number;
   lte?: number;
   lt?: number;
+  between?: { from: number; to: number };
   not?: unknown;
   exists?: boolean;
   startsWith?: string;
@@ -44,6 +45,7 @@ export type ParamType =
   | 'assignments'
   | 'filter'
   | 'resourceLocator'
+  | 'resourceMapper'
   | 'notice'
   | 'hidden';
 
@@ -93,6 +95,30 @@ export interface ParamSchema {
    * list in the editor (M47b); without them it is a text field.
    */
   modes?: ResourceLocatorMode[];
+  /** resourceMapper: fields from the node's methods.resourceMapping (M52, reference typeOptions.resourceMapper) */
+  resourceMapper?: ResourceMapperOptions;
+}
+
+/**
+ * Options of a resource mapper (reference: ResourceMapperTypeOptions in n8n-workflow 1.120.0, interfaces). The stored
+ * value is { mappingMode, value, matchingColumns, schema, attemptToConvertTypes, convertFieldsToString }.
+ */
+export interface ResourceMapperOptions {
+  /** Name of the function in methods.resourceMapping of the node type */
+  method: string;
+  /** add: values for new records; update / upsert: with columns to match on; map: plain mapping */
+  mode: 'add' | 'update' | 'upsert' | 'map';
+  /** Parameter paths whose change reloads the fields (loadOptionsDependsOn) */
+  dependsOn?: string[];
+  fieldWords?: { singular: string; plural: string };
+  /** false: only required fields are shown at first */
+  addAllFields?: boolean;
+  multiKeyMatch?: boolean;
+  /** false: no mapping mode selection (always "defineBelow") */
+  supportAutoMap?: boolean;
+  /** Empty texts are kept as values */
+  allowEmptyValues?: boolean;
+  showTypeConversionOptions?: boolean;
 }
 
 export interface LoadOptionsSpec {

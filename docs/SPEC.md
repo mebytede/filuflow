@@ -338,6 +338,7 @@ Engine order, expressions (including raw value vs. string), every node, filter o
 | M49 | Slack Trigger | Events API webhook with signature check, url_verification, event, channel and user filters, resolved names, file download, production and test URL |
 | M50 | Microsoft Outlook node | All resources and operations of the Outlook node v2 against Microsoft Graph (calendars, contacts, drafts, events, folders, folder messages, messages, message attachments) with paging, filters, output modes, attachments in and out, option lists and send and wait for a response |
 | M51 | Microsoft Outlook Trigger | Polling trigger v1 for new messages with the time window in the Graph filter, folder, sender, attachment and read status filters, output modes and attachment download |
+| M52 | Resource mapper and Google Sheets node | `resourceMapper` parameters (columns of a service loaded with `methods.resourceMapping`, values checked against the stored schema while running) in the engine, the load options service and the editor; Google Sheets node v3 to 4.7 with all sheet and document operations, range detection, filters, auto-map and upsert |
 
 After each milestone: update `docs/STATUS.md` (what works, what is missing) and make a commit with a meaningful message.
 
@@ -371,7 +372,8 @@ shared credentials for multiple workers: M33)
 (Test data by click, Variables page: M18; chat view: M16; parameter forms: M19; roles per workflow and central
 execution search: M23; freely definable roles: M34; dynamic option lists with Gmail: M47a; resource locator lists, model
 lists and workflow picker: M47b; dynamic option lists of community node packages: M47c)
-- Resource mapper fields (`methods.resourceMapping`, `resourceMapper` parameters) of community node packages, and the
+- Resource mapper fields (`methods.resourceMapping`, `resourceMapper` parameters) of community node packages (built-in
+  nodes: M52), and the
   other method kinds (`localResourceMapping`, `actionHandler`)
 
 ---
@@ -479,7 +481,7 @@ the reference product's name:
   `methods.listSearch[name](ctx, filter?, paginationToken?)` returns `{ results, paginationToken? }`. The context is an
   execution context of a temporary one-node workflow plus `path`, `getCurrentNodeParameter(path, { extractValue })` and
   `getCurrentNodeParameters()`.
-- `POST /api/editor/load-options` with `{ kind: "options" | "listSearch", node: { type, typeVersion, parameters,
+- `POST /api/editor/load-options` with `{ kind: "options" | "listSearch" (M52: also "resourceMapping"), node: { type, typeVersion, parameters,
   credentials }, path, method, filter?, paginationToken? }` answers `{ data }` or `{ results, paginationToken? }`;
   errors `{ message, httpCode?, description? }` with 400 (request, parameters, missing credential), 502 (service), 504
   (timeout after 15 s) or 429 (rate limit). The master offers the same as `POST /api/projects/:pid/load-options` with an
@@ -489,6 +491,22 @@ the reference product's name:
   and the fx toggle are always available. Without a backend (execution view) the fields stay text inputs.
 - Gmail: `getLabels` (all label fields, Gmail Trigger label filter, label get/delete), `getGmailAliases` (draft alias),
   `getThreadMessages` (thread reply message, depends on `threadId`).
+
+## Resource mapper (M52)
+- Parameter description: `type: "resourceMapper"` with `resourceMapper: { method, mode: "add" | "update" | "upsert" |
+  "map", dependsOn?, fieldWords?, addAllFields?, multiKeyMatch?, supportAutoMap?, allowEmptyValues?,
+  showTypeConversionOptions? }`. Stored value as in the reference: `{ mappingMode: "defineBelow" | "autoMapInputData",
+  value, matchingColumns, schema, attemptToConvertTypes, convertFieldsToString }`.
+- Node types: `methods.resourceMapping[name](ctx)` returns `{ fields: [{ id, displayName, required, defaultMatch, display,
+  type?, canBeUsedToMatch?, readOnly?, removed?, options?, defaultValue? }], emptyFieldsNotice? }`; the load options
+  endpoint takes `kind: "resourceMapping"` and answers `{ fields, emptyFieldsNotice? }` (at most 1000 fields, known keys
+  only).
+- Running: `getParam("<name>.value")` checks and converts every value against the stored schema like
+  validateResourceMapperValue (required fields in mode "add", field types; strict and string parsing only with the type
+  conversion options).
+- Editor: mapping mode, columns to match on (update, upsert), one input per field (expressions possible), remove and add
+  fields, add all, remove all, refresh; the fields load when the form opens with an empty schema and again, after a
+  reset of value and schema, when a parameter in `dependsOn` changes.
 
 ## Resource locator lists, model lists and workflow picker (M47b)
 - Resource locator mode `list` with `searchListMethod`: combobox that loads the first page when it opens, searches on the

@@ -65,6 +65,7 @@ import { chainRetrievalQaNode } from './chainRetrievalQa.js';
 import { toolVectorStoreNode } from './toolVectorStore.js';
 import { gmailNode } from './gmail.js';
 import { gmailTriggerNode } from './gmailTrigger.js';
+import { googleSheetsNode } from './googleSheets.js';
 import { slackNode } from './slack.js';
 import { slackTriggerNode } from './slackTrigger.js';
 import { microsoftOutlookNode } from './microsoftOutlook.js';
@@ -135,6 +136,7 @@ export const builtinNodeTypes: NodeType[] = [
   toolVectorStoreNode,
   gmailNode,
   gmailTriggerNode,
+  googleSheetsNode,
   slackNode,
   slackTriggerNode,
   microsoftOutlookNode,

@@ -10,6 +10,15 @@ breaking changes; they are listed under "Changed" or "Removed".
 
 ### Added
 
+- **Google Sheets node.** Reads rows (with automatic range detection, filters and output formatting), appends rows,
+  updates rows or appends them when no row matches, clears sheets or parts of them, deletes rows or columns, creates
+  and deletes sheets, and creates and deletes whole documents. Documents are picked from a searchable list of your
+  Google Drive, sheets from a list. Exported workflows with Google Sheets nodes of version 3 to 4.7 run without changes;
+  versions 1 and 2 are reported as not supported. German texts included.
+- **Column mapping in the editor.** Nodes that write records (Google Sheets first) show the columns of the target, each
+  with its own value or expression, the column to match on for updates, and a switch to map the input data
+  automatically. The columns load when the node opens and again when another sheet is chosen.
+
 - **Microsoft Outlook Trigger.** Starts a workflow when new messages arrive in a Microsoft 365 or Outlook.com mailbox,
   checked at the chosen poll times. Messages can be filtered by folders (picked from a list), sender, attachments, read
   status or a custom filter query; the output is simplified, raw or limited to chosen fields, and attachments can be

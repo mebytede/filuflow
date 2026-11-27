@@ -242,6 +242,8 @@ export function paramEditor(
     onReplace: (p: Record<string, unknown>) => void;
     schema?: ParamSchema[];
     nodeType?: string;
+    /** Display name of the node type (texts of the resource mapper) */
+    serviceName?: string;
     version?: number;
     /** Dynamic option lists (M47a) */
     dynamic?: DynamicOptionsHost;
@@ -263,6 +265,7 @@ export function paramEditor(
         schemaForm(params, opts.schema, {
           readonly: opts.readonly,
           nodeType: opts.nodeType ?? '',
+          ...(opts.serviceName ? { serviceName: opts.serviceName } : {}),
           version: opts.version ?? 1,
           ...(opts.dynamic ? { dynamic: opts.dynamic } : {}),
           onChange: (key) => (sync(), opts.onChange(key)),
